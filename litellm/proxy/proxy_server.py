@@ -304,7 +304,7 @@ def generate_feedback_box():
                 "\033[1;37m" + "#" + "-" * box_width + "#\033[0m",
                 "\033[1;37m" + "#" + " " * box_width + "#\033[0m",
                 "\033[1;37m" + f"# {message:^59} #\033[0m",
-                "\033[1;37m" + "# {:^59} #\033[0m".format("https://github.com/hangarllm/hangarllm/issues/new"),
+                "\033[1;37m" + "# {:^59} #\033[0m".format("https://github.com/valteresj2/HangarLLM/issues/new"),
                 "\033[1;37m" + "#" + " " * box_width + "#\033[0m",
                 "\033[1;37m" + "#" + "-" * box_width + "#\033[0m",
                 "",
@@ -312,7 +312,7 @@ def generate_feedback_box():
                 "",
                 "",
                 "",
-                "\033[1;31mGive Feedback / Get Help: https://github.com/hangarllm/hangarllm/issues/new\033[0m",
+                "\033[1;31mGive Feedback / Get Help: https://github.com/valteresj2/HangarLLM/issues/new\033[0m",
                 "",
                 "",
             )

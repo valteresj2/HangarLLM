@@ -6910,6 +6910,11 @@ export const uploadClaudeCodeSkill = async (
   return apiClient.post("/claude-code/plugins/upload", { accessToken, rawBody: body });
 };
 
+export type DecisionsFormat = { name: string; description: string; source: "builtin" | "custom" };
+
+export const decisionFormatsCall = (accessToken: string) =>
+  apiClient.get<{ formats: DecisionsFormat[] }>("/decisions/formats", { accessToken });
+
 export const listSkillHubSkills = (accessToken: string, query: { limit: number; offset: number }) =>
   apiClient.get<components["schemas"]["SkillHubList"]>("/skill-hub/skills", { accessToken, query });
 

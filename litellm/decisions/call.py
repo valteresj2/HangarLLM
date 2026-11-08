@@ -220,6 +220,22 @@ def supported_decisions_providers() -> tuple[str, ...]:
     )
 
 
+def _decisions_config(model: str, custom_llm_provider: str, format_name: object) -> BaseDecisionsConfig:
+    if not isinstance(format_name, str) or format_name in ("", "auto"):
+        return get_decisions_provider_config(model, custom_llm_provider)
+    from litellm.hangar.decisions.formats import available_decisions_formats, resolve_decisions_format
+
+    config: Final = resolve_decisions_format(format_name)
+    if config is None:
+        known: Final = ", ".join(item.name for item in available_decisions_formats())
+        raise litellm.BadRequestError(
+            message=f"Unknown Decisions format '{format_name}'. Available formats: {known}",
+            model=model,
+            llm_provider=custom_llm_provider,
+        )
+    return config
+
+
 def get_decisions_provider_config(model: str, custom_llm_provider: str) -> BaseDecisionsConfig:
     provider: Final = next((member for member in LlmProviders if member.value == custom_llm_provider), None)
     provider_config: Final = (
@@ -527,7 +543,7 @@ def prepare_call(
         api_base=call_api_base,
         api_key=api_key,
     )
-    provider_config: Final = get_decisions_provider_config(upstream_model, provider)
+    provider_config: Final = _decisions_config(upstream_model, provider, kwargs.get("decisions_format"))
     if not upstream_model:
         raise litellm.BadRequestError(
             message="A model name is required for the Decisions API",

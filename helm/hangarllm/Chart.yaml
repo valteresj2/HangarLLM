@@ -25,7 +25,7 @@ version: 1.1.4
 appVersion: v1.85.1
 
 annotations:
-  org.opencontainers.image.source: "https://github.com/hangarllm/hangarllm"
+  org.opencontainers.image.source: "https://github.com/valteresj2/HangarLLM"
 
 dependencies:
   - name: "postgresql"

@@ -39,6 +39,7 @@ import ConnectionErrorDisplay from "./model_connection_test";
 import ProviderSpecificFields from "./provider_specific_fields";
 import { authTypesFor } from "./provider_auth_types";
 import { TEST_MODES } from "./add_model_modes";
+import { DecisionsFormatField } from "./DecisionsFormatField";
 import DecisionModelNote from "./DecisionModelNote";
 import { type DecisionCatalog } from "@/lib/decisionModels";
 import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
@@ -333,6 +334,7 @@ const AddModelForm: React.FC<AddModelFormProps> = ({
                           </Select>
                         )}
                       </MountedFormField>
+                      <DecisionsFormatField accessToken={accessToken} control={form.control} />
                       <div className="grid grid-cols-12">
                         <div className="col-span-5" />
                         <div className="col-span-5">

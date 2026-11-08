@@ -31,7 +31,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { z } from "zod";
 import { useWorker } from "@/hooks/useWorker";
 import { HangarLogo } from "@/components/hangar/HangarLogo";
-import heroImage from "../../../public/assets/hangar/hero-one-home.webp";
+import heroImage from "../../../public/assets/hangar/hero-models.webp";
 import i18n from "@/i18n/i18n";
 
 const loginSchema = z.object({
@@ -234,14 +234,13 @@ function LoginPageContent() {
   }
 
   return (
-    <div className="grid min-h-screen bg-background lg:grid-cols-[1.15fr_1fr]">
-      <aside className="relative hidden overflow-hidden bg-hangar-navy lg:block" aria-hidden>
-        <img src={heroImage.src} alt="" className="absolute inset-0 size-full object-cover object-right" />
-        <div className="absolute inset-0 bg-gradient-to-t from-hangar-navy via-hangar-navy/40 to-transparent" />
-        <div className="absolute inset-x-10 bottom-12 max-w-md">
-          <p className="text-3xl font-semibold leading-tight text-white">{t("login.hero.tagline")}</p>
-          <p className="mt-3 text-sm text-hangar-slate">{t("login.hero.subtitle")}</p>
-        </div>
+    <div className="grid min-h-screen bg-background lg:grid-cols-[1.6fr_1fr]">
+      <aside className="relative hidden overflow-hidden bg-hangar-navy lg:block">
+        <img
+          src={heroImage.src}
+          alt={`${t("login.hero.tagline")} ${t("login.hero.subtitle")}`}
+          className="absolute inset-0 size-full object-cover object-left"
+        />
       </aside>
       <main className="flex items-center justify-center p-4 sm:p-8">
         <Card className="w-full max-w-lg border-border shadow-lg">

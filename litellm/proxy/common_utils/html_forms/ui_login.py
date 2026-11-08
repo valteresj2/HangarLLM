@@ -41,7 +41,7 @@ def build_ui_login_form(
                 Default Credentials
             </div>
             <p>By default, Username is <code>admin</code> and Password is your set HangarLLM Proxy <code>MASTER_KEY</code>.</p>
-            <p>Need to set UI credentials or SSO? <a href="https://github.com/hangarllm/hangarllm#admin-ui" target="_blank">Check the documentation</a>.</p>
+            <p>Need to set UI credentials or SSO? <a href="https://github.com/valteresj2/HangarLLM#admin-ui" target="_blank">Check the documentation</a>.</p>
         </div>
         """
     )

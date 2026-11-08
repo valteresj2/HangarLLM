@@ -5,4 +5,4 @@ type: application
 version: 0.1.1
 appVersion: "0.1.0"
 annotations:
-  org.opencontainers.image.source: "https://github.com/hangarllm/hangarllm"
+  org.opencontainers.image.source: "https://github.com/valteresj2/HangarLLM"

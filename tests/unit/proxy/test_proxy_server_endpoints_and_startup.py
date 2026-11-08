@@ -16236,7 +16236,7 @@ def test_feedback_box_is_one_json_record_in_json_mode(
     lines: Final = [raw for raw in out.splitlines() if raw.strip()]
     assert len(lines) == 1, lines
     record: Final = json.loads(lines[0])
-    assert "Give Feedback / Get Help: https://github.com/hangarllm/hangarllm/issues/new" in record["message"]
+    assert "Give Feedback / Get Help: https://github.com/valteresj2/HangarLLM/issues/new" in record["message"]
     assert "Thank you for flying HangarLLM!" in record["message"]
     assert "\x1b[" not in record["message"]
 

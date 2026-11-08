@@ -1,10 +1,23 @@
+{
+	servers {
+		# Plain http:// on the HTTPS port gets a redirect instead of a 400.
+		listener_wrappers {
+			http_redirect
+			tls
+		}
+	}
+}
+
 {$HANGARLLM_DOMAIN:localhost} {
 	# "internal" uses a local CA, fine for a single machine. On a public domain, set
 	# HANGARLLM_TLS to your email address and Caddy will request a real certificate.
 	tls {$HANGARLLM_TLS:internal}
 
+	# HSTS applies to the whole hostname, so on localhost it would break other local sites.
+	@public not host localhost 127.0.0.1
+	header @public Strict-Transport-Security "max-age=31536000"
+
 	header {
-		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "no-referrer"
 		-Server

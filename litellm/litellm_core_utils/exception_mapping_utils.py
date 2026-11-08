@@ -2558,7 +2558,7 @@ def exception_type(
     if litellm.suppress_debug_info is False:
         print()  # noqa: T201
         print(  # noqa: T201
-            "\033[1;31mGive Feedback / Get Help: https://github.com/hangarllm/hangarllm/issues/new\033[0m"
+            "\033[1;31mGive Feedback / Get Help: https://github.com/valteresj2/HangarLLM/issues/new\033[0m"
         )
         print(  # noqa: T201
             "LiteLLM.Info: If you need to debug this error, use `litellm.turn_on_debug()'."

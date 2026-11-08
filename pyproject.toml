@@ -44,9 +44,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/hangarllm/hangarllm"
-Repository = "https://github.com/hangarllm/hangarllm"
-Documentation = "https://github.com/hangarllm/hangarllm#readme"
+Homepage = "https://github.com/valteresj2/HangarLLM"
+Repository = "https://github.com/valteresj2/HangarLLM"
+Documentation = "https://github.com/valteresj2/HangarLLM#readme"
 Upstream = "https://github.com/BerriAI/litellm"
 
 # Optional extras use compatible ranges (like the core SDK above) so downstream

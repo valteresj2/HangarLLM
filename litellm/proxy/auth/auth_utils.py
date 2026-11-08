@@ -576,7 +576,7 @@ def _check_banned_params(
         raise _banned_param_error(param)
 
 
-_CLIENT_CREDENTIAL_BODY_PARAMS: Final[tuple[str, ...]] = ("api_key", "extra_headers")
+_CLIENT_CREDENTIAL_BODY_PARAMS: Final[tuple[str, ...]] = ("api_key", "extra_headers", "decisions_format")
 
 
 def _client_credential_params(route: str | None) -> tuple[str, ...]:
