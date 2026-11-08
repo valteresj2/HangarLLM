@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict, assert_never
 
 import hangarllm
+from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import print_verbose, verbose_logger
 from hangarllm.constants import (
@@ -1711,7 +1712,7 @@ class PrometheusLogger(CustomLogger):
             service_tier=get_service_tier_from_standard_logging_payload(standard_logging_payload),
         )
 
-        if user_api_key is not None and isinstance(user_api_key, str) and user_api_key.startswith("sk-"):
+        if user_api_key is not None and isinstance(user_api_key, str) and user_api_key.startswith(VIRTUAL_KEY_PREFIXES):
             from hangarllm.proxy.utils import hash_token
 
             user_api_key = hash_token(user_api_key)

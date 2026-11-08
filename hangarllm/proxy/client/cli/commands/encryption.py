@@ -37,9 +37,8 @@ def encryption():
 def migrate(ctx: click.Context, check_only: bool, dry_run: bool):
     """Re-encrypt at-rest credentials into the AES-256-GCM (v2:gcm:) format.
 
-    Requires the proxy to be started with
-    ``general_settings.encryption_algorithm: aes-256-gcm``. Idempotent and
-    resumable; safe to re-run after an interruption.
+    Refuses to run when ``general_settings.encryption_algorithm`` selects the
+    legacy cipher. Idempotent and resumable; safe to re-run after an interruption.
 
     Examples:
         lite encryption migrate --check   # attestation scan, no writes

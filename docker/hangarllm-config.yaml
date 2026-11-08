@@ -1,2 +1,6 @@
 hangarllm_settings:
   callbacks: ["prometheus"]
+
+general_settings:
+  # Caddy is the only way in and replaces this header, so it holds the real client address.
+  use_x_forwarded_for: true

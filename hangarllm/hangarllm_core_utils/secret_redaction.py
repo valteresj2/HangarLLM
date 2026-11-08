@@ -29,6 +29,8 @@ def _build_secret_patterns() -> "re.Pattern[str]":
         r"Bearer\s+[A-Za-z0-9\-._~+/]{10,}=*",
         # Basic auth headers
         r"Basic\s+[A-Za-z0-9+/]{10,}={0,2}",
+        # HangarLLM virtual keys
+        r"hgr_[0-9A-Za-z]{20,}",
         # OpenAI / Anthropic sk- prefixed keys
         rf"sk-[A-Za-z0-9\-_]{{{MINIMUM_CUSTOM_KEY_LENGTH - len('sk-')},}}",
         # Credentials passed as URL query params. Terminated by "&" like the key=

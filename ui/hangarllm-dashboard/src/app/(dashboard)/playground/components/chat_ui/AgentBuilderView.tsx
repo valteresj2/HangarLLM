@@ -417,6 +417,8 @@ export default function AgentBuilderView({
       const response = await keyCreateCall(accessToken, userID, {
         models: [selectedAgent.model_name],
         key_alias: `Agent: ${selectedAgent.model_name}`,
+        duration: "30d",
+        max_budget: 10,
       });
       const keyValue = response?.key ?? null;
       if (keyValue) {

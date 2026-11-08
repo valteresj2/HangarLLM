@@ -153,6 +153,34 @@ export function ProjectBaseForm({ form, advancedOpen, onAdvancedOpenChange }: Pr
           </FormField>
         </div>
 
+        <FormField
+          control={form.control}
+          name="environment"
+          label={t("projects.form.environment")}
+          description={t("projects.form.environmentHint")}
+        >
+          {({ id, value, onChange, "aria-invalid": ariaInvalid, "aria-describedby": ariaDescribedBy }) => {
+            const options = [
+              { value: "experiment", label: t("projects.form.environmentExperiment") },
+              { value: "production", label: t("projects.form.environmentProduction") },
+            ];
+            return (
+              <Select items={options} value={value ?? "experiment"} onValueChange={onChange}>
+                <SelectTrigger id={id} aria-invalid={ariaInvalid} aria-describedby={ariaDescribedBy} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {options.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          }}
+        </FormField>
+
         <FormField control={form.control} name="description" label={t("projects.form.description")}>
           {({ ref, ...field }) => (
             <Textarea

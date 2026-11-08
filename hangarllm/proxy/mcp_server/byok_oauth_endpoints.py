@@ -24,6 +24,7 @@ import jwt
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
+from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.hangar.proxy.ui_session import session_claims
 from hangarllm.proxy._types import UserAPIKeyAuth
@@ -143,7 +144,7 @@ async def _session_key_is_live(session_key: str | None) -> bool:
     if session_key is None:
         # Older cookies predating the ``key`` claim: nothing to resolve.
         return True
-    if not session_key.startswith("sk-"):
+    if not session_key.startswith(VIRTUAL_KEY_PREFIXES):
         return True
     if prisma_client is None:
         return True
@@ -180,7 +181,7 @@ async def get_authenticated_browser_user_id(request: Request) -> str | None:
                 proxy_logging_obj=proxy_logging_obj,
                 check_db_only=True,
             )
-            if session_key.startswith("sk-")
+            if session_key.startswith(VIRTUAL_KEY_PREFIXES)
             else ExperimentalUIJWTToken.get_key_object_from_ui_hash_key(session_key)
         )
     except Exception:

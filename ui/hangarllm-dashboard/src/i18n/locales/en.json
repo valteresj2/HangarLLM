@@ -2998,6 +2998,11 @@
       "selectMember": "Select a member of the team",
       "noOtherMembers": "This team has no other members",
       "selectTeamFirst": "Select a team first"
+    },
+    "allowedIps": {
+      "label": "Allowed IPs",
+      "placeholder": "203.0.113.4, 10.0.0.0/16",
+      "help": "Comma separated. A production key with no expiry needs this or automatic rotation."
     }
   },
   "keyTeamHelpers": {
@@ -3462,7 +3467,11 @@
         "missingValue": "Missing value",
         "duplicateModel": "Duplicate model",
         "duplicateKey": "Duplicate key"
-      }
+      },
+      "environment": "Environment",
+      "environmentHint": "Sets the rules for this project's API keys.",
+      "environmentExperiment": "Experiment (keys expire within 90 days)",
+      "environmentProduction": "Production (keys may skip expiry, admins only)"
     },
     "createModal": {
       "title": "Create New Project",
@@ -18474,8 +18483,8 @@
       "selectProvider": "Select a provider",
       "mode": "Mode",
       "decisionsFormat": "Decisions format",
-        "decisionsFormatAuto": "Automatic (provider default)",
-        "healthCheckModeHint": "<strong>Optional</strong> - HangarLLM endpoint to use when health checking this model <docs>Learn more</docs>",
+      "decisionsFormatAuto": "Automatic (provider default)",
+      "healthCheckModeHint": "<strong>Optional</strong> - HangarLLM endpoint to use when health checking this model <docs>Learn more</docs>",
       "credentialsChoiceHint": "Either select existing credentials OR enter new provider credentials below",
       "existingCredentials": "Existing Credentials",
       "existingCredentialsPlaceholder": "Select or search for existing credentials",

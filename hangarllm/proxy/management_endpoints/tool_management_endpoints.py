@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from hangarllm.proxy.utils import PrismaClient
 
 from hangarllm._logging import verbose_proxy_logger
-from hangarllm.constants import TOOL_SPEND_TOP_TOOLS
+from hangarllm.constants import TOOL_SPEND_TOP_TOOLS, VIRTUAL_KEY_PREFIXES
 from hangarllm.proxy._types import CommonProxyErrors, HangarllmUserRoles, UserAPIKeyAuth
 from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 from hangarllm.repositories.object_permission_repository import ObjectPermissionRepository
@@ -531,7 +531,7 @@ async def _resolve_key_hash_to_object_permission_id(
     """Resolve key (hash or raw) to object_permission_id; create permission if key has none."""
     from hangarllm.proxy.proxy_server import hash_token
 
-    hashed: Final = key_hash if "sk-" not in (key_hash or "") else hash_token(key_hash)
+    hashed: Final = hash_token(key_hash) if (key_hash or "").startswith(VIRTUAL_KEY_PREFIXES) else key_hash
     if not hashed:
         return None
     row = await _typed_table(VerificationTokenRepository(prisma_client)).find_unique(where={"token": hashed})

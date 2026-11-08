@@ -134,6 +134,8 @@ os.environ["PYTHON_DOTENV_DISABLED"] = "1"
 os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
 os.environ["HANGARLLM_UI_SESSION_SECRET"] = "unit-test-session-secret-0123456789abcdef"
 os.environ["HANGARLLM_ALLOW_SHARED_SECRETS"] = "true"
+os.environ["HANGARLLM_DISABLE_KEY_POLICY"] = "true"
+os.environ["HANGARLLM_DISABLE_SECRET_GUARDRAIL"] = "true"
 
 import hangarllm  # noqa: E402  # hangarllm reads HANGARLLM_LOCAL_MODEL_COST_MAP at import
 import hangarllm.utils as hangarllm_utils_module  # noqa: E402  # same import-time dependency
@@ -388,6 +390,8 @@ def isolate_host_environment(isolated_aws_config_files: tuple[Path, Path]) -> It
         environment.setenv("HANGARLLM_CLI_DISABLE_KEYRING", "1")
         environment.setenv("HANGARLLM_UI_SESSION_SECRET", "unit-test-session-secret-0123456789abcdef")
         environment.setenv("HANGARLLM_ALLOW_SHARED_SECRETS", "true")
+        environment.setenv("HANGARLLM_DISABLE_KEY_POLICY", "true")
+        environment.setenv("HANGARLLM_DISABLE_SECRET_GUARDRAIL", "true")
         yield
 
 

@@ -40,6 +40,9 @@ services:
       HANGARLLM_SALT_KEY_FILE: /run/secrets/salt_key
       HANGARLLM_UI_SESSION_SECRET_FILE: /run/secrets/ui_session_secret
       HANGARLLM_METRICS_TOKEN_FILE: /run/secrets/metrics_token
+      HANGARLLM_LEAK_REPORT_SECRET_FILE: /run/secrets/leak_report_secret
+      HANGARLLM_KEY_ROTATION_ENABLED: "true"
+      HANGARLLM_KEY_ROTATION_GRACE_PERIOD: "24h"
       UI_PASSWORD_FILE: /run/secrets/ui_password
       DATABASE_URL_FILE: /run/secrets/database_url
       REDIS_PASSWORD_FILE: /run/secrets/redis_password
@@ -55,6 +58,7 @@ services:
       - salt_key
       - ui_session_secret
       - metrics_token
+      - leak_report_secret
       - ui_password
       - database_url
       - redis_password
@@ -142,6 +146,8 @@ secrets:
     file: ./secrets/ui_session_secret
   metrics_token:
     file: ./secrets/metrics_token
+  leak_report_secret:
+    file: ./secrets/leak_report_secret
   ui_password:
     file: ./secrets/ui_password
   database_url:

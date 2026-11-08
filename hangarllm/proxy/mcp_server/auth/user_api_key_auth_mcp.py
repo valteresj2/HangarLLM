@@ -19,6 +19,7 @@ from starlette.types import Scope
 from typing_extensions import assert_never
 
 import hangarllm
+from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_logger
 from hangarllm.constants import MCP_ALL_TOOLS_WILDCARD, MCP_PEEKED_BODY_SCOPE_KEY
@@ -982,7 +983,7 @@ class MCPRequestHandler:
             preserve_jwt_subject
             and not admitted
             and authz
-            and not _normalize_caller_admission_credential(authz).startswith("sk-")
+            and not _normalize_caller_admission_credential(authz).startswith(VIRTUAL_KEY_PREFIXES)
             and not MCPRequestHandler._is_gateway_admission_credential(authz)
             and MCPRequestHandler._is_caller_admission_key(authz, admitted_credential)
         )

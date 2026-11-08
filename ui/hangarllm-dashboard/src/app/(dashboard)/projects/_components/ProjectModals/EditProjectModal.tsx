@@ -28,6 +28,7 @@ const INTERNAL_METADATA_KEYS = new Set([
   "model_itpm_limit",
   "model_otpm_limit",
   "guardrails",
+  "environment",
 ]);
 
 export const toFormValues = (project: ProjectResponse): ProjectFormValues => {
@@ -61,6 +62,7 @@ export const toFormValues = (project: ProjectResponse): ProjectFormValues => {
     project_alias: project.project_alias ?? "",
     team_id: project.team_id ?? null,
     description: project.description ?? "",
+    environment: metadataObj.environment === "production" ? "production" : undefined,
     models: project.models ?? [],
     max_budget: project.hangarllm_budget_table?.max_budget ?? undefined,
     isBlocked: project.blocked,

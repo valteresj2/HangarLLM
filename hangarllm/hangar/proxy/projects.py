@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.hangar.proxy._auth import require_db
+from hangarllm.hangar.proxy.key_policy import validate_project_environment
 from hangarllm.proxy._types import (
     DeleteProjectRequest,
     HangarllmUserRoles,
@@ -201,6 +202,7 @@ async def new_project(
 ) -> dict:
     """Create a project inside a team."""
     prisma_client: Final = require_db()
+    validate_project_environment(data.metadata)
     await _require_team_manager(user_api_key_dict, data.team_id)
     changed_by: Final = _changed_by(user_api_key_dict)
     from hangarllm.repositories.project_repository import ProjectRepository
@@ -248,6 +250,7 @@ async def update_project(
     """Update a project's settings, budget and permissions."""
     prisma_client: Final = require_db()
     current: Final = await _fetch(data.project_id)
+    validate_project_environment(data.metadata)
     await _require_team_manager(user_api_key_dict, data.team_id or current.team_id)
     if data.team_id and data.team_id != current.team_id:
         await _require_team_manager(user_api_key_dict, current.team_id)

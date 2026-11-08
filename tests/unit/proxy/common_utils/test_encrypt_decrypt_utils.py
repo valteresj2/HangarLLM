@@ -47,12 +47,12 @@ def test_aes_gcm_round_trip(monkeypatch):
     assert decrypt_value_helper(ct, key="t") == "super-secret"
 
 
-def test_default_is_legacy_algorithm(monkeypatch):
-    """With no config, writes stay on the legacy algorithm (no v2: marker)."""
-    ct = encrypt_value_helper("legacy-secret")
+def test_default_is_aes_gcm(monkeypatch):
+    """With no config, writes use AES-256-GCM."""
+    ct = encrypt_value_helper("fresh-secret")
 
-    assert not ct.startswith(V2_GCM_PREFIX)
-    assert decrypt_value_helper(ct, key="t") == "legacy-secret"
+    assert ct.startswith(V2_GCM_PREFIX)
+    assert decrypt_value_helper(ct, key="t") == "fresh-secret"
 
 
 def test_legacy_nacl_value_still_decrypts_after_flag_flip(monkeypatch):
@@ -61,7 +61,8 @@ def test_legacy_nacl_value_still_decrypts_after_flag_flip(monkeypatch):
     This is the mixed-format readback guarantee: decrypt is format-detecting, so
     flipping the flag forward never strands previously-written data.
     """
-    legacy = encrypt_value_helper("legacy-secret")  # default = xsalsa20
+    monkeypatch.setattr(proxy_server, "general_settings", {"encryption_algorithm": "xsalsa20-poly1305"})
+    legacy = encrypt_value_helper("legacy-secret")
     assert not legacy.startswith(V2_GCM_PREFIX)
 
     _use_aes(monkeypatch)
@@ -137,12 +138,12 @@ def test_callback_prefix_composes_with_v2(monkeypatch):
     assert _decrypt_or_passthrough("gcs_path_service_account", stored) == "my-sa-secret"
 
 
-def test_unknown_algorithm_falls_back_to_legacy(monkeypatch):
-    """An unrecognized encryption_algorithm value does not produce v2 writes."""
+def test_unknown_algorithm_uses_aes_gcm(monkeypatch):
+    """A typo in encryption_algorithm must not silently weaken new writes."""
     monkeypatch.setattr(proxy_server, "general_settings", {"encryption_algorithm": "rot13"})
 
     ct = encrypt_value_helper("secret")
-    assert not ct.startswith(V2_GCM_PREFIX)
+    assert ct.startswith(V2_GCM_PREFIX)
     assert decrypt_value_helper(ct, key="t") == "secret"
 
 

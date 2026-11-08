@@ -217,6 +217,7 @@ class AlertType(str, Enum):
 
     # Skills Hub Git Sync
     skill_sync_alerts = "skill_sync_alerts"
+    key_leak_alerts = "key_leak_alerts"
 
 
 DEFAULT_ALERT_TYPES: Final[list[AlertType]] = [
@@ -247,6 +248,7 @@ DEFAULT_ALERT_TYPES: Final[list[AlertType]] = [
     AlertType.mcp_pinned_tools_changed,
     # Skills Hub Git Sync alerts
     AlertType.skill_sync_alerts,
+    AlertType.key_leak_alerts,
 ]
 
 

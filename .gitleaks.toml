@@ -1,0 +1,10 @@
+title = "HangarLLM secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "hangarllm-virtual-key"
+description = "HangarLLM virtual key"
+regex = '''\bhgr_[0-9A-Za-z]{38}\b'''
+keywords = ["hgr_"]

@@ -1169,7 +1169,11 @@ async def common_checks(
     10. [OPTIONAL] Organization checks - is user_object.organization_id is set, run these checks
     11. [OPTIONAL] Vector store checks - is the object allowed to access the vector store
     """
+    from hangarllm.hangar.proxy.key_network import enforce_key_allowed_ips
     from hangarllm.proxy.proxy_server import prisma_client, user_api_key_cache
+
+    if valid_token is not None:
+        enforce_key_allowed_ips(valid_token.metadata, request, general_settings)
 
     _model: Final[str | list[str] | None] = get_model_from_request(
         request_data=request_body,

@@ -62,6 +62,7 @@ from pydantic import AnyUrl, Field, SecretStr, TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, assert_never
 
 import hangarllm
+from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_logger
 from hangarllm.caching.in_memory_cache import InMemoryCache
@@ -1262,7 +1263,7 @@ def should_strip_caller_authorization(
 _should_strip_caller_authorization: Final = should_strip_caller_authorization
 
 
-HANGARLLM_VIRTUAL_KEY_PREFIX: Final = "sk-"
+HANGARLLM_VIRTUAL_KEY_PREFIX: Final = VIRTUAL_KEY_PREFIXES
 
 
 def _raw_header_value(raw_headers: Mapping[str, str] | None, name: str) -> str | None:

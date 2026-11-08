@@ -26,6 +26,7 @@ from pydantic import ConfigDict, TypeAdapter
 from typing_extensions import LiteralString, ReadOnly, TypedDict
 
 import hangarllm
+from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._internal_context import service_target, with_service_target
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.caching import RedisCache
@@ -745,7 +746,7 @@ class DBSpendUpdateWriter:
             if ProxyUpdateSpend.disable_spend_updates() is True:
                 return True
             hashed_token: Final = (
-                hash_token(token=token) if isinstance(token, str) and token.startswith("sk-") else token
+                hash_token(token=token) if isinstance(token, str) and token.startswith(VIRTUAL_KEY_PREFIXES) else token
             )
 
             ## CREATE SPEND LOG PAYLOAD ##

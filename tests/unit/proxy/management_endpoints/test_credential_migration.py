@@ -24,16 +24,19 @@ from hangarllm.proxy.management_endpoints import credential_migration as cm
 from tests.unit.proxy.db.fake_prisma_engine import engine_call
 
 
+_LEGACY_CIPHER = {"encryption_algorithm": "xsalsa20-poly1305"}
+
+
 @pytest.fixture
 def salt_key(monkeypatch):
     monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-migration-salt-1234")
-    monkeypatch.setattr(proxy_server, "general_settings", {})
+    monkeypatch.setattr(proxy_server, "general_settings", _LEGACY_CIPHER)
     return "sk-migration-salt-1234"
 
 
 def _legacy_ct(value: str, monkeypatch) -> str:
     """Produce a legacy (nacl) ciphertext with the AES gate off."""
-    monkeypatch.setattr(proxy_server, "general_settings", {})
+    monkeypatch.setattr(proxy_server, "general_settings", _LEGACY_CIPHER)
     return encrypt_value_helper(value)
 
 
@@ -123,7 +126,7 @@ def test_reencrypt_selective_dict(salt_key, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_migrate_requires_aes_gate(salt_key, monkeypatch):
-    monkeypatch.setattr(proxy_server, "general_settings", {})  # gate off
+    monkeypatch.setattr(proxy_server, "general_settings", _LEGACY_CIPHER)  # gate off
     with pytest.raises(RuntimeError, match="encryption_algorithm"):
         await cm.migrate_encryption(
             prisma_client=MagicMock(), user_api_key_dict=MagicMock()
@@ -309,7 +312,7 @@ async def test_callback_vars_walker_migrates_team_metadata(salt_key, monkeypatch
     from hangarllm.proxy.common_utils.callback_utils import encrypt_callback_vars
 
     # Legacy-encrypt a callback var via the real callback path (gate off).
-    monkeypatch.setattr(proxy_server, "general_settings", {})
+    monkeypatch.setattr(proxy_server, "general_settings", _LEGACY_CIPHER)
     legacy_meta = encrypt_callback_vars(
         {"logging": [{"callback_vars": {"gcs_path_service_account": "sa-secret"}}]}
     )
@@ -337,7 +340,7 @@ async def test_callback_vars_walker_dry_run_reports_legacy(salt_key, monkeypatch
     """In --check (dry-run) mode, a legacy callback var counts as residual legacy."""
     from hangarllm.proxy.common_utils.callback_utils import encrypt_callback_vars
 
-    monkeypatch.setattr(proxy_server, "general_settings", {})
+    monkeypatch.setattr(proxy_server, "general_settings", _LEGACY_CIPHER)
     legacy_meta = encrypt_callback_vars(
         {"logging": [{"callback_vars": {"gcs_path_service_account": "sa-secret"}}]}
     )
@@ -369,7 +372,7 @@ async def test_callback_vars_walker_migrates_callback_settings_shape(
     """
     from hangarllm.proxy.common_utils.callback_utils import encrypt_callback_vars
 
-    monkeypatch.setattr(proxy_server, "general_settings", {})
+    monkeypatch.setattr(proxy_server, "general_settings", _LEGACY_CIPHER)
     legacy_meta = encrypt_callback_vars(
         {
             "callback_settings": {
@@ -410,7 +413,7 @@ async def test_check_reports_callback_var_legacy_with_gate_off(salt_key, monkeyp
     from hangarllm.proxy.common_utils.callback_utils import encrypt_callback_vars
 
     # Legacy-encrypt a callback var, and leave the gate OFF for the check itself.
-    monkeypatch.setattr(proxy_server, "general_settings", {})
+    monkeypatch.setattr(proxy_server, "general_settings", _LEGACY_CIPHER)
     legacy_meta = encrypt_callback_vars(
         {"logging": [{"callback_vars": {"gcs_path_service_account": "sa-secret"}}]}
     )
@@ -521,7 +524,7 @@ async def test_check_classifies_mcp_secret_maps(
     client.db.hangarllm_verificationtoken.find_many = AsyncMock(return_value=[])
     client.db.hangarllm_ssoconfig.find_unique = AsyncMock(return_value=None)
     client.db.hangarllm_config.find_unique = AsyncMock(return_value=None)
-    monkeypatch.setattr(proxy_server, "general_settings", {})
+    monkeypatch.setattr(proxy_server, "general_settings", _LEGACY_CIPHER)
 
     report: Final = await cm.check_encryption(client)
     expected_legacy: Final = int(case == "legacy" or (case == "encrypted" and algorithm == "xsalsa20-poly1305"))

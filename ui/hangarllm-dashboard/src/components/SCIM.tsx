@@ -63,7 +63,9 @@ const SCIMConfig: React.FC<SCIMConfigProps> = ({ accessToken, userID, proxySetti
       const formData = {
         key_alias: values.key_alias || "SCIM Access Token",
         team_id: null,
-        models: [],
+        models: ["no-default-models"],
+        duration: "90d",
+        max_budget: 1,
         allowed_routes: ["/scim/*"],
       };
 

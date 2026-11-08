@@ -11733,7 +11733,7 @@ async def test_jwt_shaped_key_error_names_enable_jwt_auth_when_disabled():
     assert jwt_error.code == "401"
     assert "enable_jwt_auth" in jwt_error.message
     assert "general_settings" in jwt_error.message
-    assert "expected to start with 'sk-'" in jwt_error.message
+    assert "expected to start with 'hgr_' or 'sk-'" in jwt_error.message
     assert "structure of a JWT" in jwt_error.message
     assert "is a JWT" not in jwt_error.message
 

@@ -34,7 +34,7 @@ KEY_PREFIX: Final = "sk-"
 def build_key_pattern(custom_key_minimum: int, generated_key_bytes: int) -> re.Pattern[str]:
     generated_suffix_length: Final = (generated_key_bytes * 4 + 2) // 3
     floor: Final = min(custom_key_minimum - len(KEY_PREFIX), generated_suffix_length)
-    return re.compile(rf"{KEY_PREFIX}[A-Za-z0-9_-]{{{floor},}}")
+    return re.compile(rf"{KEY_PREFIX}[A-Za-z0-9_-]{{{floor},}}|hgr_[0-9A-Za-z]{{20,}}")
 
 
 HANGARLLM_KEY_PATTERN: Final = build_key_pattern(MINIMUM_CUSTOM_KEY_LENGTH, LENGTH_OF_HANGARLLM_GENERATED_KEY)

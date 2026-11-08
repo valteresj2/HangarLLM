@@ -9,6 +9,7 @@ from typing import (
 from pydantic import ConfigDict, Field, PrivateAttr, model_validator
 from typing_extensions import TypeIs  # noqa: TID251  # narrows the before-validator input without copying it
 
+from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm.models.object_permission import HangarLLM_ObjectPermissionTable
 from hangarllm.models.team import Member
 from hangarllm.models.verification_token import HangarLLM_VerificationToken
@@ -263,7 +264,7 @@ class UserAPIKeyAuth(HangarLLM_VerificationTokenView):  # the expected response 
         normalized = api_key
         if normalized[:7].lower() == "bearer ":
             normalized = normalized[7:]
-        if normalized.startswith("sk-"):
+        if normalized.startswith(VIRTUAL_KEY_PREFIXES):
             return hash_token(normalized)
         if is_jwt(token=normalized):
             return f"hashed-jwt-{hash_token(token=normalized)}"

@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from pydantic import SecretStr
 from typing_extensions import assert_never
 
+from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._logging import verbose_logger
 from hangarllm.proxy.common_utils.encrypt_decrypt_utils import (  # noqa: F401  # legacy module exports
     _V2_GCM_PREFIX,  # pyright: ignore[reportPrivateUsage,reportUnusedImport]  # backwards-compatible package export
@@ -68,7 +69,7 @@ async def oauth_authorization_uses_gateway_credential(request: Request) -> bool:
     token: Final = _hangarllm_key_from_request(request)
     if token is None:
         return "authorization" in request.headers
-    if token.startswith("sk-") or (master_key and secrets.compare_digest(token.encode(), master_key.encode())):
+    if token.startswith(VIRTUAL_KEY_PREFIXES) or (master_key and secrets.compare_digest(token.encode(), master_key.encode())):
         return True
     if custom_auth_configured() or jwt_handler.hangarllm_jwtauth.oidc_userinfo_enabled:
         return True

@@ -1490,7 +1490,7 @@ async def test_get_new_token_with_invalid_key(monkeypatch):
         await get_new_token(data)
 
     assert exc_info.value.status_code == 400
-    assert "New key must start with 'sk-'" in str(exc_info.value.detail)
+    assert "New key must start with 'hgr_' or 'sk-'" in str(exc_info.value.detail)
 
 
 @pytest.mark.asyncio
@@ -1784,7 +1784,7 @@ async def test_get_new_token_auto_generates_when_custom_keys_disabled(monkeypatc
     data = RegenerateKeyRequest()  # no new_key
     result = await get_new_token(data)
 
-    assert result.startswith("sk-")
+    assert result.startswith("hgr_")
 
 
 @pytest.mark.asyncio
@@ -24041,7 +24041,7 @@ def test_non_enterprise_permissions_guard(
 
     assert response.status_code == 200, response.text
     assert response.json()["permissions"] == permissions
-    assert response.json()["key"].startswith("sk-")
+    assert response.json()["key"].startswith("hgr_")
 
 
 def test_enterprise_spend_permission_guard(
@@ -24055,7 +24055,7 @@ def test_enterprise_spend_permission_guard(
 
     assert response.status_code == 200, response.text
     assert response.json()["permissions"] == {"get_spend_routes": True}
-    assert response.json()["key"].startswith("sk-")
+    assert response.json()["key"].startswith("hgr_")
 
 
 def test_guardrails_enterprise_error_guard(spend_permission_client: TestClient) -> None:

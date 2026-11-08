@@ -16,7 +16,6 @@ import json
 import math
 import os
 import re
-import secrets
 import traceback
 from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
 from datetime import datetime, timedelta, timezone
@@ -30,12 +29,14 @@ from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
 import hangarllm
+from hangarllm.hangar.proxy.key_format import generate_virtual_key
+from hangarllm.hangar.proxy.key_policy import enforce_key_update_policy, enforce_new_key_policy
+from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm._uuid import uuid
 from hangarllm.caching.dual_cache import DualCache
 from hangarllm.constants import (
-    LENGTH_OF_HANGARLLM_GENERATED_KEY,
     HANGARLLM_PROXY_ADMIN_NAME,
     MINIMUM_CUSTOM_KEY_LENGTH,
     UI_SESSION_TOKEN_TEAM_ID,
@@ -1455,6 +1456,8 @@ async def _common_key_generation_helper(
         prisma_client,
     )
 
+    await enforce_new_key_policy(data, team_table, _general_settings(), user_api_key_dict)
+
     acting_as_team_admin: Final = _team_admin_requests_member_key(
         data=data,
         team_table=team_table,
@@ -1753,11 +1756,11 @@ async def _common_key_generation_helper(
     await _check_custom_key_allowed(data.key)
 
     # Validate user-provided key format
-    if data.key is not None and not data.key.startswith("sk-"):
+    if data.key is not None and not data.key.startswith(VIRTUAL_KEY_PREFIXES):
         _masked: Final = f"{data.key[:4]}****{data.key[-4:]}" if len(data.key) > 8 else "****"
         raise HTTPException(
             status_code=400,
-            detail={"error": f"Invalid key format. HangarLLM Virtual Key must start with 'sk-'. Received: {_masked}"},
+            detail={"error": f"Invalid key format. HangarLLM Virtual Key must start with 'hgr_' or 'sk-'. Received: {_masked}"},
         )
 
     if data.key is not None and len(data.key) < MINIMUM_CUSTOM_KEY_LENGTH:
@@ -2367,7 +2370,7 @@ async def generate_key_fn(
     Parameters:
     - duration: Optional[str] - Specify the length of time the token is valid for. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d").
     - key_alias: Optional[str] - User defined key alias
-    - key: Optional[str] - User defined key value. Must start with 'sk-' and be at least 16 characters long. If not set, a 16-digit unique sk-key is created for you.
+    - key: Optional[str] - User defined key value. Must start with 'hgr_' or 'sk-' and be at least 16 characters long. If not set, a 16-digit unique sk-key is created for you.
     - team_id: Optional[str] - The team id of the key
     - user_id: Optional[str] - The user id of the key. Non-admin callers may only pass their own id, except a team admin creating a key in a team they administer for another member of that team, when a proxy admin has added `create_member_keys` to `team_admin_editable_team_fields`. That member must have the `internal_user` or `internal_user_viewer` role, and the key is always an `llm_api` key.
     - agent_id: Optional[str] - The agent id associated with the key.
@@ -2584,7 +2587,7 @@ async def generate_service_account_key_fn(
     Parameters:
     - duration: Optional[str] - Specify the length of time the token is valid for. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d").
     - key_alias: Optional[str] - User defined key alias
-    - key: Optional[str] - User defined key value. Must start with 'sk-' and be at least 16 characters long. If not set, a 16-digit unique sk-key is created for you.
+    - key: Optional[str] - User defined key value. Must start with 'hgr_' or 'sk-' and be at least 16 characters long. If not set, a 16-digit unique sk-key is created for you.
     - team_id: Optional[str] - The team id of the key
     - user_id: Optional[str] - [NON-FUNCTIONAL] THIS WILL BE IGNORED. The user id of the key
     - budget_id: Optional[str] - The budget id associated with the key. Created by calling `/budget/new`.
@@ -3928,6 +3931,8 @@ async def _validate_update_key_data(
         team_table=team_obj,
         access_group_ids=data.access_group_ids,
     )
+
+    await enforce_key_update_policy(data, existing_key_row, team_obj, _general_settings(), user_api_key_dict)
 
     # Validate key against project limits if project_id is being set
     _project_id_to_check: Final = (
@@ -5318,7 +5323,7 @@ async def generate_key_helper_fn(
         if key is not None:
             token = key
         else:
-            token = f"sk-{secrets.token_urlsafe(LENGTH_OF_HANGARLLM_GENERATED_KEY)}"
+            token = generate_virtual_key()
 
     if duration is None:  # allow tokens that never expire
         expires = None
@@ -6115,7 +6120,7 @@ async def migrate_encryption_endpoint(
     """
     Re-encrypt all at-rest credentials into the AES-256-GCM (``v2:gcm:``) format.
 
-    Admin only. Requires ``general_settings.encryption_algorithm: aes-256-gcm``.
+    Admin only. Refuses to run when ``general_settings.encryption_algorithm`` selects the legacy cipher.
     Idempotent and resumable — re-running skips already-migrated values. Pass
     ``dry_run=true`` for a non-mutating scan (equivalent to ``--check``).
     """
@@ -6174,11 +6179,11 @@ async def get_new_token(data: RegenerateKeyRequest | None) -> str:
     if data and data.new_key is not None:
         # Reject custom key values if disabled by admin
         await _check_custom_key_allowed(data.new_key)
-        if not data.new_key.startswith("sk-"):
+        if not data.new_key.startswith(VIRTUAL_KEY_PREFIXES):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
-                    "error": "New key must start with 'sk-'. This is to distinguish a key hash (used by hangarllm for logging / internal logic) from the actual key."
+                    "error": "New key must start with 'hgr_' or 'sk-'. This is to distinguish a key hash (used by hangarllm for logging / internal logic) from the actual key."
                 },
             )
         if len(data.new_key) < MINIMUM_CUSTOM_KEY_LENGTH:
@@ -6188,7 +6193,7 @@ async def get_new_token(data: RegenerateKeyRequest | None) -> str:
             )
         new_token = data.new_key
     else:
-        new_token = f"sk-{secrets.token_urlsafe(LENGTH_OF_HANGARLLM_GENERATED_KEY)}"
+        new_token = generate_virtual_key()
     return new_token
 
 
@@ -6315,6 +6320,9 @@ async def _execute_virtual_key_regeneration(
             user_api_key_dict=user_api_key_dict,
             prisma_client=prisma_client,
         )
+
+    if data is not None:
+        await enforce_key_update_policy(data, key_in_db, None, _general_settings(), user_api_key_dict)
 
     new_token: Final = await get_new_token(data=data)
     new_token_hash: Final = hash_token(new_token)
@@ -6632,7 +6640,7 @@ async def regenerate_key_fn(
                 expires=None,
             )
 
-        if "sk" not in key:
+        if not key.startswith(VIRTUAL_KEY_PREFIXES):
             hashed_api_key = key
         else:
             hashed_api_key = hash_token(key)
@@ -6945,7 +6953,7 @@ async def reset_key_spend_fn(
                 detail={"error": "DB not connected. prisma_client is None"},
             )
 
-        if "sk" not in key:
+        if not key.startswith(VIRTUAL_KEY_PREFIXES):
             hashed_api_key = key
         else:
             hashed_api_key = hash_token(key)
@@ -8073,7 +8081,7 @@ async def block_key(
             param="key",
             code=status.HTTP_400_BAD_REQUEST,
         )
-    if data.key.startswith("sk-"):
+    if data.key.startswith(VIRTUAL_KEY_PREFIXES):
         hashed_token = hash_token(token=data.key)
     else:
         hashed_token = data.key
@@ -8187,7 +8195,7 @@ async def unblock_key(
             param="key",
             code=status.HTTP_400_BAD_REQUEST,
         )
-    if data.key.startswith("sk-"):
+    if data.key.startswith(VIRTUAL_KEY_PREFIXES):
         hashed_token = hash_token(token=data.key)
     else:
         hashed_token = data.key

@@ -2,9 +2,8 @@
 At-rest credential re-encryption migration.
 
 Switches every encrypted-at-rest value from the legacy XSalsa20-Poly1305 (nacl)
-format to the versioned AES-256-GCM (``v2:gcm:``) format produced by
-``encrypt_decrypt_utils`` when ``general_settings.encryption_algorithm`` is set to
-``aes-256-gcm``.
+format to the versioned AES-256-GCM (``v2:gcm:``) format, which is what
+``encrypt_decrypt_utils`` writes by default.
 
 Design properties (see case 2026-06-24 fix plan):
 
@@ -49,6 +48,7 @@ from hangarllm.proxy.common_utils.encrypt_decrypt_utils import (  # noqa: F401  
     _V2_GCM_PREFIX,  # pyright: ignore[reportPrivateUsage,reportUnusedImport]  # backwards-compatible package export
     ALGO_AES_GCM,
     ENCRYPTION_ALGORITHM_SETTING,
+    _get_encryption_algorithm,
     V2_GCM_PREFIX,
     SecretMapDecodeError,
     _get_salt_key,  # pyright: ignore[reportPrivateUsage,reportUnusedImport]  # backwards-compatible package export
@@ -204,14 +204,10 @@ def _assert_aes_gate_enabled() -> None:
     Running the migration with the gate off would decrypt then re-encrypt right
     back into the legacy format — a no-op that silently fails the migration.
     """
-    from hangarllm.proxy.proxy_server import general_settings
-
-    algo: Final = general_settings.get(ENCRYPTION_ALGORITHM_SETTING)
-    if not (isinstance(algo, str) and algo.lower() == ALGO_AES_GCM):
+    if _get_encryption_algorithm() != ALGO_AES_GCM:
         raise RuntimeError(
-            "Encryption migration requires general_settings.encryption_algorithm: "
-            f"'{ALGO_AES_GCM}'. Current value: {algo!r}. Set it before migrating "
-            "so re-encrypted values are written in the AES-256-GCM format."
+            "Encryption migration writes AES-256-GCM, but general_settings.encryption_algorithm "
+            "selects the legacy cipher. Remove that setting before migrating."
         )
 
 
@@ -639,8 +635,8 @@ async def migrate_encryption(
 ) -> MigrationReport:
     """Run the full at-rest re-encryption migration.
 
-    Requires ``general_settings.encryption_algorithm == 'aes-256-gcm'`` so writes
-    are produced in the AES format. Idempotent and resumable: re-running skips
+    Refuses to run when ``general_settings.encryption_algorithm`` selects the legacy
+    cipher. Idempotent and resumable: re-running skips
     already-migrated values and finishes any partial run.
 
     A ``dry_run`` performs no writes: the covered tables are scanned read-only

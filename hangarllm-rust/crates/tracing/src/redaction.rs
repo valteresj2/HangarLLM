@@ -15,6 +15,7 @@ fn secret_patterns(minimum_custom_key_length: usize) -> String {
         r"Bearer\s+[A-Za-z0-9\-._~+/]{10,}=*",
         r"Basic\s+[A-Za-z0-9+/]{10,}={0,2}",
         &format!(r"sk-[A-Za-z0-9\-_]{{{sk_suffix_length},}}"),
+        r"hgr_[0-9A-Za-z]{20,}",
         r#"(?<=[?&])(?:api[_-]?key|\w*(?:token|password|passwd|client_secret|secret_key|_secret))=[^\s&'"]+"#,
         r#"(?:api[_-]?key)['"]?\s*[:=]\s*['"]?[^\s,'"})\]{}>]{8,}"#,
         r#"(?:x-api-key|api-key)['"]?\s*[:=]\s*['"]?[^\s,'"})\]{}>]+"#,

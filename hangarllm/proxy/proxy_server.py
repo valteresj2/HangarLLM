@@ -68,6 +68,7 @@ from pydantic.main import IncEx
 from pydantic_core import PydanticSerializationError, to_jsonable_python
 from typing_extensions import NotRequired, ReadOnly, TypedDict, assert_never
 
+from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._uuid import uuid
 from hangarllm.constants import (
     AIOHTTP_CONNECTOR_LIMIT,
@@ -1183,6 +1184,8 @@ from fastapi.staticfiles import StaticFiles
 
 ###################
 # HangarLLM open-core routes and config (audit logs, email settings, projects, custom auth modes, ...)
+from hangarllm.hangar.guardrails.secret_detection import install_default_secret_guardrail
+from hangarllm.hangar.proxy.envelope import install_salt_key_from_kms
 from hangarllm.hangar.proxy.proxy_config import HangarProxyConfig
 from hangarllm.hangar.proxy.secret_separation import enforce_secret_separation
 from hangarllm.hangar.proxy.ui_session import UiSessionMiddleware, browser_session_token
@@ -1641,6 +1644,8 @@ async def _proxy_lifespan(app: FastAPI, resources: AsyncExitStack) -> AsyncGener
     if premium_user is False:
         premium_user = _license_check.is_premium()
 
+    install_salt_key_from_kms()
+
     ## CHECK MASTER KEY IN ENVIRONMENT ##
     master_key = get_secret_str("HANGARLLM_MASTER_KEY")
     ### LOAD CONFIG ###
@@ -1679,6 +1684,7 @@ async def _proxy_lifespan(app: FastAPI, resources: AsyncExitStack) -> AsyncGener
                 await initialize_from_worker_config(decoded_worker_config)
 
     enforce_fips_mode(general_settings_view())
+    install_default_secret_guardrail()
 
     async with AsyncExitStack() as boot_database:
         enforce_master_key_boot_verdict(
@@ -3865,7 +3871,7 @@ async def _increment_spend_counters_batched(
         # avoid double-hashing (budget checks read valid_token.token which
         # is single-hashed).
         hashed_token: Final = (
-            hash_token(token=key_token) if isinstance(key_token, str) and key_token.startswith("sk-") else key_token
+            hash_token(token=key_token) if isinstance(key_token, str) and key_token.startswith(VIRTUAL_KEY_PREFIXES) else key_token
         )
         key_counter_key: Final = key_counter(hashed_token)
         key_pending: Final[tuple[PendingSpendIncrement, ...]] = (
@@ -4581,7 +4587,7 @@ async def update_cache(
     ### UPDATE KEY SPEND ###
     async def _update_key_cache(token: str, response_cost: float):
         # Fetch the existing cost for the given token
-        if isinstance(token, str) and token.startswith("sk-"):
+        if isinstance(token, str) and token.startswith(VIRTUAL_KEY_PREFIXES):
             hashed_token = hash_token(token=token)
         else:
             hashed_token = token

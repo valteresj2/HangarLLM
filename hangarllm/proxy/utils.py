@@ -57,6 +57,7 @@ import anyio
 import httpx
 from typing_extensions import Never, NotRequired, ReadOnly, TypedDict
 
+from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm import _custom_logger_compatible_callbacks_literal
 from hangarllm.constants import (
     DEFAULT_MODEL_CREATED_AT_TIME,
@@ -6217,7 +6218,7 @@ class PrismaClient:
                             hashed_tokens: Final[list[str]] = []
                             for t in token:
                                 assert isinstance(t, str)
-                                if t.startswith("sk-"):
+                                if t.startswith(VIRTUAL_KEY_PREFIXES):
                                     new_token = self.hash_token(token=t)
                                     hashed_tokens.append(new_token)
                                 else:
@@ -6785,7 +6786,7 @@ class PrismaClient:
                 batcher: _UpdateManyBatch = _update_many_batch(self.db)
                 for idx, t in enumerate(data_list):
                     # check if plain text or hash
-                    if t.token.startswith("sk-"):
+                    if t.token.startswith(VIRTUAL_KEY_PREFIXES):
                         t.token = self.hash_token(token=t.token)
                     try:
                         data_json = self.jsonify_object(data=t.model_dump(exclude_none=True))
@@ -6940,7 +6941,7 @@ class PrismaClient:
             if tokens is not None and isinstance(tokens, list):
                 hashed_tokens: Final[list[str | None]] = []
                 for token in tokens:
-                    if isinstance(token, str) and token.startswith("sk-"):
+                    if isinstance(token, str) and token.startswith(VIRTUAL_KEY_PREFIXES):
                         hashed_token = self.hash_token(token=token)
                     else:
                         hashed_token = token
@@ -8556,7 +8557,7 @@ def hash_token_if_needed(token: str) -> str:
 
     Else return the token as is
     """
-    if token.startswith("sk-"):
+    if token.startswith(VIRTUAL_KEY_PREFIXES):
         return hash_token(token=token)
     else:
         return token
@@ -9959,7 +9960,7 @@ def get_prisma_client_or_throw(message: str):
 def is_valid_api_key(key: str) -> bool:
     """
     Validates API key format:
-    - sk- keys: must match ^sk-[A-Za-z0-9_-]+$
+    - virtual keys: must match ^(hgr_|sk-)[A-Za-z0-9_-]+$
     - hashed keys: must match ^[a-fA-F0-9]{64}$
     - Length between 20 and 100 characters
     """
@@ -9968,7 +9969,7 @@ def is_valid_api_key(key: str) -> bool:
     if not isinstance(key, str):
         return False
     if 3 <= len(key) <= 100:
-        if re.match(r"^sk-[A-Za-z0-9_-]+$", key):
+        if re.match(r"^(?:hgr_|sk-)[A-Za-z0-9_-]+$", key):
             return True
         if re.match(r"^[a-fA-F0-9]{64}$", key):
             return True

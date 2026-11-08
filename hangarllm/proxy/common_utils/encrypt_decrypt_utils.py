@@ -17,9 +17,7 @@ V2_GCM_PREFIX: Final = "v2:gcm:"
 _V2_GCM_PREFIX: Final = V2_GCM_PREFIX
 
 # general_settings key selecting the at-rest encryption algorithm for new writes.
-# Default preserves the legacy algorithm so existing deployments are byte-for-byte
-# unchanged until they explicitly opt in. Decrypt is always format-detecting, so
-# flipping this flag forward (or back) never strands previously-written data.
+# Decrypt is always format-detecting, so changing it never strands written data.
 ENCRYPTION_ALGORITHM_SETTING: Final = "encryption_algorithm"
 
 _ENCRYPTION_ALGORITHM_SETTING: Final = ENCRYPTION_ALGORITHM_SETTING
@@ -47,22 +45,20 @@ def _get_encryption_algorithm() -> str:
     """
     Resolve the configured at-rest encryption algorithm for *new writes*.
 
-    Read from ``general_settings.encryption_algorithm`` at write time. Defaults to
-    the legacy XSalsa20-Poly1305 algorithm so deployments that have not opted in
-    keep producing byte-for-byte identical ciphertext.
+    Read from ``general_settings.encryption_algorithm`` at write time. Defaults to AES-256-GCM.
     """
     try:
         from hangarllm.proxy.proxy_server import general_settings
 
-        algo: Final = general_settings.get(ENCRYPTION_ALGORITHM_SETTING, _ALGO_XSALSA20)
+        algo: Final = general_settings.get(ENCRYPTION_ALGORITHM_SETTING, ALGO_AES_GCM)
     except Exception:
         # general_settings may not be importable in some contexts (e.g. SDK-only
-        # use of these helpers). Fall back to the legacy algorithm.
-        return _ALGO_XSALSA20
-
-    if isinstance(algo, str) and algo.lower() == ALGO_AES_GCM:
+        # use of these helpers).
         return ALGO_AES_GCM
-    return _ALGO_XSALSA20
+
+    if isinstance(algo, str) and algo.lower() == _ALGO_XSALSA20:
+        return _ALGO_XSALSA20
+    return ALGO_AES_GCM
 
 
 def _derive_key(signing_key: str) -> bytes:

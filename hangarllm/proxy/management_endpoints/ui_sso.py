@@ -45,6 +45,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import AliasPath, BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, field_validator
 
 import hangarllm
+from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm._uuid import uuid
@@ -398,7 +399,7 @@ def _read_cli_sso_flow(cache: DualCache, cache_key: str) -> object:
 
 
 def _get_cli_sso_flow_or_raise(login_id: str | None, cache: DualCache) -> dict:
-    if isinstance(login_id, str) and login_id.startswith("sk-"):
+    if isinstance(login_id, str) and login_id.startswith(VIRTUAL_KEY_PREFIXES):
         raise HTTPException(
             status_code=400,
             detail=(

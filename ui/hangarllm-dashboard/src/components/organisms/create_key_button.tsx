@@ -255,7 +255,7 @@ const CreateKey: React.FC<CreateKeyProps> = ({ team, teams, data, addKey, autoOp
     tpm_limit_type: null,
     rpm_limit_type: null,
     mcp_tool_permissions: {},
-    duration: "",
+    duration: "30d",
   }));
   const form = useForm<MountedFormValues>({
     mode: "onChange",
@@ -278,6 +278,13 @@ const CreateKey: React.FC<CreateKeyProps> = ({ team, teams, data, addKey, autoOp
   const [selectedCreateKeyTeam, setSelectedCreateKeyTeam] = useState<Team | null>(team);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [allowedIps, setAllowedIps] = useState("");
+  const isProductionProject =
+    projects?.find((project) => project.project_id === selectedProjectId)?.metadata?.environment === "production";
+
+  useEffect(() => {
+    form.setValue("duration", isProductionProject ? "" : "30d");
+  }, [isProductionProject, form]);
   const [isCreateUserModalVisible, setIsCreateUserModalVisible] = useState(false);
   const [possibleUIRoles, setPossibleUIRoles] = useState<Record<string, Record<string, string>>>({});
   const [userOptions, setUserOptions] = useState<SearchSelectOption[]>([]);
@@ -452,10 +459,20 @@ const CreateKey: React.FC<CreateKeyProps> = ({ team, teams, data, addKey, autoOp
   const isTeamSelectionRequired = modelsToPick.includes("no-default-models");
   const isFormDisabled = isTeamSelectionRequired && !selectedCreateKeyTeam;
 
+  const withAllowedIps = (values: MountedFormValues): MountedFormValues => {
+    const ips = allowedIps
+      .split(",")
+      .map((ip) => ip.trim())
+      .filter(Boolean);
+    if (!isProductionProject || ips.length === 0) return values;
+    const metadata = typeof values.metadata === "string" && values.metadata.trim() ? JSON.parse(values.metadata) : {};
+    return { ...values, metadata: JSON.stringify({ ...metadata, allowed_ips: ips }) };
+  };
+
   const handleCreate = async (formValues: MountedFormValues) => {
     try {
       const input: KeyCreateInput = {
-        formValues,
+        formValues: withAllowedIps(formValues),
         existingKeys: data,
         keyOwner,
         userID,
@@ -907,6 +924,21 @@ const CreateKey: React.FC<CreateKeyProps> = ({ team, teams, data, addKey, autoOp
                       />
                     )}
                   </MountedFormField>
+                )}
+                {isProductionProject && (
+                  <div className="mt-4">
+                    <label htmlFor="key-allowed-ips" className="text-sm font-medium">
+                      {t("createKey.allowedIps.label")}
+                    </label>
+                    <Input
+                      id="key-allowed-ips"
+                      className="mt-1"
+                      value={allowedIps}
+                      onChange={(event) => setAllowedIps(event.target.value)}
+                      placeholder={t("createKey.allowedIps.placeholder")}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">{t("createKey.allowedIps.help")}</p>
+                  </div>
                 )}
               </div>
 

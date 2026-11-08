@@ -23,6 +23,8 @@ YAML and JSON. Tune it with ``detect_secrets_config``::
 A key can opt out with ``metadata: {"hide_secrets": false}`` (admins only).
 """
 
+import hangarllm
+import os
 import json
 import re
 from collections.abc import Mapping, Sequence
@@ -63,7 +65,7 @@ DEFAULT_PATTERNS: Final[tuple[SecretPattern, ...]] = (
     _p("anthropic_api_key", r"\bsk-ant-(?:api|admin)\d{2}-[A-Za-z0-9_\-]{80,}\b"),
     _p("openai_api_key", r"\bsk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_\-]{20,}T3BlbkFJ[A-Za-z0-9_\-]{20,}\b"),
     _p("openai_project_key", r"\bsk-(?:proj|svcacct|admin)-[A-Za-z0-9_\-]{40,}\b"),
-    _p("hangar_virtual_key", r"\bsk-[A-Za-z0-9]{22}\b"),
+    _p("hangar_virtual_key", r"\b(?:sk-[A-Za-z0-9]{22}|hgr_[0-9A-Za-z]{38})\b"),
     _p("google_api_key", r"\bAIza[0-9A-Za-z_\-]{35}\b"),
     _p("google_oauth_client_secret", r"\bGOCSPX-[A-Za-z0-9_\-]{28}\b"),
     _p("gcp_service_account", r"\"private_key_id\"\s*:\s*\"([a-f0-9]{40})\"", 1),
@@ -314,6 +316,23 @@ class HangarSecretDetection(CustomGuardrail):
 
             add_guardrail_to_applied_guardrails_header(request_data=data, guardrail_name=self.guardrail_name)
         return data
+
+
+def default_secret_guardrail() -> HangarSecretDetection:
+    """On for every request. Only recognizable provider keys are masked, so ordinary prompts stay intact."""
+    return HangarSecretDetection(
+        detect_secrets_config={
+            "disabled_patterns": ["credential_assignment", "basic_auth_in_url", "bearer_header", "jwt"]
+        }
+    )
+
+
+def install_default_secret_guardrail() -> None:
+    if os.getenv("HANGARLLM_DISABLE_SECRET_GUARDRAIL", "").strip().lower() == "true":
+        return
+    if any(isinstance(callback, HangarSecretDetection) for callback in hangarllm.callbacks):
+        return
+    hangarllm.logging_callback_manager.add_hangarllm_callback(default_secret_guardrail())
 
 
 # upstream-compatible name used by callback_utils / guardrail_initializers

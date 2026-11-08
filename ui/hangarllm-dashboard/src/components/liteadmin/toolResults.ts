@@ -21,7 +21,7 @@ export function projectToolResult(kind: ResultKind, value: unknown, secrets: rea
       secrets
         .filter(Boolean)
         .reduce((safe, secret) => safe.split(secret).join("[redacted]"), value)
-        .replace(/\bsk-[\w-]+/g, "[redacted]")
+        .replace(/\b(?:sk-|hgr_)[\w-]+/g, "[redacted]")
         .replace(/\bBearer\s+\S+/gi, "[redacted]")
         .slice(0, 400),
     )

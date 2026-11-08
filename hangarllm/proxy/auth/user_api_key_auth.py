@@ -24,6 +24,7 @@ from pydantic import TypeAdapter
 from starlette.exceptions import WebSocketException
 
 import hangarllm
+from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._internal_context import service_target, set_request_parent_otel_span
 from hangarllm._logging import verbose_logger, verbose_proxy_logger
 from hangarllm._service_logger import ServiceLogging
@@ -2778,7 +2779,7 @@ async def user_api_key_auth_builder(
             # decryption fails closed for anything that is not a genuine blob.
             if (
                 valid_token is None
-                and not api_key.startswith("sk-")
+                and not api_key.startswith(VIRTUAL_KEY_PREFIXES)
                 and get_secret_bool("EXPERIMENTAL_UI_LOGIN") is not False
             ):
                 valid_token = ExperimentalUIJWTToken.get_key_object_from_ui_hash_key(api_key)
@@ -2927,13 +2928,13 @@ async def user_api_key_auth_builder(
         if valid_token is None:
             if isinstance(api_key, str):  # if generated token, make sure it starts with sk-.
                 _masked_key: Final = f"{api_key[:4]}****{api_key[-4:]}" if len(api_key) > 8 else "****"
-                if not api_key.startswith("sk-"):
+                if not api_key.startswith(VIRTUAL_KEY_PREFIXES):
                     _hint = _JWT_AUTH_DISABLED_HINT if not enable_jwt_auth and JWTHandler.is_jwt(token=api_key) else ""
                     _malformed_key_error = HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail=(
                             f"{INVALID_VIRTUAL_KEY_ERROR_MESSAGE}. Received={_masked_key}, "
-                            f"expected to start with 'sk-'.{_hint}"
+                            f"expected to start with 'hgr_' or 'sk-'.{_hint}"
                         ),
                     )  # prevent token hashes from being used
                     # Stamp provenance here so log routing classifies this 401 by
@@ -2946,7 +2947,7 @@ async def user_api_key_auth_builder(
                         type(api_key) if api_key is not None else "None"
                     )
                 )
-            if api_key.startswith("sk-"):
+            if api_key.startswith(VIRTUAL_KEY_PREFIXES):
                 api_key = hash_token(token=api_key)
 
             with tracer.trace("hangarllm.proxy.auth.get_key_object_from_db"):

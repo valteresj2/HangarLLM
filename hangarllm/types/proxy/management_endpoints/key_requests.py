@@ -81,7 +81,7 @@ class GenerateKeyRequest(KeyRequestBase):
         default=HangarLLMKeyType.DEFAULT,
         description="Type of key that determines default allowed routes.",
     )
-    auto_rotate: bool | None = Field(default=False, description="Whether this key should be automatically rotated")
+    auto_rotate: bool | None = Field(default=None, description="Whether this key should be automatically rotated")
     rotation_interval: str | None = Field(
         default=None,
         description="How often to rotate this key (e.g., '30d', '90d'). Required if auto_rotate=True",

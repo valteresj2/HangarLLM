@@ -27,7 +27,8 @@ const buildProjectApiParams = (values: ProjectFormValues, sendEmpty: boolean) =>
   const modelTpmLimit = buildModelLimitMap(limitEntries, (entry) => entry.tpm);
   const modelItpmLimit = buildModelLimitMap(limitEntries, (entry) => entry.itpm);
   const modelOtpmLimit = buildModelLimitMap(limitEntries, (entry) => entry.otpm);
-  const metadata = buildMetadata(values.metadata);
+  const entries = buildMetadata(values.metadata);
+  const metadata = values.environment ? { ...entries, environment: values.environment } : entries;
   const keepLimits = sendEmpty && values.modelLimits !== undefined;
   const keep = (map: Record<string, number>) => keepLimits || Object.keys(map).length > 0;
   const guardrailsParam =

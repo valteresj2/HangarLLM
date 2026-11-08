@@ -27,6 +27,7 @@ export const projectFormSchema = z
           .min(1, { error: () => i18n.t("projects.form.errors.teamRequired") }),
       ),
     description: z.string().optional(),
+    environment: z.enum(["experiment", "production"]).optional(),
     models: z.array(z.string()),
     max_budget: z.number().nullish(),
     isBlocked: z.boolean(),

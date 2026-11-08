@@ -178,6 +178,10 @@ Compose reads optional settings from `.env`, and gateway settings go in [docker/
 | `HANGARLLM_POLICY_TEMPLATES_URL` | Optional remote catalog of guardrail policy templates |
 | `HANGARLLM_DISABLED_FEATURES` | Comma separated features to switch off |
 | `HANGARLLM_SKILL_SANDBOX_NETWORK` | Set to `true` to give skill code network access |
+| `HANGARLLM_LEAK_REPORT_SECRET` | Enables `/key/leak-report` and verifies its signature |
+| `HANGARLLM_KMS_PROVIDER`, `HANGARLLM_KMS_KEY_ID`, `HANGARLLM_SALT_KEY_WRAPPED` | Envelope encryption of the salt key with AWS, Google Cloud or Vault |
+| `HANGARLLM_DISABLE_KEY_POLICY` | Set to `true` to allow keys without expiry, budget or models |
+| `HANGARLLM_DISABLE_SECRET_GUARDRAIL` | Set to `true` to stop masking provider keys in prompts |
 | `HANGARLLM_DISABLE_SKILL_GIT_SYNC` | Set to `true` to stop polling GitHub skill repositories |
 | `HANGARLLM_ALLOW_MASTER_KEY_UI_LOGIN` | Set to `true` to accept the master key as UI password |
 | `HANGARLLM_ALLOW_SHARED_SECRETS` | Set to `true` to start when secrets are reused, while migrating an existing database |
@@ -242,6 +246,10 @@ The dashboard session key never reaches browser JavaScript. The page holds a pla
 The master key is only an API credential. The UI has its own password, sessions have their own signing secret, and the gateway refuses to start if the master key is reused for any of them or for the salt key. Virtual keys are stored as SHA-256 hashes and provider keys are encrypted at rest. Requests to LLM routes cannot carry `api_base`, `api_key`, `extra_headers` or a `decisions_format` unless an admin allows it.
 
 In the Compose stack only the TLS proxy is published, secrets stay out of `docker inspect`, the gateway runs as a non-root user on a read-only filesystem, Redis needs a password and Prometheus binds to loopback with a scrape-only token. Skill code runs in a sandbox with no network, environment variables or Linux capabilities by default.
+
+New virtual keys start with `hgr_` and end in a checksum, so scanners can find them with few false positives. A key must have a budget and a list of models, and follows the rules of its project. Set `metadata.environment` on a project to `production` or `experiment`. Keys in experiment projects, or in no project, must expire within 90 days. Production keys need a `key_alias`, can only be managed by proxy admins or admins of the project's team, and may skip the expiry if they are restricted with `metadata.allowed_ips` (IPs or CIDRs) or rotate automatically. Rotation counts only when `store_virtual_keys` delivers the new value to a secret manager. Tune the limits under `general_settings.key_policy`. Behind your own proxy, set `general_settings.use_x_forwarded_for: true` only if it overwrites `X-Forwarded-For`, or clients can fake their address. [.gitleaks.toml](.gitleaks.toml) already knows the format, and for GitHub add a custom secret scanning pattern with the regex `hgr_[0-9A-Za-z]{38}`. A scanner can then revoke a leaked key by posting `[{"token": "hgr_...", "url": "..."}]` to `/key/leak-report`, signed with `X-Hangar-Signature: sha256=<HMAC of the body>` using `HANGARLLM_LEAK_REPORT_SECRET`.
+
+Stored credentials use AES-256-GCM by default, and older values keep working. To stop the salt key from sitting next to the data, wrap it with a KMS. Set `HANGARLLM_KMS_PROVIDER` to `aws`, `gcp` or `vault` and `HANGARLLM_KMS_KEY_ID` to the key, run `python -m hangarllm.hangar.proxy.envelope wrap --salt-file <file>`, put the output in `HANGARLLM_SALT_KEY_WRAPPED` and remove `HANGARLLM_SALT_KEY`. Recognizable provider keys in prompts are masked before they reach a provider. Set `HANGARLLM_DISABLE_SECRET_GUARDRAIL=true` to turn that off.
 
 For provider keys in production, prefer a secret manager over the database. To report a vulnerability, see [SECURITY.md](SECURITY.md).
 

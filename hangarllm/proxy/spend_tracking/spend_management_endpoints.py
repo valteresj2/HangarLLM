@@ -27,6 +27,7 @@ from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict, assert_never
 
 import hangarllm
+from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.constants import (
     EMPTY_MAPPING,
@@ -1538,7 +1539,7 @@ async def get_global_spend_report(
         db_response: Sequence[Mapping[str, object]] | None
         if api_key is not None:
             verbose_proxy_logger.debug("Getting /spend for api_key: [set=%s]", api_key is not None)
-            if api_key.startswith("sk-"):
+            if api_key.startswith(VIRTUAL_KEY_PREFIXES):
                 api_key = hash_token(token=api_key)
             sql_query = """
                 WITH SpendByModelApiKey AS (
@@ -1959,7 +1960,7 @@ async def get_key_spend_report(
     """
     prisma_client = _spend_report_prereqs()
     start_date_obj, end_date_obj = _parse_spend_report_date_range(start_date=start_date, end_date=end_date)
-    requested = hash_token(token=api_key) if api_key is not None and api_key.startswith("sk-") else api_key
+    requested = hash_token(token=api_key) if api_key is not None and api_key.startswith(VIRTUAL_KEY_PREFIXES) else api_key
     scoped_api_key = _resolve_spend_report_scope(
         user_api_key_dict=user_api_key_dict,
         requested=requested,
@@ -3500,7 +3501,7 @@ async def view_spend_logs(
 
             summary_api_key: Final[str | None] = (
                 prisma_client.hash_token(token=api_key)
-                if api_key is not None and api_key.startswith("sk-")
+                if api_key is not None and api_key.startswith(VIRTUAL_KEY_PREFIXES)
                 else api_key
             )
             if api_key is not None and isinstance(api_key, str):
@@ -3556,7 +3557,7 @@ async def view_spend_logs(
         else:
             scoped_filter: Final[dict[str, object]] = {}
             if api_key is not None and isinstance(api_key, str):
-                if api_key.startswith("sk-"):
+                if api_key.startswith(VIRTUAL_KEY_PREFIXES):
                     hashed_token = prisma_client.hash_token(token=api_key)
                 else:
                     hashed_token = api_key

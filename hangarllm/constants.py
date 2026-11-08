@@ -1902,6 +1902,9 @@ CLOUDZERO_MAX_FETCHED_DATA_RECORDS: Final = get_env_int("CLOUDZERO_MAX_FETCHED_D
 SPEND_LOG_CLEANUP_JOB_NAME: Final = "spend_log_cleanup"
 BACKGROUND_HEALTH_CHECK_DB_SAVE_JOB_NAME: Final = "background_health_check_db_save"
 KEY_ROTATION_JOB_NAME: Final = "hangarllm_key_rotation_job"
+VIRTUAL_KEY_PREFIX: Final = "hgr_"
+# "sk-" keeps keys issued before the checksummed format working.
+VIRTUAL_KEY_PREFIXES: Final = (VIRTUAL_KEY_PREFIX, "sk-")
 EXPIRED_UI_SESSION_KEY_CLEANUP_JOB_NAME: Final = "hangarllm_expired_ui_session_key_cleanup_job"
 WEEKLY_SPEND_REPORT_JOB_ID: Final = "weekly_spend_report_job"
 MONTHLY_SPEND_REPORT_JOB_ID: Final = "monthly_spend_report_job"
