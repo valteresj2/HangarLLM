@@ -105,6 +105,10 @@ COPY . .
 # would otherwise leave behind alongside the fresh ones.
 RUN rm -rf litellm/proxy/_experimental/out
 COPY --from=ui-bundle /ui/out/. litellm/proxy/_experimental/out/
+RUN mkdir -p /var/lib/litellm/ui /var/lib/litellm/assets && \
+    cp -r /app/litellm/proxy/_experimental/out/. /var/lib/litellm/ui/ && \
+    cp /app/litellm/proxy/logo*.png /var/lib/litellm/assets/ && \
+    touch /var/lib/litellm/ui/.litellm_ui_ready
 
 # Install project and workspace packages (fast - deps already cached)
 RUN uv build --package litellm-proxy --wheel --out-dir /wheels
@@ -153,7 +157,9 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     PRISMA_BINARY_CACHE_DIR=/opt/prisma/binaries \
     PRISMA_CLI_PATH=/opt/prisma/binaries/node_modules/.bin/prisma \
     PRISMA_CLI_QUERY_ENGINE_TYPE=binary \
-    PRISMA_OFFLINE_MODE=true
+    PRISMA_OFFLINE_MODE=true \
+    HOME=/app \
+    LITELLM_NON_ROOT=true
 
 # Copy only what runtime needs. The application is installed inside the venv;
 # the rest of the builder's /app is source and build metadata that must not
@@ -170,13 +176,21 @@ COPY --from=builder /app/litellm-proxy-extras /app/litellm-proxy-extras
 # generated client at build time, so `prisma migrate deploy` on a fresh
 # database needs no npm and no network access (#33650, #24554).
 COPY --from=builder /opt/prisma /opt/prisma
+COPY --from=builder /var/lib/litellm/ui /var/lib/litellm/ui
+COPY --from=builder /var/lib/litellm/assets /var/lib/litellm/assets
 
 RUN find /app/.venv -type f -path "*/tornado/test/*" -delete && \
     find /app/.venv -type d -path "*/tornado/test" -delete && \
+    mkdir -p /nonexistent /app/.cache && \
+    PRISMA_PATH=$(python -c "import os, prisma; print(os.path.dirname(prisma.__file__))") && \
+    EXTRAS_PATH=$(python -c "import os, litellm_proxy_extras; print(os.path.dirname(litellm_proxy_extras.__file__))") && \
+    chown -R nobody:nogroup /nonexistent /app/.cache /var/lib/litellm "$PRISMA_PATH" "$EXTRAS_PATH" && \
     chmod -R a+rX /opt/prisma && \
     test -x /opt/prisma/binaries/node_modules/.bin/prisma && \
     test -f /opt/prisma/binaries/node_modules/prisma/build/index.js && \
     python -c "from prisma.client import BINARY_PATHS; paths = list(BINARY_PATHS.query_engine.values()); assert paths and all(p.startswith('/opt/prisma/') for p in paths), paths"
+
+USER 65534
 
 EXPOSE 4000/tcp
 

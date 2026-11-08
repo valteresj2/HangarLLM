@@ -25,6 +25,16 @@ from .conftest import normalize
 # ---------------------------------------------------------------------------
 
 
+import os  # noqa: E402
+import jwt as _real_jwt  # noqa: E402
+
+_SESSION_JWT = _real_jwt.encode(
+    {"user_id": "u1", "key": "sk-session", "login_method": "sso", "exp": 4102444800},
+    os.environ["LITELLM_UI_SESSION_SECRET"],
+    algorithm="HS256",
+)
+
+
 def _install_login_mocks(monkeypatch, raise_on_auth: bool = False) -> None:
     """Patch authenticate_user + create_ui_token_object at their import paths.
 
@@ -102,6 +112,7 @@ def test_fallback_login_shows_credentials_hint_by_default(client, monkeypatch):
     """Control: without the flag, /fallback/login still renders the hint."""
     monkeypatch.delenv("UI_USERNAME", raising=False)
     monkeypatch.delenv("UI_PASSWORD", raising=False)
+    monkeypatch.setenv("LITELLM_ALLOW_MASTER_KEY_UI_LOGIN", "true")
     monkeypatch.delenv("LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT", raising=False)
     response = client.get("/fallback/login")
     assert response.status_code == 200
@@ -373,7 +384,7 @@ def test_v3_login_exchange_success_returns_token_and_redirect(client, monkeypatc
     monkeypatch.setattr(ps, "redis_usage_cache", None)
 
     cached_payload = {
-        "token": "jwt-token-xyz",
+        "token": _SESSION_JWT,
         "redirect_url": "https://litellm.example.invalid/ui?login=success",
     }
     fake_cache = MagicMock()
@@ -396,7 +407,7 @@ def test_v3_login_exchange_success_returns_token_and_redirect(client, monkeypatc
         "cache_deleted_once": fake_cache.async_delete_cache.await_count == 1,
     }
     assert shape == {
-        "token": "jwt-token-xyz",
+        "token": _SESSION_JWT,
         "redirect_url": "https://litellm.example.invalid/ui?login=success",
         "token_cookie_set": True,
         "cache_deleted_once": True,

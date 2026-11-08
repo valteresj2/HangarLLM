@@ -1,10 +1,29 @@
-# HangarLLM local stack: gateway + admin UI, Postgres, Redis and Prometheus.
+# HangarLLM stack: TLS proxy, gateway and admin UI, Postgres, Redis and Prometheus.
 #
-#   cp .env.example .env    # then set HANGARLLM_MASTER_KEY and HANGARLLM_SALT_KEY
+#   python scripts/hangar_init_secrets.py   # creates ./secrets, keeps what already exists
 #   docker compose up -d --build
 #
-# Admin UI: http://localhost:4000/ui   API: http://localhost:4000   Prometheus: http://localhost:9090
+# Admin UI: https://localhost/ui (user "admin", password in secrets/ui_password)
+# Prometheus: http://127.0.0.1:9090, only from this machine
+#
+# On a public domain set HANGARLLM_DOMAIN and HANGARLLM_TLS (your email) in .env.
 services:
+  proxy:
+    image: caddy:2.10.2-alpine
+    ports:
+      - "${HANGARLLM_PORT:-443}:443"
+    environment:
+      HANGARLLM_DOMAIN: ${HANGARLLM_DOMAIN:-localhost}
+      HANGARLLM_TLS: ${HANGARLLM_TLS:-internal}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      hangarllm:
+        condition: service_healthy
+    restart: unless-stopped
+
   hangarllm:
     build:
       context: .
@@ -14,20 +33,43 @@ services:
         # set HANGARLLM_UI_STAGE=ui-builder to compile the dashboard inside the image.
         UI_STAGE: ${HANGARLLM_UI_STAGE:-ui-prebuilt}
     image: ghcr.io/hangarllm/hangarllm:local
-    ports:
-      - "${HANGARLLM_PORT:-4000}:4000"
+    expose:
+      - "4000"
     environment:
-      DATABASE_URL: "postgresql://hangarllm:${POSTGRES_PASSWORD:-hangarllm}@db:5432/hangarllm"
+      HANGARLLM_MASTER_KEY_FILE: /run/secrets/master_key
+      HANGARLLM_SALT_KEY_FILE: /run/secrets/salt_key
+      HANGARLLM_UI_SESSION_SECRET_FILE: /run/secrets/ui_session_secret
+      HANGARLLM_METRICS_TOKEN_FILE: /run/secrets/metrics_token
+      UI_PASSWORD_FILE: /run/secrets/ui_password
+      DATABASE_URL_FILE: /run/secrets/database_url
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       STORE_MODEL_IN_DB: "True"
+      PROXY_BASE_URL: https://${HANGARLLM_DOMAIN:-localhost}:${HANGARLLM_PORT:-443}
     env_file:
       - path: .env
         required: false
-    # To start from a config file instead of the UI:
-    # volumes:
-    #   - ./config.yaml:/app/config.yaml:ro
-    # command: ["--config", "/app/config.yaml", "--port", "4000"]
+    secrets:
+      - master_key
+      - salt_key
+      - ui_session_secret
+      - metrics_token
+      - ui_password
+      - database_url
+      - redis_password
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.cache
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Enables /metrics. Add your own settings to this file, or point it at another one.
+    volumes:
+      - ./docker/hangarllm-config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
     depends_on:
       db:
         condition: service_healthy
@@ -48,7 +90,9 @@ services:
     environment:
       POSTGRES_DB: hangarllm
       POSTGRES_USER: hangarllm
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hangarllm}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -60,9 +104,15 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    user: redis
+    command:
+      - sh
+      - -c
+      - exec redis-server --save '' --appendonly no --requirepass "$$(cat /run/secrets/redis_password)"
+    secrets:
+      - redis_password
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$(cat /run/secrets/redis_password)\" redis-cli ping | grep -q PONG"]
       interval: 2s
       timeout: 3s
       retries: 15
@@ -74,14 +124,36 @@ services:
       - prometheus_data:/prometheus
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
-      - "9090:9090"
+      - "127.0.0.1:${HANGARLLM_PROMETHEUS_PORT:-9090}:9090"
+    secrets:
+      - metrics_token
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=15d"
     restart: unless-stopped
 
+secrets:
+  master_key:
+    file: ./secrets/master_key
+  salt_key:
+    file: ./secrets/salt_key
+  ui_session_secret:
+    file: ./secrets/ui_session_secret
+  metrics_token:
+    file: ./secrets/metrics_token
+  ui_password:
+    file: ./secrets/ui_password
+  database_url:
+    file: ./secrets/database_url
+  postgres_password:
+    file: ./secrets/postgres_password
+  redis_password:
+    file: ./secrets/redis_password
+
 volumes:
   prometheus_data:
+  caddy_data:
+  caddy_config:
   postgres_data:
     name: hangarllm_postgres_data

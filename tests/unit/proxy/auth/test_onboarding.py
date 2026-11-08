@@ -16,7 +16,9 @@ import httpx
 import jwt
 import pytest
 import respx
-from fastapi import HTTPException
+import os
+
+from fastapi import HTTPException, Response
 
 import litellm
 from litellm.proxy._types import InvitationClaim, ProxyException
@@ -241,7 +243,7 @@ async def test_claim_token_rejects_already_used_link():
 
     with patch("litellm.proxy.proxy_server.prisma_client", prisma):
         with pytest.raises(HTTPException) as exc_info:
-            await claim_onboarding_link(data=data, request=_make_claim_request())
+            await claim_onboarding_link(data=data, request=_make_claim_request(), response=Response())
 
     assert exc_info.value.status_code == 401
     assert "already been used" in exc_info.value.detail["error"]
@@ -264,7 +266,7 @@ async def test_claim_token_rejects_expired_link():
 
     with patch("litellm.proxy.proxy_server.prisma_client", prisma):
         with pytest.raises(HTTPException) as exc_info:
-            await claim_onboarding_link(data=data, request=_make_claim_request())
+            await claim_onboarding_link(data=data, request=_make_claim_request(), response=Response())
 
     assert exc_info.value.status_code == 401
     assert "expired" in exc_info.value.detail["error"]
@@ -285,7 +287,7 @@ async def test_claim_token_rejects_mismatched_user_id():
 
     with patch("litellm.proxy.proxy_server.prisma_client", prisma):
         with pytest.raises(HTTPException) as exc_info:
-            await claim_onboarding_link(data=data, request=_make_claim_request())
+            await claim_onboarding_link(data=data, request=_make_claim_request(), response=Response())
 
     assert exc_info.value.status_code == 401
     assert "does not match" in exc_info.value.detail["error"]
@@ -310,7 +312,7 @@ async def test_claim_token_rejects_missing_onboarding_token():
         patch("litellm.proxy.proxy_server.general_settings", {}),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await claim_onboarding_link(data=data, request=_make_claim_request())
+            await claim_onboarding_link(data=data, request=_make_claim_request(), response=Response())
 
     assert exc_info.value.status_code == 401
     assert "Missing onboarding session" in exc_info.value.detail["error"]
@@ -339,7 +341,7 @@ async def test_claim_token_rejects_wrong_onboarding_session():
         patch("litellm.proxy.proxy_server.general_settings", {}),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await claim_onboarding_link(data=data, request=request)
+            await claim_onboarding_link(data=data, request=request, response=Response())
 
     assert exc_info.value.status_code == 401
     assert "Invalid onboarding session" in exc_info.value.detail["error"]
@@ -366,7 +368,7 @@ async def test_claim_token_rejects_invalid_bearer_token():
         patch("litellm.proxy.proxy_server.general_settings", {}),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await claim_onboarding_link(data=data, request=request)
+            await claim_onboarding_link(data=data, request=request, response=Response())
 
     assert exc_info.value.status_code == 401
     assert "Invalid onboarding session" in exc_info.value.detail["error"]
@@ -400,7 +402,7 @@ async def test_claim_token_rejects_concurrent_reuse_before_password_write():
         ) as mock_generate_key,
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await claim_onboarding_link(data=data, request=request)
+            await claim_onboarding_link(data=data, request=request, response=Response())
 
     assert exc_info.value.status_code == 401
     assert "already been used" in exc_info.value.detail["error"]
@@ -452,7 +454,7 @@ async def test_claim_token_sets_accepted_at_after_password_written():
         ),
         patch("litellm.proxy.proxy_server.get_server_root_path", return_value=""),
     ):
-        result = await claim_onboarding_link(data=data, request=request)
+        result = await claim_onboarding_link(data=data, request=request, response=Response())
 
     # Password was written
     prisma.db.litellm_invitationlink.update_many.assert_called_once()
@@ -473,8 +475,8 @@ async def test_claim_token_sets_accepted_at_after_password_written():
     link_update_data = prisma.db.litellm_invitationlink.update.call_args.kwargs["data"]
     assert "is_accepted" not in link_update_data
     assert link_update_data["accepted_at"] is not None
-    outer_claims = jwt.decode(result["token"], "sk-test", algorithms=["HS256"])
-    assert outer_claims["key"] == "sk-generated-key"
+    outer_claims = jwt.decode(result["token"], os.environ["LITELLM_UI_SESSION_SECRET"], algorithms=["HS256"])
+    assert outer_claims["key"] == "hangar-ui-session", "the session key must never reach the browser"
 
 
 @pytest.mark.asyncio
@@ -542,7 +544,7 @@ async def test_claim_token_revokes_existing_ui_sessions():
         ),
         patch("litellm.proxy.proxy_server.get_server_root_path", return_value=""),
     ):
-        await claim_onboarding_link(data=data, request=request)
+        await claim_onboarding_link(data=data, request=request, response=Response())
 
     revoke_mock.assert_awaited_once()
     assert revoke_mock.await_args.kwargs["user_id"] == "user-123"
@@ -579,7 +581,7 @@ async def test_claim_token_rolls_back_invite_when_session_key_mint_fails():
         ),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await claim_onboarding_link(data=data, request=request)
+            await claim_onboarding_link(data=data, request=request, response=Response())
 
     assert exc_info.value.status_code == 500
     assert "Failed to create onboarding session" in exc_info.value.detail["error"]
@@ -629,7 +631,7 @@ async def test_claim_token_rejects_short_password_before_consuming_invite():
         patch("litellm.proxy.proxy_server.general_settings", {}),  # test-quality-ok: same as above
     ):
         with pytest.raises(ProxyException) as exc_info:
-            await claim_onboarding_link(data=data, request=request)
+            await claim_onboarding_link(data=data, request=request, response=Response())
 
     assert exc_info.value.code == "400"
     assert "at least 12 characters" in exc_info.value.message
@@ -663,7 +665,7 @@ async def test_claim_token_rejects_breached_password_before_consuming_invite(htt
         patch("litellm.proxy.proxy_server.general_settings", {}),  # test-quality-ok: same as above
     ):
         with pytest.raises(ProxyException) as exc_info:
-            await claim_onboarding_link(data=data, request=request)
+            await claim_onboarding_link(data=data, request=request, response=Response())
 
     assert exc_info.value.code == "400"
     assert "data breaches" in exc_info.value.message
@@ -710,7 +712,7 @@ async def test_claim_token_fails_open_when_hibp_unreachable(httpx_transport):
         ),
         patch("litellm.proxy.proxy_server.get_server_root_path", return_value=""),  # test-quality-ok: same as above
     ):
-        result = await claim_onboarding_link(data=data, request=request)
+        result = await claim_onboarding_link(data=data, request=request, response=Response())
 
     assert "token" in result
     prisma.db.litellm_usertable.update.assert_called_once()

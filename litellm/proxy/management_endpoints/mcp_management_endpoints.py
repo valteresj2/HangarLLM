@@ -2302,31 +2302,17 @@ if MCP_AVAILABLE:
         allows browser-based OAuth redirects to work without an explicit
         Authorization header.
         """
-        import jwt as _jwt
-
-        from litellm.proxy.proxy_server import master_key
+        from litellm.hangar.proxy.ui_session import session_claims
 
         auth_header: Final = request.headers.get("Authorization", "")
         api_key = auth_header  # _get_bearer_token will strip "Bearer " prefix
 
         if not api_key:
-            token_cookie: Final = request.cookies.get("token")
-            if token_cookie and master_key:
-                try:
-                    decoded: Final = _jwt.decode(
-                        token_cookie,
-                        master_key,
-                        algorithms=["HS256"],
-                        # UI session cookies may omit exp; don't require it.
-                        options={"verify_exp": False, "verify_aud": False},
-                    )
-                    session_claims: Final = _session_cookie_claims(decoded)
-                    if session_claims.get("login_method") in ("sso", "username_password"):
-                        cookie_key: Final = session_claims.get("key", "")
-                        if cookie_key:
-                            api_key = f"Bearer {cookie_key}"
-                except _jwt.InvalidTokenError:
-                    pass
+            session: Final = session_claims(request.cookies)
+            if session is not None and session.get("login_method") in ("sso", "username_password"):
+                cookie_key: Final = session.get("key", "")
+                if cookie_key:
+                    api_key = f"Bearer {cookie_key}"
 
         # For delegate_auth_to_upstream servers the entire PKCE handshake
         # (both /authorize browser redirect and /token authorization_code

@@ -132,6 +132,8 @@ HOST_ONLY_ENVIRONMENT: Final = frozenset(
 
 os.environ["PYTHON_DOTENV_DISABLED"] = "1"
 os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+os.environ["LITELLM_UI_SESSION_SECRET"] = "unit-test-session-secret-0123456789abcdef"
+os.environ["LITELLM_ALLOW_SHARED_SECRETS"] = "true"
 
 import litellm  # noqa: E402  # litellm reads LITELLM_LOCAL_MODEL_COST_MAP at import
 import litellm.utils as litellm_utils_module  # noqa: E402  # same import-time dependency
@@ -384,6 +386,8 @@ def isolate_host_environment(isolated_aws_config_files: tuple[Path, Path]) -> It
         for name in ("PROXY_BASE_URL", "SERVER_ROOT_PATH", "SERVER_ROOT_PATHS", "LITELLM_LOG"):
             environment.delenv(name, raising=False)
         environment.setenv("LITELLM_CLI_DISABLE_KEYRING", "1")
+        environment.setenv("LITELLM_UI_SESSION_SECRET", "unit-test-session-secret-0123456789abcdef")
+        environment.setenv("LITELLM_ALLOW_SHARED_SECRETS", "true")
         yield
 
 

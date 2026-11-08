@@ -278,9 +278,14 @@ async def _bearer_is_litellm_credential(token: str) -> bool:
     from litellm.proxy.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # manager imports this module
         LITELLM_VIRTUAL_KEY_PREFIX,
     )
+    from litellm.hangar.proxy.ui_session import session_secret  # noqa: PLC0415  # reads the salt key
     from litellm.proxy.proxy_server import master_key  # noqa: PLC0415  # startup owns the master key
 
-    if master_key and (secrets.compare_digest(token.encode(), master_key.encode()) or _signed_with(token, master_key)):
+    if master_key and (
+        secrets.compare_digest(token.encode(), master_key.encode())
+        or _signed_with(token, master_key)
+        or _signed_with(token, session_secret())
+    ):
         return True
     if is_sealed_gateway_bearer(token):
         return True

@@ -1,6 +1,6 @@
 import os
 import warnings
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from types import MappingProxyType
 from typing import Final
 
@@ -17,6 +17,13 @@ def _dev_env_hot_reload_enabled() -> bool:
 
 _HANGARLLM_PREFIX: Final = "HANGARLLM_"
 _LITELLM_PREFIX: Final = "LITELLM_"
+_PREFIXED_SECRETS: Final = ("MASTER_KEY", "SALT_KEY", "UI_SESSION_SECRET", "METRICS_TOKEN")
+_SECRET_FILE_VARIABLES: Final = (
+    *(f"{prefix}{name}" for prefix in (_HANGARLLM_PREFIX, _LITELLM_PREFIX) for name in _PREFIXED_SECRETS),
+    "UI_PASSWORD",
+    "DATABASE_URL",
+    "REDIS_PASSWORD",
+)
 
 
 def hangarllm_env_aliases(environ: Mapping[str, str]) -> Mapping[str, str]:
@@ -29,7 +36,29 @@ def hangarllm_env_aliases(environ: Mapping[str, str]) -> Mapping[str, str]:
     return MappingProxyType({target: value for target, value in renamed if target not in environ})
 
 
+def _read_secret_file(variable: str, path: str) -> str:
+    try:
+        with open(path, encoding="utf-8") as secret_file:
+            return secret_file.read().strip()
+    except OSError as error:
+        raise RuntimeError(f"{variable}_FILE points at {path}, which could not be read: {error.strerror}") from error
+
+
+def secret_file_values(
+    environ: Mapping[str, str], read_file: Callable[[str, str], str] = _read_secret_file
+) -> Mapping[str, str]:
+    """Values for allowlisted secrets given as ``<NAME>_FILE`` (Docker secrets). An explicit ``<NAME>`` wins."""
+    return MappingProxyType(
+        {
+            variable: read_file(variable, environ[f"{variable}_FILE"])
+            for variable in _SECRET_FILE_VARIABLES
+            if environ.get(f"{variable}_FILE") and not environ.get(variable)
+        }
+    )
+
+
 def mirror_hangarllm_env() -> None:
+    os.environ.update(secret_file_values(os.environ))
     os.environ.update(hangarllm_env_aliases(os.environ))
 
 

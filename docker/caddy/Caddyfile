@@ -1,0 +1,19 @@
+{$HANGARLLM_DOMAIN:localhost} {
+	# "internal" uses a local CA, fine for a single machine. On a public domain, set
+	# HANGARLLM_TLS to your email address and Caddy will request a real certificate.
+	tls {$HANGARLLM_TLS:internal}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	@metrics path /metrics /metrics/*
+	respond @metrics 404
+
+	reverse_proxy hangarllm:4000 {
+		flush_interval -1
+	}
+}

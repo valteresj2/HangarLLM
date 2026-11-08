@@ -50,6 +50,7 @@ class _FakeSandboxSession:
 def _install_fake_sandbox(monkeypatch, session_cls=_FakeSandboxSession):
     fake_module = types.SimpleNamespace(SandboxSession=session_cls)
     monkeypatch.setitem(sys.modules, "llm_sandbox", fake_module)
+    monkeypatch.setenv("HANGARLLM_SKILL_SANDBOX_NETWORK", "true")
 
 
 def test_execute_installs_inline_requirements_file(monkeypatch):

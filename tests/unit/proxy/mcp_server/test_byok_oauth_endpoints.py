@@ -36,6 +36,10 @@ from litellm.proxy.mcp_server.byok_oauth_endpoints import (
 # ---------------------------------------------------------------------------
 
 
+import os  # noqa: E402
+
+from litellm.hangar.proxy.ui_session import SESSION_COOKIE, seal  # noqa: E402
+
 def _make_challenge(verifier: str) -> str:
     digest = hashlib.sha256(verifier.encode()).digest()
     return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
@@ -900,7 +904,7 @@ def _authorize_post_with_cookie(client, cookie_jwt: str, api_key: str = "upstrea
             "server_id": "sid",
             "api_key": api_key,
         },
-        cookies={"token": cookie_jwt},
+        cookies={SESSION_COOKIE: seal(cookie_jwt)},
         follow_redirects=False,
     )
 
@@ -918,7 +922,7 @@ def test_authorize_post_accepts_ui_session_cookie(unauthenticated_client):
                 "login_method": "sso",
                 "exp": int(time.time()) + 3600,
             },
-            "test-master-key",
+            os.environ["LITELLM_UI_SESSION_SECRET"],
             algorithm="HS256",
         )
         resp = _authorize_post_with_cookie(unauthenticated_client, cookie_jwt)
@@ -953,7 +957,7 @@ def test_authorize_post_rejects_cookie_with_revoked_session_key(unauthenticated_
                 "login_method": "sso",
                 "exp": int(time.time()) + 3600,
             },
-            "test-master-key",
+            os.environ["LITELLM_UI_SESSION_SECRET"],
             algorithm="HS256",
         )
         resp = _authorize_post_with_cookie(unauthenticated_client, cookie_jwt)
@@ -979,7 +983,7 @@ def test_authorize_post_accepts_cookie_with_live_session_key(unauthenticated_cli
                 "login_method": "sso",
                 "exp": int(time.time()) + 3600,
             },
-            "test-master-key",
+            os.environ["LITELLM_UI_SESSION_SECRET"],
             algorithm="HS256",
         )
         resp = _authorize_post_with_cookie(unauthenticated_client, cookie_jwt)
@@ -1977,6 +1981,7 @@ async def test_authenticated_browser_identity_checks_embedded_session(
 
     monkeypatch.setenv("LITELLM_SALT_KEY", "local-test-encryption-key")
     monkeypatch.setattr(proxy_server, "master_key", "local-test-cookie-signing-key-32-bytes")
+    monkeypatch.setenv("LITELLM_UI_SESSION_SECRET", "local-test-cookie-signing-key-32-bytes")
     monkeypatch.setattr(proxy_server, "prisma_client", object())
     session: Final = UserAPIKeyAuth(
         user_id="bob" if case == "wrong_user" else "alice",
@@ -1992,5 +1997,5 @@ async def test_authenticated_browser_identity_checks_embedded_session(
         "different-key-at-least-32-bytes-long" if case == "tampered" else "local-test-cookie-signing-key-32-bytes",
         algorithm="HS256",
     )
-    request: Final = Request({"type": "http", "headers": [(b"cookie", ("token=" + cookie).encode())]})
+    request: Final = Request({"type": "http", "headers": [(b"cookie", (SESSION_COOKIE + "=" + seal(cookie)).encode())]})
     assert await get_authenticated_browser_user_id(request) == expected

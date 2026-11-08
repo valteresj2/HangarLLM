@@ -14,7 +14,8 @@ services:
     environment:
       HANGARLLM_MASTER_KEY: ${HANGARLLM_MASTER_KEY:?set it in .env - see the header of this file}
       HANGARLLM_SALT_KEY: ${HANGARLLM_SALT_KEY:?set it in .env - see the header of this file}
-      DATABASE_URL: postgresql://hangarllm:${POSTGRES_PASSWORD:-hangarllm}@db:5432/hangarllm
+      DATABASE_URL: postgresql://hangarllm:${POSTGRES_PASSWORD:?set it in .env}@db:5432/hangarllm
+      UI_PASSWORD: ${UI_PASSWORD:?set it in .env}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       STORE_MODEL_IN_DB: "True"
@@ -28,7 +29,7 @@ services:
     image: postgres:16
     environment:
       POSTGRES_USER: hangarllm
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hangarllm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in .env}
       POSTGRES_DB: hangarllm
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U hangarllm"]

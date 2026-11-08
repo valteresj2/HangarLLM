@@ -21,6 +21,7 @@ from pydantic import TypeAdapter
 
 from litellm._logging import verbose_proxy_logger
 from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
+from litellm.hangar.proxy.ui_session import SESSION_COOKIE
 from litellm.proxy._types import (
     CommonProxyErrors,
     HTTPExceptionErrorDetail,
@@ -171,6 +172,7 @@ async def session_logout(
     # The server set this cookie at login (set_session_token_cookie); clear it
     # here too so logout works even if the client-side clear is skipped.
     response.delete_cookie("token")
+    response.delete_cookie(SESSION_COOKIE)
     return SessionLogoutResponse(
         message="Session revoked." if revoked else "Session already revoked.",
     )

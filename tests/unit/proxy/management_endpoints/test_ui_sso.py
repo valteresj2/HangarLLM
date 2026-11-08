@@ -53,6 +53,16 @@ from litellm.types.proxy.management_endpoints.ui_sso import (
 from tests._master_key import MASTER_KEY
 
 
+import os  # noqa: E402
+import jwt as _real_jwt  # noqa: E402
+
+_SESSION_JWT = _real_jwt.encode(
+    {"user_id": "u1", "key": "sk-session", "login_method": "sso", "exp": 4102444800},
+    os.environ["LITELLM_UI_SESSION_SECRET"],
+    algorithm="HS256",
+)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("billable_users", "premium", "admitted"),
@@ -9422,8 +9432,10 @@ async def _render_legacy_login_page(env_overrides, general_settings):
 
 @pytest.mark.asyncio
 async def test_legacy_login_page_shows_credentials_hint_by_default():
-    """Control: without the flag, the legacy page still discloses the hint."""
-    response = await _render_legacy_login_page(env_overrides={}, general_settings={})
+    """Control: with master-key login allowed, the legacy page still discloses the hint."""
+    response = await _render_legacy_login_page(
+        env_overrides={"LITELLM_ALLOW_MASTER_KEY_UI_LOGIN": "true"}, general_settings={}
+    )
 
     body = response.body.decode()
     assert response.status_code == 200
@@ -10946,10 +10958,10 @@ class TestPersistReturnToCookieSharedHelper:
         request: Final = _make_https_request()
         request.cookies = {"litellm_cp_return_to": "/mcp/authorize?client_id=llm_dcrc_abc"}
         assert read_return_to_cookie(request) is None
-        response: Final = _dashboard_redirect_response(request, "jwt", "/ui?login=success")
+        response: Final = _dashboard_redirect_response(request, _SESSION_JWT, "/ui?login=success")
         set_cookies: Final = response.headers.getlist("set-cookie")
         assert response.status_code == 303 and response.headers["location"] == "/ui?login=success"
-        assert any(c.startswith("token=jwt") for c in set_cookies), set_cookies
+        assert any(c.startswith("token=ey") for c in set_cookies), set_cookies
         assert any(c.startswith('litellm_cp_return_to=""') and "Max-Age=0" in c for c in set_cookies), set_cookies
 
     def test_cookie_is_secure_and_httponly_over_https(self, monkeypatch):
@@ -11013,9 +11025,9 @@ class TestSessionTokenCookie:
 
         monkeypatch.delenv("PROXY_BASE_URL", raising=False)
         resp = Response()
-        set_session_token_cookie(resp, _make_https_request(), "jwt-token-value")
+        set_session_token_cookie(resp, _make_https_request(), _SESSION_JWT)
         cookie = self._cookie(resp)
-        assert "token=jwt-token-value" in cookie
+        assert "token=ey" in cookie
         assert "Secure" in cookie
         assert "SameSite=lax" in cookie
         assert "HttpOnly" not in cookie
@@ -11027,7 +11039,7 @@ class TestSessionTokenCookie:
 
         monkeypatch.delenv("PROXY_BASE_URL", raising=False)
         resp = Response()
-        set_session_token_cookie(resp, _make_http_request(), "jwt-token-value")
+        set_session_token_cookie(resp, _make_http_request(), _SESSION_JWT)
         assert "Secure" not in self._cookie(resp)
 
     def test_secure_behind_trusted_tls_terminating_proxy(self, monkeypatch):
@@ -11047,7 +11059,7 @@ class TestSessionTokenCookie:
         request.client.host = "10.0.0.5"
         request.headers = {"X-Forwarded-Proto": "https"}
         resp = Response()
-        set_session_token_cookie(resp, request, "jwt-token-value")
+        set_session_token_cookie(resp, request, _SESSION_JWT)
         assert "Secure" in self._cookie(resp)
 
     def test_untrusted_spoofed_forwarded_proto_is_ignored(self, monkeypatch):
@@ -11060,7 +11072,7 @@ class TestSessionTokenCookie:
         request = _make_http_request()
         request.headers = {"X-Forwarded-Proto": "https"}
         resp = Response()
-        set_session_token_cookie(resp, request, "jwt-token-value")
+        set_session_token_cookie(resp, request, _SESSION_JWT)
         assert "Secure" not in self._cookie(resp)
 
     def test_proxy_base_url_https_overrides_literal_http_scheme(self, monkeypatch):
@@ -11070,7 +11082,7 @@ class TestSessionTokenCookie:
 
         monkeypatch.setenv("PROXY_BASE_URL", "https://litellm.example.com")
         resp = Response()
-        set_session_token_cookie(resp, _make_http_request(), "jwt-token-value")
+        set_session_token_cookie(resp, _make_http_request(), _SESSION_JWT)
         assert "Secure" in self._cookie(resp)
 
 

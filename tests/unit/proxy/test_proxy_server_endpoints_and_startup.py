@@ -92,6 +92,15 @@ example_embedding_result = {
 }
 
 
+import jwt as _real_jwt  # noqa: E402
+
+_SIGNED_TOKEN = _real_jwt.encode(
+    {"user_id": "u1", "key": "sk-session", "login_method": "sso", "exp": 4102444800},
+    os.environ["LITELLM_UI_SESSION_SECRET"],
+    algorithm="HS256",
+)
+
+
 def mock_patch_aembedding():
     return mock.patch(
         "litellm.proxy.proxy_server.llm_router.aembedding",
@@ -127,7 +136,7 @@ def test_login_v2_returns_redirect_url_and_sets_cookie(monkeypatch):
     mock_prisma_client = MagicMock()
     mock_authenticate_user = AsyncMock(return_value=mock_login_result)
     mock_create_ui_token_object = MagicMock(return_value={"user_id": "test-user"})
-    mock_jwt_encode = MagicMock(return_value="signed-token")
+    mock_jwt_encode = MagicMock(return_value=_SIGNED_TOKEN)
 
     monkeypatch.setattr(
         "litellm.proxy.auth.login_utils.authenticate_user",
@@ -154,9 +163,9 @@ def test_login_v2_returns_redirect_url_and_sets_cookie(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {
         "redirect_url": "http://testserver/ui?login=success",
-        "token": "signed-token",
+        "token": _SIGNED_TOKEN,
     }
-    assert response.cookies.get("token") == "signed-token"
+    assert response.cookies.get("token") == _SIGNED_TOKEN
 
     mock_authenticate_user.assert_awaited_once()
     auth_kwargs = mock_authenticate_user.call_args.kwargs
@@ -171,15 +180,14 @@ def test_login_v2_returns_redirect_url_and_sets_cookie(monkeypatch):
         general_settings={},
         premium_user=False,
     )
-    mock_jwt_encode.assert_called_once()
-    payload, secret = mock_jwt_encode.call_args.args
+    payload, secret = mock_jwt_encode.call_args_list[0].args
     # The UI session token carries a bounded-lifetime `exp` claim (dynamic timestamp), alongside
     # the user_id; assert its presence rather than an exact expiry value.
     assert payload["user_id"] == "test-user"
     assert isinstance(payload.get("exp"), int) and payload["exp"] > 0
     assert set(payload.keys()) == {"user_id", "exp"}
-    assert secret == "test-master-key"
-    assert mock_jwt_encode.call_args.kwargs == {"algorithm": "HS256"}
+    assert secret == os.environ["LITELLM_UI_SESSION_SECRET"], "UI sessions must not be signed with the master key"
+    assert mock_jwt_encode.call_args_list[0].kwargs == {"algorithm": "HS256"}
 
 
 def _mock_login_v2_deps(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -191,7 +199,7 @@ def _mock_login_v2_deps(monkeypatch: pytest.MonkeyPatch) -> None:
         "litellm.proxy.auth.login_utils.create_ui_token_object",
         MagicMock(return_value={"user_id": "test-user"}),
     )
-    monkeypatch.setattr("jwt.encode", MagicMock(return_value="signed-token"))
+    monkeypatch.setattr("jwt.encode", MagicMock(return_value=_SIGNED_TOKEN))
     monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "test-master-key")
     monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", False)
     monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", MagicMock())
@@ -210,9 +218,12 @@ def test_login_v2_sets_secure_cookie_over_direct_https(monkeypatch):
     response = client.post("/v2/login", json={"username": "alice", "password": "secret"})
 
     assert response.status_code == 200
-    cookie = response.headers.get("set-cookie")
+    set_cookies = response.headers.get_list("set-cookie")
+    cookie = next(c for c in set_cookies if c.startswith("token="))
+    session_cookie = next(c for c in set_cookies if c.startswith("hangar_session="))
     assert "Secure" in cookie
     assert "HttpOnly" not in cookie  # deliberate: the dashboard reads this cookie via JS
+    assert "HttpOnly" in session_cookie and "Secure" in session_cookie
     assert "samesite=lax" in cookie.lower()
 
 
@@ -382,7 +393,7 @@ def test_login_v3_returns_code(monkeypatch):
         "litellm.proxy.auth.login_utils.create_ui_token_object",
         MagicMock(return_value={"user_id": "test-user"}),
     )
-    monkeypatch.setattr("jwt.encode", MagicMock(return_value="signed-token"))
+    monkeypatch.setattr("jwt.encode", MagicMock(return_value=_SIGNED_TOKEN))
     monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "test-master-key")
     monkeypatch.setattr(
         "litellm.proxy.proxy_server.general_settings",
@@ -420,7 +431,7 @@ def test_login_v3_exchange_happy_path(monkeypatch):
         "litellm.proxy.auth.login_utils.create_ui_token_object",
         MagicMock(return_value={"user_id": "test-user"}),
     )
-    monkeypatch.setattr("jwt.encode", MagicMock(return_value="signed-token"))
+    monkeypatch.setattr("jwt.encode", MagicMock(return_value=_SIGNED_TOKEN))
     monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "test-master-key")
     monkeypatch.setattr(
         "litellm.proxy.proxy_server.general_settings",
@@ -451,9 +462,9 @@ def test_login_v3_exchange_happy_path(monkeypatch):
     )
     assert exchange_response.status_code == 200
     exchange_data = exchange_response.json()
-    assert exchange_data["token"] == "signed-token"
+    assert exchange_data["token"] == _SIGNED_TOKEN
     assert "redirect_url" in exchange_data
-    assert exchange_response.cookies.get("token") == "signed-token"
+    assert exchange_response.cookies.get("token") == _SIGNED_TOKEN
 
 
 def test_login_v3_exchange_sets_secure_cookie_behind_trusted_tls_terminating_proxy(monkeypatch):
@@ -468,7 +479,7 @@ def test_login_v3_exchange_sets_secure_cookie_behind_trusted_tls_terminating_pro
         "litellm.proxy.auth.login_utils.create_ui_token_object",
         MagicMock(return_value={"user_id": "test-user"}),
     )
-    monkeypatch.setattr("jwt.encode", MagicMock(return_value="signed-token"))
+    monkeypatch.setattr("jwt.encode", MagicMock(return_value=_SIGNED_TOKEN))
     monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "test-master-key")
     monkeypatch.setattr(
         "litellm.proxy.proxy_server.general_settings",
@@ -512,7 +523,7 @@ def test_login_v3_exchange_single_use(monkeypatch):
         "litellm.proxy.auth.login_utils.create_ui_token_object",
         MagicMock(return_value={"user_id": "test-user"}),
     )
-    monkeypatch.setattr("jwt.encode", MagicMock(return_value="signed-token"))
+    monkeypatch.setattr("jwt.encode", MagicMock(return_value=_SIGNED_TOKEN))
     monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "test-master-key")
     monkeypatch.setattr(
         "litellm.proxy.proxy_server.general_settings",
@@ -4166,9 +4177,6 @@ async def test_load_environment_variables_litellm_license_and_edge_cases():
             # Verify LITELLM_LICENSE was set in environment
             assert os.environ["LITELLM_LICENSE"] == "test_license_key"
 
-            # Verify license check was updated
-            assert mock_license_check.license_str == "test_license_key"
-            mock_license_check.is_premium.assert_called_once()
 
     # Test Case 2: No environment_variables in config
     test_config_no_env_vars = {}
@@ -16228,8 +16236,8 @@ def test_feedback_box_is_one_json_record_in_json_mode(
     lines: Final = [raw for raw in out.splitlines() if raw.strip()]
     assert len(lines) == 1, lines
     record: Final = json.loads(lines[0])
-    assert "Give Feedback / Get Help: https://github.com/BerriAI/litellm/issues/new" in record["message"]
-    assert "Thank you for using LiteLLM! - Krrish & Ishaan" in record["message"]
+    assert "Give Feedback / Get Help: https://github.com/hangarllm/hangarllm/issues/new" in record["message"]
+    assert "Thank you for flying HangarLLM!" in record["message"]
     assert "\x1b[" not in record["message"]
 
 

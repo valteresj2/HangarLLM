@@ -25,6 +25,16 @@ from .conftest import normalize
 # ---------------------------------------------------------------------------
 
 
+import os  # noqa: E402
+import jwt as _real_jwt  # noqa: E402
+
+_SESSION_JWT = _real_jwt.encode(
+    {"user_id": "u1", "key": "sk-session", "login_method": "sso", "exp": 4102444800},
+    os.environ["LITELLM_UI_SESSION_SECRET"],
+    algorithm="HS256",
+)
+
+
 def _make_invite(
     invite_id: str = "inv-123",
     user_id: str = "user-abc",
@@ -235,7 +245,7 @@ def test_claim_onboarding_link_happy(client, monkeypatch, mock_prisma, httpx_tra
     # Avoid hitting generate_key_helper_fn (touches DB / many globals); patch
     # the helper directly so we focus on the route's own behavior.
     async def _fake_session_token(user_obj):
-        return "session-jwt-token"
+        return _SESSION_JWT
 
     monkeypatch.setattr(
         ps, "_generate_onboarding_ui_session_token", _fake_session_token
@@ -259,7 +269,7 @@ def test_claim_onboarding_link_happy(client, monkeypatch, mock_prisma, httpx_tra
     assert response.status_code == 200
     body = response.json()
     assert set(body.keys()) == {"login_url", "token", "user_email", "user"}
-    assert body["token"] == "session-jwt-token"
+    assert _real_jwt.decode(body["token"], options={"verify_signature": False})["key"] == "hangar-ui-session"
     assert body["user_email"] == "alice@example.com"
     assert body["login_url"].endswith("/ui?login=success")
 

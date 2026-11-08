@@ -72,6 +72,7 @@ from litellm.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
+from litellm.hangar.proxy.ui_session import SESSION_COOKIE, browser_session_token, seal
 from litellm.proxy._types import (
     CommonProxyErrors,
     LiteLLM_UserTable,
@@ -3174,19 +3175,18 @@ _sso_return_to_redirect: Final = sso_return_to_redirect
 def set_session_token_cookie(response: Response, request: Request, jwt_token: str) -> None:
     """Set the ``token`` session cookie shared by every sign-in path.
 
-    Not HttpOnly: the dashboard reads this cookie via ``document.cookie`` to
-    populate its own Authorization headers (see
-    ``ui/litellm-dashboard/src/utils/cookieUtils.ts``), so marking it
-    HttpOnly would break login. Secure is still required whenever the public
-    origin is HTTPS, resolved the same trust-aware way as every other
-    litellm cookie."""
+    ``token`` stays readable by the dashboard but holds no key. The real session is sealed in an
+    HttpOnly cookie that ``UiSessionMiddleware`` opens on each request. Secure is required whenever
+    the public origin is HTTPS, resolved the same trust-aware way as every other litellm cookie."""
+    secure: Final = IPAddressUtils.is_request_https(request)
     response.set_cookie(
         key="token",
-        value=jwt_token,
-        secure=IPAddressUtils.is_request_https(request),
+        value=browser_session_token(jwt_token),
+        secure=secure,
         httponly=False,
         samesite="lax",
     )
+    response.set_cookie(key=SESSION_COOKIE, value=seal(jwt_token), secure=secure, httponly=True, samesite="lax")
 
 
 def _persist_return_to_cookie(response: Response, return_to: str | None, request: Request) -> None:
@@ -4117,7 +4117,7 @@ class SSOAuthenticationHandler:
 
         from litellm.proxy.auth.login_utils import encode_ui_session_jwt
 
-        jwt_token: Final = encode_ui_session_jwt(returned_ui_token_object, master_key or "")
+        jwt_token: Final = encode_ui_session_jwt(returned_ui_token_object)
 
         # Post-SSO return_to handling (the same-origin DCR round-trip and the control-plane
         # cross-origin code exchange) lives in one shared helper so this method stays inside the

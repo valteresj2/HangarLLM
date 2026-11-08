@@ -59,7 +59,11 @@ from tests._master_key import MASTER_KEY
 
 # Successful DB-user logins schedule the background HIBP screen; disable it so
 # no test ever does live network I/O to haveibeenpwned.com from CI.
+_SESSION_SECRET = "unit-test-session-secret-0123456789abcdef"
 _POLICY_NO_BREACH_CHECK = {"password_policy_check_breached_passwords": False}
+
+
+from litellm.hangar.proxy.ui_session import SESSION_COOKIE, seal  # noqa: E402
 
 
 def test_get_ui_credentials_prefers_explicit_password():
@@ -75,13 +79,24 @@ def test_get_ui_credentials_prefers_explicit_password():
     assert password == "secure-pass"
 
 
-def test_get_ui_credentials_can_use_master_key():
-    """Master key should be used as password when UI_PASSWORD is missing."""
-    with patch.dict(os.environ, {"UI_USERNAME": "fallback-admin"}, clear=True):
+def test_get_ui_credentials_uses_master_key_only_after_explicit_opt_in():
+    with patch.dict(
+        os.environ,
+        {"UI_USERNAME": "fallback-admin", "LITELLM_ALLOW_MASTER_KEY_UI_LOGIN": "true"},
+        clear=True,
+    ):
         username, password = get_ui_credentials(master_key="fallback-key")
 
     assert username == "fallback-admin"
     assert password == "fallback-key"
+
+
+def test_get_ui_credentials_refuses_master_key_without_opt_in():
+    with patch.dict(os.environ, {"UI_USERNAME": "fallback-admin"}, clear=True):
+        with pytest.raises(ProxyException) as exc_info:
+            get_ui_credentials(master_key="fallback-key")
+
+    assert "UI_PASSWORD" in str(exc_info.value.message)
 
 
 def test_get_ui_credentials_requires_password():
@@ -148,7 +163,8 @@ async def test_authenticate_user_admin_login_with_ui_credentials():
 
 @pytest.mark.asyncio
 async def test_authenticate_user_admin_login_with_master_key_as_password(monkeypatch):
-    """Test admin login when UI_PASSWORD is not set, should use master_key"""
+    """With the explicit opt-in, admin login falls back to master_key when UI_PASSWORD is not set."""
+    monkeypatch.setenv("LITELLM_ALLOW_MASTER_KEY_UI_LOGIN", "true")
     master_key = MASTER_KEY
     ui_username = "admin"
 
@@ -607,7 +623,7 @@ class TestEncodeUiSessionJwt:
     def _decode(self, token: str) -> dict:
         import jwt
 
-        return jwt.decode(token, "sk-master-for-tests", algorithms=["HS256"])
+        return jwt.decode(token, _SESSION_SECRET, algorithms=["HS256"])
 
     def test_encoded_cookie_carries_bounded_exp(self):
         import time
@@ -615,8 +631,11 @@ class TestEncodeUiSessionJwt:
         from litellm.proxy.auth.login_utils import encode_ui_session_jwt
 
         token_object = {"user_id": "u1", "key": "sk-abc", "login_method": "username_password"}
-        with patch("litellm.proxy.auth.login_utils.LITELLM_UI_SESSION_DURATION", "24h"):
-            token = encode_ui_session_jwt(token_object, "sk-master-for-tests")
+        with (
+            patch("litellm.proxy.auth.login_utils.LITELLM_UI_SESSION_DURATION", "24h"),
+            patch.dict(os.environ, {"LITELLM_UI_SESSION_SECRET": _SESSION_SECRET}),
+        ):
+            token = encode_ui_session_jwt(token_object)
         claims = self._decode(token)
         assert claims["user_id"] == "u1"
         assert claims["login_method"] == "username_password"
@@ -628,8 +647,11 @@ class TestEncodeUiSessionJwt:
 
         from litellm.proxy.auth.login_utils import encode_ui_session_jwt
 
-        with patch("litellm.proxy.auth.login_utils.LITELLM_UI_SESSION_DURATION", "1h"):
-            token = encode_ui_session_jwt({"user_id": "u1"}, "sk-master-for-tests")
+        with (
+            patch("litellm.proxy.auth.login_utils.LITELLM_UI_SESSION_DURATION", "1h"),
+            patch.dict(os.environ, {"LITELLM_UI_SESSION_SECRET": _SESSION_SECRET}),
+        ):
+            token = encode_ui_session_jwt({"user_id": "u1"})
         remaining = self._decode(token)["exp"] - int(time.time())
         assert 0 < remaining <= 3600
 
@@ -646,11 +668,13 @@ class TestEncodeUiSessionJwt:
         )
 
         token_object = {"user_id": "cornell-user", "key": "sk-abc", "login_method": "sso"}
-        with patch("litellm.proxy.auth.login_utils.LITELLM_UI_SESSION_DURATION", "24h"):
-            token = encode_ui_session_jwt(token_object, "sk-master-for-tests")
-        request = MagicMock()
-        request.cookies = {"token": token}
-        with patch("litellm.proxy.proxy_server.master_key", "sk-master-for-tests"):
+        with (
+            patch("litellm.proxy.auth.login_utils.LITELLM_UI_SESSION_DURATION", "24h"),
+            patch.dict(os.environ, {"LITELLM_UI_SESSION_SECRET": _SESSION_SECRET}),
+        ):
+            token = encode_ui_session_jwt(token_object)
+            request = MagicMock()
+            request.cookies = {SESSION_COOKIE: seal(token)}
             assert user_id_from_session_cookie(request) == "cornell-user"
 
 

@@ -14,7 +14,7 @@ from fastapi import HTTPException, status
 
 from litellm.secret_managers.main import get_secret_bool
 
-_ALWAYS_ALLOWED_WITH_LLM_DISABLED: Final = frozenset({"/models", "/v1/models"})
+_ALWAYS_ALLOWED_WITH_LLM_DISABLED: Final = frozenset({"/models", "/v1/models", "/claude_code_gateway/v1/models"})
 
 
 class HangarRouteChecks:

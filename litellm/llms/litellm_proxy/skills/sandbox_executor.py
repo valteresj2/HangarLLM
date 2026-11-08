@@ -49,6 +49,29 @@ class _SandboxExecution(TypedDict):
     files: ReadOnly[Sequence[_GeneratedFile]]
 
 
+SANDBOX_NETWORK_ENV_VAR: Final = "HANGARLLM_SKILL_SANDBOX_NETWORK"
+REQUIREMENTS_NEED_NETWORK: Final = (
+    "This skill installs Python packages, but the sandbox has no network access. Bake the packages into "
+    f"a custom sandbox image, or set {SANDBOX_NETWORK_ENV_VAR}=true to allow network access."
+)
+
+
+def sandbox_network_allowed() -> bool:
+    return os.getenv(SANDBOX_NETWORK_ENV_VAR, "").strip().lower() == "true"
+
+
+def sandbox_runtime_configs(*, network_allowed: bool) -> dict[str, object]:
+    """Skill code is untrusted: no reach into the gateway network, cloud metadata or host privileges."""
+    return {
+        **({} if network_allowed else {"network_mode": "none"}),
+        "cap_drop": ["ALL"],
+        "security_opt": ["no-new-privileges"],
+        "mem_limit": "1g",
+        "pids_limit": 256,
+        "environment": {},
+    }
+
+
 class SkillsSandboxExecutor:
     """
     Executes skill code in llm-sandbox Docker container.
@@ -114,9 +137,20 @@ class SkillsSandboxExecutor:
 
         try:
             # Create sandbox session
+            network_allowed: Final = sandbox_network_allowed()
+            needs_requirements: Final = bool(requirements) or "requirements.txt" in skill_files
+            if needs_requirements and not network_allowed:
+                return {
+                    "success": False,
+                    "output": "",
+                    "error": REQUIREMENTS_NEED_NETWORK,
+                    "files": [],
+                }
             session_kwargs: Final[dict[str, object]] = {
                 "lang": "python",
                 "verbose": False,
+                "skip_environment_setup": not network_allowed,
+                "runtime_configs": sandbox_runtime_configs(network_allowed=network_allowed),
             }
 
             if self.image:

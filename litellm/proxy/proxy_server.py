@@ -1184,6 +1184,8 @@ from fastapi.staticfiles import StaticFiles
 ###################
 # HangarLLM open-core routes and config (audit logs, email settings, projects, custom auth modes, ...)
 from litellm.hangar.proxy.proxy_config import HangarProxyConfig
+from litellm.hangar.proxy.secret_separation import enforce_secret_separation
+from litellm.hangar.proxy.ui_session import UiSessionMiddleware, browser_session_token
 from litellm.hangar.proxy.routes import router as _hangar_router
 
 enterprise_router = _hangar_router  # name kept for code that imports it
@@ -1694,6 +1696,11 @@ async def _proxy_lifespan(app: FastAPI, resources: AsyncExitStack) -> AsyncGener
                     count_values_encrypted_with_or_none, partial(_connect_to_count_stored_values, boot_database)
                 ),
             ),
+            announce=announce_on_stderr_at_exit,
+        )
+        enforce_secret_separation(
+            master_key=master_key,
+            database_is_configured=prisma_client is not None or get_secret("DATABASE_URL", None) is not None,
             announce=announce_on_stderr_at_exit,
         )
 
@@ -2957,6 +2964,7 @@ app.add_middleware(
 )
 
 app.add_middleware(PrometheusAuthMiddleware)
+app.add_middleware(UiSessionMiddleware)
 # Added before InFlightRequestsMiddleware so it nests *inside* it: Starlette
 # makes the last-added middleware outermost. The billable count is recorded
 # after the inner app returns, so if this sat outside the in-flight tracker a
@@ -19404,7 +19412,7 @@ async def login(request: Request):
     )
 
     # Generate JWT token
-    jwt_token: Final = encode_ui_session_jwt(returned_ui_token_object, cast(str, master_key))
+    jwt_token: Final = encode_ui_session_jwt(returned_ui_token_object)
 
     # Build redirect URL
     litellm_dashboard_ui = get_custom_url(str(request.base_url))
@@ -19484,7 +19492,7 @@ async def login_v2(request: Request):
             premium_user=premium_user,
         )
 
-        jwt_token: Final = encode_ui_session_jwt(returned_ui_token_object, cast(str, master_key))
+        jwt_token: Final = encode_ui_session_jwt(returned_ui_token_object)
 
         litellm_dashboard_ui = get_custom_url(str(request.base_url))
         litellm_dashboard_ui = litellm_dashboard_ui.rstrip("/")
@@ -19494,7 +19502,7 @@ async def login_v2(request: Request):
         # cookie even when a reverse proxy (e.g. nginx-ingress) adds HttpOnly to the
         # server-set cookie, which would otherwise cause an infinite login redirect.
         json_response: Final = JSONResponse(
-            content={"redirect_url": litellm_dashboard_ui, "token": jwt_token},
+            content={"redirect_url": litellm_dashboard_ui, "token": browser_session_token(jwt_token)},
             status_code=status.HTTP_200_OK,
         )
         set_session_token_cookie(json_response, request, jwt_token)
@@ -19556,7 +19564,7 @@ async def login_v3(request: Request):
             premium_user=premium_user,
         )
 
-        jwt_token: Final = encode_ui_session_jwt(returned_ui_token_object, cast(str, master_key))
+        jwt_token: Final = encode_ui_session_jwt(returned_ui_token_object)
 
         litellm_dashboard_ui = get_custom_url(str(request.base_url))
         litellm_dashboard_ui = litellm_dashboard_ui.rstrip("/")
@@ -19838,8 +19846,7 @@ async def _generate_onboarding_ui_session_token(user_obj: _UserTableRow) -> str:
     )
     key: Final = response["token"]
 
-    import jwt
-
+    from litellm.proxy.auth.login_utils import encode_ui_session_jwt
     from litellm.types.proxy.ui_sso import ReturnedUITokenObject
 
     disabled_non_admin_personal_key_creation: Final = get_disabled_non_admin_personal_key_creation()
@@ -19855,16 +19862,11 @@ async def _generate_onboarding_ui_session_token(user_obj: _UserTableRow) -> str:
         server_root_path=get_server_root_path(),
         password_reset_required=False,
     )
-    assert master_key is not None
-    return jwt.encode(
-        cast(dict, returned_ui_token_object),
-        master_key,
-        algorithm="HS256",
-    )
+    return encode_ui_session_jwt(returned_ui_token_object)
 
 
 @app.post("/onboarding/claim_token", include_in_schema=False)
-async def claim_onboarding_link(data: InvitationClaim, request: Request):
+async def claim_onboarding_link(data: InvitationClaim, request: Request, response: Response):
     """
     Special route. Allows UI link share user to update their password.
 
@@ -19877,6 +19879,8 @@ async def claim_onboarding_link(data: InvitationClaim, request: Request):
     This route can only update user password.
     """
     global prisma_client, master_key, general_settings
+    from litellm.proxy.management_endpoints.ui_sso import set_session_token_cookie
+
     ### VALIDATE INVITE LINK ###
     if prisma_client is None:
         raise HTTPException(
@@ -20000,9 +20004,10 @@ async def claim_onboarding_link(data: InvitationClaim, request: Request):
     litellm_dashboard_ui = get_custom_url(str(request.base_url))
     litellm_dashboard_ui = litellm_dashboard_ui.rstrip("/")
     litellm_dashboard_ui += "/ui?login=success"
+    set_session_token_cookie(response, request, jwt_token)
     return {
         "login_url": litellm_dashboard_ui,
-        "token": jwt_token,
+        "token": browser_session_token(jwt_token),
         "user_email": user_obj.user_email,
         "user": user_obj,
     }

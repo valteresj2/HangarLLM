@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from litellm._logging import verbose_proxy_logger
+from litellm.hangar.proxy.ui_session import session_claims
 from litellm.proxy._types import UserAPIKeyAuth
 from litellm.proxy.mcp_server.catalog import public_catalog_operation
 from litellm.proxy.mcp_server.db import store_user_credential
@@ -104,25 +105,8 @@ def _session_identity_from_cookie(request: Request) -> tuple[str | None, str | N
     ``"username_password"``; byok_session tokens never set it) and
     rejecting any token whose ``type`` identifies it as non-UI.
     """
-    # Inline import avoids a circular dep (proxy_server -> mcp_server router).
-    from litellm.proxy.proxy_server import master_key
-
-    if not master_key:
-        return None, None
-    token: Final = request.cookies.get("token")
-    if not token:
-        return None, None
-    try:
-        payload: Final = jwt.decode(
-            token,
-            master_key,
-            algorithms=["HS256"],
-            # Require an expiry claim so a leaked UI session cookie has a
-            # bounded lifetime. PyJWT verifies exp by default when present;
-            # require=["exp"] additionally rejects tokens that omit it.
-            options={"require": ["exp"]},
-        )
-    except jwt.InvalidTokenError:
+    payload: Final = session_claims(request.cookies)
+    if payload is None:
         return None, None
     if payload.get("type") == "byok_session":
         return None, None

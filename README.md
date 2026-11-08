@@ -59,7 +59,7 @@ It is a fork of [LiteLLM](https://github.com/BerriAI/litellm) (MIT). Everything 
 cp .env.example .env
 ```
 
-Set `HANGARLLM_MASTER_KEY` and `HANGARLLM_SALT_KEY` in `.env` (any `sk-` prefixed random string, for example `sk-$(openssl rand -hex 32)`), then start the stack.
+Run `python scripts/hangar_init_secrets.py` once. It creates one random secret per file under `secrets/`, and the stack reads them as Docker secrets. Then start the stack. The UI user is `admin`, its password is in `secrets/ui_password`, and the gateway answers on HTTPS only.
 
 ```bash
 docker compose up -d --build
@@ -67,7 +67,7 @@ docker compose up -d --build
 
 The API listens on `http://localhost:4000`, the admin UI on `http://localhost:4000/ui` (user `admin`, password is your master key) and Prometheus on `http://localhost:9090`. Turn on gateway metrics with `callbacks: ["prometheus"]` under `litellm_settings` in your config.
 
-Keep `HANGARLLM_SALT_KEY` stable. Changing it makes the provider credentials already stored in the database unreadable.
+Keep `secrets/salt_key` stable and backed up. Changing it makes the provider credentials already stored in the database unreadable.
 
 ### Docker, single container
 
@@ -121,13 +121,23 @@ Every setting that upstream reads from a `LITELLM_*` environment variable also a
 
 | Variable | Purpose |
 | --- | --- |
-| `HANGARLLM_MASTER_KEY` | Admin key for the API and the UI |
+| `HANGARLLM_MASTER_KEY` | Admin key for the API. It is not accepted as a UI password |
+| `UI_PASSWORD` | Password of the Admin UI `admin` user |
+| `HANGARLLM_UI_SESSION_SECRET` | Signs UI sessions. Derived from the salt key when unset |
 | `HANGARLLM_SALT_KEY` | Encrypts provider credentials stored in the database |
 | `DATABASE_URL` | Postgres connection string for keys, teams, spend and audit logs |
 | `REDIS_HOST`, `REDIS_PORT` | Shared cache, rate limits and router state across instances |
 | `HANGARLLM_LOCAL_MODEL_COST_MAP` | The bundled model price map is used at startup by default, so the gateway makes no outbound call to fetch prices. Set it to `false` to fetch the latest map from the network instead |
 | `HANGARLLM_DISABLED_FEATURES` | Comma separated list of features to switch off, for a leaner deployment |
+| `HANGARLLM_METRICS_TOKEN` | Bearer token that may only scrape `/metrics`, so Prometheus never holds an API key |
+| `HANGARLLM_SKILL_SANDBOX_NETWORK` | Set to `true` to give skill code network access. Off by default, so skills that install packages need a custom sandbox image |
 | `HANGARLLM_DISABLE_SKILL_GIT_SYNC` | Set to `true` to stop the background job that polls GitHub skill repositories |
+
+## Protecting keys
+
+The dashboard session key never reaches browser JavaScript. The page holds a placeholder, the real key stays sealed in an HttpOnly cookie, and the gateway swaps them on each request. The master key is only an API credential: the UI has its own password, sessions have their own signing secret, and the gateway refuses to start if the master key is reused for any of them or for the salt key. Requests to LLM routes cannot carry `api_key` or `extra_headers` unless an admin allows it through `allow_client_side_credentials` or `configurable_clientside_auth_params`.
+
+Any secret above can be given as a file with the `_FILE` suffix (for example `UI_PASSWORD_FILE`), and the same goes for `DATABASE_URL` and `REDIS_PASSWORD`. The Compose stack uses this so secrets stay out of `docker inspect`. The image runs as a non-root user on a read-only filesystem, and only the TLS proxy is published. For provider keys in production, prefer one of the supported secret managers (AWS, Google, HashiCorp Vault, CyberArk) over storing them in the database. Control-plane worker deployments (`control_plane_url`) log in across origins and still receive the session key in the browser.
 
 ## Skills Hub Git Sync
 

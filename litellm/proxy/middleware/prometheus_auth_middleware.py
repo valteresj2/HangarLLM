@@ -3,6 +3,8 @@ Prometheus Auth Middleware - Pure ASGI implementation
 """
 
 import json
+import os
+import secrets
 from collections.abc import MutableMapping
 from typing import Final
 
@@ -17,11 +19,21 @@ from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
 # Cache the header name at module level to avoid repeated enum attribute access
 _AUTHORIZATION_HEADER: Final = SpecialHeaders.openai_authorization.value  # "Authorization"
 _METRICS_MOUNT: Final = "/metrics"
+METRICS_TOKEN_ENV_VAR: Final = "LITELLM_METRICS_TOKEN"
 
 
 def _is_metrics_route(scope: Scope) -> bool:
     route_path: Final = get_route_path(scope)
     return route_path == _METRICS_MOUNT or route_path.startswith(_METRICS_MOUNT + "/")
+
+
+def _presents_metrics_token(scope: Scope) -> bool:
+    """A scrape-only credential, so Prometheus never has to hold a key that can call the API."""
+    expected: Final = os.getenv(METRICS_TOKEN_ENV_VAR)
+    if not expected:
+        return False
+    presented: Final = dict(scope["headers"]).get(b"authorization", b"")
+    return secrets.compare_digest(presented, b"Bearer " + expected.encode())
 
 
 class PrometheusAuthMiddleware:
@@ -48,7 +60,7 @@ class PrometheusAuthMiddleware:
             return
 
         # Run auth by default; allow legacy public metrics only when explicitly disabled.
-        if litellm.require_auth_for_metrics_endpoint is not False:
+        if litellm.require_auth_for_metrics_endpoint is not False and not _presents_metrics_token(scope):
             # user_api_key_auth reads the request body, which consumes ASGI `receive`.
             # Buffer those messages and replay them for the inner app; otherwise a
             # successful auth would forward an exhausted receive and /metrics hangs.

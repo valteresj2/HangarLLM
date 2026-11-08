@@ -396,3 +396,46 @@ class TestGitHubClient:
             and error.status == 404
             and "not visible to these credentials" in error.message
         )
+
+@dataclass
+class _PollRow:
+    source_id: str = "s1"
+    name: str = "src"
+    owner: str = "acme"
+    repository: str = "skills"
+    branch: str = "main"
+    api_base_url: str = "https://api.github.com"
+    auth_type: str = "none"
+    credentials: None = None
+    app_id: None = None
+    installation_id: None = None
+    applied_sha: str = SHA
+    last_seen_sha: str = SHA
+    status: str = "healthy"
+
+
+class TestPolling:
+    async def _poll(self, row, monkeypatch):
+        from unittest.mock import AsyncMock, MagicMock
+
+        from litellm.hangar.skill_sync import service
+
+        service._etags.clear()
+        run_sync = AsyncMock()
+        monkeypatch.setattr(service, "run_sync", run_sync)
+        prisma = MagicMock()
+        prisma.writer_db.litellm_skillgitsource.update = AsyncMock()
+        respx.get("https://api.github.com/repos/acme/skills/commits/main").mock(return_value=httpx.Response(200, text=SHA))
+        async with httpx.AsyncClient() as http:
+            await service._poll_one(prisma, row, http)
+        return run_sync
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_healthy_source_on_the_same_commit_is_not_resynced(self, monkeypatch):
+        assert (await self._poll(_PollRow(), monkeypatch)).await_count == 0
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_transient_failure_recovers_on_the_next_poll(self, monkeypatch):
+        assert (await self._poll(_PollRow(status="failed"), monkeypatch)).await_count == 1

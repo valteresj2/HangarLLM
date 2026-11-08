@@ -394,7 +394,7 @@ async def _poll_one(prisma: "Prisma", row: "LiteLLM_SkillGitSource", client: htt
             },
         )
         return
-    already_seen: Final = sha == row.applied_sha or (sha == row.last_seen_sha and row.status != "failed")
+    already_seen: Final = row.status != "failed" and sha in (row.applied_sha, row.last_seen_sha)
     if already_seen:
         await sources(prisma).update(
             where={"source_id": row.source_id}, data={"last_checked_at": datetime.now(timezone.utc)}

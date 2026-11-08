@@ -532,6 +532,7 @@ def _check_banned_params(
     *,
     manages_deployments: bool = False,
     mcp_server_fields_allowed: bool = False,
+    extra_banned_params: tuple[str, ...] = (),
 ) -> None:
     """Raise ``ValueError`` if ``body`` carries a banned param without admin opt-in.
 
@@ -546,7 +547,7 @@ def _check_banned_params(
     reject_server_owned_wif_params(wif_body)
     if not manages_deployments:
         reject_federated_credential_reference(body)
-    for param in _BANNED_REQUEST_BODY_PARAMS:
+    for param in (*_BANNED_REQUEST_BODY_PARAMS, *extra_banned_params):
         if param not in body:
             continue
         if general_settings.get("allow_client_side_credentials") is True:
@@ -573,6 +574,15 @@ def _check_banned_params(
             # rejected for the second field.
             continue
         raise _banned_param_error(param)
+
+
+_CLIENT_CREDENTIAL_BODY_PARAMS: Final[tuple[str, ...]] = ("api_key", "extra_headers")
+
+
+def _client_credential_params(route: str | None) -> tuple[str, ...]:
+    from litellm.proxy.auth.route_checks import RouteChecks
+
+    return _CLIENT_CREDENTIAL_BODY_PARAMS if route is not None and RouteChecks.is_llm_api_route(route) else ()
 
 
 _FALLBACK_FIELDS: Final[tuple[str, ...]] = (
@@ -733,6 +743,7 @@ def is_request_body_safe(
     if "model_list" in request_body:
         raise ValueError("Rejected Request: model_list is not allowed in the request body.")
     manages_deployments: Final = route_manages_deployments(route)
+    client_credentials: Final = _client_credential_params(route)
     _check_banned_params(
         request_body,
         general_settings,
@@ -740,11 +751,19 @@ def is_request_body_safe(
         model,
         manages_deployments=manages_deployments,
         mcp_server_fields_allowed=route_manages_mcp_servers(route),
+        extra_banned_params=client_credentials,
     )
     for nested_key in _NESTED_CONFIG_KEYS:
         nested = _coerce_metadata_to_dict(request_body.get(nested_key))
         if nested is not None:
-            _check_banned_params(nested, general_settings, llm_router, model, manages_deployments=manages_deployments)
+            _check_banned_params(
+                nested,
+                general_settings,
+                llm_router,
+                model,
+                manages_deployments=manages_deployments,
+                extra_banned_params=client_credentials,
+            )
     for metadata_key in _NESTED_METADATA_KEYS:
         metadata = _coerce_metadata_to_dict(request_body.get(metadata_key))
         if metadata is not None:
