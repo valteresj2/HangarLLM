@@ -25,8 +25,8 @@ from openai._legacy_response import LegacyAPIResponse
 from openai.types.chat.chat_completion import ChatCompletion
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
-import litellm
-from litellm import (
+import hangarllm
+from hangarllm import (
     acompletion,
     acompletion_with_retries,
     aresponses_with_retries,
@@ -34,21 +34,21 @@ from litellm import (
     completion_with_retries,
     responses_with_retries,
 )
-from litellm import main as litellm_main
-from litellm.caching.base_cache import BaseCache
-from litellm.caching.caching import Cache
-from litellm.constants import CONTROL_OPTIONS_KEY
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.custom_prompt_management import CustomPromptManagement
-from litellm.litellm_core_utils.core_helpers import get_litellm_metadata_from_kwargs
-from litellm.litellm_core_utils.get_litellm_params import stored_control_options
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.litellm_core_utils.prompt_templates.factory import anthropic_messages_pt
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.litellm_params import ControlOptions
-from litellm.types.llms.openai import AllMessageValues, HttpxBinaryResponseContent
-from litellm.types.prompts.init_prompts import PromptSpec
-from litellm.types.utils import (
+from hangarllm import main as hangarllm_main
+from hangarllm.caching.base_cache import BaseCache
+from hangarllm.caching.caching import Cache
+from hangarllm.constants import CONTROL_OPTIONS_KEY
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_prompt_management import CustomPromptManagement
+from hangarllm.hangarllm_core_utils.core_helpers import get_hangarllm_metadata_from_kwargs
+from hangarllm.hangarllm_core_utils.get_hangarllm_params import stored_control_options
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.hangarllm_core_utils.prompt_templates.factory import anthropic_messages_pt
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.types.hangarllm_params import ControlOptions
+from hangarllm.types.llms.openai import AllMessageValues, HttpxBinaryResponseContent
+from hangarllm.types.prompts.init_prompts import PromptSpec
+from hangarllm.types.utils import (
     Delta,
     ModelResponseStream,
     StandardCallbackDynamicParams,
@@ -70,7 +70,7 @@ def clear_client_cache():
     Clear the HTTP client cache before each test to ensure mocks are used.
     This prevents cached real clients from being reused across tests.
     """
-    cache = getattr(litellm, "in_memory_llm_clients_cache", None)
+    cache = getattr(hangarllm, "in_memory_llm_clients_cache", None)
     if cache is not None:
         cache.flush_cache()
     yield
@@ -94,10 +94,10 @@ def add_api_keys_to_env(monkeypatch):
 
 
 @pytest.fixture
-def preserve_litellm_completion_state(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "set_verbose", litellm.set_verbose)
-    monkeypatch.setattr(litellm, "custom_prompt_dict", litellm.custom_prompt_dict.copy())
-    monkeypatch.setattr(litellm, "known_tokenizer_config", litellm.known_tokenizer_config.copy())
+def preserve_hangarllm_completion_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(hangarllm, "set_verbose", hangarllm.set_verbose)
+    monkeypatch.setattr(hangarllm, "custom_prompt_dict", hangarllm.custom_prompt_dict.copy())
+    monkeypatch.setattr(hangarllm, "known_tokenizer_config", hangarllm.known_tokenizer_config.copy())
 
 
 WHITE_PNG: Final = (Path(__file__).parents[1] / "white_100x100.png").read_bytes()
@@ -124,7 +124,7 @@ async def test_completion_sends_session_only_to_the_actual_opencode_destination(
 ) -> None:
     monkeypatch.setenv("OPENAI_BASE_URL", "https://opencode.ai/zen/go/v1")
     monkeypatch.setenv("OPENAI_API_BASE", "https://opencode.ai/zen/go/v1")
-    monkeypatch.setattr(litellm, "api_base", "https://opencode.ai/zen/go/v1")
+    monkeypatch.setattr(hangarllm, "api_base", "https://opencode.ai/zen/go/v1")
     requests: Final[asyncio.Queue[httpx.Request]] = asyncio.Queue()
 
     def respond(request: httpx.Request) -> httpx.Response:
@@ -156,7 +156,7 @@ async def test_completion_sends_session_only_to_the_actual_opencode_destination(
         "model": "openai/session-test",
         "api_base": "https://opencode.ai/zen/go/v1",
         "messages": [{"role": "user", "content": "hello"}],
-        "litellm_session_id": "conversation-123",
+        "hangarllm_session_id": "conversation-123",
         "extra_headers": {"X-OpenCode-Session": explicit_header} if explicit_header else {"x-existing": "unchanged"},
         "stream": stream,
     }
@@ -197,7 +197,7 @@ async def test_completion_sends_session_only_to_the_actual_opencode_destination(
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
-@pytest.mark.parametrize("source", ["OPENAI_BASE_URL", "OPENAI_API_BASE", "litellm.api_base"])
+@pytest.mark.parametrize("source", ["OPENAI_BASE_URL", "OPENAI_API_BASE", "hangarllm.api_base"])
 @pytest.mark.parametrize("explicit_base", [None, "https://other.example/v1"])
 @pytest.mark.asyncio
 async def test_completion_opencode_session_uses_effective_destination(
@@ -210,9 +210,9 @@ async def test_completion_opencode_session_uses_effective_destination(
     default_base: Final = "https://opencode.ai/inference/go/openai/v1"
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "api_base", default_base if source == "litellm.api_base" else None)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    if source != "litellm.api_base":
+    monkeypatch.setattr(hangarllm, "api_base", default_base if source == "hangarllm.api_base" else None)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    if source != "hangarllm.api_base":
         monkeypatch.setenv(source, default_base)
     endpoint: Final = respx_mock.post(f"{explicit_base or default_base}/chat/completions").respond(
         json={
@@ -228,9 +228,9 @@ async def test_completion_opencode_session_uses_effective_destination(
         "messages": [{"role": "user", "content": "hello"}],
         "api_base": explicit_base,
         "api_key": "test-key",
-        "litellm_session_id": "conversation-123",
+        "hangarllm_session_id": "conversation-123",
     }
-    response: Final = await litellm.acompletion(**args) if asynchronous else litellm.completion(**args)
+    response: Final = await hangarllm.acompletion(**args) if asynchronous else hangarllm.completion(**args)
     assert response.choices[0].message.content == "OK"
     assert endpoint.call_count == 1
     sent: Final = endpoint.calls[0].request
@@ -283,7 +283,7 @@ def openai_api_response():
 def test_completion_missing_role(openai_api_response):
     from openai import OpenAI
 
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     client = OpenAI(api_key="test_api_key")
 
@@ -301,7 +301,7 @@ def test_completion_missing_role(openai_api_response):
     with patch.object(
         client, "post", MagicMock(return_value=mock_raw_response)
     ) as mock_create:
-        litellm.completion(
+        hangarllm.completion(
             model="gpt-4o-mini",
             messages=[
                 {"role": "user", "content": "Hey"},
@@ -350,7 +350,7 @@ def test_completion_missing_role(openai_api_response):
 async def test_url_with_format_param_openai(model, sync_mode):
     from openai import AsyncOpenAI, OpenAI
 
-    from litellm import acompletion, completion
+    from hangarllm import acompletion, completion
 
     if sync_mode:
         client = OpenAI()
@@ -406,8 +406,8 @@ async def test_url_with_format_param_openai(model, sync_mode):
 @pytest.mark.parametrize("sync_mode", [True, False])
 @pytest.mark.asyncio
 async def test_url_with_format_param(model, sync_mode, monkeypatch):
-    from litellm import acompletion, completion
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from hangarllm import acompletion, completion
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
     if sync_mode:
         client = HTTPHandler()
@@ -438,9 +438,9 @@ async def test_url_with_format_param(model, sync_mode, monkeypatch):
     }
     if model.startswith("gemini/"):
         args["api_key"] = "test-api-key"
-    monkeypatch.setattr(litellm, "user_url_validation", False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "module_level_aclient", AsyncHTTPHandler(transport=httpx.AsyncHTTPTransport()))
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "module_level_aclient", AsyncHTTPHandler(transport=httpx.AsyncHTTPTransport()))
     with (
         respx.mock(assert_all_called=False) as image_host,
         patch.object(client, "post", new=MagicMock()) as mock_client,
@@ -491,12 +491,12 @@ async def test_url_with_format_param(model, sync_mode, monkeypatch):
 
 
 def test_bedrock_latency_optimized_inference():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
     with patch.object(client, "post") as mock_post:
         try:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 messages=[{"role": "user", "content": "Hello, how are you?"}],
                 performanceConfig={"latency": "optimized"},
@@ -517,7 +517,7 @@ def test_drop_anthropic_only_tool_keys_strips_tool_and_function_levels(key: str)
         "opaque_tool",
     ]
 
-    cleaned = litellm_main._drop_anthropic_only_tool_keys(tools=tools)
+    cleaned = hangarllm_main._drop_anthropic_only_tool_keys(tools=tools)
 
     assert cleaned == [
         {"type": "function", "name": "example_tool", "function": {"name": "example_tool"}},
@@ -533,7 +533,7 @@ def test_completion_strips_eager_input_streaming_before_openai(respx_mock: respx
         return_value=httpx.Response(status_code=200, json=openai_api_response)
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="openai/gpt-5.6",
         messages=[{"role": "user", "content": "Write the file"}],
         tools=[
@@ -571,7 +571,7 @@ def test_completion_forwards_allowed_tools_tool_choice_to_openai_compatible_chat
         return_value=httpx.Response(status_code=200, json=openai_api_response)
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "What time is it?"}],
         tools=_TWO_TOOLS,
@@ -593,9 +593,9 @@ def test_completion_allowed_tools_tool_choice_is_a_400_where_the_provider_cannot
     respx_mock: respx.MockRouter, model: str, drop_params: bool
 ):
     with pytest.raises(
-        litellm.BadRequestError, match=r"allowed_tools.*only supported for azure, litellm_proxy, openai"
+        hangarllm.BadRequestError, match=r"allowed_tools.*only supported for azure, hangarllm_proxy, openai"
     ) as exc:
-        litellm.completion(
+        hangarllm.completion(
             model=model,
             messages=[{"role": "user", "content": "What time is it?"}],
             tools=_TWO_TOOLS,
@@ -638,7 +638,7 @@ _SEARCH_RESULT: Final = {"role": "tool", "tool_call_id": "srvtoolu_01search", "c
         ),
         pytest.param(
             [
-                litellm.Message(content="Looking", tool_calls=[_CLAUDE_TOOL_SEARCH_CALL, _LOADED_FUNCTION_CALL]),
+                hangarllm.Message(content="Looking", tool_calls=[_CLAUDE_TOOL_SEARCH_CALL, _LOADED_FUNCTION_CALL]),
                 _WEATHER_RESULT,
             ],
             [{"role": "assistant", "content": "Looking", "tool_calls": [_LOADED_FUNCTION_CALL]}, _WEATHER_RESULT],
@@ -672,7 +672,7 @@ def test_completion_drops_unanswered_claude_tool_search_calls_from_history_sent_
         return_value=httpx.Response(status_code=200, json=openai_api_response)
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="openai/gpt-5.6",
         messages=[_USER_TURN, *claude_turn, {"role": "user", "content": "And tomorrow?"}],
         api_base=api_base,
@@ -709,7 +709,7 @@ def test_completion_drops_unanswered_claude_tool_search_calls_before_the_respons
         }
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="openai/gpt-5.6",
         api_key="sk-test",
         api_base="https://api.openai.com/v1",
@@ -802,7 +802,7 @@ def test_completion_strips_an_unanswered_claude_tool_search_call_only_for_routes
 ):
     route: Final = respx_mock.post(url__regex=url_pattern).respond(json=reply)
 
-    litellm.completion(
+    hangarllm.completion(
         model=model,
         messages=[
             _USER_TURN,
@@ -830,7 +830,7 @@ def test_completion_keeps_a_function_call_whose_id_only_looks_like_a_claude_serv
         {"role": "tool", "tool_call_id": "srvtoolu_01weather", "content": "18C"},
     ]
 
-    litellm.completion(model="openai/gpt-5.6", messages=history, api_base=api_base, api_key="fake_openai_api_key")
+    hangarllm.completion(model="openai/gpt-5.6", messages=history, api_base=api_base, api_key="fake_openai_api_key")
 
     sent: Final = json.loads(respx_mock.calls[0].request.content)["messages"]
     assert [message["role"] for message in sent] == ["user", "assistant", "tool"]
@@ -851,24 +851,24 @@ def test_embedding_keeps_an_internal_prefixed_kwarg_out_of_the_provider_request(
         )
     )
 
-    litellm.embedding(
+    hangarllm.embedding(
         model="openai/text-embedding-3-small",
         input="hi",
         api_base=api_base,
         api_key="fake_openai_api_key",
-        _litellm_undeclared_sentinel="internal",
+        _hangarllm_undeclared_sentinel="internal",
     )
 
     assert mock_route.called
     sent: Final = json.loads(respx_mock.calls[0].request.content)
-    assert "_litellm_undeclared_sentinel" not in sent, sent
+    assert "_hangarllm_undeclared_sentinel" not in sent, sent
     assert sent["model"] == "text-embedding-3-small"
 
 
 def test_custom_provider_with_extra_headers():
 
-    with patch.object(litellm.llms.custom_httpx.http_handler.HTTPHandler, "post") as mock_post:
-        response = litellm.completion(
+    with patch.object(hangarllm.llms.custom_httpx.http_handler.HTTPHandler, "post") as mock_post:
+        response = hangarllm.completion(
             model="custom/custom",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             headers={"X-Custom-Header": "custom-value"},
@@ -881,8 +881,8 @@ def test_custom_provider_with_extra_headers():
 
 def test_custom_provider_with_extra_body():
 
-    with patch.object(litellm.llms.custom_httpx.http_handler.HTTPHandler, "post") as mock_post:
-        response = litellm.completion(
+    with patch.object(hangarllm.llms.custom_httpx.http_handler.HTTPHandler, "post") as mock_post:
+        response = hangarllm.completion(
             model="custom/custom",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             extra_body={
@@ -908,8 +908,8 @@ def test_custom_provider_with_extra_body():
         }
 
     # test that extra_body is not passed if not provided
-    with patch.object(litellm.llms.custom_httpx.http_handler.HTTPHandler, "post") as mock_post:
-        response = litellm.completion(
+    with patch.object(hangarllm.llms.custom_httpx.http_handler.HTTPHandler, "post") as mock_post:
+        response = hangarllm.completion(
             model="custom/custom",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             api_base="https://example.com/api/v1",
@@ -941,21 +941,21 @@ def set_openrouter_api_key():
 @pytest.mark.asyncio
 async def test_extra_body_with_fallback(respx_mock: respx.MockRouter, set_openrouter_api_key, monkeypatch):
     """
-    test regression for https://github.com/BerriAI/litellm/issues/8425.
+    test regression for upstream issue 8425
 
     This was perhaps a wider issue with the acompletion function not passing kwargs such as extra_body correctly when fallbacks are specified.
     """
 
     # Save original state to restore after test
-    original_disable_aiohttp = litellm.disable_aiohttp_transport
+    original_disable_aiohttp = hangarllm.disable_aiohttp_transport
 
     try:
         # since this uses respx, we need to set use_aiohttp_transport to False
         # Set both the global variable and environment variable to ensure it takes effect
-        litellm.disable_aiohttp_transport = True
+        hangarllm.disable_aiohttp_transport = True
         monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
         # Flush cache to ensure no stale aiohttp clients are used
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
         # Set up test parameters
         model = "openrouter/deepseek/deepseek-chat"
@@ -997,7 +997,7 @@ async def test_extra_body_with_fallback(respx_mock: respx.MockRouter, set_openro
             },
         )
 
-        response = await litellm.acompletion(
+        response = await hangarllm.acompletion(
             model=model,
             messages=messages,
             extra_body=extra_body,
@@ -1024,8 +1024,8 @@ async def test_extra_body_with_fallback(respx_mock: respx.MockRouter, set_openro
         assert request_body["provider"]["require_parameters"] is True
     finally:
         # Restore original state to prevent test pollution
-        litellm.disable_aiohttp_transport = original_disable_aiohttp
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.disable_aiohttp_transport = original_disable_aiohttp
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.mark.parametrize("env_base", ["OPENAI_BASE_URL", "OPENAI_API_BASE"])
@@ -1034,7 +1034,7 @@ async def test_extra_body_with_fallback(respx_mock: respx.MockRouter, set_openro
 async def test_openai_env_base(respx_mock: respx.MockRouter, env_base, openai_api_response, monkeypatch):
     "This tests OpenAI env variables are honored, including legacy OPENAI_API_BASE"
     # Ensure aiohttp transport is disabled to use httpx which respx can mock
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
 
     expected_base_url = "http://localhost:12345/v1"
 
@@ -1074,7 +1074,7 @@ async def test_openai_env_base(respx_mock: respx.MockRouter, env_base, openai_ap
     )
 
     try:
-        response = await litellm.acompletion(model=model, messages=messages)
+        response = await hangarllm.acompletion(model=model, messages=messages)
 
         # verify we had a response
         assert response.choices[0].message.content == "Hello from mocked response!"
@@ -1083,7 +1083,7 @@ async def test_openai_env_base(respx_mock: respx.MockRouter, env_base, openai_ap
         assert mock_route.called, "Mock route was not called - request may have bypassed respx"
     finally:
         # Clean up to avoid affecting other tests
-        litellm.disable_aiohttp_transport = False
+        hangarllm.disable_aiohttp_transport = False
 
 
 def build_database_url(username, password, host, dbname):
@@ -1099,9 +1099,9 @@ def test_build_database_url():
 
 
 def test_bedrock_llama():
-    litellm.turn_on_debug()
-    from litellm.types.utils import CallTypes
-    from litellm.utils import return_raw_request
+    hangarllm.turn_on_debug()
+    from hangarllm.types.utils import CallTypes
+    from hangarllm.utils import return_raw_request
 
     model = "bedrock/invoke/us.meta.llama4-scout-17b-instruct-v1:0"
 
@@ -1156,8 +1156,8 @@ def test_return_raw_request_does_not_call_provider(respx_mock: respx.MockRouter)
     provider rejecting it, which sent an unintended inference request and (in the async proxy
     route) blocked the event loop on provider I/O.
     """
-    from litellm.types.utils import CallTypes
-    from litellm.utils import return_raw_request
+    from hangarllm.types.utils import CallTypes
+    from hangarllm.utils import return_raw_request
 
     model = "gpt-4o"
     route = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
@@ -1181,15 +1181,15 @@ def test_return_raw_request_does_not_call_provider(respx_mock: respx.MockRouter)
 def test_return_raw_request_ignores_turn_off_message_logging(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.types.utils import CallTypes
-    from litellm.utils import return_raw_request
+    from hangarllm.types.utils import CallTypes
+    from hangarllm.utils import return_raw_request
 
     model: Final = "gpt-4o"
     messages: Final = [{"role": "user", "content": "PRIVATE-PHRASE"}]
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=_mocked_openai_chat_response(model)
     )
-    monkeypatch.setattr(litellm, "turn_off_message_logging", True)
+    monkeypatch.setattr(hangarllm, "turn_off_message_logging", True)
 
     request: Final = return_raw_request(
         endpoint=CallTypes.completion,
@@ -1203,8 +1203,8 @@ def test_return_raw_request_ignores_turn_off_message_logging(
 
 def test_completion_forwards_verbosity_in_raw_request(respx_mock: respx.MockRouter):
     """Regression test: completion() must forward the verbosity param to the provider request body."""
-    from litellm.types.utils import CallTypes
-    from litellm.utils import return_raw_request
+    from hangarllm.types.utils import CallTypes
+    from hangarllm.utils import return_raw_request
 
     model = "gpt-5.2"
     messages = [{"role": "user", "content": "hi"}]
@@ -1227,11 +1227,11 @@ def test_completion_forwards_verbosity_in_raw_request(respx_mock: respx.MockRout
 @pytest.mark.asyncio
 async def test_acompletion_forwards_verbosity_to_provider_request(respx_mock: respx.MockRouter, monkeypatch):
     """Regression test: acompletion() must forward the verbosity param to the provider request body."""
-    original_disable_aiohttp = litellm.disable_aiohttp_transport
+    original_disable_aiohttp = hangarllm.disable_aiohttp_transport
     try:
-        litellm.disable_aiohttp_transport = True
+        hangarllm.disable_aiohttp_transport = True
         monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
         model = "gpt-5.2"
         messages = [{"role": "user", "content": "hi"}]
@@ -1239,7 +1239,7 @@ async def test_acompletion_forwards_verbosity_to_provider_request(respx_mock: re
             return_value=_mocked_openai_chat_response(model)
         )
 
-        response = await litellm.acompletion(
+        response = await hangarllm.acompletion(
             model=model,
             messages=messages,
             verbosity="low",
@@ -1253,15 +1253,15 @@ async def test_acompletion_forwards_verbosity_to_provider_request(respx_mock: re
         assert request_body["model"] == model
         assert request_body["messages"] == messages
     finally:
-        litellm.disable_aiohttp_transport = original_disable_aiohttp
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.disable_aiohttp_transport = original_disable_aiohttp
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 def test_responses_api_bridge_check_strips_responses_prefix():
     """Test that responses_api_bridge_check strips 'responses/' prefix and sets mode."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 4096}
 
         model_info, model = responses_api_bridge_check(
@@ -1276,10 +1276,10 @@ def test_responses_api_bridge_check_strips_responses_prefix():
 def test_responses_api_bridge_check_gpt_5_4_pro():
     """Test that gpt-5.4-pro routes through responses API bridge, not chat completions.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/23014
+    Regression test for upstream issue 23014
     gpt-5.4-pro is a responses-only model and must not be sent to /v1/chat/completions.
     """
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
     for model_name in ["gpt-5.4-pro", "gpt-5.4-pro-2026-03-05"]:
         model_info, model = responses_api_bridge_check(
@@ -1293,9 +1293,9 @@ def test_responses_api_bridge_check_gpt_5_4_pro():
 
 def test_responses_api_bridge_check_gpt_5_4_tools_plus_reasoning_routes_to_responses():
     """gpt-5.4 with both tools and reasoning_effort should route to Responses API."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -1309,7 +1309,7 @@ def test_responses_api_bridge_check_gpt_5_4_tools_plus_reasoning_routes_to_respo
 
 
 def test_responses_api_bridge_check_gpt_6_astra_tools_with_default_reasoning_routes_to_responses():
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
     model_info, model = responses_api_bridge_check(
         model="gpt-6-astra",
@@ -1323,9 +1323,9 @@ def test_responses_api_bridge_check_gpt_6_astra_tools_with_default_reasoning_rou
 
 def test_responses_api_bridge_check_gpt_5_5_tools_plus_reasoning_routes_to_responses():
     """gpt-5.5+ with both tools and reasoning_effort should route to Responses API."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.5-pro",
@@ -1340,9 +1340,9 @@ def test_responses_api_bridge_check_gpt_5_5_tools_plus_reasoning_routes_to_respo
 
 def test_responses_api_bridge_check_azure_gpt_5_4_tools_plus_reasoning_routes_to_responses():
     """Azure gpt-5.4 with both tools and reasoning_effort should route to Responses API."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -1361,9 +1361,9 @@ def test_responses_api_bridge_check_azure_gpt_5_4_tools_with_default_reasoning_r
     reasoning by default for gpt-5.4+, and Chat Completions rejects function tools
     whenever reasoning is on.
     """
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -1382,9 +1382,9 @@ def test_responses_api_bridge_check_gpt_5_4_tools_with_default_reasoning_routes_
     by default for gpt-5.4+, and Chat Completions rejects function tools whenever
     reasoning is on ("use /v1/responses or set reasoning_effort to 'none'").
     """
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -1414,10 +1414,10 @@ def test_responses_api_bridge_check_gpt_5_4_tools_with_default_reasoning_routes_
 def test_responses_api_bridge_check_azure_regional_responses_only_models_route_to_responses(
     monkeypatch: pytest.MonkeyPatch, region: str, model_name: str
 ) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
 
-    model_info, model = litellm_main.responses_api_bridge_check(
+    model_info, model = hangarllm_main.responses_api_bridge_check(
         model=f"{region}/{model_name}",
         custom_llm_provider="azure",
         tools=[{"type": "function", "function": {"name": "get_capital"}}],
@@ -1448,14 +1448,14 @@ def test_responses_api_bridge_check_gpt_5_6_tools_with_default_reasoning_routes_
     gate parses the version and drops any suffix, so the family members bridge
     identically and only the boundary distinguishes behaviour.
     """
-    import litellm
-    from litellm.main import responses_api_bridge_check
+    import hangarllm
+    from hangarllm.main import responses_api_bridge_check
 
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model=model_name,
@@ -1473,9 +1473,9 @@ def test_responses_api_bridge_check_gpt_5_4_tools_with_reasoning_none_stays_chat
     Explicit reasoning_effort "none" is OpenAI's documented escape hatch that keeps
     function tools servable on Chat Completions; the bridge must not fire.
     """
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -1503,10 +1503,10 @@ def test_responses_api_bridge_check_tools_with_a_none_the_row_refuses_routes_to_
     ``none``, so the gate drops it (or refuses the call) and the provider runs its default effort,
     under which Chat Completions rejects function tools; the bridge has to fire the way it does
     for an unset effort. Row-derived: the test follows the flag, never the vendor's answer."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
     row_key: Final = model if custom_llm_provider == "openai" else f"{custom_llm_provider}/{model}"
-    assert litellm.model_cost[row_key]["supports_none_reasoning_effort"] is False
+    assert hangarllm.model_cost[row_key]["supports_none_reasoning_effort"] is False
 
     model_info, _ = responses_api_bridge_check(
         model=model,
@@ -1523,7 +1523,7 @@ def test_responses_api_bridge_check_a_none_the_row_refuses_stays_chat_without_to
 ) -> None:
     """Without function tools nothing forces the Responses route: the dropped ``none`` leaves a
     plain chat call at the default effort, as for any other dropped level."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
     model_info, _ = responses_api_bridge_check(
         model="gpt-6.1-sol", custom_llm_provider="openai", reasoning_effort="none"
@@ -1534,9 +1534,9 @@ def test_responses_api_bridge_check_a_none_the_row_refuses_stays_chat_without_to
 
 def test_responses_api_bridge_check_reasoning_none_with_summary_still_routes_to_responses():
     """A reasoning summary is Responses-only regardless of effort value."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -1556,9 +1556,9 @@ def test_responses_api_bridge_check_gpt_5_4_custom_tools_only_stays_chat():
     so responses keep the native custom tool_call shape instead of the bridge's
     function-shaped mapping.
     """
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1573,9 +1573,9 @@ def test_responses_api_bridge_check_gpt_5_4_custom_tools_only_stays_chat():
 
 def test_responses_api_bridge_check_gpt_5_4_mixed_function_and_custom_tools_routes_to_responses():
     """One function tool in the mix is enough to make chat unservable with reasoning on."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1593,9 +1593,9 @@ def test_responses_api_bridge_check_gpt_5_4_mixed_function_and_custom_tools_rout
 
 def test_responses_api_bridge_check_gpt_5_4_flat_function_tool_routes_to_responses():
     """Responses-style flat function tool defs still count as function tools."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1618,12 +1618,12 @@ def test_responses_api_bridge_check_gpt_5_4_flat_function_tool_routes_to_respons
 def test_responses_api_bridge_check_function_tool_without_body_stays_chat(
     monkeypatch, custom_llm_provider, model_name, api_base
 ):
-    import litellm
-    from litellm.main import responses_api_bridge_check
+    import hangarllm
+    from hangarllm.main import responses_api_bridge_check
 
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
 
     model_info, model = responses_api_bridge_check(
         model=model_name,
@@ -1638,10 +1638,10 @@ def test_responses_api_bridge_check_function_tool_without_body_stays_chat(
 
 
 def test_responses_api_bridge_check_dict_effort_none_stays_chat():
-    """The escape hatch must honor litellm's dict form: {"effort": "none"} means reasoning off."""
-    from litellm.main import responses_api_bridge_check
+    """The escape hatch must honor hangarllm's dict form: {"effort": "none"} means reasoning off."""
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1655,9 +1655,9 @@ def test_responses_api_bridge_check_dict_effort_none_stays_chat():
 
 
 def test_responses_api_bridge_check_dict_effort_active_routes_to_responses():
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1672,9 +1672,9 @@ def test_responses_api_bridge_check_dict_effort_active_routes_to_responses():
 
 def test_responses_api_bridge_check_dict_effort_none_with_summary_routes_to_responses():
     """A summary inside the dict form is Responses-only even when effort is none."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1694,9 +1694,9 @@ def test_responses_api_bridge_check_blank_api_base_is_default_openai(blank_api_b
     endpoint downstream, which enforces the reasoning+tools constraint, so gpt-5.4+
     function-tool requests with unset reasoning_effort must still auto-bridge.
     """
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1723,9 +1723,9 @@ def test_responses_api_bridge_check_blank_api_base_is_default_openai(blank_api_b
 def test_responses_api_bridge_check_tool_search_routes_to_responses_on_openai_endpoints(
     custom_llm_provider, reasoning_effort, api_base, expected_mode
 ):
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, _ = responses_api_bridge_check(
             model="gpt-5.5",
@@ -1747,9 +1747,9 @@ def test_responses_api_bridge_check_custom_api_base_with_unset_effort_stays_chat
     custom api_base and gpt-5.4+ model names serve tools-without-reasoning fine and
     have no /responses route; the unset-effort arm must not reroute them.
     """
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1765,16 +1765,16 @@ def test_responses_api_bridge_check_custom_api_base_with_unset_effort_stays_chat
 
 def test_responses_api_bridge_check_custom_api_base_via_global_with_unset_effort_stays_chat(monkeypatch):
     """
-    A custom base set through the litellm.api_base global (not the call arg) is resolved the
+    A custom base set through the hangarllm.api_base global (not the call arg) is resolved the
     same way the chat handler resolves it, so the unset-effort arm must not reroute a chat-only
     backend to a /responses route it lacks. Regression guard: the gate previously inspected only
     the call-level api_base and bridged these requests.
     """
-    import litellm
-    from litellm.main import responses_api_bridge_check
+    import hangarllm
+    from hangarllm.main import responses_api_bridge_check
 
-    monkeypatch.setattr(litellm, "api_base", "http://vllm.internal:8000/v1")
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    monkeypatch.setattr(hangarllm, "api_base", "http://vllm.internal:8000/v1")
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1794,14 +1794,14 @@ def test_responses_api_bridge_check_custom_api_base_via_env_with_unset_effort_st
     A custom base set via OPENAI_BASE_URL/OPENAI_API_BASE env is resolved identically to the chat
     handler, so the unset-effort arm leaves the request on chat instead of bridging it.
     """
-    import litellm
-    from litellm.main import responses_api_bridge_check
+    import hangarllm
+    from hangarllm.main import responses_api_bridge_check
 
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     monkeypatch.setenv(env_var, "http://vllm.internal:8000/v1")
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1832,7 +1832,7 @@ def test_responses_api_bridge_check_openai_backed_custom_api_base_with_unset_eff
     function tools with reasoning on Chat Completions, so the unset-effort arm must bridge exactly as
     it does for the literal default URL. Regression guard for GH #39353.
     """
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
     model_info, model = responses_api_bridge_check(
         model="gpt-5.6",
@@ -1857,7 +1857,7 @@ def test_responses_api_bridge_check_openai_backed_custom_api_base_with_unset_eff
 )
 def test_responses_api_bridge_check_lookalike_custom_api_base_with_unset_effort_stays_chat(api_base):
     """Only the host decides: api.openai.com appearing elsewhere in the URL is still a foreign backend."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
     model_info, model = responses_api_bridge_check(
         model="gpt-5.6",
@@ -1873,10 +1873,10 @@ def test_responses_api_bridge_check_lookalike_custom_api_base_with_unset_effort_
 
 def test_responses_api_bridge_check_privatelink_api_base_via_env_with_unset_effort_routes_to_responses(monkeypatch):
     """A PrivateLink base set through OPENAI_BASE_URL resolves the way the chat handler's does and still bridges."""
-    import litellm
-    from litellm.main import responses_api_bridge_check
+    import hangarllm
+    from hangarllm.main import responses_api_bridge_check
 
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     monkeypatch.setenv("OPENAI_BASE_URL", "https://southcentralus.privatelink.api.openai.com/v1")
     model_info, model = responses_api_bridge_check(
@@ -1893,9 +1893,9 @@ def test_responses_api_bridge_check_privatelink_api_base_via_env_with_unset_effo
 
 def test_responses_api_bridge_check_custom_api_base_with_explicit_effort_still_routes():
     """Explicit reasoning_effort keeps its pre-existing bridging behavior on any api_base."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1911,9 +1911,9 @@ def test_responses_api_bridge_check_custom_api_base_with_explicit_effort_still_r
 
 def test_responses_api_bridge_check_azure_with_api_base_and_unset_effort_routes():
     """Azure OpenAI always sets api_base and does enforce the constraint; keep bridging."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -1948,7 +1948,7 @@ def test_responses_api_bridge_check_azure_ai_foundry_rejected_tools_route_to_res
     """The explicit ``none`` only keeps a Foundry gpt-6 request on chat while the deployment takes
     it; the ``azure_ai/gpt-6-astra`` row says it does not, so the gate drops it and the call runs at
     the default effort, under which Foundry rejects function tools from gpt-6 on."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
     model_info, model = responses_api_bridge_check(
         model=model_name,
@@ -1978,7 +1978,7 @@ def test_responses_api_bridge_check_azure_ai_foundry_rejected_tools_route_to_res
 def test_responses_api_bridge_check_azure_ai_without_foundry_responses_route_stays_chat(
     model_name, api_base, reasoning_effort
 ):
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
     model_info, model = responses_api_bridge_check(
         model=model_name,
@@ -1994,9 +1994,9 @@ def test_responses_api_bridge_check_azure_ai_without_foundry_responses_route_sta
 
 def test_responses_api_bridge_check_older_gpt_5_tools_without_reasoning_stays_chat():
     """Pre-5.4 GPT-5 names keep the old boundary: tools alone never bridge."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.1",
@@ -2011,9 +2011,9 @@ def test_responses_api_bridge_check_older_gpt_5_tools_without_reasoning_stays_ch
 
 def test_responses_api_bridge_check_gpt_5_4_reasoning_summary_without_tools_routes_to_responses():
     """gpt-5.4+ with reasoning_effort + reasoningSummary but no tools should bridge (AI SDK)."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -2029,9 +2029,9 @@ def test_responses_api_bridge_check_gpt_5_4_reasoning_summary_without_tools_rout
 
 def test_responses_api_bridge_check_gpt_5_reasoning_summary_routes_to_responses():
     """Bare ``gpt-5`` with reasoning_effort + reasoningSummary should bridge (not 5.4+)."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5",
@@ -2047,9 +2047,9 @@ def test_responses_api_bridge_check_gpt_5_reasoning_summary_routes_to_responses(
 
 def test_responses_api_bridge_check_gpt_5_tools_without_summary_stays_chat():
     """gpt-5 with tools + reasoning_effort but no summary should stay on chat."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5",
@@ -2063,16 +2063,16 @@ def test_responses_api_bridge_check_gpt_5_tools_without_summary_stays_chat():
     assert model_info.get("mode") != "responses"
 
 
-@patch("litellm.completion_extras.responses_api_bridge.completion")
+@patch("hangarllm.completion_extras.responses_api_bridge.completion")
 def test_gpt_5_4_responses_bridge_preserves_reasoning_summary_dict(
     mock_responses_completion,
 ):
     """When routed to Responses, preserve reasoning_effort summary dict."""
     mock_responses_completion.return_value = MagicMock()
 
-    import litellm
+    import hangarllm
 
-    litellm.completion(
+    hangarllm.completion(
         model="gpt-5.4",
         messages=[{"role": "user", "content": "What is the capital of France?"}],
         tools=[
@@ -2107,7 +2107,7 @@ def test_responses_bridge_preserves_reasoning_effort_with_drop_params(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     response_body: Final = {
         "id": "resp_test",
         "object": "response",
@@ -2146,10 +2146,10 @@ def test_responses_bridge_preserves_reasoning_effort_with_drop_params(
     }
     response_route: Final = respx_mock.post("https://api.perplexity.ai/v1/responses").respond(json=response_body)
     model: Final = "perplexity/test-responses-bridge"
-    litellm.register_model(
+    hangarllm.register_model(
         {
             model: {
-                "litellm_provider": "perplexity",
+                "hangarllm_provider": "perplexity",
                 "mode": "responses",
                 "supports_reasoning": False,
                 "input_cost_per_token": 0.0,
@@ -2159,7 +2159,7 @@ def test_responses_bridge_preserves_reasoning_effort_with_drop_params(
         persist_across_reloads=False,
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort=reasoning_effort,
@@ -2176,12 +2176,12 @@ def test_responses_bridge_preserves_reasoning_effort_with_drop_params(
 def openai_responses_route(
     restore_model_registry, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> respx.Route:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.delenv("LITELLM_REASONING_AUTO_SUMMARY", raising=False)
-    litellm.register_model(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.delenv("HANGARLLM_REASONING_AUTO_SUMMARY", raising=False)
+    hangarllm.register_model(
         {
             "gpt-6.1-terra": {
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
                 "supports_reasoning": True,
                 "supports_minimal_reasoning_effort": False,
@@ -2249,7 +2249,7 @@ def test_openai_responses_bridge_sends_the_whole_reasoning_effort_dict(
 ):
     caller_reasoning_effort: Final = copy.deepcopy(reasoning_effort)
 
-    litellm.completion(
+    hangarllm.completion(
         model="openai/responses/gpt-6.1-terra",
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort=reasoning_effort,
@@ -2280,7 +2280,7 @@ def test_openai_responses_bridge_drops_only_a_refused_effort_under_drop_params(
     expected_reasoning: dict[str, str],
     openai_responses_route: respx.Route,
 ):
-    litellm.completion(
+    hangarllm.completion(
         model="openai/responses/gpt-6.1-terra",
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort=reasoning_effort,
@@ -2296,7 +2296,7 @@ def test_openai_responses_bridge_drops_only_a_refused_effort_under_drop_params(
 def test_openai_responses_bridge_drops_a_reasoning_effort_dict_for_a_model_without_reasoning(
     openai_responses_route: respx.Route,
 ):
-    litellm.completion(
+    hangarllm.completion(
         model="openai/responses/gpt-4.1",
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort={"effort": "low", "mode": "pro", "context": "current_turn"},
@@ -2329,7 +2329,7 @@ def test_openai_responses_bridge_drops_reasoning_fields_openai_refuses_only_unde
     expected_reasoning: dict[str, object],
     openai_responses_route: respx.Route,
 ):
-    litellm.completion(
+    hangarllm.completion(
         model="openai/responses/gpt-6.1-terra",
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort={
@@ -2375,10 +2375,10 @@ def test_openai_responses_bridge_drops_a_mode_or_context_the_model_does_not_list
     expected_reasoning: dict[str, str],
     openai_responses_route: respx.Route,
 ):
-    litellm.register_model(
+    hangarllm.register_model(
         {
             "gpt-6.1-reasoning-test": {
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
                 "supports_reasoning": True,
                 "input_cost_per_token": 0.0,
@@ -2389,7 +2389,7 @@ def test_openai_responses_bridge_drops_a_mode_or_context_the_model_does_not_list
         persist_across_reloads=False,
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="openai/responses/gpt-6.1-reasoning-test",
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort={"effort": "low", "mode": "pro", "context": "all_turns"},
@@ -2404,9 +2404,9 @@ def test_openai_responses_bridge_drops_a_mode_or_context_the_model_does_not_list
 def test_openai_responses_bridge_forwards_mode_and_context_under_drop_params_for_a_catalog_model_with_no_cost_entry(
     openai_responses_route: respx.Route,
 ):
-    litellm.open_ai_chat_completion_models.add("unpriced-reasoning-model")
+    hangarllm.open_ai_chat_completion_models.add("unpriced-reasoning-model")
 
-    litellm.completion(
+    hangarllm.completion(
         model="openai/responses/unpriced-reasoning-model",
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort={"effort": "low", "mode": "pro", "context": "all_turns", "generate_summary": "auto"},
@@ -2423,7 +2423,7 @@ def test_openai_responses_bridge_forwards_a_reasoning_effort_dict_whole_for_a_mo
 ):
     reasoning_effort: Final = {"effort": "high", "exclude": True, "budget_tokens": 2000}
 
-    litellm.completion(
+    hangarllm.completion(
         model="openai/responses/my-proxy-alias",
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort=reasoning_effort,
@@ -2454,7 +2454,7 @@ def test_openai_responses_bridge_applies_additional_drop_params_to_a_reasoning_e
     expected_reasoning: dict[str, str] | None,
     openai_responses_route: respx.Route,
 ):
-    litellm.completion(
+    hangarllm.completion(
         model="openai/responses/gpt-6.1-terra",
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort={"effort": "low", "mode": "pro", "context": "current_turn"},
@@ -2470,14 +2470,14 @@ def test_openai_responses_bridge_applies_additional_drop_params_to_a_reasoning_e
 def test_openai_responses_bridge_gives_a_reasoning_effort_dict_the_auto_summary_a_string_gets(
     openai_responses_route: respx.Route, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", "true")
-    litellm.completion(
+    monkeypatch.setenv("HANGARLLM_REASONING_AUTO_SUMMARY", "true")
+    hangarllm.completion(
         model="openai/responses/gpt-6.1-terra",
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort="low",
         api_key="fake-key",
     )
-    litellm.completion(
+    hangarllm.completion(
         model="openai/responses/gpt-6.1-terra",
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort={"effort": "low", "mode": "pro", "context": "current_turn"},
@@ -2524,8 +2524,8 @@ _BRIDGED_RESPONSE_ANSWER: Final = json.dumps(
 def non_openai_responses_bridge(
     restore_model_registry, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> Callable[[str], tuple[str, Mapping[str, str], respx.Route]]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.delenv("LITELLM_REASONING_AUTO_SUMMARY", raising=False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.delenv("HANGARLLM_REASONING_AUTO_SUMMARY", raising=False)
     for chatgpt_env in ("CHATGPT_AUTH_FILE", "CHATGPT_API_BASE", "OPENAI_CHATGPT_API_BASE"):
         monkeypatch.delenv(chatgpt_env, raising=False)
     monkeypatch.setenv("CHATGPT_TOKEN_DIR", str(tmp_path))
@@ -2534,11 +2534,11 @@ def non_openai_responses_bridge(
     )
     monkeypatch.setenv("GITHUB_COPILOT_TOKEN_DIR", str(tmp_path))
     (tmp_path / "access-token").write_text("gho_test")
-    litellm.register_model(
+    hangarllm.register_model(
         {
             **{
                 model_name: {
-                    "litellm_provider": "openai",
+                    "hangarllm_provider": "openai",
                     "mode": "chat",
                     "supports_reasoning": True,
                     "reasoning_modes": ["standard"],
@@ -2550,7 +2550,7 @@ def non_openai_responses_bridge(
             },
             **{
                 f"{provider}/{model_name}": {
-                    "litellm_provider": provider,
+                    "hangarllm_provider": provider,
                     "mode": "responses",
                     "supports_reasoning": True,
                     "input_cost_per_token": 0.0,
@@ -2603,8 +2603,8 @@ def non_openai_responses_bridge(
             "https://openrouter.ai/api/v1/responses",
             {"api_key": "fake-key"},
         ),
-        "litellm_proxy": (
-            "litellm_proxy/responses/gpt-6.1-standard-only",
+        "hangarllm_proxy": (
+            "hangarllm_proxy/responses/gpt-6.1-standard-only",
             "https://proxy.example/v1/responses",
             {"api_base": "https://proxy.example/v1", "api_key": "fake-key"},
         ),
@@ -2643,7 +2643,7 @@ def test_non_openai_responses_bridge_sends_the_whole_reasoning_effort_dict_with_
     model, kwargs, route = non_openai_responses_bridge(backend)
     requested: Final = {**reasoning_effort, **summary}
 
-    litellm.completion(
+    hangarllm.completion(
         model=model, messages=[{"role": "user", "content": "hello"}], reasoning_effort=requested, **kwargs
     )
 
@@ -2694,7 +2694,7 @@ def test_non_openai_responses_bridge_drops_reasoning_fields_the_backend_refuses_
 ):
     model, kwargs, route = non_openai_responses_bridge(backend)
 
-    litellm.completion(
+    hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort={**reasoning_effort, **summary},
@@ -2724,8 +2724,8 @@ def test_responses_bridge_rejects_reasoning_fields_the_backend_ignores_without_d
 ):
     model, kwargs, route = non_openai_responses_bridge(backend)
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=rf"reasoning_effort\.{next(iter(ignored))}") as raised:
-        litellm.completion(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=rf"reasoning_effort\.{next(iter(ignored))}") as raised:
+        hangarllm.completion(
             model=model,
             messages=[{"role": "user", "content": "hello"}],
             reasoning_effort={"effort": "low", **ignored, **summary},
@@ -2743,7 +2743,7 @@ def test_responses_bridge_sends_the_rest_when_additional_drop_params_removes_the
 ):
     model, kwargs, route = non_openai_responses_bridge(backend)
 
-    litellm.completion(
+    hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort={"effort": "low", "mode": "pro", "context": "all_turns", "summary": "auto"},
@@ -2761,7 +2761,7 @@ def test_responses_bridge_forwards_a_null_reasoning_field_instead_of_rejecting_i
 ):
     model, kwargs, route = non_openai_responses_bridge(backend)
 
-    litellm.completion(
+    hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort={"effort": "low", "mode": None},
@@ -2775,10 +2775,10 @@ def test_chatgpt_bridge_keeps_a_reasoning_mode_its_catalog_row_declares_under_dr
     non_openai_responses_bridge: Callable[[str], tuple[str, Mapping[str, str], respx.Route]],
 ):
     _, kwargs, route = non_openai_responses_bridge("chatgpt")
-    litellm.register_model(
+    hangarllm.register_model(
         {
             "chatgpt/gpt-6.1-pro-bridge-test": {
-                "litellm_provider": "chatgpt",
+                "hangarllm_provider": "chatgpt",
                 "mode": "responses",
                 "supports_reasoning": True,
                 "reasoning_modes": ["pro"],
@@ -2789,7 +2789,7 @@ def test_chatgpt_bridge_keeps_a_reasoning_mode_its_catalog_row_declares_under_dr
         persist_across_reloads=False,
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="chatgpt/gpt-6.1-pro-bridge-test",
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort={"effort": "low", "mode": "pro"},
@@ -2818,7 +2818,7 @@ def test_azure_bridge_reads_reasoning_modes_from_the_deployment_model_family_und
 ):
     _, kwargs, route = non_openai_responses_bridge("azure")
 
-    litellm.completion(
+    hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort={"effort": "low", "mode": "pro", "context": "all_turns"},
@@ -2837,7 +2837,7 @@ def test_azure_ai_bridge_judges_reasoning_fields_by_the_request_api_base_under_d
     monkeypatch.setenv("AZURE_AI_API_BASE", "https://legacy-models.eastus2.inference.ai.azure.com")
     model, kwargs, route = non_openai_responses_bridge("azure_ai")
 
-    litellm.completion(
+    hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort={"effort": "low", "mode": "pro", "context": "all_turns"},
@@ -2857,7 +2857,7 @@ def test_azure_bridge_sends_only_effort_and_summary_to_an_unknown_gpt_series_dep
 ):
     _, kwargs, route = non_openai_responses_bridge("azure")
 
-    litellm.completion(
+    hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort={"effort": "low", "mode": "pro", "context": "all_turns", **summary},
@@ -2874,7 +2874,7 @@ def test_azure_bridge_sends_only_effort_and_summary_to_an_unknown_gpt_series_dep
         ("azure", "azure/responses/terra-prod"),
         ("databricks", "databricks/responses/databricks-gpt-bridge-test"),
         ("databricks", "databricks/responses/databricks-gpt-6.1-standard-only"),
-        ("litellm_proxy", "litellm_proxy/responses/gpt-6.1-standard-only"),
+        ("hangarllm_proxy", "hangarllm_proxy/responses/gpt-6.1-standard-only"),
     ],
 )
 @pytest.mark.parametrize("summary", [{}, {"summary": "auto"}])
@@ -2887,7 +2887,7 @@ def test_responses_bridge_forwards_mode_and_context_it_cannot_judge_under_drop_p
     _, kwargs, route = non_openai_responses_bridge(backend)
     requested: Final = {"effort": "low", "mode": "pro", "context": "all_turns", **summary}
 
-    litellm.completion(
+    hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort=requested,
@@ -2902,10 +2902,10 @@ def test_azure_bridge_applies_a_deployment_reasoning_modes_only_to_that_deployme
     non_openai_responses_bridge: Callable[[str], tuple[str, Mapping[str, str], respx.Route]],
 ):
     _, kwargs, route = non_openai_responses_bridge("azure")
-    litellm.register_model(
+    hangarllm.register_model(
         {
             "gpt-6.1-pro-capable": {
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
                 "supports_reasoning": True,
                 "reasoning_modes": ["standard", "pro"],
@@ -2915,15 +2915,15 @@ def test_azure_bridge_applies_a_deployment_reasoning_modes_only_to_that_deployme
         },
         persist_across_reloads=False,
     )
-    litellm_params: Final = {"model": "azure/responses/gpt-6.1-pro-capable", **kwargs}
-    router: Final = litellm.Router(
+    hangarllm_params: Final = {"model": "azure/responses/gpt-6.1-pro-capable", **kwargs}
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "standard-only",
-                "litellm_params": litellm_params,
+                "hangarllm_params": hangarllm_params,
                 "model_info": {"reasoning_modes": ["standard"]},
             },
-            {"model_name": "pro-capable", "litellm_params": litellm_params},
+            {"model_name": "pro-capable", "hangarllm_params": hangarllm_params},
         ]
     )
     requested: Final = {"effort": "low", "mode": "pro"}
@@ -2935,7 +2935,7 @@ def test_azure_bridge_applies_a_deployment_reasoning_modes_only_to_that_deployme
             reasoning_effort=requested,
             drop_params=True,
         )
-    litellm.completion(
+    hangarllm.completion(
         model="azure/responses/gpt-6.1-pro-capable",
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort=requested,
@@ -2954,10 +2954,10 @@ def test_azure_bridge_reads_reasoning_modes_from_the_deployment_cost_map_row_und
     non_openai_responses_bridge: Callable[[str], tuple[str, Mapping[str, str], respx.Route]],
 ):
     _, kwargs, route = non_openai_responses_bridge("azure")
-    litellm.register_model(
+    hangarllm.register_model(
         {
             "azure/custom-standard-deployment": {
-                "litellm_provider": "azure",
+                "hangarllm_provider": "azure",
                 "mode": "responses",
                 "supports_reasoning": True,
                 "reasoning_modes": ["standard"],
@@ -2968,7 +2968,7 @@ def test_azure_bridge_reads_reasoning_modes_from_the_deployment_cost_map_row_und
         persist_across_reloads=False,
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="azure/responses/custom-standard-deployment",
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort={"effort": "low", "mode": "pro", "context": "all_turns"},
@@ -2983,10 +2983,10 @@ def test_responses_bridge_fake_stream_is_bounded_by_the_request_timeout_not_the_
     restore_model_registry: None,
 ) -> None:
     model: Final = "openai/slow-responses-model"
-    litellm.register_model(
+    hangarllm.register_model(
         {
             model: {
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "responses",
                 "supports_native_streaming": False,
                 "input_cost_per_token": 0.0,
@@ -2996,7 +2996,7 @@ def test_responses_bridge_fake_stream_is_bounded_by_the_request_timeout_not_the_
         persist_across_reloads=False,
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -3051,12 +3051,12 @@ _FOUNDRY_RESPONSES_FUNCTION_CALL_BODY: Final = {
 def test_completion_bridges_azure_ai_foundry_gpt_5_4_plus_function_tools_to_responses(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     responses_route: Final = respx_mock.post(f"{_FOUNDRY_API_BASE}/openai/v1/responses").respond(
         json=_FOUNDRY_RESPONSES_FUNCTION_CALL_BODY
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="azure_ai/gpt-6-astra",
         messages=[{"role": "user", "content": "What is the weather in Paris? Use the tool."}],
         tools=[
@@ -3107,10 +3107,10 @@ def test_completion_optional_params_base_model(
 
     Regression for #29618: overwriting ``model`` with a friendly ``base_model``
     label made Bedrock drop ``tools``/``tool_choice`` under ``drop_params``."""
-    with patch("litellm.main.get_optional_params") as mock_get_optional_params:
+    with patch("hangarllm.main.get_optional_params") as mock_get_optional_params:
         mock_get_optional_params.return_value = MagicMock()
 
-        import litellm
+        import hangarllm
 
         kwargs = {
             "model": model,
@@ -3121,7 +3121,7 @@ def test_completion_optional_params_base_model(
         if model_info is not None:
             kwargs["model_info"] = model_info
 
-        litellm.completion(**kwargs)
+        hangarllm.completion(**kwargs)
 
         assert mock_get_optional_params.called is True
         call_kwargs = mock_get_optional_params.call_args.kwargs
@@ -3129,16 +3129,16 @@ def test_completion_optional_params_base_model(
         assert call_kwargs["base_model"] == expected_base_model_param
 
 
-@patch("litellm.completion_extras.responses_api_bridge.completion")
+@patch("hangarllm.completion_extras.responses_api_bridge.completion")
 def test_gpt_5_4_responses_bridge_merges_reasoning_summary_kwarg_without_tools(
     mock_responses_completion,
 ):
     """reasoningSummary without tools should route and merge into reasoning_effort dict."""
     mock_responses_completion.return_value = MagicMock()
 
-    import litellm
+    import hangarllm
 
-    litellm.completion(
+    hangarllm.completion(
         model="gpt-5.4",
         messages=[{"role": "user", "content": "ok"}],
         reasoning_effort="medium",
@@ -3156,17 +3156,17 @@ def test_gpt_5_4_responses_bridge_merges_reasoning_summary_kwarg_without_tools(
     assert "reasoning_summary" not in optional_params
 
 
-@patch("litellm.completion_extras.responses_api_bridge.completion")
+@patch("hangarllm.completion_extras.responses_api_bridge.completion")
 def test_responses_bridge_preserves_reasoning_summary_without_effort(
     mock_responses_completion,
 ):
     """Reasoning summary should survive responses routing even without effort."""
     mock_responses_completion.return_value = MagicMock()
 
-    import litellm
+    import hangarllm
 
-    with patch.object(litellm, "route_all_chat_openai_to_responses", True):
-        litellm.completion(
+    with patch.object(hangarllm, "route_all_chat_openai_to_responses", True):
+        hangarllm.completion(
             model="gpt-4o",
             messages=[{"role": "user", "content": "ok"}],
             reasoningSummary="auto",
@@ -3180,16 +3180,16 @@ def test_responses_bridge_preserves_reasoning_summary_without_effort(
     assert "reasoning_summary" not in optional_params
 
 
-@patch("litellm.completion_extras.responses_api_bridge.completion")
+@patch("hangarllm.completion_extras.responses_api_bridge.completion")
 def test_gpt_5_responses_bridge_tools_and_reasoning_summary(
     mock_responses_completion,
 ):
     """Bare gpt-5 with tools + reasoningSummary should bridge (OpenCode-style)."""
     mock_responses_completion.return_value = MagicMock()
 
-    import litellm
+    import hangarllm
 
-    litellm.completion(
+    hangarllm.completion(
         model="gpt-5",
         messages=[{"role": "user", "content": "ok"}],
         tools=[
@@ -3218,9 +3218,9 @@ def test_gpt_5_responses_bridge_tools_and_reasoning_summary(
 
 def test_responses_api_bridge_check_handles_exception():
     """Test that responses_api_bridge_check handles exceptions and still processes responses/ models."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.side_effect = Exception("Model not found")
 
         model_info, model = responses_api_bridge_check(model="responses/custom-model", custom_llm_provider="custom")
@@ -3231,9 +3231,9 @@ def test_responses_api_bridge_check_handles_exception():
 
 def test_responses_api_bridge_check_global_flag_routes_openai():
     """When route_all_chat_openai_to_responses is True, any OpenAI model routes to responses."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch.object(litellm, "route_all_chat_openai_to_responses", True):
+    with patch.object(hangarllm, "route_all_chat_openai_to_responses", True):
         model_info, model = responses_api_bridge_check(
             model="gpt-4o",
             custom_llm_provider="openai",
@@ -3245,10 +3245,10 @@ def test_responses_api_bridge_check_global_flag_routes_openai():
 
 def test_responses_api_bridge_check_global_flag_does_not_affect_azure():
     """route_all_chat_openai_to_responses should not affect Azure models."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch.object(litellm, "route_all_chat_openai_to_responses", True):
-        with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch.object(hangarllm, "route_all_chat_openai_to_responses", True):
+        with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
             mock_get_model_info.return_value = {"max_tokens": 4096}
             model_info, model = responses_api_bridge_check(
                 model="gpt-4o",
@@ -3260,10 +3260,10 @@ def test_responses_api_bridge_check_global_flag_does_not_affect_azure():
 
 def test_responses_api_bridge_check_global_flag_default_false():
     """By default, route_all_chat_openai_to_responses is False and doesn't affect routing."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    with patch.object(litellm, "route_all_chat_openai_to_responses", False):
-        with patch("litellm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
+    with patch.object(hangarllm, "route_all_chat_openai_to_responses", False):
+        with patch("hangarllm.responses.bridge_check.get_model_info_helper") as mock_get_model_info:
             mock_get_model_info.return_value = {"max_tokens": 4096}
             model_info, model = responses_api_bridge_check(
                 model="gpt-4o",
@@ -3278,7 +3278,7 @@ async def test_async_mock_delay():
     """Use asyncio await for mock delay on acompletion"""
     import time
 
-    from litellm import acompletion
+    from hangarllm import acompletion
 
     start_time = time.time()
     result = await acompletion(
@@ -3293,8 +3293,8 @@ async def test_async_mock_delay():
 
 
 def test_stream_chunk_builder_keeps_tool_calls_carried_only_by_a_later_choice_of_a_multi_choice_chunk():
-    from litellm import stream_chunk_builder
-    from litellm.types.utils import (
+    from hangarllm import stream_chunk_builder
+    from hangarllm.types.utils import (
         ChatCompletionDeltaToolCall,
         Delta,
         Function,
@@ -3356,8 +3356,8 @@ def test_stream_chunk_builder_keeps_tool_calls_carried_only_by_a_later_choice_of
 
 
 def test_parallel_function_call_stream_reassembles_each_arguments_payload():
-    from litellm import stream_chunk_builder
-    from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, Function, ModelResponseStream, StreamingChoices
+    from hangarllm import stream_chunk_builder
+    from hangarllm.types.utils import ChatCompletionDeltaToolCall, Delta, Function, ModelResponseStream, StreamingChoices
 
     def chunk(tool_calls: list[ChatCompletionDeltaToolCall], finish_reason: str | None = None) -> ModelResponseStream:
         return ModelResponseStream(
@@ -3503,7 +3503,7 @@ def test_parallel_function_call_stream_over_responses_bridge_ignores_events_it_d
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="gpt-6-luna",
         api_key="sk-test",
         api_base="https://api.openai.com/v1",
@@ -3536,8 +3536,8 @@ def test_parallel_function_call_stream_over_responses_bridge_ignores_events_it_d
 
 
 def test_stream_chunk_builder_thinking_blocks():
-    from litellm import stream_chunk_builder
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from hangarllm import stream_chunk_builder
+    from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
     chunks = [
         ModelResponseStream(
@@ -4087,7 +4087,7 @@ def test_stream_chunk_builder_thinking_blocks():
 
 import traceback
 
-from litellm.llms.openai.openai import OpenAIChatCompletion
+from hangarllm.llms.openai.openai import OpenAIChatCompletion
 
 user_message = "Write a short poem about the sky"
 messages = [{"content": user_message, "role": "user"}]
@@ -4099,16 +4099,16 @@ def throw_retryable_error(*_, **__):
 
 @pytest.mark.asyncio
 async def test_retrying() -> None:
-    litellm.num_retries = 10
+    hangarllm.num_retries = 10
     with (
         patch.object(
             OpenAIChatCompletion,
             "make_openai_chat_completion_request",
             side_effect=throw_retryable_error,
         ) as mock_request,
-        pytest.raises(litellm.InternalServerError, match="LiteLLM Retried: 10 times"),
+        pytest.raises(hangarllm.InternalServerError, match="HangarLLM Retried: 10 times"),
     ):
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "Hello"}],
         )
@@ -4133,7 +4133,7 @@ def test_anthropic_disable_url_suffix_env_var(
             },
         )
     )
-    default_response: Final = litellm.completion(
+    default_response: Final = hangarllm.completion(
         model="anthropic/claude-3-sonnet",
         messages=[{"role": "user", "content": "test"}],
         api_key="test-key",
@@ -4144,7 +4144,7 @@ def test_anthropic_disable_url_suffix_env_var(
     assert str(default_route.calls.last.request.url) == "https://api.example.com/v1/messages"
 
     monkeypatch.setenv("ANTHROPIC_API_BASE", "https://api.example.com/custom/path")
-    monkeypatch.setenv("LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX", "true")
+    monkeypatch.setenv("HANGARLLM_ANTHROPIC_DISABLE_URL_SUFFIX", "true")
     disabled_route: Final = respx_mock.post("https://api.example.com/custom/path").mock(
         return_value=httpx.Response(
             200,
@@ -4160,7 +4160,7 @@ def test_anthropic_disable_url_suffix_env_var(
             },
         )
     )
-    disabled_response: Final = litellm.completion(
+    disabled_response: Final = hangarllm.completion(
         model="anthropic/claude-3-sonnet",
         messages=[{"role": "user", "content": "test"}],
         api_key="test-key",
@@ -4185,7 +4185,7 @@ def test_anthropic_text_disable_url_suffix_env_var(
             },
         )
     )
-    default_response: Final = litellm.text_completion(
+    default_response: Final = hangarllm.text_completion(
         model="anthropic_text/claude-instant-1",
         prompt="test",
         api_key="test-key",
@@ -4196,7 +4196,7 @@ def test_anthropic_text_disable_url_suffix_env_var(
     assert str(default_route.calls.last.request.url) == "https://api.example.com/v1/complete"
 
     monkeypatch.setenv("ANTHROPIC_API_BASE", "https://api.example.com/custom/complete")
-    monkeypatch.setenv("LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX", "true")
+    monkeypatch.setenv("HANGARLLM_ANTHROPIC_DISABLE_URL_SUFFIX", "true")
     disabled_route: Final = respx_mock.post("https://api.example.com/custom/complete").mock(
         return_value=httpx.Response(
             200,
@@ -4207,7 +4207,7 @@ def test_anthropic_text_disable_url_suffix_env_var(
             },
         )
     )
-    disabled_response: Final = litellm.text_completion(
+    disabled_response: Final = hangarllm.text_completion(
         model="anthropic_text/claude-instant-1",
         prompt="test",
         api_key="test-key",
@@ -4221,7 +4221,7 @@ def test_anthropic_text_disable_url_suffix_env_var(
 def test_huggingface_text_completion_sends_each_token_prompt_with_the_callers_params(
     respx_mock: respx.MockRouter,
 ) -> None:
-    from litellm.rust_bridge.tokenizer import get_encoding
+    from hangarllm.rust_bridge.tokenizer import get_encoding
 
     encoding: Final = get_encoding("p50k_base")
     respx_mock.get(url__startswith="https://huggingface.co/").respond(404)
@@ -4235,7 +4235,7 @@ def test_huggingface_text_completion_sends_each_token_prompt_with_the_callers_pa
         }
     )
 
-    response: Final = litellm.text_completion(
+    response: Final = hangarllm.text_completion(
         model="huggingface/tgi",
         prompt=[list(encoding.encode("Hello")), list(encoding.encode("world"))],
         api_key="hf-test-key",
@@ -4254,7 +4254,7 @@ def test_huggingface_text_completion_sends_each_token_prompt_with_the_callers_pa
 
 
 def test_image_edit_merges_headers_and_extra_headers():
-    from litellm.images.main import base_llm_http_handler
+    from hangarllm.images.main import base_llm_http_handler
 
     combined_headers = {
         "x-test-header-one": "value-1",
@@ -4267,7 +4267,7 @@ def test_image_edit_merges_headers_and_extra_headers():
 
     with (
         patch(
-            "litellm.images.main.ProviderConfigManager.get_provider_image_edit_config",
+            "hangarllm.images.main.ProviderConfigManager.get_provider_image_edit_config",
             return_value=mock_image_edit_config,
         ) as mock_config,
         patch.object(
@@ -4276,7 +4276,7 @@ def test_image_edit_merges_headers_and_extra_headers():
             return_value="ok",
         ) as mock_handler,
     ):
-        response = litellm.image_edit(
+        response = hangarllm.image_edit(
             image=MagicMock(name="image"),
             prompt="test",
             model="azure/gpt-image-1",
@@ -4294,10 +4294,10 @@ def test_image_edit_merges_headers_and_extra_headers():
     assert "extra_headers" not in handler_kwargs["image_edit_optional_request_params"]
 
 
-@pytest.mark.parametrize("metadata_key", ("metadata", "litellm_metadata"))
+@pytest.mark.parametrize("metadata_key", ("metadata", "hangarllm_metadata"))
 @pytest.mark.parametrize("input_tokens", (51234, 0))
 def test_mock_completion_usage_reports_admission_input_tokens(metadata_key: str, input_tokens: int):
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="anthropic/claude-sonnet-5",
         messages=[{"role": "user", "content": "hello"}],
         mock_response="ok",
@@ -4310,7 +4310,7 @@ def test_mock_completion_usage_reports_admission_input_tokens(metadata_key: str,
 
 
 def test_mock_completion_usage_falls_back_to_default_without_admission_count():
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="anthropic/claude-sonnet-5",
         messages=[{"role": "user", "content": "hello"}],
         mock_response="ok",
@@ -4318,12 +4318,12 @@ def test_mock_completion_usage_falls_back_to_default_without_admission_count():
         metadata={"user_api_key_budget_reservation": {"reserved_cost": 1.0}},
     )
 
-    assert response.usage.prompt_tokens == litellm_main.DEFAULT_MOCK_RESPONSE_PROMPT_TOKEN_COUNT
+    assert response.usage.prompt_tokens == hangarllm_main.DEFAULT_MOCK_RESPONSE_PROMPT_TOKEN_COUNT
 
 
 _AZURE_AI_CUSTOM_PRICED_DEPLOYMENT: Final = {
     "model_name": "azure-ai-custom-priced",
-    "litellm_params": {
+    "hangarllm_params": {
         "model": "azure_ai/gpt-5.6",
         "api_key": "mock",
         "api_base": "https://example.services.ai.azure.com",
@@ -4337,8 +4337,8 @@ _AZURE_AI_CUSTOM_PRICED_DEPLOYMENT: Final = {
 }
 
 
-def _expected_custom_price(response: litellm.ModelResponse) -> float:
-    params: Final = _AZURE_AI_CUSTOM_PRICED_DEPLOYMENT["litellm_params"]
+def _expected_custom_price(response: hangarllm.ModelResponse) -> float:
+    params: Final = _AZURE_AI_CUSTOM_PRICED_DEPLOYMENT["hangarllm_params"]
     return (
         response.usage.prompt_tokens * params["input_cost_per_token"]
         + response.usage.completion_tokens * params["output_cost_per_token"]
@@ -4348,7 +4348,7 @@ def _expected_custom_price(response: litellm.ModelResponse) -> float:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("use_async", (False, True))
 async def test_mock_completion_prices_azure_ai_router_deployment_with_custom_pricing(use_async: bool):
-    router: Final = litellm.Router(model_list=[_AZURE_AI_CUSTOM_PRICED_DEPLOYMENT])
+    router: Final = hangarllm.Router(model_list=[_AZURE_AI_CUSTOM_PRICED_DEPLOYMENT])
     messages: Final = [{"role": "user", "content": "hello"}]
 
     response: Final = (
@@ -4366,7 +4366,7 @@ async def test_mock_completion_prices_azure_ai_router_deployment_with_custom_pri
     (("anthropic/claude-sonnet-5", "anthropic"), ("no-such-provider-model", None)),
 )
 def test_mock_completion_infers_provider_when_called_directly_without_one(model: str, expected_provider: str | None):
-    response: Final = litellm.mock_completion(
+    response: Final = hangarllm.mock_completion(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         mock_response="ok",
@@ -4380,7 +4380,7 @@ def test_mock_request():
     try:
         model = "gpt-3.5-turbo"
         messages = [{"role": "user", "content": "Hey, I'm a mock request"}]
-        response = litellm.mock_completion(model=model, messages=messages, stream=False)
+        response = hangarllm.mock_completion(model=model, messages=messages, stream=False)
         print(response)
         print(type(response))
     except Exception:
@@ -4391,7 +4391,7 @@ def test_streaming_mock_request():
     try:
         model = "gpt-3.5-turbo"
         messages = [{"role": "user", "content": "Hey, I'm a mock request"}]
-        response = litellm.mock_completion(model=model, messages=messages, stream=True)
+        response = hangarllm.mock_completion(model=model, messages=messages, stream=True)
         complete_response = ""
         for chunk in response:
             complete_response += chunk["choices"][0]["delta"]["content"] or ""
@@ -4403,9 +4403,9 @@ def test_streaming_mock_request():
 
 @pytest.mark.asyncio()
 async def test_async_mock_streaming_request():
-    generator = await litellm.acompletion(
-        messages=[{"role": "user", "content": "Why is LiteLLM amazing?"}],
-        mock_response="LiteLLM is awesome",
+    generator = await hangarllm.acompletion(
+        messages=[{"role": "user", "content": "Why is HangarLLM amazing?"}],
+        mock_response="HangarLLM is awesome",
         stream=True,
         model="gpt-3.5-turbo",
     )
@@ -4415,7 +4415,7 @@ async def test_async_mock_streaming_request():
         complete_response += chunk["choices"][0]["delta"]["content"] or ""
 
     assert (
-        complete_response == "LiteLLM is awesome"
+        complete_response == "HangarLLM is awesome"
     ), f"Unexpected response got {complete_response}"
 
 
@@ -4423,7 +4423,7 @@ def test_mock_request_n_greater_than_1():
     try:
         model = "gpt-3.5-turbo"
         messages = [{"role": "user", "content": "Hey, I'm a mock request"}]
-        response = litellm.mock_completion(model=model, messages=messages, n=5)
+        response = hangarllm.mock_completion(model=model, messages=messages, n=5)
         print("response: ", response)
 
         assert len(response.choices) == 5
@@ -4436,9 +4436,9 @@ def test_mock_request_n_greater_than_1():
 
 @pytest.mark.asyncio()
 async def test_async_mock_streaming_request_n_greater_than_1():
-    generator = await litellm.acompletion(
-        messages=[{"role": "user", "content": "Why is LiteLLM amazing?"}],
-        mock_response="LiteLLM is awesome",
+    generator = await hangarllm.acompletion(
+        messages=[{"role": "user", "content": "Why is HangarLLM amazing?"}],
+        mock_response="HangarLLM is awesome",
         stream=True,
         model="gpt-3.5-turbo",
         n=5,
@@ -4457,7 +4457,7 @@ def _admission_metadata(input_tokens: int) -> dict[str, object]:  # mutable-ok: 
 
 _ADMISSION_METADATA: Final = _admission_metadata(_ADMISSION_INPUT_TOKENS)
 _MOCK_STREAM_MESSAGES: Final = [{"role": "user", "content": "hello " * 200}]
-_STREAM_CHUNK_BUILDER_TOKEN_COUNTER: Final = "litellm.litellm_core_utils.streaming_chunk_builder_utils.token_counter"
+_STREAM_CHUNK_BUILDER_TOKEN_COUNTER: Final = "hangarllm.hangarllm_core_utils.streaming_chunk_builder_utils.token_counter"
 
 
 def _prompt_token_counter_calls(token_counter: MagicMock) -> list[object]:
@@ -4470,9 +4470,9 @@ def _client_usage_chunks(chunks: list[ModelResponseStream]) -> list[Usage]:
 
 @pytest.mark.parametrize("n", (None, 2))
 def test_mock_completion_stream_usage_reports_admission_input_tokens_without_tokenizer_fallback(n: int | None):
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=hangarllm.token_counter) as token_counter:
         chunks: Final = list(
-            litellm.completion(
+            hangarllm.completion(
                 model="openai/gpt-5.4-mini",
                 messages=_MOCK_STREAM_MESSAGES,
                 mock_response="ok",
@@ -4487,7 +4487,7 @@ def test_mock_completion_stream_usage_reports_admission_input_tokens_without_tok
     usage_chunks: Final = _client_usage_chunks(chunks)
     assert len(usage_chunks) == 1
     assert usage_chunks[0].prompt_tokens == _ADMISSION_INPUT_TOKENS
-    assert usage_chunks[0].completion_tokens == litellm_main.DEFAULT_MOCK_RESPONSE_COMPLETION_TOKEN_COUNT
+    assert usage_chunks[0].completion_tokens == hangarllm_main.DEFAULT_MOCK_RESPONSE_COMPLETION_TOKEN_COUNT
     assert usage_chunks[0].total_tokens == _ADMISSION_INPUT_TOKENS + usage_chunks[0].completion_tokens
     assert _prompt_token_counter_calls(token_counter) == []
     assert all(chunk.choices for chunk in chunks[:-1])
@@ -4499,8 +4499,8 @@ def test_mock_completion_stream_usage_reports_admission_input_tokens_without_tok
 async def test_mock_acompletion_stream_usage_reports_admission_input_tokens_without_tokenizer_fallback(
     n: int | None,
 ):
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
-        response: Final = await litellm.acompletion(
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=hangarllm.token_counter) as token_counter:
+        response: Final = await hangarllm.acompletion(
             model="openai/gpt-5.4-mini",
             messages=_MOCK_STREAM_MESSAGES,
             mock_response="ok",
@@ -4508,7 +4508,7 @@ async def test_mock_acompletion_stream_usage_reports_admission_input_tokens_with
             stream=True,
             n=n,
             stream_options={"include_usage": True},
-            litellm_metadata=_ADMISSION_METADATA,
+            hangarllm_metadata=_ADMISSION_METADATA,
         )
         chunks: Final = [chunk async for chunk in response]
 
@@ -4522,9 +4522,9 @@ async def test_mock_acompletion_stream_usage_reports_admission_input_tokens_with
 
 
 def test_mock_completion_stream_without_include_usage_hides_usage_chunk_but_logs_admission_count():
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=hangarllm.token_counter) as token_counter:
         chunks: Final = list(
-            litellm.completion(
+            hangarllm.completion(
                 model="openai/gpt-5.4-mini",
                 messages=_MOCK_STREAM_MESSAGES,
                 mock_response="ok",
@@ -4541,9 +4541,9 @@ def test_mock_completion_stream_without_include_usage_hides_usage_chunk_but_logs
 
 
 def test_mock_completion_stream_with_empty_stream_options_completes_and_logs_admission_count():
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=hangarllm.token_counter) as token_counter:
         chunks: Final = list(
-            litellm.completion(
+            hangarllm.completion(
                 model="openai/gpt-5.4-mini",
                 messages=_MOCK_STREAM_MESSAGES,
                 mock_response="ok",
@@ -4561,15 +4561,15 @@ def test_mock_completion_stream_with_empty_stream_options_completes_and_logs_adm
 
 @pytest.mark.asyncio
 async def test_mock_acompletion_stream_with_empty_stream_options_completes_and_logs_admission_count():
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
-        response: Final = await litellm.acompletion(
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=hangarllm.token_counter) as token_counter:
+        response: Final = await hangarllm.acompletion(
             model="openai/gpt-5.4-mini",
             messages=_MOCK_STREAM_MESSAGES,
             mock_response="ok",
             api_key="mock",
             stream=True,
             stream_options={},
-            litellm_metadata=_ADMISSION_METADATA,
+            hangarllm_metadata=_ADMISSION_METADATA,
         )
         chunks: Final = [chunk async for chunk in response]
 
@@ -4579,10 +4579,10 @@ async def test_mock_acompletion_stream_with_empty_stream_options_completes_and_l
 
 
 def test_mock_completion_stream_without_admission_count_falls_back_to_tokenizer():
-    expected_prompt_tokens: Final = litellm.token_counter(model="openai/gpt-5.4-mini", messages=_MOCK_STREAM_MESSAGES)
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
+    expected_prompt_tokens: Final = hangarllm.token_counter(model="openai/gpt-5.4-mini", messages=_MOCK_STREAM_MESSAGES)
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=hangarllm.token_counter) as token_counter:
         chunks: Final = list(
-            litellm.completion(
+            hangarllm.completion(
                 model="openai/gpt-5.4-mini",
                 messages=_MOCK_STREAM_MESSAGES,
                 mock_response="ok",
@@ -4602,9 +4602,9 @@ def test_mock_completion_stream_without_admission_count_falls_back_to_tokenizer(
 
 @pytest.mark.asyncio
 async def test_mock_acompletion_stream_without_admission_count_falls_back_to_tokenizer():
-    expected_prompt_tokens: Final = litellm.token_counter(model="openai/gpt-5.4-mini", messages=_MOCK_STREAM_MESSAGES)
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
-        response: Final = await litellm.acompletion(
+    expected_prompt_tokens: Final = hangarllm.token_counter(model="openai/gpt-5.4-mini", messages=_MOCK_STREAM_MESSAGES)
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=hangarllm.token_counter) as token_counter:
+        response: Final = await hangarllm.acompletion(
             model="openai/gpt-5.4-mini",
             messages=_MOCK_STREAM_MESSAGES,
             mock_response="ok",
@@ -4627,16 +4627,16 @@ def _usage_triple(usage: Usage) -> tuple[int, int, int]:
 @pytest.mark.parametrize("input_tokens", (_ADMISSION_INPUT_TOKENS, 0))
 def test_mock_completion_stream_and_non_stream_report_the_same_admission_usage(input_tokens: int):
     metadata: Final = _admission_metadata(input_tokens)
-    non_stream: Final = litellm.completion(
+    non_stream: Final = hangarllm.completion(
         model="openai/gpt-5.4-mini",
         messages=_MOCK_STREAM_MESSAGES,
         mock_response="ok",
         api_key="mock",
         metadata=metadata,
     )
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=hangarllm.token_counter) as token_counter:
         chunks: Final = list(
-            litellm.completion(
+            hangarllm.completion(
                 model="openai/gpt-5.4-mini",
                 messages=_MOCK_STREAM_MESSAGES,
                 mock_response="ok",
@@ -4654,15 +4654,15 @@ def test_mock_completion_stream_and_non_stream_report_the_same_admission_usage(i
 
 @pytest.mark.asyncio
 async def test_mock_acompletion_stream_reports_zero_admission_input_tokens_without_tokenizer_fallback():
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
-        response: Final = await litellm.acompletion(
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=hangarllm.token_counter) as token_counter:
+        response: Final = await hangarllm.acompletion(
             model="openai/gpt-5.4-mini",
             messages=[{"role": "user", "content": ""}],
             mock_response="ok",
             api_key="mock",
             stream=True,
             stream_options={"include_usage": True},
-            litellm_metadata=_admission_metadata(0),
+            hangarllm_metadata=_admission_metadata(0),
         )
         chunks: Final = [chunk async for chunk in response]
 
@@ -4674,11 +4674,11 @@ async def test_mock_acompletion_stream_reports_zero_admission_input_tokens_witho
 
 def test_mock_text_completion_stream_and_non_stream_report_the_same_zero_admission_usage():
     metadata: Final = _admission_metadata(0)
-    non_stream: Final = litellm.text_completion(
+    non_stream: Final = hangarllm.text_completion(
         model="openai/gpt-5.4-mini", prompt="", mock_response="ok", api_key="mock", metadata=metadata
     )
     chunks: Final = list(
-        litellm.text_completion(
+        hangarllm.text_completion(
             model="openai/gpt-5.4-mini",
             prompt="",
             mock_response="ok",
@@ -4701,14 +4701,14 @@ def _carries_text_or_finish(frame: TextCompletionResponse) -> bool:
 
 @pytest.mark.asyncio
 async def test_mock_atext_completion_stream_hides_the_usage_chunk_the_proxy_asked_for_on_the_clients_behalf():
-    response: Final = await litellm.atext_completion(
+    response: Final = await hangarllm.atext_completion(
         model="openai/gpt-5.4-mini",
         prompt="hi",
         mock_response="ok then",
         api_key="mock",
         stream=True,
         stream_options={"include_usage": True},
-        _litellm_strip_stream_usage=True,
+        _hangarllm_strip_stream_usage=True,
     )
 
     frames: Final[list[TextCompletionResponse]] = [frame async for frame in response]
@@ -4746,14 +4746,14 @@ def _async_native_completions_upstream(outbound: list[dict[str, object]]) -> Asy
 @pytest.mark.asyncio
 async def test_native_atext_completion_stream_hides_the_usage_chunk_the_proxy_asked_for_on_the_clients_behalf():
     outbound: Final[list[dict[str, object]]] = []
-    response: Final = await litellm.atext_completion(
+    response: Final = await hangarllm.atext_completion(
         model="text-completion-openai/code-model",
         prompt="hi",
         client=_async_native_completions_upstream(outbound),
         api_key="transport-only",
         stream=True,
         stream_options={"include_usage": True},
-        _litellm_strip_stream_usage=True,
+        _hangarllm_strip_stream_usage=True,
     )
 
     frames: Final[list[TextCompletionResponse]] = [frame async for frame in response]
@@ -4769,7 +4769,7 @@ async def test_native_atext_completion_stream_hides_the_usage_chunk_the_proxy_as
 
 def test_native_text_completion_stream_keeps_the_usage_chunk_the_client_asked_for():
     frames: Final = list(
-        litellm.text_completion(
+        hangarllm.text_completion(
             model="text-completion-openai/code-model",
             prompt="hi",
             client=_native_completions_upstream([]),
@@ -4786,8 +4786,8 @@ def test_native_text_completion_stream_keeps_the_usage_chunk_the_client_asked_fo
 
 def test_mock_completion_stream_with_model_response():
     """Test that mock_completion correctly handles stream=True with a ModelResponse as mock_response."""
-    from litellm import completion
-    from litellm.types.utils import Choices, Message, ModelResponse, Usage
+    from hangarllm import completion
+    from hangarllm.types.utils import Choices, Message, ModelResponse, Usage
 
     # Create a ModelResponse object
     mock_model_response = ModelResponse(
@@ -4844,8 +4844,8 @@ def test_mock_completion_stream_with_model_response():
 @pytest.mark.asyncio
 async def test_async_mock_completion_stream_with_model_response():
     """Test that async mock_completion correctly handles stream=True with a ModelResponse as mock_response."""
-    from litellm import acompletion
-    from litellm.types.utils import Choices, Message, ModelResponse, Usage
+    from hangarllm import acompletion
+    from hangarllm.types.utils import Choices, Message, ModelResponse, Usage
 
     # Create a ModelResponse object
     mock_model_response = ModelResponse(
@@ -4902,26 +4902,26 @@ async def test_async_mock_completion_stream_with_model_response():
 class TestCallTypesOCR:
     """Test that OCR call types are properly defined in CallTypes enum.
 
-    Fixes https://github.com/BerriAI/litellm/issues/17381
+    Fixes upstream issue 17381
     """
 
     def test_ocr_call_type_exists(self):
         """Test that CallTypes.ocr exists and has correct value."""
-        from litellm.types.utils import CallTypes
+        from hangarllm.types.utils import CallTypes
 
         assert hasattr(CallTypes, "ocr")
         assert CallTypes.ocr.value == "ocr"
 
     def test_aocr_call_type_exists(self):
         """Test that CallTypes.aocr exists and has correct value."""
-        from litellm.types.utils import CallTypes
+        from hangarllm.types.utils import CallTypes
 
         assert hasattr(CallTypes, "aocr")
         assert CallTypes.aocr.value == "aocr"
 
     def test_ocr_call_type_from_string(self):
         """Test that CallTypes can be constructed from 'ocr' string."""
-        from litellm.types.utils import CallTypes
+        from hangarllm.types.utils import CallTypes
 
         call_type = CallTypes("ocr")
         assert call_type == CallTypes.ocr
@@ -4933,14 +4933,14 @@ class TestCallTypesOCR:
         uses route_type='aocr' and guardrails try to instantiate
         CallTypes('aocr').
         """
-        from litellm.types.utils import CallTypes
+        from hangarllm.types.utils import CallTypes
 
         call_type = CallTypes("aocr")
         assert call_type == CallTypes.aocr
 
 
 def test_stream_chunk_builder_text_completion_combines_text_and_usage():
-    from litellm.main import stream_chunk_builder_text_completion
+    from hangarllm.main import stream_chunk_builder_text_completion
 
     chunks = [
         TextCompletionResponse(
@@ -4973,7 +4973,7 @@ def test_stream_chunk_builder_text_completion_combines_text_and_usage():
 
 def test_completion_forwards_store_and_prompt_cache_key_to_openai():
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/33184
+    Regression test for upstream issue 33184
 
     store and prompt_cache_key are documented OpenAI chat completion params that
     were accepted as supported but silently dropped before the provider request
@@ -4986,7 +4986,7 @@ def test_completion_forwards_store_and_prompt_cache_key_to_openai():
 
     with patch.object(client, "post") as mock_client:
         try:
-            litellm.completion(
+            hangarllm.completion(
                 model="openai/gpt-4o",
                 messages=[{"role": "user", "content": "Hello"}],
                 store=False,
@@ -5006,7 +5006,7 @@ def test_completion_forwards_store_and_prompt_cache_key_to_openai():
 async def test_acompletion_forwards_store_and_prompt_cache_key_to_openai():
     """
     Async variant of the store/prompt_cache_key forwarding regression test for
-    https://github.com/BerriAI/litellm/issues/33184
+    upstream issue 33184
     """
     from openai import AsyncOpenAI
 
@@ -5014,7 +5014,7 @@ async def test_acompletion_forwards_store_and_prompt_cache_key_to_openai():
 
     with patch.object(client, "post") as mock_client:
         try:
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="openai/gpt-4o",
                 messages=[{"role": "user", "content": "Hello"}],
                 store=False,
@@ -5090,7 +5090,7 @@ _OPENAI_BODY_PARAM_CASES: Final[Mapping[str, tuple[str, Mapping[str, object]]]] 
 
 
 def test_every_openai_body_param_has_a_forwarding_case():
-    body_params: Final = frozenset(litellm.OPENAI_CHAT_COMPLETION_PARAMS) - _OPENAI_CLIENT_SETTINGS - _NOT_OPENAI_BODY_PARAMS
+    body_params: Final = frozenset(hangarllm.OPENAI_CHAT_COMPLETION_PARAMS) - _OPENAI_CLIENT_SETTINGS - _NOT_OPENAI_BODY_PARAMS
     assert frozenset(_OPENAI_BODY_PARAM_CASES) == body_params, (
         "a param added to OPENAI_CHAT_COMPLETION_PARAMS needs a case in _OPENAI_BODY_PARAM_CASES proving "
         "completion() sends it to OpenAI; prompt_cache_retention (LIT-9758) and store/prompt_cache_key "
@@ -5111,7 +5111,7 @@ def test_completion_sends_openai_body_param_to_openai(
     )
     model, call_kwargs = _OPENAI_BODY_PARAM_CASES[param]
 
-    litellm.completion(
+    hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         api_base=api_base,
@@ -5135,7 +5135,7 @@ def test_completion_omits_store_and_prompt_cache_key_when_not_passed():
 
     with patch.object(client, "post") as mock_client:
         try:
-            litellm.completion(
+            hangarllm.completion(
                 model="openai/gpt-4o",
                 messages=[{"role": "user", "content": "Hello"}],
                 client=client,
@@ -5156,12 +5156,12 @@ def test_completion_forwards_store_and_prompt_cache_key_to_mcp_gateway():
     must be forwarded explicitly like safety_identifier and service_tier.
     """
     with patch.object(
-        import_module("litellm.responses.mcp.chat_completions_handler"), "acompletion_with_mcp"
+        import_module("hangarllm.responses.mcp.chat_completions_handler"), "acompletion_with_mcp"
     ) as mock_mcp:
-        result = litellm.completion(
+        result = hangarllm.completion(
             model="openai/gpt-4o",
             messages=[{"role": "user", "content": "Hello"}],
-            tools=[{"type": "mcp", "server_url": "litellm_proxy"}],
+            tools=[{"type": "mcp", "server_url": "hangarllm_proxy"}],
             store=False,
             prompt_cache_key="test-cache-key",
         )
@@ -5178,8 +5178,8 @@ def test_completion_forwards_store_and_prompt_cache_key_to_mcp_gateway():
     "aws_credential_kwargs",
     [
         {
-            "aws_session_name": "litellm-gcp",
-            "aws_role_name": "arn:aws:iam::123456789012:role/litellm-bedrock-role",
+            "aws_session_name": "hangarllm-gcp",
+            "aws_role_name": "arn:aws:iam::123456789012:role/hangarllm-bedrock-role",
             "aws_web_identity_token": "oidc/google/108963886734710037768",
         },
         {
@@ -5195,13 +5195,13 @@ async def test_acompletion_forwards_aws_credentials_through_responses_bridge(
 ):
     from botocore.credentials import Credentials
 
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
 
-    original_disable_aiohttp = litellm.disable_aiohttp_transport
+    original_disable_aiohttp = hangarllm.disable_aiohttp_transport
     try:
-        litellm.disable_aiohttp_transport = True
+        hangarllm.disable_aiohttp_transport = True
         monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
         monkeypatch.delenv("BEDROCK_MANTLE_API_KEY", raising=False)
 
@@ -5227,7 +5227,7 @@ async def test_acompletion_forwards_aws_credentials_through_responses_bridge(
             }
         )
 
-        response = await litellm.acompletion(
+        response = await hangarllm.acompletion(
             model="bedrock_mantle/openai.gpt-5.4",
             messages=[{"role": "user", "content": "hi"}],
             api_base="https://bedrock-mantle.us-east-2.api.aws/v1",
@@ -5245,8 +5245,8 @@ async def test_acompletion_forwards_aws_credentials_through_responses_bridge(
         assert authorization.startswith("AWS4-HMAC-SHA256")
         assert "fake-key" in authorization
     finally:
-        litellm.disable_aiohttp_transport = original_disable_aiohttp
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.disable_aiohttp_transport = original_disable_aiohttp
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 _GEMINI_RESPONSE_BODY = {
@@ -5257,7 +5257,7 @@ _GEMINI_RESPONSE_BODY = {
 
 def _gemini_client_returning_a_reply():
     """An injected HTTP client whose post() answers like generativelanguage does."""
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
     request = httpx.Request("POST", "https://generativelanguage.googleapis.com/")
@@ -5267,31 +5267,31 @@ def _gemini_client_returning_a_reply():
 
 @pytest.fixture
 def restore_model_registry():
-    """litellm.model_cost and the provider name sets are module-global.
+    """hangarllm.model_cost and the provider name sets are module-global.
 
     register_model merges into the existing entry in place, hence the deep copy.
     """
-    model_cost = copy.deepcopy(litellm.model_cost)
-    openai_models = set(litellm.open_ai_chat_completion_models)
+    model_cost = copy.deepcopy(hangarllm.model_cost)
+    openai_models = set(hangarllm.open_ai_chat_completion_models)
     yield
-    litellm.model_cost.clear()
-    litellm.model_cost.update(model_cost)
-    litellm.open_ai_chat_completion_models.clear()
-    litellm.open_ai_chat_completion_models.update(openai_models)
+    hangarllm.model_cost.clear()
+    hangarllm.model_cost.update(model_cost)
+    hangarllm.open_ai_chat_completion_models.clear()
+    hangarllm.open_ai_chat_completion_models.update(openai_models)
 
 
 def test_openai_model_name_does_not_outrank_explicit_provider():
-    """`gemini/gpt-4o` goes to Google, not to litellm's OpenAI handler.
+    """`gemini/gpt-4o` goes to Google, not to hangarllm's OpenAI handler.
 
-    completion() checks `model in litellm.open_ai_chat_completion_models` ahead of
+    completion() checks `model in hangarllm.open_ai_chat_completion_models` ahead of
     the gemini branch, so the call used to reach the OpenAI handler carrying
     VertexGeminiConfig, whose transform_request raises NotImplementedError.
     """
-    assert "gpt-4o" in litellm.open_ai_chat_completion_models
+    assert "gpt-4o" in hangarllm.open_ai_chat_completion_models
     client, post = _gemini_client_returning_a_reply()
 
     with patch.object(client, "post", new=post):
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="gemini/gpt-4o",
             messages=[{"role": "user", "content": "hello"}],
             api_key="test-api-key",
@@ -5306,25 +5306,25 @@ def test_openai_model_name_does_not_outrank_explicit_provider():
 def test_mislabelled_pricing_entry_does_not_reroute_provider(restore_model_registry):
     """register_model is the other way into the same failure.
 
-    An entry claiming litellm_provider "openai" adds its name to
+    An entry claiming hangarllm_provider "openai" adds its name to
     open_ai_chat_completion_models, so one mislabelled price reroutes every later
     call to that model in the process.
     """
-    litellm.register_model(
+    hangarllm.register_model(
         {
             "gemini-2.5-pro": {
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
                 "input_cost_per_token": 1e-06,
                 "output_cost_per_token": 4e-06,
             }
         }
     )
-    assert "gemini-2.5-pro" in litellm.open_ai_chat_completion_models
+    assert "gemini-2.5-pro" in hangarllm.open_ai_chat_completion_models
     client, post = _gemini_client_returning_a_reply()
 
     with patch.object(client, "post", new=post):
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="gemini/gemini-2.5-pro",
             messages=[{"role": "user", "content": "hello"}],
             api_key="test-api-key",
@@ -5340,7 +5340,7 @@ def test_openai_model_without_a_provider_still_routes_to_openai():
 
     client = OpenAI(api_key="fake-key")
     with patch.object(client, "post") as mock_create, contextlib.suppress(Exception):
-        litellm.completion(
+        hangarllm.completion(
             model="gpt-4o",
             messages=[{"role": "user", "content": "hello"}],
             client=client,
@@ -5352,7 +5352,7 @@ def test_openai_model_without_a_provider_still_routes_to_openai():
 def _openai_chat_create_kwargs(client, **completion_kwargs):
     with patch.object(client, "post") as mock_client:
         with contextlib.suppress(Exception):
-            litellm.completion(
+            hangarllm.completion(
                 messages=[{"role": "system", "content": "sys"}, {"role": "user", "content": "hi"}],
                 cache_control_injection_points=[{"location": "message", "role": "system"}],
                 client=client,
@@ -5367,7 +5367,7 @@ def _openai_chat_create_kwargs(client, **completion_kwargs):
 def _no_openai_api_base_override(monkeypatch):
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
 
 
 @pytest.mark.usefixtures("_no_openai_api_base_override")
@@ -5402,7 +5402,7 @@ async def test_acompletion_custom_base_url_sends_no_prompt_cache_breakpoint_for_
     client = AsyncOpenAI(api_key="fake-api-key", base_url="http://127.0.0.1:9/v1")
     with patch.object(client, "post") as mock_create:
         with contextlib.suppress(Exception):
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="gpt-5.6",
                 messages=[{"role": "system", "content": "sys"}, {"role": "user", "content": "hi"}],
                 cache_control_injection_points=[{"location": "message", "role": "system"}],
@@ -5435,7 +5435,7 @@ _SUBSCRIPTION_OAUTH_CREDENTIAL = "Bearer sk-ant-oat01-fake-subscription-token-fo
 
 
 def _scoped_headers_for_oauth_request():
-    from litellm.types.utils import ProviderSpecificHeader
+    from hangarllm.types.utils import ProviderSpecificHeader
 
     return [
         ProviderSpecificHeader(
@@ -5450,7 +5450,7 @@ def _scoped_headers_for_oauth_request():
 
 
 def _run_anthropic_hop_with_shared_headers(shared_headers):
-    litellm.completion(
+    hangarllm.completion(
         model="anthropic/claude-3-5-sonnet-20240620",
         messages=[{"role": "user", "content": "Say OK"}],
         extra_headers=shared_headers,
@@ -5502,7 +5502,7 @@ def _text_chunk(content, finish_reason=None, usage=None):
 
 
 def _priced_at(prompt_tokens, completion_tokens):
-    prices = litellm.model_cost[STREAM_COST_MODEL]
+    prices = hangarllm.model_cost[STREAM_COST_MODEL]
     return prompt_tokens * prices["input_cost_per_token"] + completion_tokens * prices["output_cost_per_token"]
 
 
@@ -5517,17 +5517,17 @@ def local_cost_map(monkeypatch):
     ``_invalidate_model_cost_lowercase_map`` clears both caches, where
     ``get_model_info.cache_clear`` reaches only one. Invalidate on the way in and out
     so entries never leak across tests in either direction."""
-    from litellm.utils import _invalidate_model_cost_lowercase_map
+    from hangarllm.utils import _invalidate_model_cost_lowercase_map
 
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
     _invalidate_model_cost_lowercase_map()
     yield
     _invalidate_model_cost_lowercase_map()
 
 
 def test_a_streamed_response_bills_the_usage_the_provider_reported(local_cost_map):
-    rebuilt = litellm.stream_chunk_builder(
+    rebuilt = hangarllm.stream_chunk_builder(
         chunks=[
             _text_chunk("Hello"),
             _text_chunk(" there"),
@@ -5540,13 +5540,13 @@ def test_a_streamed_response_bills_the_usage_the_provider_reported(local_cost_ma
     assert rebuilt.usage.prompt_tokens == STREAMED_USAGE["prompt_tokens"]
     assert rebuilt.usage.completion_tokens == STREAMED_USAGE["completion_tokens"]
 
-    cost = litellm.completion_cost(completion_response=rebuilt, model=STREAM_COST_MODEL)
+    cost = hangarllm.completion_cost(completion_response=rebuilt, model=STREAM_COST_MODEL)
 
     assert cost == pytest.approx(_priced_at(137, 42))
 
 
 def test_streaming_and_not_streaming_bill_the_same_usage_the_same(local_cost_map):
-    rebuilt = litellm.stream_chunk_builder(
+    rebuilt = hangarllm.stream_chunk_builder(
         chunks=[
             _text_chunk("Hello"),
             _text_chunk(" there"),
@@ -5554,7 +5554,7 @@ def test_streaming_and_not_streaming_bill_the_same_usage_the_same(local_cost_map
         ],
         messages=[{"role": "user", "content": "hi"}],
     )
-    whole = litellm.ModelResponse(
+    whole = hangarllm.ModelResponse(
         id="chatcmpl-stream-cost",
         model=STREAM_COST_MODEL,
         object="chat.completion",
@@ -5569,13 +5569,13 @@ def test_streaming_and_not_streaming_bill_the_same_usage_the_same(local_cost_map
         usage=STREAMED_USAGE,
     )
 
-    assert litellm.completion_cost(completion_response=rebuilt, model=STREAM_COST_MODEL) == pytest.approx(
-        litellm.completion_cost(completion_response=whole, model=STREAM_COST_MODEL)
+    assert hangarllm.completion_cost(completion_response=rebuilt, model=STREAM_COST_MODEL) == pytest.approx(
+        hangarllm.completion_cost(completion_response=whole, model=STREAM_COST_MODEL)
     )
 
 
 def test_a_stream_that_reported_no_usage_is_still_billed(local_cost_map):
-    rebuilt = litellm.stream_chunk_builder(
+    rebuilt = hangarllm.stream_chunk_builder(
         chunks=[
             _text_chunk("Hello"),
             _text_chunk(" there"),
@@ -5587,7 +5587,7 @@ def test_a_stream_that_reported_no_usage_is_still_billed(local_cost_map):
     assert rebuilt.usage.prompt_tokens > 0
     assert rebuilt.usage.completion_tokens > 0
 
-    cost = litellm.completion_cost(completion_response=rebuilt, model=STREAM_COST_MODEL)
+    cost = hangarllm.completion_cost(completion_response=rebuilt, model=STREAM_COST_MODEL)
 
     assert cost > 0
     assert cost == pytest.approx(_priced_at(rebuilt.usage.prompt_tokens, rebuilt.usage.completion_tokens))
@@ -5595,7 +5595,7 @@ def test_a_stream_that_reported_no_usage_is_still_billed(local_cost_map):
 
 @pytest.mark.asyncio
 async def test_acompletion_resolves_provider_from_api_base():
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="deepseek-chat",
         api_base="https://api.deepseek.com/v1",
         api_key="fake-key",
@@ -5626,7 +5626,7 @@ def _record_speech_success(payload: dict[str, object]) -> _RecordedSpeechSuccess
     logged_cost: Final = logged.get("response_cost")
     return _RecordedSpeechSuccess(
         call_type=call_type if isinstance(call_type, str) else None,
-        spend_metadata=get_litellm_metadata_from_kwargs(payload),
+        spend_metadata=get_hangarllm_metadata_from_kwargs(payload),
         response_cost=response_cost if isinstance(response_cost, float) else None,
         logged_response_cost=logged_cost if isinstance(logged_cost, float) else None,
         logged_tokens=(logged.get("prompt_tokens"), logged.get("completion_tokens")),
@@ -5704,16 +5704,16 @@ def _gemini_tts_generate_content_response() -> dict[str, object]:
 async def test_aspeech_gemini_bridge_bills_one_call_with_proxy_metadata_and_completion_tokens(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     recorder: Final = _SuccessEventRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     mock_route: Final = respx_mock.post(
         url__regex=r"https://generativelanguage\.googleapis\.com/v1beta/models/gemini-2\.5-flash-preview-tts:generateContent.*"
     ).mock(return_value=httpx.Response(200, json=_gemini_tts_generate_content_response()))
 
-    await litellm.aspeech(
+    await hangarllm.aspeech(
         model="gemini/gemini-2.5-flash-preview-tts",
         input="spend tracking check",
         voice="Kore",
@@ -5728,7 +5728,7 @@ async def test_aspeech_gemini_bridge_bills_one_call_with_proxy_metadata_and_comp
     assert speech_event.logged_tokens == (5, 60)
     assert speech_event.spend_metadata["user_api_key"] == "hashed-virtual-key"
     assert speech_event.spend_metadata["user_api_key_user_id"] == "user-1"
-    expected_prompt_cost, expected_completion_cost = litellm.cost_per_token(
+    expected_prompt_cost, expected_completion_cost = hangarllm.cost_per_token(
         model="gemini/gemini-2.5-flash-preview-tts",
         usage_object=Usage(prompt_tokens=5, completion_tokens=60, total_tokens=65),
     )
@@ -5742,18 +5742,18 @@ async def test_aspeech_gemini_bridge_bills_one_call_with_proxy_metadata_and_comp
 async def test_aspeech_gemini_bridge_logs_a_cached_reply_as_a_free_cache_hit(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     recorder: Final = _SuccessEventRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
-    monkeypatch.setattr(litellm, "cache", Cache(type="local"))
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "cache", Cache(type="local"))
     mock_route: Final = respx_mock.post(
         url__regex=r"https://generativelanguage\.googleapis\.com/v1beta/models/gemini-2\.5-flash-preview-tts:generateContent.*"
     ).mock(return_value=httpx.Response(200, json=_gemini_tts_generate_content_response()))
 
     for _ in range(2):
-        await litellm.aspeech(
+        await hangarllm.aspeech(
             model="gemini/gemini-2.5-flash-preview-tts",
             input="cache hit check",
             voice="Kore",
@@ -5789,10 +5789,10 @@ def test_stream_chunk_builder_sets_hidden_response_cost_for_known_model():
         _stream_builder_text_chunk("gpt-4o", "world.", finish_reason="stop"),
     ]
 
-    response: Final = litellm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
+    response: Final = hangarllm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
 
     assert response is not None
-    prompt_cost, completion_cost = litellm.cost_per_token(model="gpt-4o", usage_object=response.usage)
+    prompt_cost, completion_cost = hangarllm.cost_per_token(model="gpt-4o", usage_object=response.usage)
     expected_cost: Final = prompt_cost + completion_cost
     assert expected_cost > 0
     assert response._hidden_params["response_cost"] == pytest.approx(expected_cost)
@@ -5804,7 +5804,7 @@ def test_stream_chunk_builder_unknown_model_leaves_response_cost_unset():
         _stream_builder_text_chunk("totally-unknown-model-xyz", "world.", finish_reason="stop"),
     ]
 
-    response: Final = litellm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
+    response: Final = hangarllm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
 
     assert response is not None
     assert response._hidden_params.get("response_cost") is None
@@ -5819,44 +5819,44 @@ def test_stream_chunk_builder_prices_proxy_alias_via_model_map():
     for chunk in chunks:
         chunk._hidden_params = {"custom_llm_provider": "openai"}
 
-    response: Final = litellm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
+    response: Final = hangarllm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
 
     assert response is not None
     assert response._hidden_params["custom_llm_provider"] == "openai"
-    prompt_cost, completion_cost = litellm.cost_per_token(model="claude-opus-5", usage_object=response.usage)
+    prompt_cost, completion_cost = hangarllm.cost_per_token(model="claude-opus-5", usage_object=response.usage)
     expected_cost: Final = prompt_cost + completion_cost
     assert expected_cost > 0
     assert response._hidden_params["response_cost"] == pytest.approx(expected_cost)
 
 
-def _stream_builder_logging_obj(model: str = "gpt-4o", custom_llm_provider: str = "openai") -> LiteLLMLogging:
-    logging_obj: Final = LiteLLMLogging(
+def _stream_builder_logging_obj(model: str = "gpt-4o", custom_llm_provider: str = "openai") -> HangarLLMLogging:
+    logging_obj: Final = HangarLLMLogging(
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="completion",
         start_time=datetime.now(),
-        litellm_call_id="test-call-id",
+        hangarllm_call_id="test-call-id",
         function_id="test-function-id",
     )
     logging_obj.update_environment_variables(
         model=model,
         user=None,
         optional_params={},
-        litellm_params={"custom_llm_provider": custom_llm_provider},
+        hangarllm_params={"custom_llm_provider": custom_llm_provider},
         custom_llm_provider=custom_llm_provider,
     )
     return logging_obj
 
 
 def test_stream_chunk_builder_stamps_streaming_usage_cost_by_default(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "include_cost_in_streaming_usage", False)
+    monkeypatch.setattr(hangarllm, "include_cost_in_streaming_usage", False)
     chunks: Final = [
         _stream_builder_text_chunk("gpt-4o", "Hello "),
         _stream_builder_text_chunk("gpt-4o", "world.", finish_reason="stop"),
     ]
 
-    response: Final = litellm.stream_chunk_builder(
+    response: Final = hangarllm.stream_chunk_builder(
         chunks=chunks, messages=[{"role": "user", "content": "hi"}], logging_obj=_stream_builder_logging_obj()
     )
 
@@ -5870,15 +5870,15 @@ def test_stream_chunk_builder_stamps_streaming_usage_cost_by_default(monkeypatch
 def test_stream_chunk_builder_stamped_cost_is_not_re_read_as_xai_reported_cost():
     import time as time_module
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
 
-    logging_obj: Final = LiteLLMLogging(
+    logging_obj: Final = HangarLLMLogging(
         model="xai/grok-4.7",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="completion",
         start_time=time_module.time(),
-        litellm_call_id="stream-builder-xai-stamped-cost",
+        hangarllm_call_id="stream-builder-xai-stamped-cost",
         function_id="1",
     )
     logging_obj.model_call_details["custom_llm_provider"] = "xai"
@@ -5890,7 +5890,7 @@ def test_stream_chunk_builder_stamped_cost_is_not_re_read_as_xai_reported_cost()
         usage_chunk,
     ]
 
-    response: Final = litellm.stream_chunk_builder(
+    response: Final = hangarllm.stream_chunk_builder(
         chunks=chunks, messages=[{"role": "user", "content": "hi"}], logging_obj=logging_obj
     )
 
@@ -5912,15 +5912,15 @@ def test_stream_chunk_builder_stamped_cost_is_not_re_read_as_xai_reported_cost()
 def test_stream_chunk_builder_skips_stamp_when_cost_is_unpriceable():
     import time as time_module
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
 
-    logging_obj: Final = LiteLLMLogging(
+    logging_obj: Final = HangarLLMLogging(
         model="us.anthropic.claude-unpriced-999",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="completion",
         start_time=time_module.time(),
-        litellm_call_id="stream-builder-alias-unpriceable",
+        hangarllm_call_id="stream-builder-alias-unpriceable",
         function_id="1",
     )
     logging_obj.model_call_details["custom_llm_provider"] = "bedrock"
@@ -5932,7 +5932,7 @@ def test_stream_chunk_builder_skips_stamp_when_cost_is_unpriceable():
         usage_chunk,
     ]
 
-    response: Final = litellm.stream_chunk_builder(
+    response: Final = hangarllm.stream_chunk_builder(
         chunks=chunks, messages=[{"role": "user", "content": "hi"}], logging_obj=logging_obj
     )
 
@@ -5944,16 +5944,16 @@ def test_stream_chunk_builder_skips_stamp_when_cost_is_unpriceable():
 def test_stream_chunk_builder_prices_alias_response_at_its_deployment_model():
     import time as time_module
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
 
     deployment_model: Final = "us.anthropic.claude-opus-5"
-    logging_obj: Final = LiteLLMLogging(
+    logging_obj: Final = HangarLLMLogging(
         model=deployment_model,
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="completion",
         start_time=time_module.time(),
-        litellm_call_id="stream-builder-alias-priced",
+        hangarllm_call_id="stream-builder-alias-priced",
         function_id="1",
     )
     logging_obj.model_call_details["custom_llm_provider"] = "bedrock"
@@ -5965,11 +5965,11 @@ def test_stream_chunk_builder_prices_alias_response_at_its_deployment_model():
         usage_chunk,
     ]
 
-    response: Final = litellm.stream_chunk_builder(
+    response: Final = hangarllm.stream_chunk_builder(
         chunks=chunks, messages=[{"role": "user", "content": "hi"}], logging_obj=logging_obj
     )
 
-    entry: Final = litellm.model_cost[deployment_model]
+    entry: Final = hangarllm.model_cost[deployment_model]
     expected_cost: Final = 40 * entry["input_cost_per_token"] + 5 * entry["output_cost_per_token"]
     assert response is not None
     assert getattr(response.usage, "cost", None) == pytest.approx(expected_cost)
@@ -5985,7 +5985,7 @@ def test_stream_chunk_builder_keeps_provider_reported_usage_cost():
         usage_chunk,
     ]
 
-    response: Final = litellm.stream_chunk_builder(
+    response: Final = hangarllm.stream_chunk_builder(
         chunks=chunks, messages=[{"role": "user", "content": "hi"}], logging_obj=_stream_builder_logging_obj()
     )
 
@@ -6004,12 +6004,12 @@ def test_stream_chunk_builder_bills_the_token_price_when_the_provider_cost_is_no
         usage_chunk,
     ]
 
-    response: Final = litellm.stream_chunk_builder(
+    response: Final = hangarllm.stream_chunk_builder(
         chunks=chunks, messages=[{"role": "user", "content": "hi"}], logging_obj=_stream_builder_logging_obj()
     )
 
     assert response is not None
-    prompt_cost, completion_cost = litellm.cost_per_token(model="gpt-4o", usage_object=response.usage)
+    prompt_cost, completion_cost = hangarllm.cost_per_token(model="gpt-4o", usage_object=response.usage)
     token_price: Final = prompt_cost + completion_cost
     assert token_price > 0
     assert getattr(response.usage, "cost", None) == pytest.approx(token_price)
@@ -6024,18 +6024,18 @@ def test_completion_cost_on_a_stamped_stream_still_bills_the_reported_charge():
         usage_chunk,
     ]
 
-    response: Final = litellm.stream_chunk_builder(
+    response: Final = hangarllm.stream_chunk_builder(
         chunks=chunks, messages=[{"role": "user", "content": "hi"}], logging_obj=_stream_builder_logging_obj()
     )
 
     assert response is not None
-    assert litellm.completion_cost(completion_response=response) == pytest.approx(0.5)
+    assert hangarllm.completion_cost(completion_response=response) == pytest.approx(0.5)
 
 
 def test_stream_chunk_builder_stamps_a_zero_operator_price_over_a_reported_cost():
     logging_obj: Final = _stream_builder_logging_obj()
-    logging_obj.litellm_params = {
-        **logging_obj.litellm_params,
+    logging_obj.hangarllm_params = {
+        **logging_obj.hangarllm_params,
         "input_cost_per_token": 0.0,
         "output_cost_per_token": 0.0,
     }
@@ -6047,7 +6047,7 @@ def test_stream_chunk_builder_stamps_a_zero_operator_price_over_a_reported_cost(
         usage_chunk,
     ]
 
-    response: Final = litellm.stream_chunk_builder(
+    response: Final = hangarllm.stream_chunk_builder(
         chunks=chunks, messages=[{"role": "user", "content": "hi"}], logging_obj=logging_obj
     )
 
@@ -6068,7 +6068,7 @@ def test_stream_chunk_builder_prices_alias_from_openai_sdk_usage_chunk():
         usage_chunk,
     ]
 
-    response: Final = litellm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
+    response: Final = hangarllm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
 
     assert response is not None
     assert response.usage.prompt_tokens == 20
@@ -6078,7 +6078,7 @@ def test_stream_chunk_builder_prices_alias_from_openai_sdk_usage_chunk():
 
 
 def test_stream_chunk_builder_leaves_xai_reported_cost_to_the_calculator(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "cost_margin_config", {"xai": 0.5})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"xai": 0.5})
     usage_chunk: Final = _stream_builder_text_chunk("grok-4", "")
     usage_chunk.usage = Usage(prompt_tokens=5, completion_tokens=2, total_tokens=7, cost=0.42)
     chunks: Final = [
@@ -6088,7 +6088,7 @@ def test_stream_chunk_builder_leaves_xai_reported_cost_to_the_calculator(monkeyp
     ]
     logging_obj: Final = _stream_builder_logging_obj(model="grok-4", custom_llm_provider="xai")
 
-    response: Final = litellm.stream_chunk_builder(
+    response: Final = hangarllm.stream_chunk_builder(
         chunks=chunks, messages=[{"role": "user", "content": "hi"}], logging_obj=logging_obj
     )
 
@@ -6105,9 +6105,9 @@ def test_speech_mistral_dispatches_and_decodes_audio(respx_mock: respx.MockRoute
         return_value=httpx.Response(200, json={"audio_data": base64.b64encode(audio_bytes).decode()})
     )
 
-    response: Final = litellm.speech(
+    response: Final = hangarllm.speech(
         model="mistral/voxtral-mini-tts-2603",
-        input="hello from litellm",
+        input="hello from hangarllm",
         voice="en_paul_neutral",
         response_format="wav",
         speed=2,
@@ -6118,7 +6118,7 @@ def test_speech_mistral_dispatches_and_decodes_audio(respx_mock: respx.MockRoute
     request_body: Final = json.loads(mock_route.calls.last.request.content)
     assert request_body == {
         "model": "voxtral-mini-tts-2603",
-        "input": "hello from litellm",
+        "input": "hello from hangarllm",
         "voice_id": "en_paul_neutral",
         "response_format": "wav",
     }
@@ -6133,9 +6133,9 @@ def test_speech_mistral_routes_to_configured_api_base(respx_mock: respx.MockRout
         return_value=httpx.Response(200, json={"audio_data": base64.b64encode(audio_bytes).decode()})
     )
 
-    response: Final = litellm.speech(
+    response: Final = hangarllm.speech(
         model="mistral/voxtral-mini-tts-2603",
-        input="hello from litellm",
+        input="hello from hangarllm",
         voice="en_paul_neutral",
         api_base="https://mistral.gateway.internal",
     )
@@ -6154,7 +6154,7 @@ def test_azure_ai_transcription_on_a_foundry_host_uses_the_azure_openai_deployme
         url__regex=r"https://my-project\.services\.ai\.azure\.com/openai/deployments/whisper-1/audio/transcriptions\?api-version=.+"
     ).mock(return_value=httpx.Response(200, json={"text": "hello"}))
 
-    response: Final = litellm.transcription(
+    response: Final = hangarllm.transcription(
         model="azure_ai/whisper-1",
         file=("tone.wav", b"RIFF\x00\x00\x00\x00WAVE", "audio/wav"),
         api_base=FOUNDRY_HOST,
@@ -6172,7 +6172,7 @@ def test_azure_ai_speech_on_a_foundry_host_uses_the_azure_openai_deployment_rout
         url__regex=r"https://my-project\.services\.ai\.azure\.com/openai/deployments/tts-1/audio/speech\?api-version=.+"
     ).mock(return_value=httpx.Response(200, content=b"mp3-bytes"))
 
-    response: Final = litellm.speech(
+    response: Final = hangarllm.speech(
         model="azure_ai/tts-1",
         input="hello",
         voice="alloy",
@@ -6193,7 +6193,7 @@ def test_groq_transcription_honors_base_url_alias(respx_mock: respx.MockRouter):
         return_value=httpx.Response(200, json={"text": "hello"})
     )
 
-    response: Final = litellm.transcription(
+    response: Final = hangarllm.transcription(
         model="groq/whisper-large-v3",
         file=GROQ_WAV_FILE,
         base_url=GROQ_INTERNAL_BASE,
@@ -6205,12 +6205,12 @@ def test_groq_transcription_honors_base_url_alias(respx_mock: respx.MockRouter):
 
 
 async def test_groq_atranscription_honors_base_url_alias(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post(f"{GROQ_INTERNAL_BASE}/audio/transcriptions").mock(
         return_value=httpx.Response(200, json={"text": "hello"})
     )
 
-    response: Final = await litellm.atranscription(
+    response: Final = await hangarllm.atranscription(
         model="groq/whisper-large-v3",
         file=GROQ_WAV_FILE,
         base_url=GROQ_INTERNAL_BASE,
@@ -6226,7 +6226,7 @@ def test_transcription_keeps_the_prompt_passed_by_position(respx_mock: respx.Moc
         return_value=httpx.Response(200, json={"text": "hello"})
     )
 
-    litellm.transcription(
+    hangarllm.transcription(
         "groq/whisper-large-v3", GROQ_WAV_FILE, "en", "Four score", base_url=GROQ_INTERNAL_BASE, api_key="fake-key"
     )
 
@@ -6248,9 +6248,9 @@ def test_transcription_measures_the_upload_only_when_the_provider_omits_the_dura
     )
 
     with patch.object(
-        litellm_main, "calculate_request_duration", wraps=litellm_main.calculate_request_duration
+        hangarllm_main, "calculate_request_duration", wraps=hangarllm_main.calculate_request_duration
     ) as measure_upload:
-        response: Final = litellm.transcription(
+        response: Final = hangarllm.transcription(
             model="groq/whisper-large-v3", file=GROQ_WAV_FILE, base_url=GROQ_INTERNAL_BASE, api_key="fake-key"
         )
 
@@ -6266,7 +6266,7 @@ def test_openai_compatible_transcription_with_an_openai_model_name_reaches_the_s
         return_value=httpx.Response(200, json={"text": "served by vllm"})
     )
 
-    response: Final = litellm.transcription(
+    response: Final = hangarllm.transcription(
         model=f"hosted_vllm/{model_name}",
         file=GROQ_WAV_FILE,
         api_base="https://vllm.internal/v1",
@@ -6283,8 +6283,8 @@ def test_openai_gpt_transcribe_still_rejects_non_json_response_formats(respx_moc
         return_value=httpx.Response(200, json={"text": "should not be sent"})
     )
 
-    with pytest.raises(litellm.UnsupportedParamsError, match="only supports response_format 'json' or 'text'"):
-        litellm.transcription(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="only supports response_format 'json' or 'text'"):
+        hangarllm.transcription(
             model="openai/gpt-transcribe",
             file=GROQ_WAV_FILE,
             api_key="fake-key",
@@ -6299,7 +6299,7 @@ def test_groq_speech_honors_base_url_alias(respx_mock: respx.MockRouter):
         return_value=httpx.Response(200, content=b"mp3-bytes")
     )
 
-    response: Final = litellm.speech(
+    response: Final = hangarllm.speech(
         model="groq/playai-tts",
         input="hello",
         voice="Fritz-PlayAI",
@@ -6347,7 +6347,7 @@ def test_bridged_responses_with_openai_http_handler_keeps_forwarded_headers_out_
         else httpx.Response(200, json=_chat_completion_json())
     )
 
-    response: Final = litellm.responses(
+    response: Final = hangarllm.responses(
         model="openai/gpt-5.4",
         input="Reply with the single word ok",
         stream=stream,
@@ -6370,16 +6370,16 @@ def test_bridged_responses_with_openai_http_handler_keeps_forwarded_headers_out_
 def test_aiohttp_openai_warns_only_when_http2_enabled(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, http2_on: bool
 ):
-    from litellm.main import base_llm_aiohttp_handler
+    from hangarllm.main import base_llm_aiohttp_handler
 
-    monkeypatch.setattr(litellm, "http2", http2_on)
-    monkeypatch.delenv("LITELLM_HTTP2", raising=False)
+    monkeypatch.setattr(hangarllm, "http2", http2_on)
+    monkeypatch.delenv("HANGARLLM_HTTP2", raising=False)
 
     handler_completion: Final = MagicMock(return_value=MagicMock())
     monkeypatch.setattr(base_llm_aiohttp_handler, "completion", handler_completion)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
-        litellm.completion(
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
+        hangarllm.completion(
             model="aiohttp_openai/gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
             api_key="sk-test",
@@ -6392,8 +6392,8 @@ def test_aiohttp_openai_warns_only_when_http2_enabled(
 
 @pytest.mark.parametrize("tool_choice", [{"type": "bogus"}, {"name": "lookup_fruit"}, {"type": "file_search"}])
 def test_completion_rejects_untranslatable_tool_choice_with_a_400(tool_choice):
-    with pytest.raises(litellm.BadRequestError) as exc_info:
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
+        hangarllm.completion(
             model="anthropic/claude-haiku-4-5",
             messages=[{"role": "user", "content": "Which fruit is red?"}],
             tools=[{"type": "function", "function": {"name": "lookup_fruit", "parameters": {"type": "object"}}}],
@@ -6406,8 +6406,8 @@ def test_completion_rejects_untranslatable_tool_choice_with_a_400(tool_choice):
 
 @pytest.mark.parametrize("raw", ["sixty-four", 0, -1])
 def test_completion_rejects_an_invalid_stream_chunk_size_with_a_400_naming_the_param(raw: object) -> None:
-    with pytest.raises(litellm.BadRequestError) as exc_info:
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
+        hangarllm.completion(
             model="openai/gpt-4.1-mini",
             messages=[{"role": "user", "content": "hi"}],
             stream_chunk_size=raw,
@@ -6448,7 +6448,7 @@ class _PromptHookRecorder(CustomPromptManagement):
         prompt_id: str | None,
         prompt_variables: dict | None,
         dynamic_callback_params: StandardCallbackDynamicParams,
-        litellm_logging_obj: LiteLLMLogging,
+        hangarllm_logging_obj: HangarLLMLogging,
         prompt_spec: PromptSpec | None = None,
         tools: list[dict] | None = None,
         prompt_label: str | None = None,
@@ -6462,9 +6462,9 @@ class _PromptHookRecorder(CustomPromptManagement):
 
 async def _call_completion(is_async: bool, **kwargs: object) -> None:
     if is_async:
-        await litellm.acompletion(**kwargs)
+        await hangarllm.acompletion(**kwargs)
     else:
-        litellm.completion(**kwargs)
+        hangarllm.completion(**kwargs)
 
 
 @pytest.mark.asyncio
@@ -6473,7 +6473,7 @@ async def test_the_prompt_hook_runs_when_stream_chunk_size_is_valid(
     monkeypatch: pytest.MonkeyPatch, is_async: bool, hook: str
 ) -> None:
     on_prompt: Final = MagicMock()
-    monkeypatch.setattr(litellm, "callbacks", [_PromptHookRecorder(on_prompt)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_PromptHookRecorder(on_prompt)])
 
     await _call_completion(
         is_async,
@@ -6493,9 +6493,9 @@ async def test_an_invalid_stream_chunk_size_is_rejected_before_any_prompt_hook_r
     monkeypatch: pytest.MonkeyPatch, is_async: bool
 ) -> None:
     on_prompt: Final = MagicMock()
-    monkeypatch.setattr(litellm, "callbacks", [_PromptHookRecorder(on_prompt)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_PromptHookRecorder(on_prompt)])
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         await _call_completion(
             is_async,
             model="openai/gpt-4.1-mini",
@@ -6508,54 +6508,54 @@ async def test_an_invalid_stream_chunk_size_is_rejected_before_any_prompt_hook_r
     on_prompt.assert_not_called()
 
 
-def _completion_logging_obj(call_id: str) -> LiteLLMLogging:
-    return LiteLLMLogging(
+def _completion_logging_obj(call_id: str) -> HangarLLMLogging:
+    return HangarLLMLogging(
         model="gpt-4.1-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="completion",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id=call_id,
+        hangarllm_call_id=call_id,
         function_id=f"{call_id}-function",
     )
 
 
-def test_completion_carries_the_control_options_into_the_logged_litellm_params() -> None:
+def test_completion_carries_the_control_options_into_the_logged_hangarllm_params() -> None:
     logging_obj: Final = _completion_logging_obj("control-params")
-    litellm.completion(
+    hangarllm.completion(
         model="openai/gpt-4.1-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream_chunk_size=64,
         mock_response="hi",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
-    assert stored_control_options(logging_obj.litellm_params) == ControlOptions(stream_chunk_size=64)
+    assert stored_control_options(logging_obj.hangarllm_params) == ControlOptions(stream_chunk_size=64)
 
 
 def test_completion_ignores_a_caller_supplied_control_options_key() -> None:
     logging_obj: Final = _completion_logging_obj("control-params-injection")
-    litellm.completion(
+    hangarllm.completion(
         model="openai/gpt-4.1-mini",
         messages=[{"role": "user", "content": "hi"}],
         mock_response="hi",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         **{CONTROL_OPTIONS_KEY: {"stream_chunk_size": 1}},
     )
-    assert stored_control_options(logging_obj.litellm_params) == ControlOptions()
+    assert stored_control_options(logging_obj.hangarllm_params) == ControlOptions()
 
 
 @pytest.mark.parametrize("drop_params", [True, "true"])
 def test_drop_params_drops_an_invalid_stream_chunk_size_instead_of_rejecting_it(drop_params: object) -> None:
     logging_obj: Final = _completion_logging_obj(f"drop-params-{drop_params}")
-    litellm.completion(
+    hangarllm.completion(
         model="openai/gpt-4.1-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream_chunk_size="sixty-four",
         drop_params=drop_params,
         mock_response="hi",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
-    assert stored_control_options(logging_obj.litellm_params) == ControlOptions()
+    assert stored_control_options(logging_obj.hangarllm_params) == ControlOptions()
 
 
 def test_drop_params_keeps_a_dropped_stream_chunk_size_out_of_the_provider_request(
@@ -6576,7 +6576,7 @@ def test_drop_params_keeps_a_dropped_stream_chunk_size_out_of_the_provider_reque
         )
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="openai/gpt-4.1-mini",
         messages=[{"role": "user", "content": "hi"}],
         api_base=api_base,
@@ -6595,24 +6595,24 @@ def test_drop_params_keeps_a_dropped_stream_chunk_size_out_of_the_provider_reque
 async def test_global_drop_params_drops_an_invalid_stream_chunk_size_on_acompletion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     logging_obj: Final = _completion_logging_obj("global-drop-params")
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="openai/gpt-4.1-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream_chunk_size=0,
         mock_response="hi",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
-    assert stored_control_options(logging_obj.litellm_params) == ControlOptions()
+    assert stored_control_options(logging_obj.hangarllm_params) == ControlOptions()
 
 
 def test_completion_rejects_an_invalid_stream_chunk_size_before_the_mcp_gateway() -> None:
-    with pytest.raises(litellm.BadRequestError) as exc_info:
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
+        hangarllm.completion(
             model="openai/gpt-4.1-mini",
             messages=[{"role": "user", "content": "hi"}],
-            tools=[{"type": "mcp", "server_label": "gateway", "server_url": "litellm_proxy"}],
+            tools=[{"type": "mcp", "server_label": "gateway", "server_url": "hangarllm_proxy"}],
             stream_chunk_size="sixty-four",
         )
     assert exc_info.value.param == "stream_chunk_size"
@@ -6635,8 +6635,8 @@ async def test_bedrock_stream_missing_dependency_remains_actionable_with_retries
         return original_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", import_without_aws_or_retry_dependencies)
-    monkeypatch.setattr(litellm, "num_retries", None)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "num_retries", None)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock as upstream:
         response = upstream.post(url__regex=r"https://bedrock-test\.invalid/.*").respond(200, content=b"")
         arguments = dict(
@@ -6650,16 +6650,16 @@ async def test_bedrock_stream_missing_dependency_remains_actionable_with_retries
         )
         if use_async:
             with pytest.raises(ImportError, match="pip install boto3"):
-                await litellm.acompletion(**arguments)
+                await hangarllm.acompletion(**arguments)
         else:
             with pytest.raises(ImportError, match="pip install boto3"):
-                litellm.completion(**arguments)
+                hangarllm.completion(**arguments)
         assert response.call_count == 1
 
 
 def test_drop_params_false_still_rejects_an_invalid_stream_chunk_size() -> None:
-    with pytest.raises(litellm.BadRequestError):
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError):
+        hangarllm.completion(
             model="openai/gpt-4.1-mini",
             messages=[{"role": "user", "content": "hi"}],
             stream_chunk_size="sixty-four",
@@ -6671,7 +6671,7 @@ def test_drop_params_false_still_rejects_an_invalid_stream_chunk_size() -> None:
 def test_acompletion_params():
     import inspect
 
-    from litellm.types.completion import CompletionRequest
+    from hangarllm.types.completion import CompletionRequest
 
     acompletion_params_odict = inspect.signature(acompletion).parameters
     completion_params_dict = inspect.signature(completion).parameters
@@ -6695,7 +6695,7 @@ def test_acompletion_params():
     # Assert that the parameters are the same
     if keys_acompletion != keys_completion:
         pytest.fail(
-            "The parameters of the litellm.acompletion function and litellm.completion are not the same. "
+            "The parameters of the hangarllm.acompletion function and hangarllm.completion are not the same. "
             f"Completion has extra keys: {keys_completion - keys_acompletion}"
         )
 
@@ -6738,7 +6738,7 @@ def test_null_role_response():
     with patch.object(
         openai_client, "post", side_effect=_openai_mock_response
     ) as mock_response:
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hey! how's it going?"}],
             client=openai_client,
@@ -6751,7 +6751,7 @@ def test_null_role_response():
 
 
 def test_parse_xml_params():
-    from litellm.litellm_core_utils.prompt_templates.factory import parse_xml_params
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import parse_xml_params
 
     ## SCENARIO 1 ## - W/ ARRAY
     xml_content = """<invoke><tool_name>return_list_of_str</tool_name>\n<parameters>\n<value>\n<item>apple</item>\n<item>banana</item>\n<item>orange</item>\n</value>\n</parameters></invoke>"""
@@ -6838,7 +6838,7 @@ def test_completion_perplexity_api():
             openai_client, "post",
             side_effect=_return_pydantic_obj,
         ) as mock_client:
-            # litellm.set_verbose= True
+            # hangarllm.set_verbose= True
             messages = [
                 {"role": "system", "content": "You're a good bot"},
                 {
@@ -6867,7 +6867,7 @@ def test_completion_perplexity_api():
 )  # "vertex_ai", hosted_vllm removed - no longer uses OpenAI client
 @pytest.mark.asyncio
 async def test_openai_compatible_custom_api_base(provider):
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     messages = [
         {
             "role": "user",
@@ -6909,7 +6909,7 @@ async def test_openai_compatible_custom_api_base(provider):
 )  # "vertex_ai", hosted_vllm removed - no longer uses OpenAI client
 @pytest.mark.asyncio
 async def test_openai_compatible_custom_api_video(provider):
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     messages = [
         {
             "role": "user",
@@ -7025,7 +7025,7 @@ def test_ollama_image():
 
 
 def test_completion_hf_model_no_provider():
-    with pytest.raises(litellm.BadRequestError, match="LLM Provider NOT provided"):
+    with pytest.raises(hangarllm.BadRequestError, match="LLM Provider NOT provided"):
         completion(
             model="WizardLM/WizardLM-70B-V1.0",
             messages=messages,
@@ -7087,7 +7087,7 @@ def gemini_mock_post(*args: object, **kwargs: object) -> MagicMock:
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("fake_provider_credentials")
 async def test_completion_functions_param():
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     function1 = [
         {
             "name": "get_current_weather",
@@ -7106,14 +7106,14 @@ async def test_completion_functions_param():
         }
     ]
     try:
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+        from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
         messages = [{"role": "user", "content": "What is the weather like in Boston?"}]
 
         client = AsyncHTTPHandler(concurrent_limit=1)
 
         with patch.object(client, "post", side_effect=gemini_mock_post) as mock_client:
-            response: litellm.ModelResponse = await litellm.acompletion(
+            response: hangarllm.ModelResponse = await hangarllm.acompletion(
                 model="gemini/gemini-1.5-pro",
                 messages=messages,
                 functions=function1,
@@ -7125,7 +7125,7 @@ async def test_completion_functions_param():
             print(f"mock_client.call_args.kwargs: {mock_client.call_args.kwargs}")
             assert "tools" in mock_client.call_args.kwargs["json"]
             assert (
-                "litellm_param_is_function_call"
+                "hangarllm_param_is_function_call"
                 not in mock_client.call_args.kwargs["json"]
             )
             assert response.choices[0].message.function_call is not None
@@ -7135,7 +7135,7 @@ async def test_completion_functions_param():
 
 def test_bedrock_deepseek_custom_prompt_dict():
     model = "llama/arn:aws:bedrock:us-east-1:1234:imported-model/45d34re"
-    litellm.register_prompt_template(
+    hangarllm.register_prompt_template(
         model=model,
         tokenizer_config={
             "add_bos_token": True,
@@ -7173,8 +7173,8 @@ def test_bedrock_deepseek_custom_prompt_dict():
             "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set ns = namespace(is_first=false, is_tool=false, is_output_first=true, system_prompt='') %}{%- for message in messages %}{%- if message['role'] == 'system' %}{% set ns.system_prompt = message['content'] %}{%- endif %}{%- endfor %}{{bos_token}}{{ns.system_prompt}}{%- for message in messages %}{%- if message['role'] == 'user' %}{%- set ns.is_tool = false -%}{{'<｜User｜>' + message['content']}}{%- endif %}{%- if message['role'] == 'assistant' and message['content'] is none %}{%- set ns.is_tool = false -%}{%- for tool in message['tool_calls']%}{%- if not ns.is_first %}{{'<｜Assistant｜><｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}{%- set ns.is_first = true -%}{%- else %}{{'\\n' + '<｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}{{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}{%- endif %}{%- endfor %}{%- endif %}{%- if message['role'] == 'assistant' and message['content'] is not none %}{%- if ns.is_tool %}{{'<｜tool▁outputs▁end｜>' + message['content'] + '<｜end▁of▁sentence｜>'}}{%- set ns.is_tool = false -%}{%- else %}{% set content = message['content'] %}{% if '</think>' in content %}{% set content = content.split('</think>')[-1] %}{% endif %}{{'<｜Assistant｜>' + content + '<｜end▁of▁sentence｜>'}}{%- endif %}{%- endif %}{%- if message['role'] == 'tool' %}{%- set ns.is_tool = true -%}{%- if ns.is_output_first %}{{'<｜tool▁outputs▁begin｜><｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- set ns.is_output_first = false %}{%- else %}{{'\\n<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- endif %}{%- endif %}{%- endfor -%}{% if ns.is_tool %}{{'<｜tool▁outputs▁end｜>'}}{% endif %}{% if add_generation_prompt and not ns.is_tool %}{{'<｜Assistant｜><think>\\n'}}{% endif %}",
         },
     )
-    assert model in litellm.known_tokenizer_config
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    assert model in hangarllm.known_tokenizer_config
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
 
@@ -7210,7 +7210,7 @@ def test_bedrock_deepseek_known_tokenizer_config(monkeypatch):
 
     import httpx
 
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     monkeypatch.setenv("AWS_REGION", "us-east-1")
 
@@ -7259,8 +7259,8 @@ def test_bedrock_deepseek_known_tokenizer_config(monkeypatch):
 
 
 def test_completion_anthropic_hanging():
-    litellm.set_verbose = True
-    litellm.modify_params = True
+    hangarllm.set_verbose = True
+    hangarllm.modify_params = True
     messages = [
         {
             "role": "user",
@@ -7308,7 +7308,7 @@ def test_completion_openai_returns_the_scripted_assistant_message():
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hello"}],
         api_key="test-openai-key",
@@ -7358,9 +7358,9 @@ def test_completion_openai_response_headers(monkeypatch: pytest.MonkeyPatch, ope
         return httpx.Response(200, json=openai_api_response, headers=headers)
 
     route: Final = respx.post("https://api.openai.com/v1/chat/completions").mock(side_effect=respond)
-    monkeypatch.setattr(litellm, "return_response_headers", True)
+    monkeypatch.setattr(hangarllm, "return_response_headers", True)
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="gpt-6-sol",
         messages=[{"role": "user", "content": "hello"}],
     )
@@ -7369,7 +7369,7 @@ def test_completion_openai_response_headers(monkeypatch: pytest.MonkeyPatch, ope
     assert response._response_headers["x-ratelimit-remaining-tokens"] == "99"
     assert response._hidden_params["additional_headers"]["x-ratelimit-remaining-requests"] == "9"
     assert response._hidden_params["additional_headers"]["llm_provider-x-ratelimit-remaining-requests"] == "9"
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="gpt-6-sol",
         messages=[{"role": "user", "content": "hello"}],
         stream=True,
@@ -7392,15 +7392,15 @@ def test_completion_openai_response_headers(monkeypatch: pytest.MonkeyPatch, ope
             headers={"x-ratelimit-remaining-tokens": "98"},
         )
     )
-    embedding: Final = litellm.embedding(model="text-embedding-3-small", input="hello")
+    embedding: Final = hangarllm.embedding(model="text-embedding-3-small", input="hello")
     assert embedding._response_headers["x-ratelimit-remaining-tokens"] == "98"
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_async_completion_openai_response_headers(monkeypatch: pytest.MonkeyPatch, openai_api_response):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     stream_body: Final = (
         "data: "
         + json.dumps(
@@ -7436,19 +7436,19 @@ async def test_async_completion_openai_response_headers(monkeypatch: pytest.Monk
             headers={"x-ratelimit-remaining-tokens": "98"},
         )
     )
-    monkeypatch.setattr(litellm, "return_response_headers", True)
+    monkeypatch.setattr(hangarllm, "return_response_headers", True)
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="gpt-6-sol",
         messages=[{"role": "user", "content": "hello"}],
     )
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         model="gpt-6-sol",
         messages=[{"role": "user", "content": "hello"}],
         stream=True,
     )
     stream_text: Final = "".join([chunk.choices[0].delta.content or "" async for chunk in stream])
-    embedding: Final = await litellm.aembedding(model="text-embedding-3-small", input="hello")
+    embedding: Final = await hangarllm.aembedding(model="text-embedding-3-small", input="hello")
 
     assert len(route.calls) == 2
     assert response._response_headers["x-ratelimit-remaining-tokens"] == "99"
@@ -7461,8 +7461,8 @@ async def test_async_completion_openai_response_headers(monkeypatch: pytest.Monk
 @pytest.mark.asyncio
 @respx.mock
 async def test_azure_rate_limit_error_carries_retry_after_header(async_mode: bool, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     respx.post("https://example.openai.azure.com/openai/deployments/text-embedding-3-small/embeddings").mock(
         return_value=httpx.Response(
             429,
@@ -7479,10 +7479,10 @@ async def test_azure_rate_limit_error_carries_retry_after_header(async_mode: boo
         "max_retries": 0,
     }
 
-    with pytest.raises(litellm.RateLimitError) as error:
-        await (litellm.aembedding(**request) if async_mode else asyncio.to_thread(litellm.embedding, **request))
+    with pytest.raises(hangarllm.RateLimitError) as error:
+        await (hangarllm.aembedding(**request) if async_mode else asyncio.to_thread(hangarllm.embedding, **request))
 
-    assert error.value.litellm_response_headers["retry-after"] == "30"
+    assert error.value.hangarllm_response_headers["retry-after"] == "30"
 
 
 @respx.mock
@@ -7505,7 +7505,7 @@ def test_completion_preserves_empty_openai_message_content():
         return_value=httpx.Response(200, json=response_data)
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="gpt-6-sol",
         messages=[{"role": "user", "content": ""}],
     )
@@ -7527,7 +7527,7 @@ def test_openai_completion_parses_scripted_chat_response(openai_api_response):
     )
     messages: Final = [{"role": "user", "content": "hello"}]
 
-    response: Final = litellm.completion(model="gpt-6-sol", messages=messages)
+    response: Final = hangarllm.completion(model="gpt-6-sol", messages=messages)
 
     request_body: Final = json.loads(route.calls[0].request.content)
     assert request_body == {"model": "gpt-6-sol", "messages": messages}
@@ -7569,7 +7569,7 @@ def test_completion_logprobs_parses_top_logprobs():
         return_value=httpx.Response(200, json=response_data)
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="gpt-6-sol",
         messages=[{"role": "user", "content": "hello"}],
         logprobs=True,
@@ -7638,7 +7638,7 @@ def test_completion_logprobs_stream_parses_top_logprobs():
         return_value=httpx.Response(200, text=stream_body, headers={"content-type": "text/event-stream"})
     )
 
-    streamed_response: Final = litellm.completion(
+    streamed_response: Final = hangarllm.completion(
         model="gpt-6-sol",
         messages=[{"role": "user", "content": "hello"}],
         logprobs=True,
@@ -7685,7 +7685,7 @@ def test_completion_fireworks_ai_parses_response():
     )
     messages: Final = [{"role": "user", "content": "hello"}]
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="fireworks_ai/accounts/fireworks/models/deepseek-v4-pro-0813",
         messages=messages,
         api_key="fireworks-test-key",
@@ -7706,8 +7706,8 @@ def test_completion_fireworks_ai_parses_response():
 async def test_bedrock_converse_parses_scripted_response(
     async_mode: bool, monkeypatch: pytest.MonkeyPatch, fake_provider_credentials: None
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     route: Final = respx.post(
         "https://bedrock-runtime.us-west-2.amazonaws.com/model/us.anthropic.claude-sonnet-5-5/converse"
     ).mock(
@@ -7733,7 +7733,7 @@ async def test_bedrock_converse_parses_scripted_response(
         "aws_region_name": "us-west-2",
     }
     response: Final = (
-        await litellm.acompletion(**request) if async_mode else litellm.completion(**request)
+        await hangarllm.acompletion(**request) if async_mode else hangarllm.completion(**request)
     )
 
     assert route.calls[0].request.headers["authorization"] == "Bearer test-bedrock-token"
@@ -7785,7 +7785,7 @@ def test_bedrock_converse_parses_scripted_tool_call_arguments(
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="bedrock/converse/us.anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "Buy 0.1 BTC"}],
         tools=[
@@ -7866,7 +7866,7 @@ def test_bedrock_invoke_signs_request_and_parses_scripted_response(
         f"https://bedrock-runtime.us-west-2.amazonaws.com/model/{invoke_model_id}/invoke"
     ).mock(return_value=httpx.Response(200, json=response_body))
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "Hey! how's it going?"}],
         temperature=0.2,
@@ -7891,7 +7891,7 @@ def test_completion_azure_ad_token_is_forwarded(openai_api_response):
         "https://example.openai.azure.com/openai/deployments/gpt-6.1-sol/chat/completions"
     ).mock(return_value=httpx.Response(200, json=openai_api_response))
 
-    litellm.completion(
+    hangarllm.completion(
         model="azure/gpt-6.1-sol",
         messages=[{"role": "user", "content": "hello"}],
         api_base="https://example.openai.azure.com",
@@ -7908,7 +7908,7 @@ def test_completion_azure_extra_headers_are_forwarded(openai_api_response):
         "https://example.openai.azure.com/openai/deployments/gpt-6.1-sol/chat/completions"
     ).mock(return_value=httpx.Response(200, json=openai_api_response))
 
-    litellm.completion(
+    hangarllm.completion(
         model="azure/gpt-6.1-sol",
         messages=[{"role": "user", "content": "hello"}],
         api_base="https://example.openai.azure.com",
@@ -7931,7 +7931,7 @@ def test_completion_azure_api_key_argument_is_forwarded(openai_api_response):
         "https://example.openai.azure.com/openai/deployments/gpt-6.1-sol/chat/completions"
     ).mock(return_value=httpx.Response(200, json=openai_api_response))
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="azure/gpt-6.1-sol",
         messages=[{"role": "user", "content": "hello"}],
         api_base="https://example.openai.azure.com",
@@ -7950,7 +7950,7 @@ def test_completion_forwards_openai_optional_parameters(openai_api_response):
     )
     messages: Final = [{"role": "user", "content": "return json"}]
 
-    litellm.completion(
+    hangarllm.completion(
         model="gpt-6-sol",
         messages=messages,
         temperature=0.25,
@@ -7983,7 +7983,7 @@ def test_completion_drops_unsupported_o3_mini_temperature(openai_api_response):
         return_value=httpx.Response(200, json=openai_api_response)
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="o3-mini",
         messages=[{"role": "user", "content": "hello"}],
         temperature=0.0,
@@ -8000,8 +8000,8 @@ def test_completion_drops_unsupported_o3_mini_temperature(openai_api_response):
 @pytest.mark.asyncio
 @respx.mock
 async def test_anthropic_tool_result_after_tool_call_is_translated(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     response_data: Final = {
         "id": "msg_test",
         "type": "message",
@@ -8053,7 +8053,7 @@ async def test_anthropic_tool_result_after_tool_call_is_translated(monkeypatch: 
         }
     ]
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="anthropic/claude-sonnet-5-5",
         messages=messages,
         tools=tools,
@@ -8102,7 +8102,7 @@ def test_gemini_completion_translates_messages_and_parses_candidate():
         {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
         {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
     ]
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="gemini/gemini-3.8-flash",
         messages=[
             {"role": "system", "content": "Be a good bot!"},
@@ -8148,7 +8148,7 @@ def test_qwen_text_completion_parses_text_and_logprobs():
         return_value=httpx.Response(200, json=response_data)
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="text-completion-openai/gpt-6-sol",
         messages=[{"role": "user", "content": "hello"}],
         logprobs=1,
@@ -8182,8 +8182,8 @@ def test_replicate_completion_applies_registered_prompt_template(monkeypatch: py
     respx.get("https://api.replicate.com/v1/predictions/prediction-test").mock(
         return_value=httpx.Response(200, json={"status": "succeeded", "output": ["4"]})
     )
-    monkeypatch.setattr(litellm, "custom_prompt_dict", dict(litellm.custom_prompt_dict))
-    litellm.register_prompt_template(
+    monkeypatch.setattr(hangarllm, "custom_prompt_dict", dict(hangarllm.custom_prompt_dict))
+    hangarllm.register_prompt_template(
         model=model,
         initial_prompt_value="You are a good assistant",
         final_prompt_value="Now answer as best you can:",
@@ -8192,7 +8192,7 @@ def test_replicate_completion_applies_registered_prompt_template(monkeypatch: py
         },
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "What is 2 + 2?"}],
         api_key="replicate-test-key",
@@ -8210,7 +8210,7 @@ def test_petals_completion_sends_model_and_messages_to_custom_base():
     )
     messages: Final = [{"role": "user", "content": "hello"}]
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="petals-team/StableBeluga2",
         messages=messages,
         api_base="https://api.petals.dev",
@@ -8225,15 +8225,15 @@ def test_petals_completion_sends_model_and_messages_to_custom_base():
 
 @respx.mock
 def test_petals_config_fills_unset_params_while_explicit_params_win(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm.PetalsConfig, "temperature", 0.4)
-    monkeypatch.setattr(litellm.PetalsConfig, "top_k", 5)
+    monkeypatch.setattr(hangarllm.PetalsConfig, "temperature", 0.4)
+    monkeypatch.setattr(hangarllm.PetalsConfig, "top_k", 5)
     route: Final = respx.post("https://api.petals.dev/").mock(
         return_value=httpx.Response(200, json={"outputs": "Hello!"})
     )
     messages: Final = [{"role": "user", "content": "hello"}]
 
-    litellm.completion(model="petals-team/StableBeluga2", messages=messages, api_base="https://api.petals.dev")
-    litellm.completion(
+    hangarllm.completion(model="petals-team/StableBeluga2", messages=messages, api_base="https://api.petals.dev")
+    hangarllm.completion(
         model="petals-team/StableBeluga2",
         messages=messages,
         api_base="https://api.petals.dev",
@@ -8245,7 +8245,7 @@ def test_petals_config_fills_unset_params_while_explicit_params_win(monkeypatch:
         {
             "model": ["petals-team/StableBeluga2"],
             "inputs": ["hello"],
-            "max_new_tokens": [str(litellm.max_tokens)],
+            "max_new_tokens": [str(hangarllm.max_tokens)],
             "temperature": ["0.4"],
             "top_k": ["5"],
         },
@@ -8278,8 +8278,8 @@ def test_moderation_posts_input_to_custom_base_and_parses_results():
         )
     )
 
-    response: Final = litellm.moderation(
-        input="i'm ishaan cto of litellm",
+    response: Final = hangarllm.moderation(
+        input="i'm ishaan cto of hangarllm",
         model="omni-moderation-latest",
         api_key="sk-moderation-test",
         api_base="https://moderation.unit-test/v1",
@@ -8287,7 +8287,7 @@ def test_moderation_posts_input_to_custom_base_and_parses_results():
 
     request: Final = route.calls[0].request
     assert request.headers["authorization"] == "Bearer sk-moderation-test"
-    assert json.loads(request.content) == {"input": "i'm ishaan cto of litellm", "model": "omni-moderation-latest"}
+    assert json.loads(request.content) == {"input": "i'm ishaan cto of hangarllm", "model": "omni-moderation-latest"}
     assert response.id == "modr-unit-test"
     assert response.results[0].flagged is True
     assert (response.results[0].categories["harassment"], response.results[0].categories["violence"]) == (True, False)
@@ -8367,7 +8367,7 @@ def test_mistral_tool_use_round_trip():
             },
         }
     ]
-    tool_response: Final = litellm.completion(
+    tool_response: Final = hangarllm.completion(
         model="mistral/mistral-medium-latest",
         messages=messages,
         tools=tools,
@@ -8387,7 +8387,7 @@ def test_mistral_tool_use_round_trip():
             "content": '{"temperature":"72","unit":"fahrenheit"}',
         },
     ]
-    final: Final = litellm.completion(
+    final: Final = hangarllm.completion(
         model="mistral/mistral-large-latest",
         messages=followup_messages,
         tools=tools,
@@ -8422,7 +8422,7 @@ def test_mistral_text_content_array_is_sent_as_text():
         return_value=httpx.Response(200, json=response_data)
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="mistral/mistral-large-latest",
         messages=[
             {
@@ -8444,7 +8444,7 @@ def test_mistral_text_content_array_is_sent_as_text():
 
 
 def test_mock_request_returns_requested_response():
-    response: Final = litellm.mock_completion(
+    response: Final = hangarllm.mock_completion(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hello"}],
         mock_response="mocked answer",
@@ -8453,9 +8453,9 @@ def test_mock_request_returns_requested_response():
     assert response.choices[0].message.content == "mocked answer"
 
 
-def test_mock_request_with_mock_timeout_raises_litellm_timeout():
-    with pytest.raises(litellm.Timeout) as error:
-        litellm.completion(
+def test_mock_request_with_mock_timeout_raises_hangarllm_timeout():
+    with pytest.raises(hangarllm.Timeout) as error:
+        hangarllm.completion(
             model="gpt-5.6",
             messages=[{"role": "user", "content": "hello"}],
             timeout=0.01,
@@ -8468,9 +8468,9 @@ def test_mock_request_with_mock_timeout_raises_litellm_timeout():
 
 @pytest.mark.asyncio
 async def test_async_mock_timeout_on_a_stream_waits_only_for_the_stream_timeout() -> None:
-    with pytest.raises(litellm.Timeout):
+    with pytest.raises(hangarllm.Timeout):
         await asyncio.wait_for(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model="gpt-5.6",
                 messages=[{"role": "user", "content": "hello"}],
                 stream=True,
@@ -8483,12 +8483,12 @@ async def test_async_mock_timeout_on_a_stream_waits_only_for_the_stream_timeout(
         )
 
 
-def test_router_mock_request_with_mock_timeout_raises_litellm_timeout():
-    router: Final = litellm.Router(
+def test_router_mock_request_with_mock_timeout_raises_hangarllm_timeout():
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-5.6",
                     "api_key": "test-key",
                 },
@@ -8497,7 +8497,7 @@ def test_router_mock_request_with_mock_timeout_raises_litellm_timeout():
         num_retries=0,
     )
 
-    with pytest.raises(litellm.Timeout) as error:
+    with pytest.raises(hangarllm.Timeout) as error:
         router.completion(
             model="gpt-5.6",
             messages=[{"role": "user", "content": "hello"}],
@@ -8513,15 +8513,15 @@ def test_router_mock_request_fallback_uses_fallback_model(openai_api_response):
     route: Final = respx.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(200, json={**openai_api_response, "model": "gpt-5.5"})
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {"model": "gpt-5.6", "api_key": "test-key"},
+                "hangarllm_params": {"model": "gpt-5.6", "api_key": "test-key"},
             },
             {
                 "model_name": "gpt-5.5",
-                "litellm_params": {"model": "gpt-5.5", "api_key": "test-key"},
+                "hangarllm_params": {"model": "gpt-5.5", "api_key": "test-key"},
             },
         ],
         fallbacks=[{"gpt-5.6": ["gpt-5.5"]}],
@@ -8542,7 +8542,7 @@ def test_router_mock_request_fallback_uses_fallback_model(openai_api_response):
 @pytest.mark.parametrize("drop_params", [True, False])
 @respx.mock
 def test_completion_deep_infra(drop_params):
-    litellm.set_verbose = False
+    hangarllm.set_verbose = False
     model_name: Final = "deepinfra/meta-llama/Llama-2-70b-chat-hf"
     model: Final = "meta-llama/Llama-2-70b-chat-hf"
     endpoint: Final = "https://api.deepinfra.com/v1/openai/chat/completions"
@@ -8591,7 +8591,7 @@ def test_completion_deep_infra(drop_params):
     )
 
     if not drop_params:
-        with pytest.raises(litellm.exceptions.UnsupportedParamsError):
+        with pytest.raises(hangarllm.exceptions.UnsupportedParamsError):
             completion(
                 model=model_name,
                 messages=messages,
@@ -8700,21 +8700,21 @@ def test_unified_auth_params(provider, model, project, region_name, token):
         "model": model,
     }
 
-    translated_optional_params = litellm.utils.get_optional_params(**data)
+    translated_optional_params = hangarllm.utils.get_optional_params(**data)
 
     if provider == "azure":
         special_auth_params = (
-            litellm.AzureOpenAIConfig().get_mapped_special_auth_params()
+            hangarllm.AzureOpenAIConfig().get_mapped_special_auth_params()
         )
     elif provider == "bedrock":
         special_auth_params = (
-            litellm.AmazonBedrockGlobalConfig().get_mapped_special_auth_params()
+            hangarllm.AmazonBedrockGlobalConfig().get_mapped_special_auth_params()
         )
     elif provider == "vertex_ai":
-        special_auth_params = litellm.VertexAIConfig().get_mapped_special_auth_params()
+        special_auth_params = hangarllm.VertexAIConfig().get_mapped_special_auth_params()
     elif provider == "watsonx":
         special_auth_params = (
-            litellm.IBMWatsonXAIConfig().get_mapped_special_auth_params()
+            hangarllm.IBMWatsonXAIConfig().get_mapped_special_auth_params()
         )
 
     for param, value in special_auth_params.items():
@@ -8760,7 +8760,7 @@ async def test_dynamic_azure_params(stream, sync_mode):
                     stream=stream,
                 )
             else:
-                _ = await litellm.acompletion(
+                _ = await hangarllm.acompletion(
                     model="azure/chatgpt-v2",
                     messages=[{"role": "user", "content": "Hello world"}],
                     client=client,
@@ -8791,7 +8791,7 @@ async def test_dynamic_azure_params(stream, sync_mode):
                     stream=stream,
                 )
             else:
-                _ = await litellm.acompletion(
+                _ = await hangarllm.acompletion(
                     model="azure/chatgpt-v2",
                     messages=[{"role": "user", "content": "Hello world"}],
                     client=client,
@@ -8873,7 +8873,7 @@ def test_openai_hallucinated_tool_call():
         "post",
         side_effect=_openai_hallucinated_tool_call_mock_response,
     ) as mock_response:
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hey! how's it going?"}],
             client=openai_client,
@@ -8932,8 +8932,8 @@ def test_openai_hallucinated_tool_call_util(function_name, expect_modification):
         - get function name from recipient_name value
         - parameters will be JSON object for function arguments
     """
-    from litellm.types.utils import ChatCompletionMessageToolCall
-    from litellm.utils import _handle_invalid_parallel_tool_calls
+    from hangarllm.types.utils import ChatCompletionMessageToolCall
+    from hangarllm.utils import _handle_invalid_parallel_tool_calls
 
     response = _handle_invalid_parallel_tool_calls(
         tool_calls=[
@@ -8978,7 +8978,7 @@ def test_openai_hallucinated_tool_call_util(function_name, expect_modification):
 
 
 def test_completion_novita_ai():
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     messages = [
         {"role": "system", "content": "You're a good bot"},
         {
@@ -8995,7 +8995,7 @@ def test_completion_novita_ai():
         openai_client, "post", return_value=MagicMock(spec=LegacyAPIResponse)
     ) as mock_call:
         mock_call.return_value.headers = {}
-        mock_call.return_value.parse.return_value = litellm.ModelResponse(
+        mock_call.return_value.parse.return_value = hangarllm.ModelResponse(
             choices=[{"message": {"role": "assistant", "content": "Hello"}}]
         )
         try:
@@ -9024,7 +9024,7 @@ def test_completion_novita_ai():
 @pytest.mark.parametrize("api_key", ["my-bad-api-key"])
 def test_completion_novita_ai_dynamic_params(api_key):
     try:
-        litellm.set_verbose = True
+        hangarllm.set_verbose = True
         messages = [
             {"role": "system", "content": "You're a good bot"},
             {
@@ -9067,14 +9067,14 @@ def test_completion_openai_metadata(monkeypatch, enable_preview_features):
 
     client = OpenAI()
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
-    monkeypatch.setattr(litellm, "enable_preview_features", enable_preview_features)
+    monkeypatch.setattr(hangarllm, "enable_preview_features", enable_preview_features)
     with patch.object(
         client, "post", return_value=MagicMock()
     ) as mock_completion:
         try:
-            resp = litellm.completion(
+            resp = hangarllm.completion(
                 model="openai/gpt-3.5-turbo",
                 messages=[{"role": "user", "content": "Hello world"}],
                 metadata={"my-test-key": "my-test-value"},
@@ -9100,7 +9100,7 @@ SPEECH_INPUT: Final = "the quick brown fox jumped over the lazy dogs"
 async def test_speech_azure_returns_binary_audio(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, sync_mode: bool
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post(
         url__regex=rf"{AZURE_TTS_BASE}/openai/deployments/tts/audio/speech\?api-version=.+"
     ).mock(return_value=httpx.Response(200, content=b"ID3-fake-mp3"))
@@ -9114,7 +9114,7 @@ async def test_speech_azure_returns_binary_audio(
         "max_retries": 1,
         "timeout": 60,
     }
-    response: Final = litellm.speech(**speech_kwargs) if sync_mode else await litellm.aspeech(**speech_kwargs)
+    response: Final = hangarllm.speech(**speech_kwargs) if sync_mode else await hangarllm.aspeech(**speech_kwargs)
 
     assert route.call_count == 1
     assert route.calls[0].request.headers["api-key"] == "fake-key"
@@ -9127,7 +9127,7 @@ async def test_speech_azure_returns_binary_audio(
 async def test_speech_openai_returns_binary_audio(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, sync_mode: bool
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/audio/speech").mock(
         return_value=httpx.Response(200, content=b"ID3-fake-mp3")
     )
@@ -9140,7 +9140,7 @@ async def test_speech_openai_returns_binary_audio(
         "max_retries": 1,
         "timeout": 60,
     }
-    response: Final = litellm.speech(**speech_kwargs) if sync_mode else await litellm.aspeech(**speech_kwargs)
+    response: Final = hangarllm.speech(**speech_kwargs) if sync_mode else await hangarllm.aspeech(**speech_kwargs)
 
     assert route.call_count == 1
     assert route.calls[0].request.headers["authorization"] == "Bearer fake-key"
@@ -9169,9 +9169,9 @@ EAGLE_WAV: Final = ("eagle.wav", b"RIFF\x00\x00\x00\x00WAVE-eagle", "audio/wav")
 async def test_transcription_caching_hit_same_file_miss_different_file(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     cache: Final = _SignallingCache(asyncio.get_running_loop())
-    monkeypatch.setattr(litellm, "cache", cache)
+    monkeypatch.setattr(hangarllm, "cache", cache)
     route: Final = respx_mock.post("https://api.openai.com/v1/audio/transcriptions").mock(
         side_effect=[
             httpx.Response(200, json={"text": "gettysburg transcript"}),
@@ -9179,21 +9179,21 @@ async def test_transcription_caching_hit_same_file_miss_different_file(
         ]
     )
 
-    response_1: Final = await litellm.atranscription(model="openai/whisper-1", file=GETTYSBURG_WAV, api_key="fake-key")
+    response_1: Final = await hangarllm.atranscription(model="openai/whisper-1", file=GETTYSBURG_WAV, api_key="fake-key")
     await asyncio.wait_for(cache.written.wait(), 30)
 
-    response_2: Final = await litellm.atranscription(model="openai/whisper-1", file=GETTYSBURG_WAV, api_key="fake-key")
+    response_2: Final = await hangarllm.atranscription(model="openai/whisper-1", file=GETTYSBURG_WAV, api_key="fake-key")
     assert response_2._hidden_params["cache_hit"] is True
     assert response_2.text == response_1.text == "gettysburg transcript"
 
-    response_3: Final = await litellm.atranscription(model="openai/whisper-1", file=EAGLE_WAV, api_key="fake-key")
+    response_3: Final = await hangarllm.atranscription(model="openai/whisper-1", file=EAGLE_WAV, api_key="fake-key")
     assert response_3._hidden_params.get("cache_hit") is not True
     assert response_3.text == "eagle transcript"
     assert route.call_count == 2
 
 
 async def test_whisper_log_pre_call_fires_once(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post("https://api.openai.com/v1/audio/transcriptions").mock(
         return_value=httpx.Response(200, json={"text": "hello"})
     )
@@ -9207,9 +9207,9 @@ async def test_whisper_log_pre_call_fires_once(respx_mock: respx.MockRouter, mon
             self.models = (*self.models, model)
 
     recorder: Final = _PreCallRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
 
-    await litellm.atranscription(model="openai/whisper-1", file=GETTYSBURG_WAV, api_key="fake-key")
+    await hangarllm.atranscription(model="openai/whisper-1", file=GETTYSBURG_WAV, api_key="fake-key")
 
     assert recorder.models == ("whisper-1",)
 
@@ -9218,12 +9218,12 @@ async def test_whisper_log_pre_call_fires_once(respx_mock: respx.MockRouter, mon
 async def test_transcription_model_names_pass_through(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, model: str
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/audio/transcriptions").mock(
         return_value=httpx.Response(200, json={"text": "hello"})
     )
 
-    response: Final = await litellm.atranscription(
+    response: Final = await hangarllm.atranscription(
         model=f"openai/{model}",
         file=GETTYSBURG_WAV,
         api_key="fake-key",
@@ -9243,15 +9243,15 @@ async def test_transcription_model_names_pass_through(
 async def test_sagemaker_missing_dependency_remains_actionable_with_retries(monkeypatch, use_async, model):
     import sys
 
-    monkeypatch.setattr(litellm, "num_retries", None)
+    monkeypatch.setattr(hangarllm, "num_retries", None)
     for dependency in ("botocore", "boto3", "tenacity"):
         monkeypatch.setitem(sys.modules, dependency, None)
     if use_async:
         with pytest.raises(ModuleNotFoundError, match="pip install boto3") as caught:
-            await litellm.acompletion(model=model, messages=[{"role": "user", "content": "ping"}], num_retries=1)
+            await hangarllm.acompletion(model=model, messages=[{"role": "user", "content": "ping"}], num_retries=1)
     else:
         with pytest.raises(ModuleNotFoundError, match="pip install boto3") as caught:
-            litellm.completion(model=model, messages=[{"role": "user", "content": "ping"}], num_retries=1)
+            hangarllm.completion(model=model, messages=[{"role": "user", "content": "ping"}], num_retries=1)
     assert caught.value.name == "botocore"
 
 
@@ -9260,15 +9260,15 @@ async def test_sagemaker_missing_dependency_remains_actionable_with_retries(monk
 async def test_polly_missing_dependency_remains_actionable_with_retries(monkeypatch, use_async):
     import sys
 
-    monkeypatch.setattr(litellm, "num_retries", None)
+    monkeypatch.setattr(hangarllm, "num_retries", None)
     for dependency in ("botocore", "boto3", "tenacity"):
         monkeypatch.setitem(sys.modules, dependency, None)
     if use_async:
         with pytest.raises(ModuleNotFoundError, match="pip install boto3") as caught:
-            await litellm.aspeech(model="aws_polly/standard", input="ping", voice="Joanna", num_retries=1)
+            await hangarllm.aspeech(model="aws_polly/standard", input="ping", voice="Joanna", num_retries=1)
     else:
         with pytest.raises(ModuleNotFoundError, match="pip install boto3") as caught:
-            litellm.speech(model="aws_polly/standard", input="ping", voice="Joanna", num_retries=1)
+            hangarllm.speech(model="aws_polly/standard", input="ping", voice="Joanna", num_retries=1)
     assert caught.value.name == "botocore"
 
 
@@ -9291,22 +9291,22 @@ async def test_mantle_responses_missing_dependency_is_not_retried(monkeypatch, m
         return original_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", import_without_aws)
-    monkeypatch.setattr(litellm, "num_retries", None)
+    monkeypatch.setattr(hangarllm, "num_retries", None)
     for name in ("AWS_BEARER_TOKEN_BEDROCK", "BEDROCK_MANTLE_API_KEY"):
         monkeypatch.delenv(name, raising=False)
     if use_async:
         with pytest.raises(ModuleNotFoundError, match="pip install boto3"):
-            await litellm.aresponses(model="bedrock_mantle/openai.gpt-oss-120b", input="ping", num_retries=1)
+            await hangarllm.aresponses(model="bedrock_mantle/openai.gpt-oss-120b", input="ping", num_retries=1)
     else:
         with pytest.raises(ModuleNotFoundError, match="pip install boto3"):
-            litellm.responses(model="bedrock_mantle/openai.gpt-oss-120b", input="ping", num_retries=1)
+            hangarllm.responses(model="bedrock_mantle/openai.gpt-oss-120b", input="ping", num_retries=1)
     assert attempts == ["botocore"]
 
 
 @pytest.mark.asyncio
 async def test_async_responses_still_retries_provider_server_errors(monkeypatch):
-    monkeypatch.setattr(litellm, "num_retries", None)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "num_retries", None)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock as upstream:
         response = upstream.post("https://openai-test.invalid/v1/responses").mock(side_effect=[
             httpx.Response(500, json={"error": {"message": "temporary provider failure", "type": "server_error"}}),
@@ -9316,7 +9316,7 @@ async def test_async_responses_still_retries_provider_server_errors(monkeypatch)
                 "usage": {"input_tokens": 3, "output_tokens": 2, "total_tokens": 5},
             }),
         ])
-        result = await litellm.aresponses(
+        result = await hangarllm.aresponses(
             model="openai/test-model", input="ping", api_key="test-key",
             api_base="https://openai-test.invalid/v1", num_retries=1, max_retries=0,
         )
@@ -9328,14 +9328,14 @@ async def test_async_responses_still_retries_provider_server_errors(monkeypatch)
 @pytest.mark.asyncio
 async def test_completion_with_retries(sync_mode):
     """
-    If completion_with_retries is called with num_retries=3, and max_retries=0, then litellm.completion should receive num_retries , max_retries=0
+    If completion_with_retries is called with num_retries=3, and max_retries=0, then hangarllm.completion should receive num_retries , max_retries=0
     """
     if sync_mode:
         target_function = "completion"
     else:
         target_function = "acompletion"
 
-    with patch.object(litellm, target_function) as mock_completion:
+    with patch.object(hangarllm, target_function) as mock_completion:
         if sync_mode:
             completion_with_retries(
                 model="gpt-3.5-turbo",
@@ -9361,7 +9361,7 @@ async def test_responses_with_retries(sync_mode):
     """
     Test that responses() and aresponses() properly handle num_retries parameter.
     If responses_with_retries is called with num_retries=3, and max_retries=0,
-    then litellm.responses should receive num_retries=0, max_retries=0
+    then hangarllm.responses should receive num_retries=0, max_retries=0
     """
     if sync_mode:
         target_function = "responses"
@@ -9371,7 +9371,7 @@ async def test_responses_with_retries(sync_mode):
         retry_function = aresponses_with_retries
 
     with patch(
-        "litellm.responses.main.responses" if sync_mode else "litellm.responses.main.aresponses"
+        "hangarllm.responses.main.responses" if sync_mode else "hangarllm.responses.main.aresponses"
     ) as mock_responses:
         if sync_mode:
             mock_responses.return_value = MagicMock()
@@ -9397,7 +9397,7 @@ async def test_responses_with_retries(sync_mode):
 
 def test_azure_embedding_exceptions():
     with pytest.raises(Exception, match="Mock error") as exc_info:
-        litellm.embedding(
+        hangarllm.embedding(
             model="azure/text-embedding-ada-002",
             input="hello",
             mock_response="error",
@@ -9409,7 +9409,7 @@ def test_azure_embedding_exceptions():
 def test_openai_chat_stream_routes_legacy_function_calls_and_usage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "return_response_headers", True)
+    monkeypatch.setattr(hangarllm, "return_response_headers", True)
     api_base: Final = "https://openai-unit.test/v1"
     messages: Final = ({"role": "user", "content": "What is the weather in SF?"},)
     functions: Final = (
@@ -9533,7 +9533,7 @@ def test_openai_chat_stream_routes_legacy_function_calls_and_usage(
     route: Final = respx.post(f"{api_base}/chat/completions").mock(
         side_effect=lambda _: next(scripted_responses)
     )
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="gpt-4o-mini",
         api_key="sk-test",
         api_base=api_base,
@@ -9571,7 +9571,7 @@ def test_openai_chat_stream_routes_legacy_function_calls_and_usage(
         == "17"
     )
 
-    function_stream: Final = litellm.completion(
+    function_stream: Final = hangarllm.completion(
         model="gpt-4o-mini",
         api_key="sk-test",
         api_base=api_base,
@@ -9581,7 +9581,7 @@ def test_openai_chat_stream_routes_legacy_function_calls_and_usage(
         stream=True,
     )
     function_chunks: Final = tuple(function_stream)
-    assembled: Final = litellm.stream_chunk_builder(
+    assembled: Final = hangarllm.stream_chunk_builder(
         chunks=function_chunks, messages=messages
     )
     function_call: Final = assembled.choices[0].message.function_call
@@ -9608,7 +9608,7 @@ def test_openai_chat_stream_routes_legacy_function_calls_and_usage(
 async def test_async_openai_stream_options_include_usage_on_the_last_chunk(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     events: Final = (
         {
             "id": "chatcmpl-async-usage",
@@ -9649,7 +9649,7 @@ async def test_async_openai_stream_options_include_usage_on_the_last_chunk(
             200, text=body, headers={"content-type": "text/event-stream"}
         )
     )
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         model="gpt-4o-mini",
         api_key="sk-test",
         messages=[{"role": "user", "content": "say hello"}],
@@ -9679,7 +9679,7 @@ async def test_async_openai_stream_options_include_usage_on_the_last_chunk(
 async def test_parallel_openai_streams_keep_prompt_responses_separate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
     def respond(request: httpx.Request) -> httpx.Response:
         prompt: Final = json.loads(request.content)["messages"][0]["content"]
@@ -9721,7 +9721,7 @@ async def test_parallel_openai_streams_keep_prompt_responses_separate(
     ).mock(side_effect=respond)
 
     async def collect(prompt: str) -> tuple[str, tuple[str, ...]]:
-        stream = await litellm.acompletion(
+        stream = await hangarllm.acompletion(
             model="gpt-4o-mini",
             api_key="sk-test",
             messages=[{"role": "user", "content": prompt}],
@@ -9788,7 +9788,7 @@ def test_parallel_sync_openai_streams_in_threads_keep_prompt_responses_separate(
     route: Final = respx.post("https://api.openai.com/v1/chat/completions").mock(side_effect=respond)
 
     def collect(prompt: str) -> tuple[str, tuple[str, ...]]:
-        stream: Final = litellm.completion(
+        stream: Final = hangarllm.completion(
             model="gpt-4o-mini",
             api_key="sk-test",
             messages=[{"role": "user", "content": prompt}],
@@ -9815,7 +9815,7 @@ def test_parallel_sync_openai_streams_in_threads_keep_prompt_responses_separate(
 def test_openai_streaming_tool_call_arguments_are_valid_json(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     chunks: Final = (
         {
             "id": "chatcmpl-tools",
@@ -9879,7 +9879,7 @@ def test_openai_streaming_tool_call_arguments_are_valid_json(
         )
     )
     messages: Final = [{"role": "user", "content": "What is the weather in Boston?"}]
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="gpt-4o-mini",
         messages=messages,
         tools=[
@@ -9903,7 +9903,7 @@ def test_openai_streaming_tool_call_arguments_are_valid_json(
         api_key="test-openai-key",
     )
     stream_chunks: Final = tuple(stream)
-    assembled: Final = litellm.stream_chunk_builder(chunks=list(stream_chunks), messages=messages)
+    assembled: Final = hangarllm.stream_chunk_builder(chunks=list(stream_chunks), messages=messages)
     assert assembled is not None
     assert assembled.choices[0].message.tool_calls[0].function.name == "get_current_weather"
     assert json.loads(assembled.choices[0].message.tool_calls[0].function.arguments) == {
@@ -9916,15 +9916,15 @@ def test_openai_streaming_tool_call_arguments_are_valid_json(
 def test_streaming_openai_usage_includes_test_owned_cost(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     model_name: Final = "stream-cost-test-model"
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         model_name,
         {
             "input_cost_per_token": 0.001,
             "output_cost_per_token": 0.002,
-            "litellm_provider": "openai",
+            "hangarllm_provider": "openai",
             "mode": "chat",
         },
     )
@@ -9962,7 +9962,7 @@ def test_streaming_openai_usage_includes_test_owned_cost(
             headers={"content-type": "text/event-stream"},
         )
     )
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model=f"openai/{model_name}",
         messages=[{"role": "user", "content": "price the response"}],
         stream=True,
@@ -9997,7 +9997,7 @@ def test_completion_ensure_alternating_roles_sends_continue_messages(respx_mock:
         )
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="databricks/databricks-meta-llama-3-1-70b-instruct",
         messages=[
             {"role": "user", "content": "Hello!"},
@@ -10036,7 +10036,7 @@ def test_completion_ensure_alternating_roles_sends_continue_messages(respx_mock:
 async def test_text_completion_stream_include_usage_returns_usage_on_final_chunk(
     sync_mode: bool, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     model: Final = "gpt-5.6"
     events: Final = (
         {
@@ -10070,9 +10070,9 @@ async def test_text_completion_stream_include_usage_returns_usage_on_final_chunk
     }
 
     chunks: Final = (
-        list(litellm.text_completion(**request))
+        list(hangarllm.text_completion(**request))
         if sync_mode
-        else [chunk async for chunk in await litellm.atext_completion(**request)]
+        else [chunk async for chunk in await hangarllm.atext_completion(**request)]
     )
 
     assert json.loads(route.calls.last.request.content) == {
@@ -10090,8 +10090,8 @@ async def test_text_completion_stream_include_usage_returns_usage_on_final_chunk
 def test_model_alias_map_resolves_the_outbound_model(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "model_alias_map", {"test-alias": "openai/resolved-model"})
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "model_alias_map", {"test-alias": "openai/resolved-model"})
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(
             200,
@@ -10155,7 +10155,7 @@ def _reasoning_effort_remaps(caplog: pytest.LogCaptureFixture) -> list[logging.L
 
 @pytest.fixture
 def remap_log(caplog: pytest.LogCaptureFixture) -> pytest.LogCaptureFixture:
-    from litellm._logging import verbose_logger
+    from hangarllm._logging import verbose_logger
 
     verbose_logger.addHandler(caplog.handler)
     verbose_logger.propagate = False
@@ -10192,9 +10192,9 @@ def test_default_on_a_declaring_deployment_leaves_the_effort_to_the_provider(res
 def test_azure_ai_forwards_reasoning_effort_once_the_deployment_declares_levels(
     respx_mock: respx.MockRouter,
 ) -> None:
-    with pytest.raises(litellm.exceptions.UnsupportedParamsError):
+    with pytest.raises(hangarllm.exceptions.UnsupportedParamsError):
         _chat_body_sent(respx_mock, "azure_ai/my-kimi", "medium", {"id": "kimi-azure-1"})
-    with pytest.raises(litellm.exceptions.UnsupportedParamsError):
+    with pytest.raises(hangarllm.exceptions.UnsupportedParamsError):
         _chat_body_sent(respx_mock, "azure_ai/my-kimi", "medium", {"reasoning_effort_levels": []})
 
     assert _chat_body_sent(respx_mock, "azure_ai/my-kimi", "medium", _KIMI_DEPLOYMENT)["reasoning_effort"] == "high"
@@ -10228,7 +10228,7 @@ def test_a_hosted_vllm_thinking_budget_is_rounded_onto_the_declared_levels(
 def test_an_undeclared_sibling_of_a_declaring_deployment_gets_the_request_untouched(
     respx_mock: respx.MockRouter,
 ) -> None:
-    from litellm.router import Router
+    from hangarllm.router import Router
 
     route: Final = respx_mock.post(f"{_VLLM_API_BASE}/chat/completions").mock(
         return_value=_mocked_openai_chat_response("my-kimi")
@@ -10236,8 +10236,8 @@ def test_an_undeclared_sibling_of_a_declaring_deployment_gets_the_request_untouc
     shared_params: Final = {"model": "hosted_vllm/my-kimi", "api_base": _VLLM_API_BASE, "api_key": "fake-key"}
     router: Final = Router(
         model_list=[
-            {"model_name": "kimi-declared", "litellm_params": {**shared_params}, "model_info": _KIMI_DEPLOYMENT},
-            {"model_name": "kimi-plain", "litellm_params": {**shared_params}, "model_info": {"id": "kimi-plain-1"}},
+            {"model_name": "kimi-declared", "hangarllm_params": {**shared_params}, "model_info": _KIMI_DEPLOYMENT},
+            {"model_name": "kimi-plain", "hangarllm_params": {**shared_params}, "model_info": {"id": "kimi-plain-1"}},
         ]
     )
 
@@ -10421,7 +10421,7 @@ def test_a_non_numeric_thinking_budget_on_adaptive_claude_is_rejected_with_a_400
     model_info: Mapping[str, object] | None,
     effort: Mapping[str, str],
 ) -> None:
-    with pytest.raises(litellm.BadRequestError, match=r"thinking\.budget_tokens must be a number") as rejected:
+    with pytest.raises(hangarllm.BadRequestError, match=r"thinking\.budget_tokens must be a number") as rejected:
         body_sent(respx_mock, model_info, thinking={"type": "enabled", "budget_tokens": "lots"}, **effort)
 
     assert rejected.value.status_code == 400
@@ -10438,10 +10438,10 @@ def test_drop_params_drops_a_non_numeric_thinking_budget_on_adaptive_claude_with
     model_info: Mapping[str, object] | None,
     drop_globally: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", drop_globally)
+    monkeypatch.setattr(hangarllm, "drop_params", drop_globally)
     request_drop: Final = {} if drop_globally else {"drop_params": True}
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         dropped: Final = body_sent(
             respx_mock, model_info, thinking={"type": "enabled", "budget_tokens": "lots"}, **request_drop
         )
@@ -10461,7 +10461,7 @@ def test_drop_params_drops_a_non_numeric_thinking_budget_on_adaptive_claude_with
 def test_drop_params_drops_a_non_numeric_thinking_budget_on_hosted_vllm_with_one_warning(
     respx_mock: respx.MockRouter, caplog: pytest.LogCaptureFixture, model_info: Mapping[str, object] | None
 ) -> None:
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         sent: Final = _chat_body_sent(
             respx_mock,
             "hosted_vllm/my-kimi",
@@ -10611,7 +10611,7 @@ def test_a_non_numeric_thinking_budget_is_rejected_with_a_400(
 ) -> None:
     thinking: Final = {"type": "enabled", "budget_tokens": budget_tokens}
 
-    with pytest.raises(litellm.BadRequestError, match=r"thinking\.budget_tokens must be a number") as rejected:
+    with pytest.raises(hangarllm.BadRequestError, match=r"thinking\.budget_tokens must be a number") as rejected:
         _chat_body_sent(respx_mock, "hosted_vllm/my-kimi", None, model_info, thinking=thinking)
 
     assert rejected.value.status_code == 400
@@ -10642,7 +10642,7 @@ def test_drop_params_drops_a_non_numeric_thinking_budget(
     model_info: Mapping[str, object] | None,
     drop_globally: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", drop_globally)
+    monkeypatch.setattr(hangarllm, "drop_params", drop_globally)
     request_drop: Final = {} if drop_globally else {"drop_params": True}
 
     sent: Final = _chat_body_sent(
@@ -10676,7 +10676,7 @@ def test_an_adaptive_effort_on_a_declaring_bedrock_converse_claude_deployment_is
 def test_a_routed_remap_is_logged_with_the_deployment_id_and_model_group(
     respx_mock: respx.MockRouter, remap_log: pytest.LogCaptureFixture
 ) -> None:
-    from litellm.router import Router
+    from hangarllm.router import Router
 
     route: Final = respx_mock.post(f"{_VLLM_API_BASE}/chat/completions").mock(
         return_value=_mocked_openai_chat_response("my-kimi")
@@ -10685,7 +10685,7 @@ def test_a_routed_remap_is_logged_with_the_deployment_id_and_model_group(
         model_list=[
             {
                 "model_name": "kimi-k3",
-                "litellm_params": {"model": "hosted_vllm/my-kimi", "api_base": _VLLM_API_BASE, "api_key": "fake-key"},
+                "hangarllm_params": {"model": "hosted_vllm/my-kimi", "api_base": _VLLM_API_BASE, "api_key": "fake-key"},
                 "model_info": _KIMI_DEPLOYMENT,
             }
         ]
@@ -10780,8 +10780,8 @@ def _gpt_5_chat_body_sent(
 def _openai_gpt_5_entry_disabling(level: str) -> str:
     return next(
         model
-        for model, entry in litellm.model_cost.items()
-        if entry.get("litellm_provider") == "openai" and entry.get(f"supports_{level}_reasoning_effort") is False
+        for model, entry in hangarllm.model_cost.items()
+        if entry.get("hangarllm_provider") == "openai" and entry.get(f"supports_{level}_reasoning_effort") is False
     )
 
 
@@ -10797,7 +10797,7 @@ def _openai_gpt_5_entry_disabling(level: str) -> str:
 def test_a_gpt_5_deployment_receives_a_level_it_declares_that_the_model_map_does_not_list(
     respx_mock: respx.MockRouter, model: str, requested: str, declared: list[str], expected: str
 ) -> None:
-    with pytest.raises(litellm.exceptions.UnsupportedParamsError):
+    with pytest.raises(hangarllm.exceptions.UnsupportedParamsError):
         _gpt_5_chat_body_sent(respx_mock, model, expected, {"id": "gpt-5-in-house-1"})
 
     sent: Final = _gpt_5_chat_body_sent(respx_mock, model, requested, {"reasoning_effort_levels": declared})
@@ -10813,7 +10813,7 @@ def test_a_gpt_5_deployment_receives_a_declared_level_the_model_map_disables(
         return_value=httpx.Response(200, json=_FOUNDRY_RESPONSES_FUNCTION_CALL_BODY)
     )
 
-    with pytest.raises(litellm.exceptions.UnsupportedParamsError):
+    with pytest.raises(hangarllm.exceptions.UnsupportedParamsError):
         _gpt_5_chat_body_sent(respx_mock, model, "low", {"id": "gpt-5-pro-1"})
     _gpt_5_chat_body_sent(respx_mock, model, "low", {"reasoning_effort_levels": ["low", "high"]})
 
@@ -10827,7 +10827,7 @@ async def test_aspeech_routes_a_bare_model_name_to_its_explicit_provider(respx_m
         return_value=httpx.Response(status_code=200, content=b"ID3-speech")
     )
 
-    response: Final = await litellm.aspeech(
+    response: Final = await hangarllm.aspeech(
         model="kokoro",
         input="hello",
         voice="alloy",
@@ -10851,7 +10851,7 @@ async def test_atranscription_routes_a_bare_model_name_to_its_explicit_provider(
         return_value=httpx.Response(status_code=200, json={"text": "four score"})
     )
 
-    response: Final = await litellm.atranscription(
+    response: Final = await hangarllm.atranscription(
         model="my-whisper",
         file=("speech.wav", b"RIFF-audio", "audio/wav"),
         custom_llm_provider="openai",
@@ -10870,8 +10870,8 @@ async def test_atranscription_routes_a_bare_model_name_to_its_explicit_provider(
 async def test_aspeech_answers_a_non_string_provider_hint_with_a_bad_request(
     hint: str, respx_mock: respx.MockRouter
 ) -> None:
-    with pytest.raises(litellm.BadRequestError) as raised:
-        await litellm.aspeech(model="kokoro", input="hello", voice="alloy", api_key="fake_openai_api_key", **{hint: 123})
+    with pytest.raises(hangarllm.BadRequestError) as raised:
+        await hangarllm.aspeech(model="kokoro", input="hello", voice="alloy", api_key="fake_openai_api_key", **{hint: 123})
 
     assert raised.value.status_code == 400
     assert f"Invalid {hint}" in raised.value.message
@@ -10883,8 +10883,8 @@ async def test_aspeech_answers_a_non_string_provider_hint_with_a_bad_request(
 async def test_atranscription_answers_a_non_string_provider_hint_with_a_bad_request(
     hint: str, respx_mock: respx.MockRouter
 ) -> None:
-    with pytest.raises(litellm.BadRequestError) as raised:
-        await litellm.atranscription(
+    with pytest.raises(hangarllm.BadRequestError) as raised:
+        await hangarllm.atranscription(
             model="my-whisper",
             file=("speech.wav", b"RIFF-audio", "audio/wav"),
             api_key="fake_openai_api_key",
@@ -10900,11 +10900,11 @@ def test_transcription_rejects_an_unsupported_provider_without_an_http_call(resp
     model: Final = "test-transcription-model"
     provider: Final = "anthropic"
 
-    with pytest.raises(litellm.UnsupportedEndpointError) as raised:
-        litellm.transcription(model=f"{provider}/{model}", file=("speech.wav", b"RIFF-audio", "audio/wav"))
+    with pytest.raises(hangarllm.UnsupportedEndpointError) as raised:
+        hangarllm.transcription(model=f"{provider}/{model}", file=("speech.wav", b"RIFF-audio", "audio/wav"))
 
     assert raised.value.status_code == 400
-    assert raised.value.message == f"litellm.BadRequestError: {provider}/{model} does not support audio transcription."
+    assert raised.value.message == f"hangarllm.BadRequestError: {provider}/{model} does not support audio transcription."
     assert raised.value.model == model
     assert raised.value.llm_provider == provider
     assert not respx_mock.calls
@@ -10917,11 +10917,11 @@ async def test_atranscription_rejects_an_unsupported_provider_without_an_http_ca
     model: Final = "test-transcription-model"
     provider: Final = "anthropic"
 
-    with pytest.raises(litellm.UnsupportedEndpointError) as raised:
-        await litellm.atranscription(model=f"{provider}/{model}", file=("speech.wav", b"RIFF-audio", "audio/wav"))
+    with pytest.raises(hangarllm.UnsupportedEndpointError) as raised:
+        await hangarllm.atranscription(model=f"{provider}/{model}", file=("speech.wav", b"RIFF-audio", "audio/wav"))
 
     assert raised.value.status_code == 400
-    assert raised.value.message == f"litellm.BadRequestError: {provider}/{model} does not support audio transcription."
+    assert raised.value.message == f"hangarllm.BadRequestError: {provider}/{model} does not support audio transcription."
     assert raised.value.model == model
     assert raised.value.llm_provider == provider
     assert not respx_mock.calls
@@ -10934,7 +10934,7 @@ async def test_aspeech_infers_the_provider_from_base_url(respx_mock: respx.MockR
         return_value=httpx.Response(status_code=200, content=b"ID3-speech")
     )
 
-    response: Final = await litellm.aspeech(
+    response: Final = await hangarllm.aspeech(
         model="my-tts",
         input="hello",
         voice="alloy",
@@ -10954,7 +10954,7 @@ async def test_atranscription_infers_the_provider_from_base_url(respx_mock: resp
         return_value=httpx.Response(status_code=200, json={"text": "four score"})
     )
 
-    response: Final = await litellm.atranscription(
+    response: Final = await hangarllm.atranscription(
         model="my-whisper",
         file=("speech.wav", b"RIFF-audio", "audio/wav"),
         base_url=base_url,
@@ -10975,7 +10975,7 @@ async def test_aspeech_ignores_a_non_string_base_url_when_api_base_is_set_like_t
         return_value=httpx.Response(status_code=200, content=b"ID3-speech")
     )
 
-    response: Final = await litellm.aspeech(
+    response: Final = await hangarllm.aspeech(
         model="tts-1",
         input="hello",
         voice="alloy",
@@ -10998,7 +10998,7 @@ async def test_atranscription_ignores_a_non_string_base_url_when_api_base_is_set
         return_value=httpx.Response(status_code=200, json={"text": "four score"})
     )
 
-    response: Final = await litellm.atranscription(
+    response: Final = await hangarllm.atranscription(
         model="whisper-1",
         file=("speech.wav", b"RIFF-audio", "audio/wav"),
         api_base=api_base,
@@ -11053,7 +11053,7 @@ def test_drop_params_drops_a_pdf_the_model_cannot_read(respx_mock: respx.MockRou
     api_base: Final = "http://localhost:12347/v1"
     _mock_pdf_chat_route(respx_mock, api_base)
 
-    litellm.completion(
+    hangarllm.completion(
         model="openai/qa-text-only-model",
         messages=_pdf_messages(),
         api_base=api_base,
@@ -11080,7 +11080,7 @@ def test_drop_params_drops_a_pdf_file_part_without_a_data_url(
     api_base: Final = "http://localhost:12350/v1"
     _mock_pdf_chat_route(respx_mock, api_base)
 
-    litellm.completion(
+    hangarllm.completion(
         model="openai/qa-text-only-model",
         messages=[{"role": "user", "content": [_SUMMARIZE_TEXT_PART, {"type": "file", "file": pdf_file}]}],
         api_base=api_base,
@@ -11096,7 +11096,7 @@ def test_drop_params_drops_a_user_turn_that_held_only_a_pdf(respx_mock: respx.Mo
     api_base: Final = "http://localhost:12352/v1"
     _mock_pdf_chat_route(respx_mock, api_base)
 
-    litellm.completion(
+    hangarllm.completion(
         model="openai/qa-text-only-model",
         messages=[
             {"role": "user", "content": [_PDF_FILE_PART]},
@@ -11115,7 +11115,7 @@ def test_drop_params_keeps_roles_alternating_after_dropping_a_pdf_only_turn(resp
     api_base: Final = "http://localhost:12353/v1"
     _mock_pdf_chat_route(respx_mock, api_base)
 
-    litellm.completion(
+    hangarllm.completion(
         model="openai/qa-text-only-model",
         messages=[
             {"role": "user", "content": [_SUMMARIZE_TEXT_PART]},
@@ -11143,7 +11143,7 @@ def test_drop_params_keeps_an_image_data_url_whose_filename_says_pdf(respx_mock:
         "file": {"filename": "scan.pdf", "file_data": "data:image/png;base64,iVBORw0KGgo="},
     }
 
-    litellm.completion(
+    hangarllm.completion(
         model="openai/qa-text-only-model",
         messages=[{"role": "user", "content": [_SUMMARIZE_TEXT_PART, image_part]}],
         api_base=api_base,
@@ -11159,8 +11159,8 @@ def test_pdf_to_a_model_that_cannot_read_it_is_rejected_without_drop_params(resp
     api_base: Final = "http://localhost:12348/v1"
     route: Final = _mock_pdf_chat_route(respx_mock, api_base)
 
-    with pytest.raises(litellm.BadRequestError, match="does not accept PDF input"):
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError, match="does not accept PDF input"):
+        hangarllm.completion(
             model="openai/qa-text-only-model",
             messages=_pdf_messages(),
             api_base=api_base,
@@ -11175,7 +11175,7 @@ def test_pdf_to_a_model_with_unknown_pdf_support_is_sent_even_with_drop_params(r
     api_base: Final = "http://localhost:12349/v1"
     _mock_pdf_chat_route(respx_mock, api_base)
 
-    litellm.completion(
+    hangarllm.completion(
         model="openai/qa-unlisted-model",
         messages=_pdf_messages(),
         api_base=api_base,
@@ -11187,21 +11187,21 @@ def test_pdf_to_a_model_with_unknown_pdf_support_is_sent_even_with_drop_params(r
 
 
 def test_pdf_to_ollama_is_rejected_without_drop_params() -> None:
-    with pytest.raises(litellm.BadRequestError, match="does not accept PDF input"):
-        litellm.completion(model="ollama_chat/llama3.2", messages=_pdf_messages(), api_base="http://127.0.0.1:9")
+    with pytest.raises(hangarllm.BadRequestError, match="does not accept PDF input"):
+        hangarllm.completion(model="ollama_chat/llama3.2", messages=_pdf_messages(), api_base="http://127.0.0.1:9")
 
 
 def _azure_ai_model_without_pdf_input() -> str:
     return next(
         name
-        for name, entry in litellm.model_cost.items()
-        if entry.get("litellm_provider") == "azure_ai" and entry.get("supports_pdf_input") is False
+        for name, entry in hangarllm.model_cost.items()
+        if entry.get("hangarllm_provider") == "azure_ai" and entry.get("supports_pdf_input") is False
     )
 
 
 def test_pdf_to_a_deployment_whose_base_model_cannot_read_it_is_rejected() -> None:
-    with pytest.raises(litellm.BadRequestError, match="does not accept PDF input"):
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError, match="does not accept PDF input"):
+        hangarllm.completion(
             model="azure_ai/qa-custom-deployment",
             messages=_pdf_messages(),
             api_base="http://127.0.0.1:9",
@@ -11214,7 +11214,7 @@ def test_drop_params_drops_a_pdf_a_deployments_base_model_cannot_read(respx_mock
     api_base: Final = "http://localhost:12353"
     _mock_pdf_chat_route(respx_mock, api_base)
 
-    litellm.completion(
+    hangarllm.completion(
         model="azure_ai/qa-custom-deployment",
         messages=_pdf_messages(),
         api_base=api_base,
@@ -11229,14 +11229,14 @@ def test_drop_params_drops_a_pdf_a_deployments_base_model_cannot_read(respx_mock
 def _azure_ai_model_with_pdf_input() -> str:
     return next(
         name
-        for name, entry in litellm.model_cost.items()
-        if entry.get("litellm_provider") == "azure_ai" and entry.get("supports_pdf_input") is True
+        for name, entry in hangarllm.model_cost.items()
+        if entry.get("hangarllm_provider") == "azure_ai" and entry.get("supports_pdf_input") is True
     )
 
 
 def test_pdf_to_a_deployment_whose_base_model_param_cannot_read_it_is_rejected() -> None:
-    with pytest.raises(litellm.BadRequestError, match="does not accept PDF input"):
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError, match="does not accept PDF input"):
+        hangarllm.completion(
             model="azure_ai/qa-custom-deployment",
             messages=_pdf_messages(),
             api_base="http://127.0.0.1:9",
@@ -11249,7 +11249,7 @@ def test_drop_params_keeps_a_pdf_a_deployments_base_model_param_reads(respx_mock
     api_base: Final = "http://localhost:12357"
     _mock_pdf_chat_route(respx_mock, api_base)
 
-    litellm.completion(
+    hangarllm.completion(
         model="azure_ai/qa-custom-deployment",
         messages=_pdf_messages(),
         api_base=api_base,
@@ -11265,8 +11265,8 @@ def test_drop_params_rejects_a_request_whose_only_user_turn_was_a_pdf(respx_mock
     api_base: Final = "http://localhost:12354/v1"
     route: Final = _mock_pdf_chat_route(respx_mock, api_base)
 
-    with pytest.raises(litellm.BadRequestError, match="no user message is left"):
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError, match="no user message is left"):
+        hangarllm.completion(
             model="openai/qa-text-only-model",
             messages=[
                 {"role": "system", "content": "You read documents."},
@@ -11287,7 +11287,7 @@ def test_drop_params_drops_a_pdf_an_unlisted_azure_ai_model_never_declared_it_re
     api_base: Final = "http://localhost:12355"
     _mock_pdf_chat_route(respx_mock, api_base)
 
-    litellm.completion(
+    hangarllm.completion(
         model="azure_ai/qa-unlisted-deployment",
         messages=_pdf_messages(),
         api_base=api_base,
@@ -11302,7 +11302,7 @@ def test_drop_params_keeps_a_pdf_an_azure_ai_deployment_declares_it_reads(respx_
     api_base: Final = "http://localhost:12356"
     _mock_pdf_chat_route(respx_mock, api_base)
 
-    litellm.completion(
+    hangarllm.completion(
         model="azure_ai/qa-unlisted-deployment",
         messages=_pdf_messages(),
         api_base=api_base,
@@ -11321,23 +11321,23 @@ def test_drop_params_keeps_a_pdf_an_azure_ai_deployment_declares_it_reads(respx_
 async def test_converse_fallback_prices_the_current_attempt(
     monkeypatch: pytest.MonkeyPatch, stream: bool, asynchronous: bool, profile: str | None, custom_price: bool
 ) -> None:
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-    from litellm.rust_bridge import configuration
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.rust_bridge import configuration
     from tests.unit.llms.bedrock.slow_upstream import CONVERSE_ANSWER
 
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setenv("LITELLM_RUST", "0")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("HANGARLLM_RUST", "0")
     configuration.rust(False)
-    monkeypatch.setattr(litellm, "model_cost", dict(litellm.model_cost))
+    monkeypatch.setattr(hangarllm, "model_cost", dict(hangarllm.model_cost))
     failed_profile: Final = "us.amazon.nova-micro-v1:0"
     model: Final = "openai.gpt-6-sol"
-    logging_obj: Final = LiteLLMLogging(
+    logging_obj: Final = HangarLLMLogging(
         model="amazon.nova-micro-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         stream=stream,
         call_type="acompletion" if asynchronous else "completion",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="bedrock-fallback-pricing",
+        hangarllm_call_id="bedrock-fallback-pricing",
         function_id="bedrock-fallback-pricing",
     )
 
@@ -11357,36 +11357,36 @@ async def test_converse_fallback_prices_the_current_attempt(
         "api_key": "test-bearer",
         "aws_region_name": "us-east-1",
         "client": client,
-        "litellm_logging_obj": logging_obj,
+        "hangarllm_logging_obj": logging_obj,
         "num_retries": 0,
         "stream": stream,
         "fake_stream": stream,
     }
     if asynchronous:
-        with pytest.raises(litellm.BadRequestError):
-            await litellm.acompletion(model="bedrock/converse/amazon.nova-micro-v1:0", model_id=failed_profile, **kwargs)
+        with pytest.raises(hangarllm.BadRequestError):
+            await hangarllm.acompletion(model="bedrock/converse/amazon.nova-micro-v1:0", model_id=failed_profile, **kwargs)
     else:
-        with pytest.raises(litellm.BadRequestError):
-            litellm.completion(model="bedrock/converse/amazon.nova-micro-v1:0", model_id=failed_profile, **kwargs)
+        with pytest.raises(hangarllm.BadRequestError):
+            hangarllm.completion(model="bedrock/converse/amazon.nova-micro-v1:0", model_id=failed_profile, **kwargs)
 
     overrides: Final = {
         **({"model_id": profile} if profile is not None else {}),
         **({"input_cost_per_token": 0.001, "output_cost_per_token": 0.002} if custom_price else {}),
     }
     response: Final = (
-        await litellm.acompletion(model=f"bedrock/converse/{model}", **kwargs, **overrides)
+        await hangarllm.acompletion(model=f"bedrock/converse/{model}", **kwargs, **overrides)
         if asynchronous
-        else litellm.completion(model=f"bedrock/converse/{model}", **kwargs, **overrides)
+        else hangarllm.completion(model=f"bedrock/converse/{model}", **kwargs, **overrides)
     )
     result: Final = (
-        litellm.stream_chunk_builder(
+        hangarllm.stream_chunk_builder(
             [chunk async for chunk in response] if asynchronous else list(response), logging_obj=response.logging_obj
         )
         if stream
         else response
     )
     assert result is not None
-    prices: Final = litellm.get_model_info(profile or model, custom_llm_provider="bedrock")
+    prices: Final = hangarllm.get_model_info(profile or model, custom_llm_provider="bedrock")
     expected: Final = (
         0.001 + 0.002
         if custom_price
@@ -11394,7 +11394,7 @@ async def test_converse_fallback_prices_the_current_attempt(
     )
     active_logging: Final = response.logging_obj if stream else logging_obj
     assert active_logging.response_cost_calculator(result) == pytest.approx(expected)
-    active_logging.update_environment_variables(litellm_params={}, optional_params={})
+    active_logging.update_environment_variables(hangarllm_params={}, optional_params={})
     assert active_logging.response_cost_calculator(result, ignore_stamped_cost=True) == pytest.approx(expected)
     if asynchronous:
         await client.close()
@@ -11417,30 +11417,30 @@ def _openai_chat_answer() -> httpx.Response:
     )
 
 
-async def _openai_completion(use_async: bool, **request_params: object) -> litellm.ModelResponse:
+async def _openai_completion(use_async: bool, **request_params: object) -> hangarllm.ModelResponse:
     request: Final = {
         "model": "openai/gpt-5.6",
         "messages": [{"role": "user", "content": "hi"}],
         "api_key": "fake-key",
         **request_params,
     }
-    return await litellm.acompletion(**request) if use_async else litellm.completion(**request)
+    return await hangarllm.acompletion(**request) if use_async else hangarllm.completion(**request)
 
 
 class _PreCallParamsRecorder(CustomLogger):
     def __init__(self) -> None:
         super().__init__()
-        self.litellm_params: tuple[object, ...] = ()
+        self.hangarllm_params: tuple[object, ...] = ()
 
     def log_pre_api_call(self, model: str, messages: object, kwargs: Mapping[str, object]) -> None:
-        self.litellm_params = (*self.litellm_params, kwargs.get("litellm_params"))
+        self.hangarllm_params = (*self.hangarllm_params, kwargs.get("hangarllm_params"))
 
 
 @pytest.mark.parametrize("use_async", [False, True])
 async def test_malformed_routing_kwarg_answers_400_before_reaching_the_provider(use_async: bool):
     with respx.mock(assert_all_called=False) as mock:
         route: Final = mock.post("https://api.openai.com/v1/chat/completions").mock(return_value=_openai_chat_answer())
-        with pytest.raises(litellm.BadRequestError, match="tpm") as raised:
+        with pytest.raises(hangarllm.BadRequestError, match="tpm") as raised:
             await _openai_completion(use_async, tpm="abc")
 
     assert raised.value.status_code == 400
@@ -11451,17 +11451,17 @@ async def test_malformed_routing_kwarg_answers_400_before_reaching_the_provider(
 async def test_malformed_routing_kwarg_is_dropped_from_the_whole_request_under_drop_params(
     use_async: bool, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     recorder: Final = _PreCallParamsRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     with respx.mock:
         respx.post("https://api.openai.com/v1/chat/completions").mock(return_value=_openai_chat_answer())
         response: Final = await _openai_completion(use_async, tpm="abc", drop_params=True)
 
     assert response.choices[0].message.content == "hi"
-    assert len(recorder.litellm_params) == 1
-    assert isinstance(recorder.litellm_params[0], Mapping)
-    assert recorder.litellm_params[0].get("tpm") is None
+    assert len(recorder.hangarllm_params) == 1
+    assert isinstance(recorder.hangarllm_params[0], Mapping)
+    assert recorder.hangarllm_params[0].get("tpm") is None
 
 
 _LOOKUP_FUNCTION: Final = {
@@ -11499,7 +11499,7 @@ async def _converse_with_a_strict_tools_limit_rejection_first(
     stream: Literal["off", "fake", "real"],
     drop_params: bool | None,
     tool: Mapping[str, object] = _STRICT_LOOKUP_TOOL,
-) -> tuple[tuple[tuple[str, dict[str, object]], ...], litellm.BadRequestError | None]:
+) -> tuple[tuple[tuple[str, dict[str, object]], ...], hangarllm.BadRequestError | None]:
     respond: Final = _StrictToolsLimitRejectionFirst(stream)
     kwargs: Final = {
         "model": "bedrock/us.anthropic.claude-sonnet-4-6",
@@ -11521,7 +11521,7 @@ async def _converse_with_a_strict_tools_limit_rejection_first(
                 HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(respond))), kwargs, stream
             )
         )
-    except litellm.BadRequestError as error:
+    except hangarllm.BadRequestError as error:
         return respond.sent, error
     assert chunks
     return respond.sent, None
@@ -11530,14 +11530,14 @@ async def _converse_with_a_strict_tools_limit_rejection_first(
 async def _acompletion_chunks(
     client: AsyncHTTPHandler, kwargs: Mapping[str, object], stream: Literal["off", "fake", "real"]
 ) -> tuple[object, ...]:
-    response: Final = await litellm.acompletion(client=client, **kwargs)
+    response: Final = await hangarllm.acompletion(client=client, **kwargs)
     return tuple([chunk async for chunk in response]) if stream == "fake" else (response,)
 
 
 def _completion_chunks(
     client: HTTPHandler, kwargs: Mapping[str, object], stream: Literal["off", "fake", "real"]
 ) -> tuple[object, ...]:
-    response: Final = litellm.completion(client=client, **kwargs)
+    response: Final = hangarllm.completion(client=client, **kwargs)
     return tuple(response) if stream == "fake" else (response,)
 
 
@@ -11592,21 +11592,21 @@ def test_supplied_openai_client_base_url_decides_data_residency(monkeypatch: pyt
     host and not an env-configured FedRAMP or regional base."""
     import openai
 
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.setenv("OPENAI_BASE_URL", "https://gov.api.openai.com/v1")
     captured = {}
-    real_init = litellm.Logging.__init__
+    real_init = hangarllm.Logging.__init__
 
     def init_spy(self, *args, **kwargs):
         real_init(self, *args, **kwargs)
         captured["logging_obj"] = self
 
-    with patch.object(litellm.Logging, "__init__", init_spy):
-        litellm.completion(
+    with patch.object(hangarllm.Logging, "__init__", init_spy):
+        hangarllm.completion(
             model="gpt-4.1",
             messages=[{"role": "user", "content": "hi"}],
             client=openai.OpenAI(api_key="test-key", base_url="https://api.openai.com/v1"),
             mock_response="ok",
         )
 
-    assert captured["logging_obj"].litellm_params.get("data_residency") is None
+    assert captured["logging_obj"].hangarllm_params.get("data_residency") is None

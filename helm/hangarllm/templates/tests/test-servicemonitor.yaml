@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "{{ include "litellm.fullname" . }}-test-servicemonitor"
+  name: "{{ include "hangarllm.fullname" . }}-test-servicemonitor"
   labels:
-    {{- include "litellm.labels" . | nindent 4 }}
+    {{- include "hangarllm.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": test
 spec:
@@ -18,14 +18,14 @@ spec:
           echo "🔍 Testing ServiceMonitor configuration..."
           
           # Check if ServiceMonitor exists
-          if ! kubectl get servicemonitor {{ include "litellm.fullname" . }} -n {{ .Release.Namespace }} &>/dev/null; then
+          if ! kubectl get servicemonitor {{ include "hangarllm.fullname" . }} -n {{ .Release.Namespace }} &>/dev/null; then
             echo "❌ ServiceMonitor not found"
             exit 1
           fi
           echo "✅ ServiceMonitor exists"
           
           # Get ServiceMonitor YAML
-          SM=$(kubectl get servicemonitor {{ include "litellm.fullname" . }} -n {{ .Release.Namespace }} -o yaml)
+          SM=$(kubectl get servicemonitor {{ include "hangarllm.fullname" . }} -n {{ .Release.Namespace }} -o yaml)
           
           # Test endpoint configuration
           ENDPOINT_PORT=$(echo "$SM" | grep -A 5 "endpoints:" | grep "port:" | awk '{print $2}')
@@ -140,13 +140,13 @@ spec:
           
           # Test selector labels match the service
           echo "🔍 Checking selector labels match service..."
-          SVC_LABELS=$(kubectl get svc {{ include "litellm.fullname" . }} -n {{ .Release.Namespace }} -o jsonpath='{.metadata.labels}')
+          SVC_LABELS=$(kubectl get svc {{ include "hangarllm.fullname" . }} -n {{ .Release.Namespace }} -o jsonpath='{.metadata.labels}')
           echo "Service labels: $SVC_LABELS"
           echo "✅ Selector labels validation passed"
           
           echo ""
           echo "🎉 All ServiceMonitor tests passed successfully!"
-  serviceAccountName: {{ include "litellm.serviceAccountName" . }}
+  serviceAccountName: {{ include "hangarllm.serviceAccountName" . }}
   restartPolicy: Never
 {{- end }}
 

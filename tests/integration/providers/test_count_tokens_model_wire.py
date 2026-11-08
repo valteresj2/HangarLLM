@@ -64,8 +64,8 @@ def _shipped_token_count_model_field(model: str, field: str) -> str:
 
 def _count_model_source(model: str) -> dict[str, JsonValue]:
     return {
-        "litellm_count_source": "token_count_model",
-        "litellm_count_model": _shipped_token_count_model_field(model, "model"),
+        "hangarllm_count_source": "token_count_model",
+        "hangarllm_count_model": _shipped_token_count_model_field(model, "model"),
     }
 
 
@@ -107,7 +107,7 @@ _TOOL_TURNS: Final[list[JsonValue]] = [
     },
     {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_01", "content": "Sunny"}]},
 ]
-_LOCAL_SOURCE: Final = {"litellm_count_source": "local_estimate"}
+_LOCAL_SOURCE: Final = {"hangarllm_count_source": "local_estimate"}
 
 
 def _prompt(status: int, count_model_status: int | None = None) -> str:
@@ -223,7 +223,7 @@ def _url(port: int) -> str:
     return f"http://127.0.0.1:{port}"
 
 
-def _litellm_params(model: str, api_base: str, region: str = _REGION) -> dict[str, JsonValue]:
+def _hangarllm_params(model: str, api_base: str, region: str = _REGION) -> dict[str, JsonValue]:
     return {
         "model": f"bedrock/{model}",
         "api_base": api_base,
@@ -252,7 +252,7 @@ def counting_proxy(tmp_path_factory: pytest.TempPathFactory, mantle_port: int) -
             tmp_path_factory.mktemp("count-model"),
             {
                 "BEDROCK_MANTLE_API_BASE": _url(mantle_port),
-                "LITELLM_LOCAL_MODEL_COST_MAP": "True",
+                "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
                 "HF_HUB_OFFLINE": "1",
             },
             workers=1,
@@ -269,7 +269,7 @@ def _deployment(
     model_info: Mapping[str, JsonValue] | None = None,
     region: str = _REGION,
 ) -> str:
-    return scenario.model(model_info=model_info, api_key=None, **_litellm_params(model, _url(runtime_port), region))
+    return scenario.model(model_info=model_info, api_key=None, **_hangarllm_params(model, _url(runtime_port), region))
 
 
 def _count(gateway: Gateway, model: str, status: int, count_model_status: int | None = None) -> MessageTokensCount:
@@ -284,7 +284,7 @@ def _count(gateway: Gateway, model: str, status: int, count_model_status: int | 
 
 def _messages_estimate(gateway: Gateway, model: str) -> tuple[int, JsonValue]:
     counted: Final = _count(gateway, model, 400)
-    return counted.input_tokens, (counted.model_extra or {}).get("litellm_count_source")
+    return counted.input_tokens, (counted.model_extra or {}).get("hangarllm_count_source")
 
 
 def _utils_estimate(gateway: Gateway, model: str) -> tuple[int, JsonValue]:
@@ -342,7 +342,7 @@ def test_token_count_model_failure_answers_its_error_and_names_the_region_to_ena
         with pytest.raises(error) as refused:
             _count(gateway, _deployment(scenario, runtime_port), 200, count_model_status=count_model_status)
         assert message in str(refused.value) and (
-            f"{_COUNT_MODEL_SOURCE['litellm_count_model']} in {_COUNT_REGION}" in str(refused.value)
+            f"{_COUNT_MODEL_SOURCE['hangarllm_count_model']} in {_COUNT_REGION}" in str(refused.value)
         ), refused.value
         assert _runtime_counts(runtime) == ()
         assert _mantle_count_requests(mantle) == (
@@ -455,7 +455,7 @@ def test_framing_is_added_to_the_local_estimate_when_a_shipped_mantle_count_mode
     count_model_status: int,
 ) -> None:
     gateway: Final = counting_proxy.gateway
-    assert _shipped_token_count_model_field(model, "litellm_provider") == "bedrock_mantle"
+    assert _shipped_token_count_model_field(model, "hangarllm_provider") == "bedrock_mantle"
     with (
         wire_server(_runtime, port=runtime_port) as runtime,
         wire_server(_mantle, port=mantle_port) as mantle,
@@ -531,10 +531,10 @@ def test_configured_token_count_model_provider_counts_on_mantle_without_trying_t
 ) -> None:
     gateway: Final = counting_proxy.gateway
     count_model: Final = _shipped_token_count_model_field(_RUNTIME_ROUTED, "model")
-    assert _shipped_token_count_model_field(_RUNTIME_ROUTED, "litellm_provider") == "bedrock"
+    assert _shipped_token_count_model_field(_RUNTIME_ROUTED, "hangarllm_provider") == "bedrock"
     configured: Final[dict[str, JsonValue]] = {
         "model": count_model,
-        "litellm_provider": "bedrock_mantle",
+        "hangarllm_provider": "bedrock_mantle",
         "region": _CONFIGURED_COUNT_REGION,
     }
     with (
@@ -547,7 +547,7 @@ def test_configured_token_count_model_provider_counts_on_mantle_without_trying_t
         )
         assert (counted.input_tokens, counted.model_extra) == (
             _COUNT_MODEL_COUNT,
-            {"litellm_count_source": "token_count_model", "litellm_count_model": count_model},
+            {"hangarllm_count_source": "token_count_model", "hangarllm_count_model": count_model},
         ), counted
         assert _runtime_counts(runtime) == ()
         assert _mantle_count_requests(mantle) == (
@@ -565,12 +565,12 @@ def test_empty_configured_token_count_model_counts_the_model_itself_in_the_deplo
         gateway.scenario() as scenario,
     ):
         counted: Final = _count(gateway, _deployment(scenario, runtime_port, model_info={"token_count_model": {}}), 200)
-        assert (counted.input_tokens, counted.model_extra) == (_PROVIDER_COUNT, {"litellm_count_source": "provider"})
+        assert (counted.input_tokens, counted.model_extra) == (_PROVIDER_COUNT, {"hangarllm_count_source": "provider"})
         assert _runtime_counts(runtime) == ((_SONNET_BASE, (_ACCESS_KEY, _REGION), _converse_body(_prompt(200))),)
         assert _mantle_models(mantle) == ()
 
 
-@pytest.mark.parametrize("base_model_in", ["model_info", "litellm_params"])
+@pytest.mark.parametrize("base_model_in", ["model_info", "hangarllm_params"])
 def test_inference_profile_arn_counts_with_the_token_count_model_of_its_base_model(
     counting_proxy: OwnedProxy, runtime_port: int, mantle_port: int, base_model_in: str
 ) -> None:
@@ -584,8 +584,8 @@ def test_inference_profile_arn_counts_with_the_token_count_model_of_its_base_mod
         model: Final = scenario.model(
             model_info=base_model if base_model_in == "model_info" else None,
             api_key=None,
-            **_litellm_params(_PROFILE_ARN, _url(runtime_port)),
-            **(base_model if base_model_in == "litellm_params" else {}),
+            **_hangarllm_params(_PROFILE_ARN, _url(runtime_port)),
+            **(base_model if base_model_in == "hangarllm_params" else {}),
         )
         counted: Final = _count(gateway, model, 404)
         assert (counted.input_tokens, counted.model_extra) == (_COUNT_MODEL_COUNT, _COUNT_MODEL_SOURCE), counted
@@ -664,8 +664,8 @@ def test_token_count_model_counts_the_anthropic_body_converted_like_the_provider
         assert response.status_code == 200, response.text
         assert _JSON_OBJECT.validate_json(response.content) == {
             "input_tokens": _COUNT_MODEL_COUNT,
-            "litellm_count_source": "token_count_model",
-            "litellm_count_model": _OPENAI_COUNT_MODEL,
+            "hangarllm_count_source": "token_count_model",
+            "hangarllm_count_model": _OPENAI_COUNT_MODEL,
         }
         counts: Final = _openai_counts(openai)
         assert tuple((target, counted) for target, counted, _ in counts) == (
@@ -725,7 +725,7 @@ def test_framing_keeps_the_400_for_a_body_the_openai_count_rejects_before_callin
             "POST", "/v1/messages/count_tokens", {"model": model, "messages": [{"role": "user", "content": "hello"}]}
         )
         assert estimated.status_code == 200, estimated.text
-        assert _JSON_OBJECT.validate_json(estimated.content).get("litellm_count_source") == "local_estimate"
+        assert _JSON_OBJECT.validate_json(estimated.content).get("hangarllm_count_source") == "local_estimate"
         assert tuple(counted for _, counted, _ in _openai_counts(openai)) == (_OPENAI_PRIMARY,)
 
 
@@ -734,18 +734,18 @@ def _runtime_cannot_count(_request: Request) -> Reply:
 
 
 _REPLAYED_WEB_SEARCH: Final[list[JsonValue]] = [
-    {"role": "user", "content": "What is the newest LiteLLM release?"},
+    {"role": "user", "content": "What is the newest HangarLLM release?"},
     {
         "role": "assistant",
         "content": [
-            {"type": "server_tool_use", "id": "srvtoolu_01", "name": "web_search", "input": {"query": "LiteLLM"}},
+            {"type": "server_tool_use", "id": "srvtoolu_01", "name": "web_search", "input": {"query": "HangarLLM"}},
             {
                 "type": "web_search_tool_result",
                 "tool_use_id": "srvtoolu_01",
                 "content": [
                     {
                         "type": "web_search_result",
-                        "url": "https://docs.litellm.ai/release_notes",
+                        "url": "https://github.com/valteresj2/HangarLLM#readme",
                         "title": "Release notes",
                         "encrypted_content": "",
                     }
@@ -769,7 +769,7 @@ _UNREADABLE_BODIES: Final[dict[str, dict[str, JsonValue]]] = {
     },
 }
 _COUNT_ENDPOINTS: Final[dict[str, tuple[str, str]]] = {
-    "messages_count_tokens": ("/v1/messages/count_tokens", "litellm_count_source"),
+    "messages_count_tokens": ("/v1/messages/count_tokens", "hangarllm_count_source"),
     "utils_token_counter": ("/utils/token_counter?call_endpoint=true", "count_source"),
 }
 
@@ -916,7 +916,7 @@ def test_framing_keeps_the_400_for_a_context_edit_the_gemini_count_rejects_befor
         assert _google_count_targets(google) == ()
         estimated: Final = gateway.request("POST", "/v1/messages/count_tokens", {"model": model, "messages": hello})
         assert estimated.status_code == 200, estimated.text
-        assert _JSON_OBJECT.validate_json(estimated.content).get("litellm_count_source") == "local_estimate"
+        assert _JSON_OBJECT.validate_json(estimated.content).get("hangarllm_count_source") == "local_estimate"
         assert _google_count_targets(google) == (True,)
 
 
@@ -943,7 +943,7 @@ def test_token_count_model_counts_the_body_left_after_the_context_management_edi
         assert counted.status_code == 200, counted.text
         assert _JSON_OBJECT.validate_json(counted.content) == {
             "input_tokens": _COUNT_MODEL_COUNT,
-            "litellm_count_source": "token_count_model",
-            "litellm_count_model": _GEMINI_COUNT_MODEL,
+            "hangarllm_count_source": "token_count_model",
+            "hangarllm_count_model": _GEMINI_COUNT_MODEL,
         }
         assert tuple(_counted_files(request, marker) for request in google.drain()) == ((True, (False, False, True)),)

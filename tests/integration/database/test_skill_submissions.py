@@ -13,24 +13,24 @@ import pytest
 import pytest_asyncio
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.models.plugin_upload import (
+from hangarllm.models.plugin_upload import (
     PluginPublication,
     PluginPublicationBase,
     PluginPublicationError,
     PluginUploadStore,
     PublishedPlugin,
 )
-from litellm.models.skill_submission import (
+from hangarllm.models.skill_submission import (
     SkillSubmission,
     SkillSubmissionStore,
     SubmissionConflict,
     SubmissionLimitExceeded,
     SubmissionReviewed,
 )
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.utils import PrismaClient, ProxyLogging
-from litellm.repositories.plugin_upload_repository import PluginUploadRepository
-from litellm.repositories.skill_submission_repository import SkillSubmissionRepository
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging
+from hangarllm.repositories.plugin_upload_repository import PluginUploadRepository
+from hangarllm.repositories.skill_submission_repository import SkillSubmissionRepository
 from tests.integration._support.client import eventually
 from tests.integration._support.database import read_rows, write_rows
 
@@ -73,12 +73,12 @@ def _publication(name: str, description: str, base_url: str = "https://skills.ex
 def _published_rows(name: str) -> Sequence[Mapping[str, JsonValue]]:
     return read_rows(
         """SELECT 'catalog' AS storage, to_jsonb(p) AS value
-           FROM "LiteLLM_ClaudeCodePluginTable" p WHERE name=%s
+           FROM "HangarLLM_ClaudeCodePluginTable" p WHERE name=%s
            UNION ALL
-           SELECT 'archive', to_jsonb(a) FROM "LiteLLM_ClaudeCodePluginUpload" a WHERE plugin_name=%s
+           SELECT 'archive', to_jsonb(a) FROM "HangarLLM_ClaudeCodePluginUpload" a WHERE plugin_name=%s
            UNION ALL
-           SELECT 'history', to_jsonb(v) FROM "LiteLLM_ClaudeCodePluginVersion" v
-           JOIN "LiteLLM_ClaudeCodePluginTable" p ON p.id=v.plugin_id WHERE p.name=%s
+           SELECT 'history', to_jsonb(v) FROM "HangarLLM_ClaudeCodePluginVersion" v
+           JOIN "HangarLLM_ClaudeCodePluginTable" p ON p.id=v.plugin_id WHERE p.name=%s
            ORDER BY storage, value""",
         (name, name, name),
     )
@@ -103,8 +103,8 @@ async def pending_update() -> AsyncIterator[PendingUpdate]:
         yield PendingUpdate(publications, submissions, original, proposal, base, submission)
     finally:
         try:
-            write_rows('DELETE FROM "LiteLLM_SkillSubmission" WHERE plugin_name=%s', (name,))
-            write_rows('DELETE FROM "LiteLLM_ClaudeCodePluginTable" WHERE name=%s', (name,))
+            write_rows('DELETE FROM "HangarLLM_SkillSubmission" WHERE plugin_name=%s', (name,))
+            write_rows('DELETE FROM "HangarLLM_ClaudeCodePluginTable" WHERE name=%s', (name,))
         finally:
             await client.disconnect()
 
@@ -134,8 +134,8 @@ async def test_approval_commits_version_archive_history_and_review(pending_updat
     assert current is not None
     published_manifest: Final = {
         **case.proposal.manifest,
-        "_litellm_review": {"approved_by": "integration-reviewer", "security_scan_passed": False},
-        "_litellm_published_by": "integration-reviewer",
+        "_hangarllm_review": {"approved_by": "integration-reviewer", "security_scan_passed": False},
+        "_hangarllm_published_by": "integration-reviewer",
         "source": {
             **TypeAdapter(dict[str, str]).validate_python(case.submission.proposal.manifest["source"]),
             "url": f"https://skills.example.test/claude-code/plugins/{case.original.name}/archive/"
@@ -163,7 +163,7 @@ async def test_approval_commits_version_archive_history_and_review(pending_updat
     assert history[0].published_by == "integration-reviewer"
     assert history[1].published_by == case.original.created_by
     for version, publication, manifest in zip(
-        history, (case.proposal, case.original), (published_manifest, {**case.original.manifest, "_litellm_published_by": case.original.created_by}), strict=True
+        history, (case.proposal, case.original), (published_manifest, {**case.original.manifest, "_hangarllm_published_by": case.original.created_by}), strict=True
     ):
         assert version.manifest == {**manifest, "version": version.version}
         assert await case.publications.version_content(metadata, version.id) == publication.content
@@ -173,7 +173,7 @@ async def test_simultaneous_approve_reject_has_one_winner(pending_update: Pendin
     case: Final = pending_update
     before: Final = _published_rows(case.original.name)
     with psycopg.connect(os.environ["DATABASE_URL"]) as blocker:
-        blocker.execute('SELECT id FROM "LiteLLM_SkillSubmission" WHERE id=%s FOR UPDATE', (case.submission.id,))
+        blocker.execute('SELECT id FROM "HangarLLM_SkillSubmission" WHERE id=%s FOR UPDATE', (case.submission.id,))
         blocker_pid: Final = str(blocker.info.backend_pid)
         reviews: Final = (
             asyncio.create_task(
@@ -244,7 +244,7 @@ async def test_publication_failure_rolls_back_and_leaves_submission_pending(pend
     case: Final = pending_update
     collision_id: Final = str(uuid.uuid4())
     write_rows(
-        """INSERT INTO "LiteLLM_ClaudeCodePluginVersion" (id, plugin_id, version)
+        """INSERT INTO "HangarLLM_ClaudeCodePluginVersion" (id, plugin_id, version)
            VALUES (%s, %s, '1.0.1')""",
         (collision_id, case.base.id),
     )
@@ -256,7 +256,7 @@ async def test_publication_failure_rolls_back_and_leaves_submission_pending(pend
     assert _published_rows(case.original.name) == before
     assert await case.submissions.get(case.submission.id, None) == case.submission
     assert await case.submissions.get_archive(case.submission.id, None) == case.proposal.content
-    write_rows('DELETE FROM "LiteLLM_ClaudeCodePluginVersion" WHERE id=%s', (collision_id,))
+    write_rows('DELETE FROM "HangarLLM_ClaudeCodePluginVersion" WHERE id=%s', (collision_id,))
     retried: Final = await case.submissions.review(
         case.submission.id, "integration-reviewer", True, None, publication_base_url="https://skills.example.test"
     )
@@ -273,7 +273,7 @@ async def test_stale_target_cannot_publish(
     case: Final = pending_update
     intervening: Final = _publication(case.original.name, "Intervening publication")
     if change == "recreate":
-        write_rows('DELETE FROM "LiteLLM_ClaudeCodePluginTable" WHERE name=%s', (case.original.name,))
+        write_rows('DELETE FROM "HangarLLM_ClaudeCodePluginTable" WHERE name=%s', (case.original.name,))
     replacement: Final = await case.publications.publish(
         intervening,
         PluginPublicationBase(case.base.id, case.base.updated_at) if change == "update" else None,
@@ -301,7 +301,7 @@ async def test_concurrent_submissions_share_user_limit_and_review_releases_capac
     try:
         with psycopg.connect(os.environ["DATABASE_URL"]) as blocker:
             blocker.execute(
-                "SELECT pg_advisory_xact_lock(hashtext('litellm.skill_submissions'), hashtext(%s))", (owner,)
+                "SELECT pg_advisory_xact_lock(hashtext('hangarllm.skill_submissions'), hashtext(%s))", (owner,)
             )
             blocker_pid: Final = str(blocker.info.backend_pid)
             requests: Final = (
@@ -356,7 +356,7 @@ async def test_submission_pages_filter_owner_and_status_before_limit(pending_upd
     rejected: Final = await case.submissions.review(submitted[0].id, "integration-reviewer", False, None)
     assert isinstance(rejected, SubmissionReviewed)
     write_rows(
-        """UPDATE "LiteLLM_SkillSubmission" SET created_at=TIMESTAMP '9999-01-01'
+        """UPDATE "HangarLLM_SkillSubmission" SET created_at=TIMESTAMP '9999-01-01'
            WHERE plugin_name=%s""",
         (case.original.name,),
     )
@@ -386,8 +386,8 @@ async def test_scan_claim_retry_and_late_result_preserve_proposal(
 ) -> None:
     from datetime import datetime, timedelta, timezone
 
-    from litellm.models.skill_submission import SkillScanInput
-    from litellm.types.proxy.skill_scanning import SkillScan, SkillScanReport
+    from hangarllm.models.skill_submission import SkillScanInput
+    from hangarllm.types.proxy.skill_scanning import SkillScan, SkillScanReport
 
     case: Final = pending_update
     now: Final = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -433,8 +433,8 @@ async def test_metadata_scan_requires_the_matching_managed_archive(
 ) -> None:
     from datetime import datetime, timedelta, timezone
 
-    from litellm.models.skill_submission import SkillScanInput
-    from litellm.types.proxy.skill_scanning import SkillScan
+    from hangarllm.models.skill_submission import SkillScanInput
+    from hangarllm.types.proxy.skill_scanning import SkillScan
 
     case: Final = pending_update
     submission: Final = await case.submissions.submit(
@@ -444,7 +444,7 @@ async def test_metadata_scan_requires_the_matching_managed_archive(
         }), "member", PluginPublicationBase(case.base.id, case.base.updated_at)
     )
     if not available:
-        write_rows('DELETE FROM "LiteLLM_ClaudeCodePluginUpload" WHERE plugin_name=%s', (case.original.name,))
+        write_rows('DELETE FROM "HangarLLM_ClaudeCodePluginUpload" WHERE plugin_name=%s', (case.original.name,))
     now: Final = datetime.now(timezone.utc)
     result: Final = await case.submissions.start_scan(submission.id, SkillScan(
         id="metadata-scan", status="running", requested_by="admin", started_at=now,

@@ -12,16 +12,16 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.vertex_ai.gemini.long_decode import (
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.vertex_ai.gemini.long_decode import (
     collect_hops_async,
     collect_hops_sync,
     initial_prompt_tokens_of,
     with_initial_prompt_tokens,
 )
-from litellm.types.llms.vertex_ai import RequestBody
-from litellm.types.utils import ChatCompletionDeltaToolCall, ChatCompletionMessageToolCall, Usage
+from hangarllm.types.llms.vertex_ai import RequestBody
+from hangarllm.types.utils import ChatCompletionDeltaToolCall, ChatCompletionMessageToolCall, Usage
 
 MODEL: Final = "gemini/gemini-3.8-flash"
 MESSAGES: Final = ({"role": "user", "content": "Prove it"},)
@@ -131,9 +131,9 @@ async def test_unary_long_decode_resends_the_original_request_with_the_token_and
     kwargs: Final = {"model": MODEL, "messages": list(MESSAGES), "max_tokens": 100_000, "api_key": "fake-gemini-key"}
 
     response: Final = (
-        await litellm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
+        await hangarllm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
         if is_async
-        else litellm.completion(
+        else hangarllm.completion(
             **kwargs, client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_replay(hops, sent))))
         )
     )
@@ -158,9 +158,9 @@ async def test_unary_long_decode_answers_under_the_first_requests_response_id(is
     kwargs: Final = {"model": MODEL, "messages": list(MESSAGES), "max_tokens": 100_000, "api_key": "fake-gemini-key"}
 
     response: Final = (
-        await litellm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
+        await hangarllm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
         if is_async
-        else litellm.completion(
+        else hangarllm.completion(
             **kwargs, client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_replay(hops, sent))))
         )
     )
@@ -189,7 +189,7 @@ async def test_request_whose_n_or_max_tokens_is_a_string_is_sent_once_and_never_
         **sent_as_a_string,
     }
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         **kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent)))
     )
     text: Final = (
@@ -214,9 +214,9 @@ async def test_unary_long_decode_bills_the_searches_of_every_hop(is_async: bool,
     kwargs: Final = {"model": MODEL, "messages": list(MESSAGES), "max_tokens": 100_000, "api_key": "fake-gemini-key"}
 
     response: Final = (
-        await litellm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
+        await hangarllm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
         if is_async
-        else litellm.completion(
+        else hangarllm.completion(
             **kwargs, client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_replay(hops, sent))))
         )
     )
@@ -309,7 +309,7 @@ def _bytes_at(answer: str, span: Mapping[str, object]) -> str:
 async def test_unary_long_decode_keeps_every_hops_citations_and_points_them_into_the_whole_answer(citation_key: str):
     sent: Final[list[dict[str, object]]] = []
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model=MODEL,
         messages=list(MESSAGES),
         max_tokens=100_000,
@@ -342,7 +342,7 @@ def _carrying(body: Mapping[str, object], fields: Mapping[str, object]) -> dict[
 
 
 async def _answer(hops: Sequence[httpx.Response], sent: list[dict[str, object]]):
-    return await litellm.acompletion(
+    return await hangarllm.acompletion(
         model=MODEL,
         messages=list(MESSAGES),
         max_tokens=100_000,
@@ -470,7 +470,7 @@ async def test_unary_long_decode_stops_at_the_callers_cap_and_returns_the_token_
     sent: Final[list[dict[str, object]]] = []
     hops: Final = (httpx.Response(200, json=HOP_1), httpx.Response(200, json=HOP_2_TRUNCATED))
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model=MODEL,
         messages=list(MESSAGES),
         max_tokens=max_tokens,
@@ -503,9 +503,9 @@ async def test_unary_answer_cut_at_the_callers_cap_is_returned_with_its_token_in
     }
 
     response: Final = (
-        await litellm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
+        await hangarllm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
         if is_async
-        else litellm.completion(
+        else hangarllm.completion(
             **kwargs, client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_replay(hops, sent))))
         )
     )
@@ -538,9 +538,9 @@ async def test_unary_request_for_more_than_one_choice_is_never_continued(
     }
 
     response: Final = (
-        await litellm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
+        await hangarllm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
         if is_async
-        else litellm.completion(
+        else hangarllm.completion(
             **kwargs, client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_replay(hops, sent))))
         )
     )
@@ -578,9 +578,9 @@ async def test_unary_request_whose_candidate_count_google_reads_as_one_is_contin
     }
 
     response: Final = (
-        await litellm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
+        await hangarllm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
         if is_async
-        else litellm.completion(
+        else hangarllm.completion(
             **kwargs, client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_replay(hops, sent))))
         )
     )
@@ -595,7 +595,7 @@ async def test_unary_failed_continuation_hop_returns_the_answer_so_far_with_its_
     sent: Final[list[dict[str, object]]] = []
     hops: Final = (httpx.Response(200, json=HOP_1), httpx.Response(429, json={"error": {"code": 429}}))
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model=MODEL,
         messages=list(MESSAGES),
         max_tokens=100_000,
@@ -627,9 +627,9 @@ async def test_unary_long_decode_logs_one_raw_response_object_with_the_whole_ans
     }
 
     if is_async:
-        await litellm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
+        await hangarllm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
     else:
-        litellm.completion(
+        hangarllm.completion(
             **kwargs, client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_replay(hops, sent))))
         )
 
@@ -662,9 +662,9 @@ async def test_unary_answer_in_one_request_logs_googles_body_unchanged(is_async:
     }
 
     if is_async:
-        await litellm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
+        await hangarllm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(_replay(hops, sent))))
     else:
-        litellm.completion(
+        hangarllm.completion(
             **kwargs, client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_replay(hops, sent))))
         )
 
@@ -700,7 +700,7 @@ async def test_unary_long_decode_follows_more_hops_than_the_interpreter_allows_n
 async def test_continuation_token_param_is_sent_at_the_top_level_of_generate_content():
     sent: Final[list[dict[str, object]]] = []
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=MODEL,
         messages=list(MESSAGES),
         continuation_token="dG9rLTE=",
@@ -740,12 +740,12 @@ async def _stream_chunks(
         "timeout": timeout,
     }
     if is_async:
-        stream: Final = await litellm.acompletion(
+        stream: Final = await hangarllm.acompletion(
             **kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(handler))
         )
         return [chunk async for chunk in stream]
     return list(
-        litellm.completion(**kwargs, client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(handler))))
+        hangarllm.completion(**kwargs, client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(handler))))
     )
 
 
@@ -1039,9 +1039,9 @@ async def test_unary_continuation_request_to_a_vertex_url_goes_to_the_api_versio
     }
 
     response: Final = (
-        await litellm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=transport))
+        await hangarllm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=transport))
         if is_async
-        else litellm.completion(**kwargs, client=HTTPHandler(client=httpx.Client(transport=transport)))
+        else hangarllm.completion(**kwargs, client=HTTPHandler(client=httpx.Client(transport=transport)))
     )
 
     assert response.choices[0].message.content == "hello world"
@@ -1270,9 +1270,9 @@ async def _vertex_answer(
     }
     transport: Final = httpx.MockTransport(handler)
     response: Final = (
-        await litellm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=transport))
+        await hangarllm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=transport))
         if is_async
-        else litellm.completion(**kwargs, client=HTTPHandler(client=httpx.Client(transport=transport)))
+        else hangarllm.completion(**kwargs, client=HTTPHandler(client=httpx.Client(transport=transport)))
     )
     if stream:
         chunks: Final = [chunk async for chunk in response] if is_async else list(response)
@@ -1337,7 +1337,7 @@ async def test_vertex_long_decode_keeps_the_callers_own_authorization_header_on_
     assert seen == ["Bearer mine", "Bearer mine"]
 
 
-BUDGET_ENV: Final = "LITELLM_GEMINI_DEFAULT_MAX_OUTPUT_TOKENS"
+BUDGET_ENV: Final = "HANGARLLM_GEMINI_DEFAULT_MAX_OUTPUT_TOKENS"
 ARGON: Final = "gemini/gemini-4-argon"
 UNMAPPED_GEMINI: Final = "gemini/gemini-99-unreleased"
 OUTPUT_LIMIT_KEYS: Final = ("max_output_tokens", "maxOutputTokens")
@@ -1351,7 +1351,7 @@ def _output_limits(request: Mapping[str, object]) -> dict[str, object]:
 
 def _cost_map_max_output_tokens(model: str) -> int:
     provider, name = model.split("/", 1)
-    max_output_tokens: Final = litellm.get_model_info(model=name, custom_llm_provider=provider)["max_output_tokens"]
+    max_output_tokens: Final = hangarllm.get_model_info(model=name, custom_llm_provider=provider)["max_output_tokens"]
     assert isinstance(max_output_tokens, int)
     return max_output_tokens
 
@@ -1377,9 +1377,9 @@ async def test_request_with_no_output_limit_keeps_continuing_until_the_env_budge
     transport: Final = httpx.MockTransport(_replay(hops, sent))
 
     response: Final = (
-        await litellm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=transport))
+        await hangarllm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=transport))
         if is_async
-        else litellm.completion(**kwargs, client=HTTPHandler(client=httpx.Client(transport=transport)))
+        else hangarllm.completion(**kwargs, client=HTTPHandler(client=httpx.Client(transport=transport)))
     )
     chunks: Final = ([chunk async for chunk in response] if is_async else list(response)) if stream else []
 
@@ -1428,7 +1428,7 @@ async def test_env_budget_applies_only_to_a_request_that_sets_no_output_limit_of
         monkeypatch.setenv(BUDGET_ENV, budget)
     sent: Final[list[dict[str, object]]] = []
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=model,
         messages=list(MESSAGES),
         api_key="fake-gemini-key",
@@ -1455,7 +1455,7 @@ async def test_env_budget_applies_only_to_a_request_asking_for_text_output(
     monkeypatch.setenv(BUDGET_ENV, "50")
     sent: Final[list[dict[str, object]]] = []
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=ARGON,
         messages=list(MESSAGES),
         modalities=modalities,
@@ -1469,7 +1469,7 @@ async def test_env_budget_applies_only_to_a_request_asking_for_text_output(
 def _ai_studio_model_in_mode(mode: str) -> str:
     return next(
         name
-        for name, row in litellm.model_cost.items()
+        for name, row in hangarllm.model_cost.items()
         if name.startswith("gemini/") and row.get("mode") == mode and row.get("max_output_tokens")
     )
 
@@ -1482,7 +1482,7 @@ async def test_env_budget_skips_a_model_the_cost_map_does_not_list_as_a_chat_mod
     monkeypatch.setenv(BUDGET_ENV, "50")
     sent: Final[list[dict[str, object]]] = []
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=_ai_studio_model_in_mode(mode),
         messages=list(MESSAGES),
         api_key="fake-gemini-key",
@@ -1507,10 +1507,10 @@ async def test_env_budget_applies_only_to_a_chat_model_the_cost_map_lists_as_ans
     monkeypatch: pytest.MonkeyPatch, output_modalities: Mapping[str, object], expected_limits: Mapping[str, object]
 ):
     monkeypatch.setenv(BUDGET_ENV, "50")
-    litellm.register_model(
+    hangarllm.register_model(
         {
             UNMAPPED_GEMINI: {
-                "litellm_provider": "gemini",
+                "hangarllm_provider": "gemini",
                 "mode": "chat",
                 "max_output_tokens": 1000,
                 **output_modalities,
@@ -1519,7 +1519,7 @@ async def test_env_budget_applies_only_to_a_chat_model_the_cost_map_lists_as_ans
     )
     sent: Final[list[dict[str, object]]] = []
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=UNMAPPED_GEMINI,
         messages=list(MESSAGES),
         api_key="fake-gemini-key",
@@ -1544,7 +1544,7 @@ async def test_env_budget_leaves_a_snake_case_generation_config_from_extra_body_
     monkeypatch.setenv(BUDGET_ENV, "50")
     sent: Final[list[dict[str, object]]] = []
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=ARGON,
         messages=list(MESSAGES),
         extra_body=dict(extra_body),
@@ -1558,13 +1558,13 @@ async def test_env_budget_leaves_a_snake_case_generation_config_from_extra_body_
 def _gemini_chat_models_answering_no_text() -> tuple[str, ...]:
     rows: Final = (
         (name, row)
-        for name, row in litellm.model_cost.items()
+        for name, row in hangarllm.model_cost.items()
         if row.get("mode") == "chat" and "text" not in row.get("supported_output_modalities", ("text",))
     )
     return tuple(
         name if name.startswith("gemini/") else f"vertex_ai/{name}"
         for name, row in rows
-        if row.get("litellm_provider") in ("gemini", "vertex_ai-language-models")
+        if row.get("hangarllm_provider") in ("gemini", "vertex_ai-language-models")
     )
 
 
@@ -1579,7 +1579,7 @@ async def test_env_budget_skips_every_chat_model_the_cost_map_lists_as_answering
     client: Final = AsyncHTTPHandler(transport=httpx.MockTransport(_replay(replies, sent)))
 
     for model in models:
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model=model,
             messages=list(MESSAGES),
             api_key="fake-gemini-key",
@@ -1604,7 +1604,7 @@ async def test_env_budget_leaves_a_continuation_token_resume_with_no_limit_alone
     sent: Final[list[dict[str, object]]] = []
     reply: Final = _sse(HOP_2) if stream else httpx.Response(200, json=HOP_2)
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model=ARGON,
         messages=list(MESSAGES),
         continuation_token="dG9rLTE=",
@@ -1628,7 +1628,7 @@ async def test_env_budget_above_a_models_output_limit_sends_that_limit_instead(
     monkeypatch.setenv(BUDGET_ENV, str(budget))
     sent: Final[list[dict[str, object]]] = []
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=model,
         messages=list(MESSAGES),
         api_key="fake-gemini-key",
@@ -1648,12 +1648,12 @@ async def test_env_budget_never_goes_above_the_cost_map_limit_when_a_deployment_
     model: Final = "gemini/gemini-2.5-flash"
     model_limit: Final = _cost_map_max_output_tokens(model)
     monkeypatch.setenv(BUDGET_ENV, str(2 * model_limit))
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
-            {"model_name": "plain", "litellm_params": {"model": model, "api_key": "fake-gemini-key"}},
+            {"model_name": "plain", "hangarllm_params": {"model": model, "api_key": "fake-gemini-key"}},
             {
                 "model_name": "raised",
-                "litellm_params": {"model": model, "api_key": "fake-gemini-key"},
+                "hangarllm_params": {"model": model, "api_key": "fake-gemini-key"},
                 "model_info": {"max_output_tokens": 4 * model_limit},
             },
         ]
@@ -1678,14 +1678,14 @@ async def test_env_budget_caps_each_deployment_at_its_own_model_info_limit_and_n
     budget: Final = _cost_map_max_output_tokens(model) // 2
     low_limit: Final = budget // 4
     monkeypatch.setenv(BUDGET_ENV, str(budget))
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "low",
-                "litellm_params": {"model": model, "api_key": "fake-gemini-key"},
+                "hangarllm_params": {"model": model, "api_key": "fake-gemini-key"},
                 "model_info": {"max_output_tokens": low_limit},
             },
-            {"model_name": "plain", "litellm_params": {"model": model, "api_key": "fake-gemini-key"}},
+            {"model_name": "plain", "hangarllm_params": {"model": model, "api_key": "fake-gemini-key"}},
         ]
     )
     sent: Final[list[dict[str, object]]] = []
@@ -1709,11 +1709,11 @@ async def test_env_budget_ignores_a_deployment_model_info_limit_that_is_not_posi
     model: Final = "gemini/gemini-2.5-flash"
     budget: Final = _cost_map_max_output_tokens(model) // 2
     monkeypatch.setenv(BUDGET_ENV, str(budget))
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "odd",
-                "litellm_params": {"model": model, "api_key": "fake-gemini-key"},
+                "hangarllm_params": {"model": model, "api_key": "fake-gemini-key"},
                 "model_info": {"max_output_tokens": deployment_limit},
             }
         ]
@@ -1736,18 +1736,18 @@ async def test_env_budget_on_a_direct_call_never_goes_above_the_cost_map_limit_a
     model: Final = "gemini/gemini-2.5-flash"
     model_limit: Final = _cost_map_max_output_tokens(model)
     monkeypatch.setenv(BUDGET_ENV, str(2 * model_limit))
-    litellm.Router(
+    hangarllm.Router(
         model_list=[
             {
                 "model_name": "raised",
-                "litellm_params": {"model": model, "api_key": "fake-gemini-key"},
+                "hangarllm_params": {"model": model, "api_key": "fake-gemini-key"},
                 "model_info": {"max_output_tokens": 4 * model_limit},
             }
         ]
     )
     sent: Final[list[dict[str, object]]] = []
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=model,
         messages=list(MESSAGES),
         api_key="fake-gemini-key",
@@ -1764,10 +1764,10 @@ async def test_env_budget_on_a_direct_call_follows_a_lower_limit_set_with_regist
     model: Final = "gemini/gemini-2.5-flash"
     lowered_limit: Final = _cost_map_max_output_tokens(model) // 4
     monkeypatch.setenv(BUDGET_ENV, str(2 * lowered_limit))
-    litellm.register_model({model: {"litellm_provider": "gemini", "max_output_tokens": lowered_limit}})
+    hangarllm.register_model({model: {"hangarllm_provider": "gemini", "max_output_tokens": lowered_limit}})
     sent: Final[list[dict[str, object]]] = []
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=model,
         messages=list(MESSAGES),
         api_key="fake-gemini-key",
@@ -1788,7 +1788,7 @@ async def test_env_budget_sends_a_generation_config_of_an_unexpected_shape_as_it
     monkeypatch.setenv(BUDGET_ENV, "50")
     sent: Final[list[dict[str, object]]] = []
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=ARGON,
         messages=list(MESSAGES),
         extra_body={"generationConfig": generation_config},

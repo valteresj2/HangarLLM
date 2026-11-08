@@ -12,8 +12,8 @@ from integration._support.client import JSON_OBJECT
 from integration._support.timing import assert_cut_short
 from integration._support.wire import Reply, Request, Wire, wire_server
 
-import litellm
-from litellm.types.utils import EmbeddingResponse
+import hangarllm
+from hangarllm.types.utils import EmbeddingResponse
 
 _MODEL: Final = "nomic-embed-text"
 _EXPLICIT_KEY: Final = "synthetic-ollama-explicit-key"
@@ -61,13 +61,13 @@ def _peer(respond: Callable[[Request], Reply] = _embeddings) -> Iterator[Wire]:
 
 async def _call(mode: Mode, **kwargs: object) -> EmbeddingResponse:
     if mode == "sync":
-        return litellm.embedding(model=f"ollama/{_MODEL}", **kwargs)
-    return await litellm.aembedding(model=f"ollama/{_MODEL}", **kwargs)
+        return hangarllm.embedding(model=f"ollama/{_MODEL}", **kwargs)
+    return await hangarllm.aembedding(model=f"ollama/{_MODEL}", **kwargs)
 
 
 async def _seconds_until_timeout(mode: Mode, **kwargs: object) -> float:
     started: Final = time.monotonic()
-    with pytest.raises(litellm.Timeout):
+    with pytest.raises(hangarllm.Timeout):
         await _call(mode, **kwargs)
     return time.monotonic() - started
 
@@ -180,9 +180,9 @@ async def test_guard_default_timeout_does_not_cut_a_slow_ollama_reply(
 async def test_guard_no_ollama_key_sends_no_authorization_even_with_global_keys(
     monkeypatch: pytest.MonkeyPatch, mode: Mode
 ) -> None:
-    monkeypatch.setattr(litellm, "api_key", _GLOBAL_KEY)
-    monkeypatch.setattr(litellm, "ollama_key", _GLOBAL_KEY, raising=False)
-    monkeypatch.setattr(litellm, "openai_key", _GLOBAL_KEY)
+    monkeypatch.setattr(hangarllm, "api_key", _GLOBAL_KEY)
+    monkeypatch.setattr(hangarllm, "ollama_key", _GLOBAL_KEY, raising=False)
+    monkeypatch.setattr(hangarllm, "openai_key", _GLOBAL_KEY)
     texts: Final = [_text(), _text()]
     with _peer() as wire:
         response: Final = await _call(mode, input=texts, api_base=f"{wire.url}/")
@@ -197,7 +197,7 @@ async def test_guard_no_ollama_key_sends_no_authorization_even_with_global_keys(
 async def test_guard_non_text_input_is_rejected_before_ollama_is_called(mode: Mode) -> None:
     valid: Final = _text()
     with _peer() as wire:
-        with pytest.raises(litellm.BadRequestError):
+        with pytest.raises(hangarllm.BadRequestError):
             await _call(mode, input=[[1, 2, 3]], api_base=wire.url, api_key=_EXPLICIT_KEY)
         await _call(mode, input=valid, api_base=wire.url)
         received: Final = wire.drain()
@@ -212,7 +212,7 @@ async def test_guard_ollama_error_reaches_the_caller_as_its_status(mode: Mode) -
         return Reply(status=401, body=json.dumps({"error": marker}).encode())
 
     with _peer(respond) as wire:
-        with pytest.raises(litellm.AuthenticationError) as caught:
+        with pytest.raises(hangarllm.AuthenticationError) as caught:
             await _call(mode, input=_text(), api_base=wire.url)
         _only(wire)
     assert marker in str(caught.value), caught.value

@@ -9,9 +9,9 @@ from vcr.persisters.filesystem import CassetteNotFoundError
 from vcr.serialize import deserialize, serialize
 
 CASSETTE_TTL_SECONDS = 24 * 60 * 60
-REDIS_KEY_PREFIX = "litellm:vcr:cassette:"
+REDIS_KEY_PREFIX = "hangarllm:vcr:cassette:"
 CASSETTE_REDIS_URL_ENV = "CASSETTE_REDIS_URL"
-VCR_VERBOSE_ENV = "LITELLM_VCR_VERBOSE"
+VCR_VERBOSE_ENV = "HANGARLLM_VCR_VERBOSE"
 MAX_EPISODES_PER_CASSETTE = 50
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -246,7 +246,7 @@ _PATCHED_AIOHTTP_RECORD = False
 def patch_vcrpy_aiohttp_record_path() -> None:
     """Re-feed the response body into aiohttp's StreamReader after vcrpy's
     record_response drains it, so downstream consumers (e.g.
-    LiteLLMAiohttpTransport.AiohttpResponseStream) can still read it."""
+    HangarLLMAiohttpTransport.AiohttpResponseStream) can still read it."""
     global _PATCHED_AIOHTTP_RECORD
     if _PATCHED_AIOHTTP_RECORD:
         return

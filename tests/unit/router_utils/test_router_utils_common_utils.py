@@ -5,12 +5,12 @@ from unittest.mock import Mock
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.constants import ROUTER_FALLBACK_ERROR_DETAIL_MAX_CHARS
-from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.litellm_core_utils.routing_common_utils import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.constants import ROUTER_FALLBACK_ERROR_DETAIL_MAX_CHARS
+from hangarllm.hangarllm_core_utils.get_model_cost_map import GetModelCostMap
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.hangarllm_core_utils.routing_common_utils import (
     _deployment_supports_web_search,
     add_model_file_id_mappings,
     filter_team_based_models,
@@ -24,8 +24,8 @@ from litellm.litellm_core_utils.routing_common_utils import (
     PROVIDER_SCOPED_CREDENTIAL_PARAMS,
     warn_on_provider_credential_mismatch,
 )
-from litellm.types.router import Deployment, FallbackSkipReason, LiteLLM_Params, ModelInfo, SkippedFallbackTarget
-from litellm.types.utils import ProviderSpecificModelInfo
+from hangarllm.types.router import Deployment, FallbackSkipReason, HangarLLM_Params, ModelInfo, SkippedFallbackTarget
+from hangarllm.types.utils import ProviderSpecificModelInfo
 
 
 class TestFilterTeamBasedModels:
@@ -87,9 +87,9 @@ class TestFilterTeamBasedModels:
         result_ids = [d.get("model_info", {}).get("id") for d in result]
         assert sorted(result_ids) == sorted(expected_ids)
 
-    def test_filter_team_based_models_team_match_litellm_metadata(self, sample_deployments_with_teams):
-        """Test filtering when team_id is in litellm_metadata"""
-        request_kwargs = {"litellm_metadata": {"user_api_key_team_id": "team-b"}}
+    def test_filter_team_based_models_team_match_hangarllm_metadata(self, sample_deployments_with_teams):
+        """Test filtering when team_id is in hangarllm_metadata"""
+        request_kwargs = {"hangarllm_metadata": {"user_api_key_team_id": "team-b"}}
         result = filter_team_based_models(sample_deployments_with_teams, request_kwargs)
 
         # Should include:
@@ -102,17 +102,17 @@ class TestFilterTeamBasedModels:
         result_ids = [d.get("model_info", {}).get("id") for d in result]
         assert sorted(result_ids) == sorted(expected_ids)
 
-    def test_filter_team_based_models_priority_metadata_over_litellm(self, sample_deployments_with_teams):
-        """Test that metadata.user_api_key_team_id takes priority over litellm_metadata.user_api_key_team_id"""
+    def test_filter_team_based_models_priority_metadata_over_hangarllm(self, sample_deployments_with_teams):
+        """Test that metadata.user_api_key_team_id takes priority over hangarllm_metadata.user_api_key_team_id"""
         request_kwargs = {
             "metadata": {
                 "user_api_key_team_id": "team-a",  # This should take priority
-                "litellm_metadata": {"user_api_key_team_id": "team-b"},
+                "hangarllm_metadata": {"user_api_key_team_id": "team-b"},
             }
         }
         result = filter_team_based_models(sample_deployments_with_teams, request_kwargs)
 
-        # Should filter based on team-a (from metadata, not litellm_metadata)
+        # Should filter based on team-a (from metadata, not hangarllm_metadata)
         expected_ids = ["deployment-1", "deployment-3", "deployment-4"]
         result_ids = [d.get("model_info", {}).get("id") for d in result]
         assert sorted(result_ids) == sorted(expected_ids)
@@ -210,7 +210,7 @@ class TestDeploymentSupportsWebSearch:
 
     def test_no_config_defaults_to_true(self):
         """When no supports_web_search in config, default to True"""
-        deployment = {"litellm_params": {"model": "gpt-4"}, "model_info": {"id": "123"}}
+        deployment = {"hangarllm_params": {"model": "gpt-4"}, "model_info": {"id": "123"}}
         assert _deployment_supports_web_search(deployment) is True
 
     def test_empty_deployment_defaults_to_true(self):
@@ -219,7 +219,7 @@ class TestDeploymentSupportsWebSearch:
 
     def test_missing_model_info_defaults_to_true(self):
         """When model_info missing, default to True"""
-        deployment = {"litellm_params": {"model": "gpt-4"}}
+        deployment = {"hangarllm_params": {"model": "gpt-4"}}
         assert _deployment_supports_web_search(deployment) is True
 
 
@@ -396,12 +396,12 @@ async def test_filter_deployments_by_model_access_groups_access_group_only_key()
         model_list=[
             {
                 "model_name": "gpt-5",
-                "litellm_params": {"model": "openai/gpt-5.1", "api_key": "key-1", "mock_response": "ag1"},
+                "hangarllm_params": {"model": "openai/gpt-5.1", "api_key": "key-1", "mock_response": "ag1"},
                 "model_info": {"id": "ag1", "access_groups": ["AG1"]},
             },
             {
                 "model_name": "gpt-5",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "key-2", "mock_response": "ag2"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "key-2", "mock_response": "ag2"},
                 "model_info": {"id": "ag2", "access_groups": ["AG2"]},
             },
         ]
@@ -449,12 +449,12 @@ class TestAddModelFileIdMappings:
         deployments = [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "hangarllm_params": {"model": "gpt-4"},
                 "model_info": {"id": "deployment-1"},
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "hangarllm_params": {"model": "gpt-4"},
                 "model_info": {"id": "deployment-2"},
             },
         ]
@@ -468,11 +468,11 @@ class TestAddModelFileIdMappings:
         """Regression test: when `_common_checks_available_deployment` resolves
         a specific deployment (returned as a dict, not a list), the function
         must still extract `model_info.id` rather than iterate over the
-        deployment's own keys (`model_name`, `litellm_params`, `model_info`).
+        deployment's own keys (`model_name`, `hangarllm_params`, `model_info`).
         """
         deployment = {
             "model_name": "gpt-4",
-            "litellm_params": {"model": "gpt-4", "api_key": "sk-test"},
+            "hangarllm_params": {"model": "gpt-4", "api_key": "sk-test"},
             "model_info": {"id": "deployment-1", "mode": "chat"},
         }
         responses = [self._make_response("file-1")]
@@ -487,11 +487,11 @@ class TestAddModelFileIdMappings:
         intentionally set equal to `model_name`, the router resolves a single
         deployment via `has_model_id` and returns it as a dict. The mapping
         must contain only `{id: file_id}` with string values so the resulting
-        `LiteLLM_ManagedFileTable` Pydantic validation passes.
+        `HangarLLM_ManagedFileTable` Pydantic validation passes.
         """
         deployment = {
             "model_name": "openai/openai/gpt-5.5-batch",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-5.5",
                 "api_key": "sk-test",
                 "tpm": 40000000,
@@ -508,22 +508,22 @@ class TestAddModelFileIdMappings:
 
         result = add_model_file_id_mappings(deployment, responses)
 
-        # Bug case would have produced keys ["model_name", "litellm_params",
+        # Bug case would have produced keys ["model_name", "hangarllm_params",
         # "model_info"] with non-string values.
         assert result == {"openai/openai/gpt-5.5-batch": "file-batch-1"}
-        assert "litellm_params" not in result
+        assert "hangarllm_params" not in result
         assert "model_info" not in result
 
     def test_should_skip_deployment_when_model_info_id_missing(self):
         deployments = [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "hangarllm_params": {"model": "gpt-4"},
                 "model_info": {},
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "hangarllm_params": {"model": "gpt-4"},
                 "model_info": {"id": "deployment-2"},
             },
         ]
@@ -568,7 +568,7 @@ class TestResolveModelGroupAlias:
             model_list=[
                 {
                     "model_name": "group-b",
-                    "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
+                    "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
                 }
             ],
             model_group_alias={"group-a": "group-b", "group-item": {"model": "group-b", "hidden": True}},
@@ -667,7 +667,7 @@ def test_format_fallback_outcome_uses_plural_for_multiple_over_budget_skips() ->
 def test_format_fallback_outcome_preserves_attempted_failure_wording_without_skips() -> None:
     assert (
         format_fallback_outcome_message("primary", ("fallback",), "detail")
-        == "\n\nLiteLLM: model group 'primary' failed with the error above. "
+        == "\n\nHangarLLM: model group 'primary' failed with the error above. "
         "Fallback to fallback also failed: detail"
     )
 
@@ -676,13 +676,13 @@ def test_content_policy_note_explains_the_failure_when_fallbacks_are_a_plain_mod
     note: Final = format_content_policy_no_fallback_note("gpt-bg", ("gpt-bg",), None, ["backup"], False)
 
     assert "content_policy_fallback=None" in note
-    assert "LiteLLM: model group 'gpt-bg' failed with the error above. No fallback was attempted." in note
+    assert "HangarLLM: model group 'gpt-bg' failed with the error above. No fallback was attempted." in note
     assert "Fallbacks are configured for" not in note
 
 
 class TestWarnOnProviderCredentialMismatch:
     """A deployment that carries one provider's credentials while resolving to
-    another is silently broken: litellm ignores the credentials and sends the
+    another is silently broken: hangarllm ignores the credentials and sends the
     request to the resolved provider, which 401s. The classic shape is a bedrock
     model group where one entry lost its route prefix, which fails only on the
     requests the router happens to send to that entry."""
@@ -690,7 +690,7 @@ class TestWarnOnProviderCredentialMismatch:
     def test_warns_when_aws_params_sit_on_an_anthropic_model(self):
         warning = warn_on_provider_credential_mismatch(
             model_name="claude-sonnet-5",
-            litellm_params={"model": "claude-sonnet-5", "aws_region_name": "eu-central-1"},
+            hangarllm_params={"model": "claude-sonnet-5", "aws_region_name": "eu-central-1"},
         )
 
         assert warning is not None
@@ -702,7 +702,7 @@ class TestWarnOnProviderCredentialMismatch:
         assert (
             warn_on_provider_credential_mismatch(
                 model_name="claude-sonnet-5",
-                litellm_params={
+                hangarllm_params={
                     "model": "bedrock/invoke/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                     "aws_region_name": "eu-central-1",
                 },
@@ -716,7 +716,7 @@ class TestWarnOnProviderCredentialMismatch:
         assert (
             warn_on_provider_credential_mismatch(
                 model_name="claude-sonnet-5",
-                litellm_params={
+                hangarllm_params={
                     "model": "anthropic.claude-sonnet-4-5-20250929-v1:0",
                     "custom_llm_provider": "bedrock",
                     "aws_region_name": "eu-central-1",
@@ -726,27 +726,27 @@ class TestWarnOnProviderCredentialMismatch:
         )
 
     def test_silent_when_no_provider_scoped_credentials_are_set(self):
-        assert warn_on_provider_credential_mismatch(model_name="gpt-5.5", litellm_params={"model": "gpt-5.5"}) is None
+        assert warn_on_provider_credential_mismatch(model_name="gpt-5.5", hangarllm_params={"model": "gpt-5.5"}) is None
 
     def test_vertex_params_name_vertex_not_bedrock(self):
         """The hint must follow the params that were actually set, otherwise it
         sends the operator to the wrong prefix."""
         warning = warn_on_provider_credential_mismatch(
             model_name="claude-on-vertex",
-            litellm_params={"model": "claude-sonnet-5", "vertex_project": "my-project"},
+            hangarllm_params={"model": "claude-sonnet-5", "vertex_project": "my-project"},
         )
 
         assert warning is not None
         assert "vertex_ai/claude-sonnet-5" in warning
         assert "bedrock" not in warning
 
-    def test_silent_for_a_model_litellm_cannot_classify(self):
+    def test_silent_for_a_model_hangarllm_cannot_classify(self):
         """An unresolvable model must not warn and must not raise: this runs on
         the router startup path, so a wrong guess would spam every boot."""
         assert (
             warn_on_provider_credential_mismatch(
                 model_name="mystery",
-                litellm_params={"model": "not-a-real-provider-model-xyz", "aws_region_name": "us-east-1"},
+                hangarllm_params={"model": "not-a-real-provider-model-xyz", "aws_region_name": "us-east-1"},
             )
             is None
         )
@@ -754,19 +754,19 @@ class TestWarnOnProviderCredentialMismatch:
     def test_router_warns_for_a_config_shaped_model_list(self, caplog):
         """The whole point is that this fires where operators declare models, so
         drive Router rather than the helper."""
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
             Router(
                 model_list=[
                     {
                         "model_name": "claude-sonnet-5",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "bedrock/invoke/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                             "aws_region_name": "us-east-1",
                         },
                     },
                     {
                         "model_name": "claude-sonnet-5",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "claude-sonnet-5",
                             "aws_region_name": "us-east-1",
                         },
@@ -796,7 +796,7 @@ class TestWarnOnProviderCredentialMismatch:
         assert (
             warn_on_provider_credential_mismatch(
                 model_name="aws-deployment",
-                litellm_params={"model": model, "aws_region_name": "us-east-1"},
+                hangarllm_params={"model": model, "aws_region_name": "us-east-1"},
             )
             is None
         )
@@ -804,7 +804,7 @@ class TestWarnOnProviderCredentialMismatch:
     def test_every_aws_family_provider_is_covered(self):
         """Pins the derivation itself: a newly added bedrock_*/sagemaker_* provider
         must join the set automatically, or it starts drawing false warnings."""
-        from litellm.types.utils import LlmProviders
+        from hangarllm.types.utils import LlmProviders
 
         aws_family = {p.value for p in LlmProviders if p.value.startswith(("bedrock", "sagemaker"))}
         assert aws_family <= PROVIDER_SCOPED_CREDENTIAL_PARAMS["aws_region_name"]
@@ -816,9 +816,9 @@ class TestWarnOnProviderCredentialMismatch:
         assert (
             warn_on_provider_credential_mismatch(
                 model_name="claude-sonnet-5",
-                litellm_params={
+                hangarllm_params={
                     "model": "bedrock/invoke/us.anthropic.claude-haiku-4-5-20251001-v1:0",
-                    "litellm_credential_name": "my-aws-creds",
+                    "hangarllm_credential_name": "my-aws-creds",
                 },
             )
             is None
@@ -833,7 +833,7 @@ class TestWarnOnProviderCredentialMismatch:
         assert (
             warn_on_provider_credential_mismatch(
                 model_name="aws-deployment",
-                litellm_params={
+                hangarllm_params={
                     "model": "anthropic.claude-sonnet-4-5-20250929-v1:0",
                     "custom_llm_provider": provider,
                     "aws_region_name": "us-east-1",
@@ -844,7 +844,7 @@ class TestWarnOnProviderCredentialMismatch:
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "expected"),
+    ("hangarllm_params", "expected"),
     [
         ({"model": "azure_ai/gpt-5.4-mini", "custom_llm_provider": "azure"}, "azure"),
         ({"model": "azure_ai/gpt-5.4-mini", "api_base": "https://my-resource.openai.azure.com"}, "azure_ai"),
@@ -862,35 +862,35 @@ class TestWarnOnProviderCredentialMismatch:
         "no_model",
     ],
 )
-def test_provider_for_generic_call(litellm_params, expected, monkeypatch):
+def test_provider_for_generic_call(hangarllm_params, expected, monkeypatch):
     monkeypatch.setenv("AZURE_AI_API_BASE", "https://unrelated.openai.azure.com")
-    assert provider_for_generic_call(litellm_params) == expected
+    assert provider_for_generic_call(hangarllm_params) == expected
 
 
-def test_router_warns_only_for_a_capability_flag_set_under_litellm_params(caplog):
+def test_router_warns_only_for_a_capability_flag_set_under_hangarllm_params(caplog):
     bedrock_model: Final = "bedrock/invoke/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
         Router(
             model_list=[
                 {
-                    "model_name": "flag-in-litellm-params",
-                    "litellm_params": {"model": bedrock_model, "supports_max_reasoning_effort": False},
+                    "model_name": "flag-in-hangarllm-params",
+                    "hangarllm_params": {"model": bedrock_model, "supports_max_reasoning_effort": False},
                 },
                 {
                     "model_name": "flag-in-model-info",
-                    "litellm_params": {"model": bedrock_model},
+                    "hangarllm_params": {"model": bedrock_model},
                     "model_info": {"supports_max_reasoning_effort": False},
                 },
                 {
-                    "model_name": "declared-litellm-param",
-                    "litellm_params": {"model": bedrock_model, "supports_system_message": False},
+                    "model_name": "declared-hangarllm-param",
+                    "hangarllm_params": {"model": bedrock_model, "supports_system_message": False},
                 },
             ]
         )
 
     capability_warnings: Final = [r.getMessage() for r in caplog.records if "model_info" in r.getMessage()]
     assert len(capability_warnings) == 1, capability_warnings
-    assert "flag-in-litellm-params" in capability_warnings[0]
+    assert "flag-in-hangarllm-params" in capability_warnings[0]
     assert "supports_max_reasoning_effort" in capability_warnings[0]
 
 
@@ -905,7 +905,7 @@ def test_router_serves_deployments_without_model_capability_flags():
         model_list=[
             {
                 "model_name": "every-flag",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "replicate/meta/meta-llama-3-8b-instruct",
                     **dict.fromkeys(capability_flags - declared_params.keys(), True),
                     **declared_params,
@@ -914,7 +914,7 @@ def test_router_serves_deployments_without_model_capability_flags():
         ]
     )
 
-    served_params: Final = router.get_model_list()[0]["litellm_params"]
+    served_params: Final = router.get_model_list()[0]["hangarllm_params"]
     assert sorted(capability_flags & served_params.keys() - declared_params.keys()) == []
     assert {key: served_params.get(key) for key in declared_params} == declared_params
 
@@ -924,7 +924,7 @@ def test_router_keeps_a_provider_param_that_another_deployments_model_info_names
         model_list=[
             {
                 "model_name": "registers-the-name",
-                "litellm_params": {"model": "openai/litellm-qa-registered-capability"},
+                "hangarllm_params": {"model": "openai/hangarllm-qa-registered-capability"},
                 "model_info": {"supports_system_prompt": True},
             }
         ]
@@ -933,25 +933,25 @@ def test_router_keeps_a_provider_param_that_another_deployments_model_info_names
         model_list=[
             {
                 "model_name": "replicate-system-prompt",
-                "litellm_params": {"model": "replicate/meta/meta-llama-3-8b-instruct", "supports_system_prompt": True},
+                "hangarllm_params": {"model": "replicate/meta/meta-llama-3-8b-instruct", "supports_system_prompt": True},
             }
         ]
     )
 
-    assert router.get_model_list()[0]["litellm_params"].get("supports_system_prompt") is True
+    assert router.get_model_list()[0]["hangarllm_params"].get("supports_system_prompt") is True
 
 
 def test_router_warns_once_and_serves_no_flag_for_a_deployment_synced_from_the_db(caplog):
     router: Final = Router(model_list=[])
     db_deployment: Final = Deployment(
         model_name="db-model",
-        litellm_params=LiteLLM_Params(
+        hangarllm_params=HangarLLM_Params(
             model="bedrock/invoke/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
             supports_max_reasoning_effort=False,
         ),
         model_info=ModelInfo(id="db-model-id"),
     )
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
         first_sync: Final = router.upsert_deployment(db_deployment)
         second_sync: Final = router.upsert_deployment(db_deployment)
 
@@ -960,4 +960,4 @@ def test_router_warns_once_and_serves_no_flag_for_a_deployment_synced_from_the_d
     assert second_sync is None
     assert len(capability_warnings) == 1, capability_warnings
     assert "db-model" in capability_warnings[0]
-    assert "supports_max_reasoning_effort" not in router.get_model_list()[0]["litellm_params"]
+    assert "supports_max_reasoning_effort" not in router.get_model_list()[0]["hangarllm_params"]

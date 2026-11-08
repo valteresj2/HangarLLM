@@ -1,6 +1,6 @@
 """Decisions cost cases: every Decisions provider called through /v1/decisions and /v1/systemone.
 
-Request and response bodies are verbatim captures of what litellm sent to and got back from the
+Request and response bodies are verbatim captures of what hangarllm sent to and got back from the
 real provider on 2026-10-10 (recorded through a forwarding proxy in front of each API), so each
 case replays the provider's own usage shape against the scripted upstream. Spend is the recorded
 usage at the suite cost map's rates; OpenRouter has no per-token rate and bills the `usage.cost`

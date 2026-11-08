@@ -10,7 +10,7 @@ from typing import Final, Literal, TypeAlias
 import psutil
 import pytest
 
-from litellm.rust_bridge._native import NativeDatabase
+from hangarllm.rust_bridge._native import NativeDatabase
 from tests.integration._support.client import eventually
 from tests.integration._support.database import read_rows, scratch_database
 
@@ -44,7 +44,7 @@ def _assert_database_idle() -> None:
 
 
 async def _assert_lifespan_closed() -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     await asyncio.sleep(0)
     assert proxy_server.prisma_client is None
@@ -62,8 +62,8 @@ async def _assert_lifespan_closed() -> None:
 
 
 async def _exercise_lifespans(mode: Mode) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth.master_key_boot_check import UnsafeMasterKeyError
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth.master_key_boot_check import UnsafeMasterKeyError
 
     expected: Final = UnsafeMasterKeyError if mode == "unsafe" else ValueError
     match: Final = "master key" if mode == "unsafe" else "use_redis_transaction_buffer"
@@ -74,7 +74,7 @@ async def _exercise_lifespans(mode: Mode) -> None:
 
     Path(os.environ["CONFIG_FILE_PATH"]).write_text(CONFIG)
     with pytest.MonkeyPatch.context() as environment:
-        environment.setenv("LITELLM_MASTER_KEY", f"sk-{uuid.uuid4().hex}")
+        environment.setenv("HANGARLLM_MASTER_KEY", f"sk-{uuid.uuid4().hex}")
         for cancel in (False, True, False):
             try:
                 async with proxy_server.proxy_startup_event(proxy_server.app) as state:
@@ -105,9 +105,9 @@ def test_failed_startup_then_retry_releases_database_resources(tmp_path: Path, m
         not in (
             "WORKER_CONFIG",
             "DATABASE_URL_READ_REPLICA",
-            "LITELLM_SALT_KEY",
-            "LITELLM_MIGRATE_FROM_MASTER_KEY",
-            "LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY",
+            "HANGARLLM_SALT_KEY",
+            "HANGARLLM_MIGRATE_FROM_MASTER_KEY",
+            "HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY",
             "INTEGRATION_UPSTREAM_URL",
         )
     }
@@ -117,9 +117,9 @@ def test_failed_startup_then_retry_releases_database_resources(tmp_path: Path, m
             "DATABASE_URL": database_url,
             "DIRECT_URL": database_url,
             "CONFIG_FILE_PATH": str(config),
-            "LITELLM_MASTER_KEY": PUBLICLY_KNOWN_KEY if mode == "unsafe" else f"sk-{uuid.uuid4().hex}",
-            "LITELLM_LOCAL_MODEL_COST_MAP": "True",
-            "LITELLM_TELEMETRY_ENABLED": "false",
+            "HANGARLLM_MASTER_KEY": PUBLICLY_KNOWN_KEY if mode == "unsafe" else f"sk-{uuid.uuid4().hex}",
+            "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
+            "HANGARLLM_TELEMETRY_ENABLED": "false",
             "PRISMA_HEALTH_WATCHDOG_ENABLED": "true",
             "PYTHONPATH": os.pathsep.join((str(ROOT), str(ROOT / "enterprise"))),
             **({"DATABASE_URL_READ_REPLICA": database_url} if replica else {}),
@@ -134,7 +134,7 @@ def test_failed_startup_then_retry_releases_database_resources(tmp_path: Path, m
                 "push",
                 "--skip-generate",
                 "--schema",
-                str(ROOT / "litellm/proxy/schema.prisma"),
+                str(ROOT / "hangarllm/proxy/schema.prisma"),
             ),
             cwd=ROOT,
             env=environment,

@@ -43,8 +43,8 @@ pytestmark = pytest.mark.timeout(graceful_stop_seconds() + 240)
 MCP_ALIAS: Final = "sgmcp"
 AUTO_EXECUTED: Final[Mapping[str, JsonValue]] = {
     "type": "mcp",
-    "server_url": "litellm_proxy",
-    "server_label": "litellm",
+    "server_url": "hangarllm_proxy",
+    "server_label": "hangarllm",
     "require_approval": "never",
 }
 _JSON: Final[TypeAdapter[JsonValue]] = TypeAdapter(JsonValue)

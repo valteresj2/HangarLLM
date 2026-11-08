@@ -54,7 +54,7 @@ STRATEGY: Final = StrategyDefinition(
     order=31,
     label="Unit test parity",
     description=(
-        "Run existing Python unit tests with LITELLM_RUST disabled and enabled and require matching outcomes."
+        "Run existing Python unit tests with HANGARLLM_RUST disabled and enabled and require matching outcomes."
     ),
     directory=Path(__file__).parent,
     runnable_spec=SuiteCaseSpec,

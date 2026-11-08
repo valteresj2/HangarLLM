@@ -14,7 +14,7 @@ def _write_tests(tmp_path: Path, *, mismatch: bool = False, failing: bool = Fals
     (tmp_path / "test_api.py").write_text(
         "import os\n"
         "def test_decode():\n    assert int('42') == 42\n"
-        + ("def test_backend():\n    assert os.environ['LITELLM_RUST'] == '0'\n" if mismatch else "")
+        + ("def test_backend():\n    assert os.environ['HANGARLLM_RUST'] == '0'\n" if mismatch else "")
         + ("def test_fails():\n    assert False\n" if failing else "")
     )
 

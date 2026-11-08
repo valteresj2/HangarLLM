@@ -18,17 +18,17 @@ from unittest import mock
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.router import RetryPolicy
-from litellm.types.router import Deployment
-from litellm.types.utils import ModelResponse
+import hangarllm
+from hangarllm import Router
+from hangarllm.router import RetryPolicy
+from hangarllm.types.router import Deployment
+from hangarllm.types.utils import ModelResponse
 
 MESSAGES: Final = [{"role": "user", "content": "hi"}]
 
 
 def _deployment(name: str, reply: object) -> dict[str, object]:
-    return {"model_name": name, "litellm_params": {"model": "openai/gpt-4o", "api_key": "k", "mock_response": reply}}
+    return {"model_name": name, "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "k", "mock_response": reply}}
 
 
 @pytest.mark.asyncio
@@ -50,7 +50,7 @@ async def test_a_negative_max_fallbacks_takes_no_fallback() -> None:
         num_retries=0,
     )
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await router.acompletion(model="g", messages=MESSAGES)
 
 
@@ -83,7 +83,7 @@ def test_a_model_response_mock_reads_back_from_the_model_list_as_a_dict() -> Non
     reply: Final = ModelResponse(id="chatcmpl-fixed", choices=[{"message": {"role": "assistant", "content": "fb"}}])
     router: Final = Router(model_list=[_deployment("g", reply)])
 
-    params: Final = router.get_model_list()[0]["litellm_params"]
+    params: Final = router.get_model_list()[0]["hangarllm_params"]
 
     assert isinstance(params["mock_response"], dict)
     assert params["mock_response"]["id"] == "chatcmpl-fixed"
@@ -109,14 +109,14 @@ async def test_a_class_level_patch_of_an_endpoint_reaches_the_instance_and_unwin
 
 
 def test_an_assigned_affinity_ttl_builds_the_affinity_check_added_afterwards() -> None:
-    from litellm.router_utils.pre_call_checks.deployment_affinity_check import DeploymentAffinityCheck
+    from hangarllm.router_utils.pre_call_checks.deployment_affinity_check import DeploymentAffinityCheck
 
     router: Final = Router(model_list=[_deployment("g", "ok")])
 
     router.deployment_affinity_ttl_seconds = 7
     router.add_optional_pre_call_checks(["deployment_affinity"])
 
-    checks: Final = [c for c in litellm.callbacks if isinstance(c, DeploymentAffinityCheck)]
+    checks: Final = [c for c in hangarllm.callbacks if isinstance(c, DeploymentAffinityCheck)]
     assert [check.ttl_seconds for check in checks][-1:] == [7]
 
 
@@ -131,18 +131,18 @@ async def test_a_deleted_timeout_leaves_get_settings_and_still_serves() -> None:
     assert response.choices[0].message.content == "ok"
 
 
-def test_litellm_params_json_cannot_carry_read_back_as_given_and_hash_like_python() -> None:
+def test_hangarllm_params_json_cannot_carry_read_back_as_given_and_hash_like_python() -> None:
     from datetime import datetime
 
-    from litellm.router_api import deployment_id
+    from hangarllm.router_api import deployment_id
 
     params: Final = {"model": "openai/gpt-4o", "api_key": "k", "cfg": {"s": {"a"}}, "when": datetime(2026, 1, 1, 12)}
-    router: Final = Router(model_list=[{"model_name": "g", "litellm_params": dict(params)}])
+    router: Final = Router(model_list=[{"model_name": "g", "hangarllm_params": dict(params)}])
 
     served: Final = router.get_model_list()[0]
 
-    assert served["litellm_params"]["cfg"] == {"s": {"a"}}
-    assert served["litellm_params"]["when"] == datetime(2026, 1, 1, 12)
+    assert served["hangarllm_params"]["cfg"] == {"s": {"a"}}
+    assert served["hangarllm_params"]["when"] == datetime(2026, 1, 1, 12)
     assert served["model_info"]["id"] == deployment_id("g", params)
 
 
@@ -152,8 +152,8 @@ def test_a_bad_deployment_before_a_secret_reference_raises_its_own_validation_er
     with pytest.raises(ValidationError):
         Router(
             model_list=[
-                {"model_name": "t", "litellm_params": {"api_key": "k"}},
-                {"model_name": "u", "litellm_params": {"model": "openai/gpt-4o", "api_key": "os.environ/NOPE_KEY"}},
+                {"model_name": "t", "hangarllm_params": {"api_key": "k"}},
+                {"model_name": "u", "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "os.environ/NOPE_KEY"}},
             ]
         )
 
@@ -164,7 +164,7 @@ async def test_a_failed_vector_store_create_names_no_failed_deployment() -> None
         model_list=[
             {
                 "model_name": "vs",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "k", "api_base": "http://127.0.0.1:9/v1"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "k", "api_base": "http://127.0.0.1:9/v1"},
             }
         ],
         num_retries=0,
@@ -248,21 +248,21 @@ def upstream() -> Iterator[str]:
 def _served(name: str, deployment_id: str, model: str, api_base: str) -> dict[str, object]:
     return {
         "model_name": name,
-        "litellm_params": {"model": model, "api_key": "k", "api_base": api_base},
+        "hangarllm_params": {"model": model, "api_key": "k", "api_base": api_base},
         "model_info": {"id": deployment_id},
     }
 
 
 def _request_logging(call_type: str, *, stream: bool) -> object:
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     return Logging(
         model="g",
         messages=MESSAGES,
         stream=stream,
         call_type=call_type,
-        start_time=datetime.now(),  # noqa: DTZ005  # litellm's own naive start time
-        litellm_call_id="call-1",
+        start_time=datetime.now(),  # noqa: DTZ005  # hangarllm's own naive start time
+        hangarllm_call_id="call-1",
         function_id="f",
     )
 
@@ -282,7 +282,7 @@ async def test_a_responses_stream_cut_after_it_opened_counts_one_fail_with_a_sha
     )
 
     stream: Final = await router.aresponses(
-        model="g", input="hi", stream=True, litellm_logging_obj=_request_logging("aresponses", stream=True)
+        model="g", input="hi", stream=True, hangarllm_logging_obj=_request_logging("aresponses", stream=True)
     )
     with pytest.raises(Exception):  # noqa: B017, PT011  # the transport's read error, whatever class maps it
         async for _ in stream:  # pyright: ignore[reportGeneralTypeIssues]  # a stream when stream=True
@@ -307,7 +307,7 @@ async def test_a_blocked_response_raised_for_a_fallback_counts_no_success_with_a
     )
 
     response: Final = await router.acompletion(
-        model="a", messages=MESSAGES, litellm_logging_obj=_request_logging("acompletion", stream=False)
+        model="a", messages=MESSAGES, hangarllm_logging_obj=_request_logging("acompletion", stream=False)
     )
     await _recorded()
 
@@ -325,7 +325,7 @@ async def test_a_text_completion_stream_that_fails_before_its_first_chunk_counts
     )
 
     stream: Final = await router.atext_completion(model="g", prompt="hi", stream=True)
-    with pytest.raises(litellm.BadGatewayError):
+    with pytest.raises(hangarllm.BadGatewayError):
         async for _ in stream:  # pyright: ignore[reportGeneralTypeIssues]  # a stream when stream=True
             pass
     await _recorded()
@@ -352,14 +352,14 @@ async def test_a_default_priority_assigned_after_construction_reads_back_and_que
     response: Final = await router.acompletion(model="g", messages=MESSAGES)
 
     assert router.default_priority == 5
-    assert response._hidden_params["additional_headers"]["x-litellm-request-prioritization-used"] is True
+    assert response._hidden_params["additional_headers"]["x-hangarllm-request-prioritization-used"] is True
 
 
 @pytest.mark.asyncio
 async def test_a_prioritized_call_on_an_unknown_group_raises_the_calls_own_error() -> None:
     router: Final = Router(model_list=[_deployment("g", "ok")], num_retries=0)
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await router.schedule_acompletion(
             model="nope", messages=MESSAGES, priority=0, mock_testing_fallbacks=True, num_retries=0
         )
@@ -369,7 +369,7 @@ def test_a_registry_lookup_of_a_record_with_no_model_name_raises_key_error() -> 
     router: Final = Router(model_list=[_deployment("g", "ok")])
 
     with pytest.raises(KeyError):
-        router.registry().includes({"litellm_params": {}}, model_name="g")  # pyright: ignore[reportArgumentType]  # the record with no name
+        router.registry().includes({"hangarllm_params": {}}, model_name="g")  # pyright: ignore[reportArgumentType]  # the record with no name
 
 
 @pytest.mark.asyncio
@@ -378,7 +378,7 @@ async def test_a_refused_pick_by_deployment_id_names_the_deployments_group() -> 
         model_list=[
             {
                 "model_name": "t2-pub",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "k", "mock_response": "p2"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "k", "mock_response": "p2"},
                 "model_info": {"team_id": "T2", "team_public_model_name": "pub", "id": "p2"},
             }
         ],
@@ -395,7 +395,7 @@ async def test_a_request_refused_before_the_provider_counts_against_no_deploymen
         model_list=[_served("g", "d1", "openai/gpt-4o", f"{upstream}/ok/v1")], num_retries=0, disable_cooldowns=True
     )
 
-    with pytest.raises(litellm.UnsupportedParamsError):
+    with pytest.raises(hangarllm.UnsupportedParamsError):
         await router.acompletion(model="g", messages=MESSAGES, reasoning_effort="low")
     await _recorded()
 
@@ -455,7 +455,7 @@ async def test_no_model_is_served_by_a_catch_all_wildcard() -> None:
             _deployment("g", "ok"),
             {
                 **_deployment("*", "star"),
-                "litellm_params": {"model": "openai/*", "api_key": "k", "mock_response": "star"},
+                "hangarllm_params": {"model": "openai/*", "api_key": "k", "mock_response": "star"},
             },
         ]
     )
@@ -474,7 +474,7 @@ async def test_no_model_is_retried_by_the_retry_policy_and_raised_without_a_fall
         retry_policy=RetryPolicy(BadRequestErrorRetries=1),
     )
 
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await router.acompletion(model=None, messages=MESSAGES)
 
     assert raised.value.num_retries == 1
@@ -494,7 +494,7 @@ def test_a_deleted_deployment_releases_the_callable_it_was_built_with() -> None:
     router.add_deployment(
         Deployment(
             model_name="g",
-            litellm_params={"model": "openai/gpt-4o", "api_key": "k", "azure_ad_token_provider": provider},
+            hangarllm_params={"model": "openai/gpt-4o", "api_key": "k", "azure_ad_token_provider": provider},
             model_info={"id": "rotated"},
         )
     )

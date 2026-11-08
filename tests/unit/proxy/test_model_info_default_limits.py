@@ -1,6 +1,6 @@
 """
 Tests verifying that default_api_key_tpm_limit and default_api_key_rpm_limit set in
-litellm_params are returned by the /model/info endpoint.
+hangarllm_params are returned by the /model/info endpoint.
 """
 
 import json
@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.proxy.proxy_server import _get_proxy_model_info
-from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+from hangarllm.proxy.proxy_server import _get_proxy_model_info
+from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stubs
 
 
@@ -26,7 +26,7 @@ def _make_deployment(
         params["default_api_key_rpm_limit"] = default_rpm
     return Deployment(
         model_name=model_name,
-        litellm_params=LiteLLM_Params(**params),
+        hangarllm_params=HangarLLM_Params(**params),
         model_info=ModelInfo(),
     )
 
@@ -34,19 +34,19 @@ def _make_deployment(
 class TestModelInfoDefaultLimitsInResponse:
     """
     Verify _get_proxy_model_info (the helper used by the /model/info endpoint) returns
-    default_api_key_tpm_limit and default_api_key_rpm_limit from litellm_params.
+    default_api_key_tpm_limit and default_api_key_rpm_limit from hangarllm_params.
     """
 
     def test_default_tpm_and_rpm_present_in_model_info_response(self):
-        """Both defaults should appear in the litellm_params section of the response."""
+        """Both defaults should appear in the hangarllm_params section of the response."""
         deployment = _make_deployment("model1", default_tpm=100, default_rpm=200)
         model_dict = deployment.model_dump(exclude_none=True)
 
         result = _get_proxy_model_info(model=model_dict)
 
-        litellm_params = result["litellm_params"]
-        assert litellm_params.get("default_api_key_tpm_limit") == 100
-        assert litellm_params.get("default_api_key_rpm_limit") == 200
+        hangarllm_params = result["hangarllm_params"]
+        assert hangarllm_params.get("default_api_key_tpm_limit") == 100
+        assert hangarllm_params.get("default_api_key_rpm_limit") == 200
 
     def test_default_tpm_only_present_when_only_tpm_configured(self):
         """Only the configured default appears; the other stays absent."""
@@ -55,9 +55,9 @@ class TestModelInfoDefaultLimitsInResponse:
 
         result = _get_proxy_model_info(model=model_dict)
 
-        litellm_params = result["litellm_params"]
-        assert litellm_params.get("default_api_key_tpm_limit") == 500
-        assert "default_api_key_rpm_limit" not in litellm_params
+        hangarllm_params = result["hangarllm_params"]
+        assert hangarllm_params.get("default_api_key_tpm_limit") == 500
+        assert "default_api_key_rpm_limit" not in hangarllm_params
 
     def test_default_rpm_only_present_when_only_rpm_configured(self):
         """Only the configured default appears; the other stays absent."""
@@ -66,9 +66,9 @@ class TestModelInfoDefaultLimitsInResponse:
 
         result = _get_proxy_model_info(model=model_dict)
 
-        litellm_params = result["litellm_params"]
-        assert litellm_params.get("default_api_key_rpm_limit") == 300
-        assert "default_api_key_tpm_limit" not in litellm_params
+        hangarllm_params = result["hangarllm_params"]
+        assert hangarllm_params.get("default_api_key_rpm_limit") == 300
+        assert "default_api_key_tpm_limit" not in hangarllm_params
 
     def test_defaults_absent_when_not_configured(self):
         """Neither field appears when not set on the deployment."""
@@ -77,9 +77,9 @@ class TestModelInfoDefaultLimitsInResponse:
 
         result = _get_proxy_model_info(model=model_dict)
 
-        litellm_params = result["litellm_params"]
-        assert "default_api_key_tpm_limit" not in litellm_params
-        assert "default_api_key_rpm_limit" not in litellm_params
+        hangarllm_params = result["hangarllm_params"]
+        assert "default_api_key_tpm_limit" not in hangarllm_params
+        assert "default_api_key_rpm_limit" not in hangarllm_params
 
     def test_defaults_not_masked_or_stripped_by_sensitive_data_filter(self):
         """
@@ -95,8 +95,8 @@ class TestModelInfoDefaultLimitsInResponse:
         result = _get_proxy_model_info(model=model_dict)
 
         # Values should be unchanged integers, not masked strings
-        assert result["litellm_params"]["default_api_key_tpm_limit"] == 100
-        assert result["litellm_params"]["default_api_key_rpm_limit"] == 200
+        assert result["hangarllm_params"]["default_api_key_tpm_limit"] == 100
+        assert result["hangarllm_params"]["default_api_key_rpm_limit"] == 200
 
 
 class TestModelInfoEndpointWithRouter:
@@ -107,11 +107,11 @@ class TestModelInfoEndpointWithRouter:
     @pytest.mark.asyncio
     async def test_model_info_endpoint_returns_defaults_for_specific_model_id(self):
         """
-        When litellm_model_id is provided, the endpoint should return the deployment's
-        default limits in litellm_params.
+        When hangarllm_model_id is provided, the endpoint should return the deployment's
+        default limits in hangarllm_params.
         """
-        from litellm.proxy.proxy_server import model_info_v1
-        from litellm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.proxy_server import model_info_v1
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         deployment = _make_deployment("model1", default_tpm=100, default_rpm=200)
 
@@ -121,29 +121,29 @@ class TestModelInfoEndpointWithRouter:
         user_api_key_dict = UserAPIKeyAuth(api_key="sk-test")
 
         with (
-            patch("litellm.proxy.proxy_server.llm_router", mock_router),
-            patch("litellm.proxy.proxy_server.llm_model_list", []),
-            patch("litellm.proxy.proxy_server.user_model", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", mock_router),
+            patch("hangarllm.proxy.proxy_server.llm_model_list", []),
+            patch("hangarllm.proxy.proxy_server.user_model", None),
         ):
             response = await model_info_v1(
                 user_api_key_dict=user_api_key_dict,
-                litellm_model_id="some-model-id",
+                hangarllm_model_id="some-model-id",
             )
 
         data = json.loads(response.body)["data"]
         assert len(data) == 1
-        litellm_params = data[0]["litellm_params"]
-        assert litellm_params.get("default_api_key_tpm_limit") == 100
-        assert litellm_params.get("default_api_key_rpm_limit") == 200
+        hangarllm_params = data[0]["hangarllm_params"]
+        assert hangarllm_params.get("default_api_key_tpm_limit") == 100
+        assert hangarllm_params.get("default_api_key_rpm_limit") == 200
 
     @pytest.mark.asyncio
     async def test_model_info_endpoint_returns_defaults_in_full_model_list(self):
         """
-        Without litellm_model_id, the endpoint iterates all models. Each deployment's
-        default limits should appear in its litellm_params entry.
+        Without hangarllm_model_id, the endpoint iterates all models. Each deployment's
+        default limits should appear in its hangarllm_params entry.
         """
-        from litellm.proxy.proxy_server import model_info_v1
-        from litellm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.proxy_server import model_info_v1
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         deployment = _make_deployment("model1", default_tpm=100, default_rpm=200)
         deployment_dict = deployment.model_dump(exclude_none=True)
@@ -156,26 +156,26 @@ class TestModelInfoEndpointWithRouter:
         user_api_key_dict = UserAPIKeyAuth(api_key="sk-test")
 
         with (
-            patch("litellm.proxy.proxy_server.llm_router", mock_router),
-            patch("litellm.proxy.proxy_server.llm_model_list", [deployment_dict]),
-            patch("litellm.proxy.proxy_server.user_model", None),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
-            patch("litellm.proxy.proxy_server.get_key_models", return_value=["model1"]),
+            patch("hangarllm.proxy.proxy_server.llm_router", mock_router),
+            patch("hangarllm.proxy.proxy_server.llm_model_list", [deployment_dict]),
+            patch("hangarllm.proxy.proxy_server.user_model", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", None),
+            patch("hangarllm.proxy.proxy_server.get_key_models", return_value=["model1"]),
             patch(
-                "litellm.proxy.proxy_server.get_team_models", return_value=["model1"]
+                "hangarllm.proxy.proxy_server.get_team_models", return_value=["model1"]
             ),
             patch(
-                "litellm.proxy.proxy_server.get_complete_model_list",
+                "hangarllm.proxy.proxy_server.get_complete_model_list",
                 return_value=["model1"],
             ),
         ):
             response = await model_info_v1(
                 user_api_key_dict=user_api_key_dict,
-                litellm_model_id=None,
+                hangarllm_model_id=None,
             )
 
         data = json.loads(response.body)["data"]
         assert len(data) >= 1
-        litellm_params = data[0]["litellm_params"]
-        assert litellm_params.get("default_api_key_tpm_limit") == 100
-        assert litellm_params.get("default_api_key_rpm_limit") == 200
+        hangarllm_params = data[0]["hangarllm_params"]
+        assert hangarllm_params.get("default_api_key_tpm_limit") == 100
+        assert hangarllm_params.get("default_api_key_rpm_limit") == 200

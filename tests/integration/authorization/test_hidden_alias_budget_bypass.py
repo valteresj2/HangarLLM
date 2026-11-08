@@ -65,7 +65,7 @@ from pydantic import JsonValue
 
 pytestmark: Final = [pytest.mark.timeout(240), pytest.mark.shares_worker_state]
 
-# $0 comes from litellm's own cost-map row (model_prices_and_context_window.json, added 2025-10-14 in 900a57f5b1f):
+# $0 comes from hangarllm's own cost-map row (model_prices_and_context_window.json, added 2025-10-14 in 900a57f5b1f):
 # Lemonade is a local inference server, so there is no vendor price for the row to drift from. A row that gains a
 # price is stale, not a regression: pick another chat row the map prices at $0 and serves over the OpenAI wire
 UNPRICED_FREE_PROVIDER_MODEL: Final = "lemonade/Gemma-3-4b-it-GGUF"
@@ -331,7 +331,7 @@ def test_failed_free_primary_falls_back_to_hidden_free_alias_for_exhausted_key(r
         script_provider(rig, 2)
         served: Final = fresh_chat(rig.gateway, rig.failing_free, key, free_marker, {"fallbacks": [rig.hidden_free]})
         assert served.status_code == 200, served.text
-        assert served.headers["x-litellm-model-group"] == rig.hidden_free, dict(served.headers)
+        assert served.headers["x-hangarllm-model-group"] == rig.hidden_free, dict(served.headers)
         refused: Final = fresh_chat(rig.gateway, rig.failing_free, key, paid_marker, {"fallbacks": [rig.hidden_paid]})
         assert refused.status_code == 500, refused.text
         assert "Controlled provider failure" in refused.text, refused.text
@@ -350,7 +350,7 @@ def test_exhausted_key_is_served_a_cached_reply_through_hidden_free_alias(rig: A
         second: Final = fresh_chat(rig.gateway, rig.hidden_free, key, marker)
         assert second.status_code == 200, second.text
         assert second.json()["id"] == first.json()["id"], second.text
-        assert "x-litellm-cache-key" in second.headers, dict(second.headers)
+        assert "x-hangarllm-cache-key" in second.headers, dict(second.headers)
         assert upstream_hits(upstream_requests(rig.gateway.upstream_url), marker) == 1
         rows: Final = landed(key, marker)
         assert all(float(str(row["spend"])) == 0.0 for row in rows), rows
@@ -373,11 +373,11 @@ def _delete_proxy_budget_row(rig: AliasRig) -> None:
 
 @pytest.mark.timeout(480)
 def test_exhausted_proxy_budget_still_reaches_hidden_free_alias(rig: AliasRig, tmp_path: Path) -> None:
-    settings: Final = object_value(_base_config()["litellm_settings"])
+    settings: Final = object_value(_base_config()["hangarllm_settings"])
     config: Final = _own_config(
         tmp_path,
         "proxy-budget.yaml",
-        "litellm_settings",
+        "hangarllm_settings",
         {**settings, "max_budget": BUDGET, "budget_duration": "30d"},
     )
     with rig.gateway.scenario() as scenario:
@@ -397,7 +397,7 @@ def test_exhausted_proxy_budget_still_reaches_hidden_free_alias(rig: AliasRig, t
         assert unbudgeted.status_code == 200, unbudgeted.text
 
 
-_TAG_ADDER: Final = """from litellm.integrations.custom_guardrail import CustomGuardrail
+_TAG_ADDER: Final = """from hangarllm.integrations.custom_guardrail import CustomGuardrail
 
 
 class TagAdder(CustomGuardrail):
@@ -421,7 +421,7 @@ def test_guardrail_added_tag_over_budget_still_reaches_hidden_free_alias(rig: Al
         [
             {
                 "guardrail_name": "tag-adder-" + uuid.uuid4().hex,
-                "litellm_params": {"guardrail": f"{module}.TagAdder", "mode": "pre_call", "default_on": True},
+                "hangarllm_params": {"guardrail": f"{module}.TagAdder", "mode": "pre_call", "default_on": True},
             }
         ],
     )
@@ -544,7 +544,7 @@ def _reported_per_token_price(rig: AliasRig, group: str) -> tuple[float, float]:
 
 def _serving_deployment(candidate: Gateway, model: str) -> str | None:
     response: Final = fresh_chat(candidate, model, candidate.key, "route-" + uuid.uuid4().hex)
-    return response.headers.get("x-litellm-model-id") if response.status_code == 200 else None
+    return response.headers.get("x-hangarllm-model-id") if response.status_code == 200 else None
 
 
 def _routes_alike(candidate: Gateway, name: str, target: str) -> bool:
@@ -654,7 +654,7 @@ def _deployment_named(rig: AliasRig, scenario: Scenario, name: str, **parameters
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "integration-provider-key",
                 "api_base": f"{rig.gateway.upstream_url}/v1",
@@ -703,7 +703,7 @@ def _ptu_shadow_config(rig: AliasRig, directory: Path, name: str) -> Path:
     assert isinstance(base, list), base
     deployment: Final[JsonValue] = {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-4o-mini",
             "api_key": "integration-provider-key",
             "api_base": f"{rig.gateway.upstream_url}/v1",
@@ -896,7 +896,7 @@ def _assert_served_by(
     marker: Final = f"{prefix}-" + uuid.uuid4().hex
     served: Final = fresh_chat(candidate, name, key, marker)
     assert served.status_code == 200, served.text
-    assert served.headers["x-litellm-model-id"] in deployments, dict(served.headers)
+    assert served.headers["x-hangarllm-model-id"] in deployments, dict(served.headers)
     assert upstream_hits(upstream_requests(rig.gateway.upstream_url), marker) == 1
     response_id: Final = str(JSON_OBJECT.validate_json(served.content)["id"])
     row: Final = landed_once(key, marker)
@@ -1006,7 +1006,7 @@ def test_unauthenticated_request_to_a_shadowing_alias_is_rejected(rig: AliasRig)
         assert upstream_hits(upstream_requests(rig.gateway.upstream_url), marker) == 0
 
 
-# $0 comes from litellm's own cost-map row (model_prices_and_context_window.json, added 2025-12-08 in #17692). The cell
+# $0 comes from hangarllm's own cost-map row (model_prices_and_context_window.json, added 2025-12-08 in #17692). The cell
 # needs an embedding row priced $0 only by the map and served over the OpenAI wire; a row that gains a price is stale,
 # not a regression: pick another such row
 UNPRICED_FREE_EMBEDDING_MODEL: Final = "fireworks_ai/accounts/fireworks/models/qwen3-embedding-0p6b"
@@ -1076,7 +1076,7 @@ def test_removing_a_shadowing_alias_restores_the_explicitly_free_deployment(rig:
 
 
 ZERO_MODEL_BUDGET: Final[JsonValue] = {"budget_limit": 0, "time_period": "1d"}
-MODEL_BUDGET_SQL: Final = 'UPDATE "LiteLLM_VerificationToken" SET model_max_budget = %s::jsonb WHERE token = %s'
+MODEL_BUDGET_SQL: Final = 'UPDATE "HangarLLM_VerificationToken" SET model_max_budget = %s::jsonb WHERE token = %s'
 
 
 def _key_with_zero_model_budgets(scenario: Scenario, names: tuple[str, ...]) -> str:
@@ -1117,10 +1117,10 @@ def test_exhausted_key_is_not_served_a_cached_reply_through_a_shadowing_alias(ri
         warmed: Final = fresh_chat(rig.gateway, shadow, healthy, marker)
         assert warmed.status_code == 200, warmed.text
         assert warmed.json()["id"] == first.json()["id"], warmed.text
-        assert "x-litellm-cache-key" in warmed.headers, dict(warmed.headers)
+        assert "x-hangarllm-cache-key" in warmed.headers, dict(warmed.headers)
         refused: Final = fresh_chat(rig.gateway, shadow, exhausted, marker)
         _assert_budget_refusal(refused.status_code, refused.text)
-        assert "x-litellm-cache-key" not in refused.headers, dict(refused.headers)
+        assert "x-hangarllm-cache-key" not in refused.headers, dict(refused.headers)
         assert upstream_hits(upstream_requests(rig.gateway.upstream_url), marker) == 1
         _assert_no_served_row(exhausted, marker)
 
@@ -1155,7 +1155,7 @@ def _jwt_config(directory: Path) -> Path:
     settings: Final[JsonValue] = {
         **general,
         "enable_jwt_auth": True,
-        "litellm_jwtauth": {"team_id_jwt_field": "team_id"},
+        "hangarllm_jwtauth": {"team_id_jwt_field": "team_id"},
     }
     return _own_config(directory, "shadow-jwt.yaml", "general_settings", settings)
 
@@ -1209,12 +1209,12 @@ import os
 
 from fastapi import Request
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
 
 async def user_api_key_auth(request: Request, api_key: str) -> UserAPIKeyAuth:
-    if api_key == os.environ["LITELLM_MASTER_KEY"]:
-        return UserAPIKeyAuth(api_key=api_key, user_role=LitellmUserRoles.PROXY_ADMIN)
+    if api_key == os.environ["HANGARLLM_MASTER_KEY"]:
+        return UserAPIKeyAuth(api_key=api_key, user_role=HangarllmUserRoles.PROXY_ADMIN)
     if api_key != os.environ["INTEGRATION_CUSTOM_AUTH_KEY"]:
         raise Exception("unknown caller")
     budgets = {
@@ -1229,14 +1229,14 @@ def _custom_auth_config(directory: Path) -> Path:
     (directory / "custom_auth_double.py").write_text(CUSTOM_AUTH_DOUBLE)
     base: Final = _base_config()
     general: Final = object_value(base["general_settings"])
-    litellm_settings: Final = object_value(base["litellm_settings"])
+    hangarllm_settings: Final = object_value(base["hangarllm_settings"])
     path: Final = directory / "shadow-custom-auth.yaml"
     path.write_text(
         yaml.safe_dump(
             {
                 **base,
                 "general_settings": {**general, "custom_auth": "custom_auth_double.user_api_key_auth"},
-                "litellm_settings": {**litellm_settings, "enable_post_custom_auth_checks": True},
+                "hangarllm_settings": {**hangarllm_settings, "enable_post_custom_auth_checks": True},
             }
         )
     )

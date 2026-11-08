@@ -31,10 +31,10 @@ _VOLATILE = VOLATILE_KEYS | frozenset({"timestamp"})
 def _make_prisma_with_config(
     config_record=None,
 ):
-    """Build a MagicMock prisma_client with a ``db.litellm_config`` namespace.
+    """Build a MagicMock prisma_client with a ``db.hangarllm_config`` namespace.
 
-    The conftest's ``mock_prisma`` fixture stubs ``litellm_configtable`` but
-    the anthropic-beta routes use ``prisma_client.db.litellm_config`` —
+    The conftest's ``mock_prisma`` fixture stubs ``hangarllm_configtable`` but
+    the anthropic-beta routes use ``prisma_client.db.hangarllm_config`` —
     a different attribute. Build one here so each test gets isolated state.
     """
     config = MagicMock()
@@ -43,7 +43,7 @@ def _make_prisma_with_config(
     config.delete = AsyncMock()
 
     db = MagicMock()
-    db.litellm_config = config
+    db.hangarllm_config = config
 
     client = MagicMock()
     client.db = db
@@ -51,13 +51,13 @@ def _make_prisma_with_config(
 
 
 def _install_prisma(monkeypatch, prisma):
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     monkeypatch.setattr(ps, "prisma_client", prisma)
 
 
 def _stub_reload_beta_headers(monkeypatch, return_value=None):
-    """Replace ``litellm.anthropic_beta_headers_manager.reload_beta_headers_config``
+    """Replace ``hangarllm.anthropic_beta_headers_manager.reload_beta_headers_config``
     with a deterministic stub so the route never hits the network."""
     if return_value is None:
         return_value = {
@@ -66,7 +66,7 @@ def _stub_reload_beta_headers(monkeypatch, return_value=None):
             "provider_aliases": {"a": "b"},
             "description": "test",
         }
-    import litellm.anthropic_beta_headers_manager as mgr
+    import hangarllm.anthropic_beta_headers_manager as mgr
 
     stub = MagicMock(return_value=return_value)
     monkeypatch.setattr(mgr, "reload_beta_headers_config", stub)
@@ -81,13 +81,13 @@ def _stub_reload_beta_headers(monkeypatch, return_value=None):
 def test_reload_anthropic_beta_headers_admin_success(client, auth_as, monkeypatch):
     """Admin can trigger immediate reload — handler returns providers count and
     a success status. Pins the response dict shape."""
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     _stub_reload_beta_headers(monkeypatch)
     prisma = _make_prisma_with_config(config_record=None)
     _install_prisma(monkeypatch, prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.post("/reload/anthropic_beta_headers")
 
     assert response.status_code == 200
@@ -100,7 +100,7 @@ def test_reload_anthropic_beta_headers_admin_success(client, auth_as, monkeypatc
         "timestamp": "<VOLATILE>",
     }
     # And the upsert was actually invoked (force_reload write).
-    prisma.db.litellm_config.upsert.assert_awaited_once()
+    prisma.db.hangarllm_config.upsert.assert_awaited_once()
 
 
 def test_reload_anthropic_beta_headers_preserves_existing_interval(
@@ -109,7 +109,7 @@ def test_reload_anthropic_beta_headers_preserves_existing_interval(
     """When an existing reload config has an interval set, the force-reload
     write must preserve that interval (the route reads it back then upserts
     with the same number). This pins the read-then-write behaviour."""
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     _stub_reload_beta_headers(monkeypatch)
     existing = SimpleNamespace(
@@ -119,12 +119,12 @@ def test_reload_anthropic_beta_headers_preserves_existing_interval(
     prisma = _make_prisma_with_config(config_record=existing)
     _install_prisma(monkeypatch, prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.post("/reload/anthropic_beta_headers")
 
     assert response.status_code == 200
     # The update branch's interval_hours was sourced from the existing record.
-    call_kwargs = prisma.db.litellm_config.upsert.await_args.kwargs
+    call_kwargs = prisma.db.hangarllm_config.upsert.await_args.kwargs
     data = call_kwargs["data"]
     update_payload = data["update"]["param_value"]
     parsed = (
@@ -137,9 +137,9 @@ def test_reload_anthropic_beta_headers_preserves_existing_interval(
 
 
 def test_reload_anthropic_beta_headers_not_admin_forbidden(client, auth_as):
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER):
+    with auth_as(HangarllmUserRoles.INTERNAL_USER):
         response = client.post("/reload/anthropic_beta_headers")
 
     assert response.status_code == 403
@@ -148,11 +148,11 @@ def test_reload_anthropic_beta_headers_not_admin_forbidden(client, auth_as):
 
 def test_reload_anthropic_beta_headers_no_db_returns_500(client, auth_as, monkeypatch):
     """When prisma_client is None the handler raises 500 with a clear message."""
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     _install_prisma(monkeypatch, None)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.post("/reload/anthropic_beta_headers")
 
     assert response.status_code == 500
@@ -168,12 +168,12 @@ def test_schedule_anthropic_beta_headers_reload_admin_success(
     client, auth_as, monkeypatch
 ):
     """Happy path: admin schedules every N hours — response echoes interval."""
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     prisma = _make_prisma_with_config()
     _install_prisma(monkeypatch, prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.post(
             "/schedule/anthropic_beta_headers_reload", params={"hours": 6}
         )
@@ -185,19 +185,19 @@ def test_schedule_anthropic_beta_headers_reload_admin_success(
         "interval_hours": 6,
         "timestamp": "<VOLATILE>",
     }
-    prisma.db.litellm_config.upsert.assert_awaited_once()
+    prisma.db.hangarllm_config.upsert.assert_awaited_once()
 
 
 def test_schedule_anthropic_beta_headers_reload_zero_hours_400(
     client, auth_as, monkeypatch
 ):
     """``hours <= 0`` is rejected with 400 and a descriptive message."""
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     prisma = _make_prisma_with_config()
     _install_prisma(monkeypatch, prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.post(
             "/schedule/anthropic_beta_headers_reload", params={"hours": 0}
         )
@@ -207,9 +207,9 @@ def test_schedule_anthropic_beta_headers_reload_zero_hours_400(
 
 
 def test_schedule_anthropic_beta_headers_reload_not_admin_forbidden(client, auth_as):
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER):
+    with auth_as(HangarllmUserRoles.INTERNAL_USER):
         response = client.post(
             "/schedule/anthropic_beta_headers_reload", params={"hours": 6}
         )
@@ -220,9 +220,9 @@ def test_schedule_anthropic_beta_headers_reload_not_admin_forbidden(client, auth
 
 def test_schedule_anthropic_beta_headers_reload_missing_hours_422(client, auth_as):
     """``hours`` is a required query param — omitting it is a FastAPI 422."""
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.post("/schedule/anthropic_beta_headers_reload")
 
     assert response.status_code == 422
@@ -237,13 +237,13 @@ def test_schedule_anthropic_beta_headers_reload_missing_hours_422(client, auth_a
 def test_cancel_anthropic_beta_headers_reload_admin_success(
     client, auth_as, monkeypatch
 ):
-    """Admin cancel: deletes the LiteLLM_Config row and returns success dict."""
-    from litellm.proxy._types import LitellmUserRoles
+    """Admin cancel: deletes the HangarLLM_Config row and returns success dict."""
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     prisma = _make_prisma_with_config()
     _install_prisma(monkeypatch, prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.delete("/schedule/anthropic_beta_headers_reload")
 
     assert response.status_code == 200
@@ -252,15 +252,15 @@ def test_cancel_anthropic_beta_headers_reload_admin_success(
         "status": "success",
         "timestamp": "<VOLATILE>",
     }
-    prisma.db.litellm_config.delete.assert_awaited_once_with(
+    prisma.db.hangarllm_config.delete.assert_awaited_once_with(
         where={"param_name": "anthropic_beta_headers_reload_config"}
     )
 
 
 def test_cancel_anthropic_beta_headers_reload_not_admin_forbidden(client, auth_as):
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER):
+    with auth_as(HangarllmUserRoles.INTERNAL_USER):
         response = client.delete("/schedule/anthropic_beta_headers_reload")
 
     assert response.status_code == 403
@@ -270,11 +270,11 @@ def test_cancel_anthropic_beta_headers_reload_not_admin_forbidden(client, auth_a
 def test_cancel_anthropic_beta_headers_reload_no_db_returns_500(
     client, auth_as, monkeypatch
 ):
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     _install_prisma(monkeypatch, None)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.delete("/schedule/anthropic_beta_headers_reload")
 
     assert response.status_code == 500
@@ -291,8 +291,8 @@ def test_get_anthropic_beta_headers_reload_status_scheduled(
 ):
     """When a config row with ``interval_hours`` is present, ``scheduled`` is True
     and ``interval_hours`` echoes the DB value. Pins the full response shape."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy import proxy_server as ps
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     record = SimpleNamespace(
         param_name="anthropic_beta_headers_reload_config",
@@ -303,7 +303,7 @@ def test_get_anthropic_beta_headers_reload_status_scheduled(
     # No prior reload — next_run stays None.
     monkeypatch.setattr(ps, "last_anthropic_beta_headers_reload", None)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.get("/schedule/anthropic_beta_headers_reload/status")
 
     assert response.status_code == 200
@@ -319,11 +319,11 @@ def test_get_anthropic_beta_headers_reload_status_not_scheduled_no_db(
     client, auth_as, monkeypatch
 ):
     """No DB connection: handler returns the unscheduled-status dict (not 500)."""
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     _install_prisma(monkeypatch, None)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.get("/schedule/anthropic_beta_headers_reload/status")
 
     assert response.status_code == 200
@@ -339,7 +339,7 @@ def test_get_anthropic_beta_headers_reload_status_no_interval_unscheduled(
     client, auth_as, monkeypatch
 ):
     """Config row present but ``interval_hours`` is None → unscheduled response."""
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     record = SimpleNamespace(
         param_name="anthropic_beta_headers_reload_config",
@@ -348,7 +348,7 @@ def test_get_anthropic_beta_headers_reload_status_no_interval_unscheduled(
     prisma = _make_prisma_with_config(config_record=record)
     _install_prisma(monkeypatch, prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.get("/schedule/anthropic_beta_headers_reload/status")
 
     assert response.status_code == 200
@@ -361,9 +361,9 @@ def test_get_anthropic_beta_headers_reload_status_no_interval_unscheduled(
 
 
 def test_get_anthropic_beta_headers_reload_status_not_admin_forbidden(client, auth_as):
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER):
+    with auth_as(HangarllmUserRoles.INTERNAL_USER):
         response = client.get("/schedule/anthropic_beta_headers_reload/status")
 
     assert response.status_code == 403

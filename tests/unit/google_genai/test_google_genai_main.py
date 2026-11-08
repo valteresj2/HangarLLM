@@ -12,7 +12,7 @@ import pytest
 
 
 
-import litellm
+import hangarllm
 
 
 @pytest.mark.asyncio
@@ -22,7 +22,7 @@ async def test_agenerate_content_stream():
     """
     from unittest.mock import AsyncMock, patch
 
-    from litellm.google_genai.main import (
+    from hangarllm.google_genai.main import (
         agenerate_content_stream,
         base_llm_http_handler,
     )
@@ -72,7 +72,7 @@ NATIVE_TOP_LEVEL_FIELD_CASES = [
 @pytest.mark.parametrize("field_name, field_value", NATIVE_TOP_LEVEL_FIELD_CASES)
 def test_native_top_level_field_forwarded_to_request_body(field_name, field_value):
     """
-    Regression for https://github.com/BerriAI/litellm/issues/12671
+    Regression for upstream issue 12671
 
     Google's native generateContent body carries fields like safetySettings at the
     top level (siblings of generationConfig). The proxy spreads them as loose kwargs
@@ -81,8 +81,8 @@ def test_native_top_level_field_forwarded_to_request_body(field_name, field_valu
     """
     from unittest.mock import patch
 
-    from litellm.google_genai.main import generate_content
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.google_genai.main import generate_content
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     with patch.object(
         HTTPHandler, "post", return_value=_mock_gemini_post_response()
@@ -112,8 +112,8 @@ async def test_native_safety_settings_forwarded_async():
     native top-level fields."""
     from unittest.mock import AsyncMock, patch
 
-    from litellm.google_genai.main import agenerate_content
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.google_genai.main import agenerate_content
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     safety_settings = [
         {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"}
@@ -144,8 +144,8 @@ def test_native_fields_coexist_with_generation_config():
     generationConfig path; both must land in their correct positions."""
     from unittest.mock import patch
 
-    from litellm.google_genai.main import generate_content
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.google_genai.main import generate_content
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     safety_settings = [
         {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"}
@@ -174,8 +174,8 @@ def test_explicit_extra_body_overrides_native_top_level_field():
     """An explicit extra_body value takes precedence over the same top-level field."""
     from unittest.mock import patch
 
-    from litellm.google_genai.main import generate_content
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.google_genai.main import generate_content
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     native = [{"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"}]
     override = [
@@ -204,8 +204,8 @@ def test_native_fields_and_system_instruction_forwarded_on_sync_stream():
     systemInstruction kwarg; without coverage a regression on either ships green."""
     from unittest.mock import patch
 
-    from litellm.google_genai.main import generate_content_stream
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.google_genai.main import generate_content_stream
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     safety_settings = [
         {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"}
@@ -237,8 +237,8 @@ async def test_native_fields_forwarded_on_async_stream():
     :streamGenerateContent route and must forward native top-level fields too."""
     from unittest.mock import AsyncMock, patch
 
-    from litellm.google_genai.main import agenerate_content_stream
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.google_genai.main import agenerate_content_stream
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     safety_settings = [
         {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"}
@@ -268,8 +268,8 @@ async def test_native_fields_forwarded_on_async_stream():
 def test_vertex_generate_content_routes_by_deployment_base_model(base_model, uses_native_api):
     import datetime
 
-    from litellm.google_genai.main import GenerateContentHelper
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.google_genai.main import GenerateContentHelper
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     logging_obj = Logging(
         model="vertex_ai/openai/tuned-endpoint",
@@ -277,13 +277,13 @@ def test_vertex_generate_content_routes_by_deployment_base_model(base_model, use
         stream=False,
         call_type="agenerate_content",
         start_time=datetime.datetime.now(),
-        litellm_call_id="route-test",
+        hangarllm_call_id="route-test",
         function_id="route-test",
     )
     setup = GenerateContentHelper.setup_generate_content_call(
         model="vertex_ai/openai/tuned-endpoint",
         contents=[{"role": "user", "parts": [{"text": "Say hi"}]}],
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         **({} if base_model is None else {"base_model": base_model}),
     )
 
@@ -303,32 +303,32 @@ def vertex_regional_uplift_rate_card(monkeypatch: pytest.MonkeyPatch) -> Iterato
         "output_cost_per_token": _UPLIFT_OUTPUT_RATE,
         "mode": "chat",
     }
-    monkeypatch.setitem(litellm.model_cost, _UPLIFT_PROBE, {**rates, "litellm_provider": "vertex_ai-language-models"})
-    monkeypatch.setattr(litellm, "vertex_language_models", {*litellm.vertex_language_models, _UPLIFT_PROBE})
+    monkeypatch.setitem(hangarllm.model_cost, _UPLIFT_PROBE, {**rates, "hangarllm_provider": "vertex_ai-language-models"})
+    monkeypatch.setattr(hangarllm, "vertex_language_models", {*hangarllm.vertex_language_models, _UPLIFT_PROBE})
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         f"vertex_ai/{_UPLIFT_PROBE}",
         {
             **rates,
-            "litellm_provider": "vertex_ai-language-models",
+            "hangarllm_provider": "vertex_ai-language-models",
             "regional_endpoint_uplift_multiplier": _UPLIFT_MULTIPLIER,
         },
     )
     monkeypatch.delenv("VERTEXAI_LOCATION", raising=False)
     monkeypatch.delenv("VERTEX_LOCATION", raising=False)
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 async def _logged_vertex_generate_content_cost(location: str, *, stream: bool) -> float:
     import asyncio
     import datetime
 
-    from litellm.google_genai.main import GenerateContentHelper
-    from litellm.google_genai.streaming_iterator import BaseGoogleGenAIGenerateContentStreamingIterator
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.types.google_genai.main import GenerateContentResponse
+    from hangarllm.google_genai.main import GenerateContentHelper
+    from hangarllm.google_genai.streaming_iterator import BaseGoogleGenAIGenerateContentStreamingIterator
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.types.google_genai.main import GenerateContentResponse
 
     reply: Final = {
         "candidates": [{"content": {"role": "model", "parts": [{"text": "hi"}]}, "finishReason": "STOP"}],
@@ -341,19 +341,19 @@ async def _logged_vertex_generate_content_cost(location: str, *, stream: bool) -
         stream=stream,
         call_type="agenerate_content_stream" if stream else "agenerate_content",
         start_time=datetime.datetime(2026, 1, 1),
-        litellm_call_id="uplift-test",
+        hangarllm_call_id="uplift-test",
         function_id="uplift-test",
     )
     setup: Final = GenerateContentHelper.setup_generate_content_call(
         model=f"vertex_ai/{_UPLIFT_PROBE}",
         contents=[{"role": "user", "parts": [{"text": "hi"}]}],
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         vertex_location=location,
         stream=stream,
     )
     if stream:
         iterator: Final = BaseGoogleGenAIGenerateContentStreamingIterator(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             request_body={},
             model=setup.model,
             custom_llm_provider=setup.custom_llm_provider,

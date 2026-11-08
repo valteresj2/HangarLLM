@@ -1,5 +1,5 @@
 """
-Unit tests for per-service SSL support in LiteLLM.
+Unit tests for per-service SSL support in HangarLLM.
 
 These tests verify that ssl_verify parameters are correctly propagated
 through the call stack without requiring live API credentials.
@@ -9,11 +9,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-import litellm.proxy.guardrails.guardrail_hooks.aim.aim as _aim_module
-import litellm.proxy.guardrails.guardrail_hooks.cato_networks.cato_networks as _cato_networks_module
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.proxy.guardrails.guardrail_hooks.aim.aim import AimGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.cato_networks.cato_networks import CatoNetworksGuardrail
+import hangarllm.proxy.guardrails.guardrail_hooks.aim.aim as _aim_module
+import hangarllm.proxy.guardrails.guardrail_hooks.cato_networks.cato_networks as _cato_networks_module
+from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
+from hangarllm.proxy.guardrails.guardrail_hooks.aim.aim import AimGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.cato_networks.cato_networks import CatoNetworksGuardrail
 
 
 class TestBaseAWSLLMSSLVerify:
@@ -40,7 +40,7 @@ class TestBaseAWSLLMSSLVerify:
         """Test that _get_ssl_verify falls back to environment/global when no parameter."""
         base_llm = BaseAWSLLM()
 
-        # Should fall back to environment or global litellm.ssl_verify
+        # Should fall back to environment or global hangarllm.ssl_verify
         result = base_llm._get_ssl_verify()
         # Result depends on environment, just verify it doesn't crash
         assert result is not None or result is None  # Can be None, True, False, or path
@@ -135,8 +135,8 @@ class TestHTTPHandlerSSLVerify:
 
     def test_get_async_httpx_client_accepts_ssl_verify_in_params(self):
         """Test that get_async_httpx_client accepts ssl_verify in params dict."""
-        from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-        from litellm.types.llms.custom_http import httpxSpecialProvider
+        from hangarllm.llms.custom_httpx.http_handler import get_async_httpx_client
+        from hangarllm.types.llms.custom_http import httpxSpecialProvider
 
         # Call with ssl_verify in params
         cert_path = "/path/to/cert.pem"

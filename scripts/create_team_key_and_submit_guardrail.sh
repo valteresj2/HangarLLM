@@ -65,7 +65,7 @@ REGISTER_RESP=$(curl -s -X POST "${BASE_URL}/guardrails/register" \
   -H "Content-Type: application/json" \
   -d "{
     \"guardrail_name\": \"${GUARDRAIL_NAME}\",
-    \"litellm_params\": {
+    \"hangarllm_params\": {
       \"guardrail\": \"generic_guardrail_api\",
       \"mode\": \"pre_call\",
       \"api_base\": \"https://example.com/guardrail\"

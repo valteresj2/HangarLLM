@@ -83,7 +83,7 @@ def grep_arguments(seed: str, tokens: int) -> str:
     paths: Final = file_paths(f"{seed}:grep", max(1, tokens * CHARS_PER_TOKEN // 56))
     arguments: Final = {
         "pattern": r"\braise\s+\w+",
-        "path": "/workspace/litellm/tests/e2e",
+        "path": "/workspace/hangarllm/tests/e2e",
         "glob": "{" + ",".join(paths) + "}",
     }
     return json.dumps(arguments, separators=(",", ":"))

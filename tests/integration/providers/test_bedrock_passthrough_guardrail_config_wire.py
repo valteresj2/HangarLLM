@@ -315,44 +315,44 @@ def rig(session_gateway: Gateway, tmp_path_factory: pytest.TempPathFactory) -> I
                 *base_config.get("model_list", []),
                 {
                     "model_name": guarded_model,
-                    "litellm_params": _deployment(wire, _DEPLOYMENT_GUARDRAIL),
+                    "hangarllm_params": _deployment(wire, _DEPLOYMENT_GUARDRAIL),
                 },
-                {"model_name": unguarded_model, "litellm_params": _deployment(wire)},
+                {"model_name": unguarded_model, "hangarllm_params": _deployment(wire)},
                 {
                     "model_name": balanced_model,
-                    "litellm_params": _deployment(
+                    "hangarllm_params": _deployment(
                         wire_a, {"guardrailIdentifier": "guardrail-a", "guardrailVersion": "1"}
                     ),
                 },
                 {
                     "model_name": balanced_model,
-                    "litellm_params": _deployment(
+                    "hangarllm_params": _deployment(
                         wire_b, {"guardrailIdentifier": "guardrail-b", "guardrailVersion": "2"}
                     ),
                 },
                 {
                     "model_name": failing_model,
-                    "litellm_params": _deployment(
+                    "hangarllm_params": _deployment(
                         failing_wire,
                         {"guardrailIdentifier": "failing-guardrail", "guardrailVersion": "5", "trace": "enabled"},
                     ),
                 },
                 {
                     "model_name": fallback_model,
-                    "litellm_params": _deployment(
+                    "hangarllm_params": _deployment(
                         fallback_wire,
                         {"guardrailIdentifier": "fallback-guardrail", "guardrailVersion": "6", "trace": "enabled"},
                     ),
                 },
                 {
                     "model_name": versionless_model,
-                    "litellm_params": _deployment(
+                    "hangarllm_params": _deployment(
                         wire, {"guardrailIdentifier": "versionless-guardrail", "trace": "enabled"}
                     ),
                 },
                 {
                     "model_name": mantle_model,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "bedrock_mantle/anthropic.claude-sonnet-5",
                         "api_base": wire.url,
                         "api_key": _MANTLE_KEY,

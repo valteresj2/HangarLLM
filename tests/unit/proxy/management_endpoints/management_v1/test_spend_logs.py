@@ -6,17 +6,17 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
-from litellm.proxy._types import LiteLLMRoutes, LitellmUserRoles
-from litellm.proxy.auth.authorization_dependencies import get_log_team_lookup
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
-from litellm.proxy.list_api.common import (
+from hangarllm.proxy._types import HangarLLMRoutes, HangarllmUserRoles
+from hangarllm.proxy.auth.authorization_dependencies import get_log_team_lookup
+from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
+from hangarllm.proxy.list_api.common import (
     PROBLEM_TYPE_BASE,
     ManagementProblem,
     problem_response,
 )
-from litellm.proxy.management_endpoints.management_v1 import router
-from litellm.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
-from litellm.types.proxy.management_endpoints.management_v1 import ProblemDetail
+from hangarllm.proxy.management_endpoints.management_v1 import router
+from hangarllm.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
+from hangarllm.types.proxy.management_endpoints.management_v1 import ProblemDetail
 
 app = FastAPI()
 
@@ -53,14 +53,14 @@ WINDOW = "filter[startTime][gte]=2026-07-23T00:00:00Z&filter[startTime][lte]=202
 def mock_prisma_client(monkeypatch):
     prisma_client = MagicMock()
     prisma_client.db.query_raw = AsyncMock(return_value=())
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma_client)
     return prisma_client
 
 
 @pytest.fixture
 def as_proxy_admin():
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN
+        user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN
     )
     yield
     app.dependency_overrides.clear()
@@ -72,7 +72,7 @@ def _mock_rows(mock_prisma_client, end_users: list[str]) -> AsyncMock:
     return query_raw
 
 
-def _as_role(role: LitellmUserRoles, user_id, log_team_lookup):
+def _as_role(role: HangarllmUserRoles, user_id, log_team_lookup):
     original = app.dependency_overrides.copy()
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_id=user_id, user_role=role)
     app.dependency_overrides[get_log_team_lookup] = lambda: log_team_lookup
@@ -134,13 +134,13 @@ def test_reads_spend_logs_not_the_end_user_table(mock_prisma_client, as_proxy_ad
     _get()
 
     sql = query_raw.call_args.args[0]
-    assert '"LiteLLM_SpendLogs"' in sql
-    assert "LiteLLM_EndUserTable" not in sql
+    assert '"HangarLLM_SpendLogs"' in sql
+    assert "HangarLLM_EndUserTable" not in sql
 
 
 def test_caps_the_rows_it_scans(mock_prisma_client, as_proxy_admin):
     """The inner LIMIT is the crash guard: DISTINCT must never see an unbounded set."""
-    from litellm.proxy.management_endpoints.management_v1.spend_logs import (
+    from hangarllm.proxy.management_endpoints.management_v1.spend_logs import (
         SPEND_LOGS_FACET_SCAN_CAP,
     )
 
@@ -161,10 +161,10 @@ def test_scan_cap_matches_the_logs_page_bound():
     Asserting the param equals the constant is tautological: raising the constant
     to a billion keeps that assertion green while removing the bound entirely.
     """
-    from litellm.proxy.management_endpoints.management_v1.spend_logs import (
+    from hangarllm.proxy.management_endpoints.management_v1.spend_logs import (
         SPEND_LOGS_FACET_SCAN_CAP,
     )
-    from litellm.proxy.spend_tracking.spend_management_endpoints import (
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import (
         SPEND_LOGS_PAGINATION_COUNT_CAP,
     )
 
@@ -233,14 +233,14 @@ def test_rejects_a_malformed_window_as_a_problem_document(mock_prisma_client, as
 
 def test_problem_type_is_an_identifier_not_a_dead_docs_link(mock_prisma_client, as_proxy_admin):
     """RFC 9457 only asks that `type` identify the problem type. An https URI promises
-    human-readable documentation at that address, and https://docs.litellm.ai/errors/
+    human-readable documentation at that address, and https://github.com/valteresj2/HangarLLM#readme
     is a 404, so emitting one would ship a broken link in every error body."""
     _mock_rows(mock_prisma_client, [])
 
     problem_type = _get("filter[startTime][gte]=yesterday&filter[startTime][lte]=2026-07-24T00:00:00Z").json()["type"]
 
     assert problem_type.startswith("urn:")
-    assert "docs.litellm.ai" not in problem_type
+    assert "github.com/valteresj2/HangarLLM#readme" not in problem_type
     assert not problem_type.startswith("http")
 
 
@@ -281,7 +281,7 @@ def test_applies_no_scope_for_a_proxy_admin(mock_prisma_client, as_proxy_admin):
     assert "team_id" not in sql
 
 
-@pytest.mark.parametrize("role", [LitellmUserRoles.INTERNAL_USER, LitellmUserRoles.INTERNAL_USER_VIEW_ONLY])
+@pytest.mark.parametrize("role", [HangarllmUserRoles.INTERNAL_USER, HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY])
 def test_scopes_a_team_admin_to_their_own_rows_and_teams(mock_prisma_client, role):
     """A team admin must not see end users belonging to teams they cannot read."""
     query_raw = _mock_rows(mock_prisma_client, ["cust-a"])
@@ -300,7 +300,7 @@ def test_scopes_a_team_admin_to_their_own_rows_and_teams(mock_prisma_client, rol
 
 def test_scopes_a_teamless_user_to_their_own_rows(mock_prisma_client):
     query_raw = _mock_rows(mock_prisma_client, [])
-    original = _as_role(LitellmUserRoles.INTERNAL_USER, user_id="solo", log_team_lookup=AsyncMock(return_value=()))
+    original = _as_role(HangarllmUserRoles.INTERNAL_USER, user_id="solo", log_team_lookup=AsyncMock(return_value=()))
     try:
         response = _get()
     finally:
@@ -316,7 +316,7 @@ def test_scopes_a_teamless_user_to_their_own_rows(mock_prisma_client):
 def test_returns_nothing_when_the_caller_owns_no_scope(mock_prisma_client):
     """Unidentifiable caller must match no rows, never fall through to unscoped."""
     query_raw = _mock_rows(mock_prisma_client, [])
-    original = _as_role(LitellmUserRoles.INTERNAL_USER, user_id=None, log_team_lookup=AsyncMock(return_value=()))
+    original = _as_role(HangarllmUserRoles.INTERNAL_USER, user_id=None, log_team_lookup=AsyncMock(return_value=()))
     try:
         response = _get()
     finally:
@@ -330,7 +330,7 @@ def test_scopes_when_the_permitted_team_lookup_fails(mock_prisma_client):
     """A failed team lookup must degrade to own-rows-only, never to unscoped."""
     query_raw = _mock_rows(mock_prisma_client, [])
     original = _as_role(
-        LitellmUserRoles.INTERNAL_USER, user_id="solo", log_team_lookup=AsyncMock(side_effect=RuntimeError("db down"))
+        HangarllmUserRoles.INTERNAL_USER, user_id="solo", log_team_lookup=AsyncMock(side_effect=RuntimeError("db down"))
     )
     try:
         response = _get()
@@ -411,7 +411,7 @@ def test_user_facet_uses_the_same_team_scope_as_request_logs(mock_prisma_client)
     query_raw = AsyncMock(return_value=[{"user": "member@example.com"}])
     mock_prisma_client.db.query_raw = query_raw
     original = _as_role(
-        LitellmUserRoles.INTERNAL_USER, user_id="team-admin-1", log_team_lookup=AsyncMock(return_value=("team-a",))
+        HangarllmUserRoles.INTERNAL_USER, user_id="team-admin-1", log_team_lookup=AsyncMock(return_value=("team-a",))
     )
     try:
         response = _get_users()
@@ -437,10 +437,10 @@ def test_user_facet_searches_the_internal_user_value(mock_prisma_client, as_prox
 @pytest.mark.parametrize(
     "role",
     [
-        LitellmUserRoles.PROXY_ADMIN,
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
-        LitellmUserRoles.INTERNAL_USER,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+        HangarllmUserRoles.PROXY_ADMIN,
+        HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        HangarllmUserRoles.INTERNAL_USER,
+        HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY,
     ],
 )
 def test_is_reachable_by_every_role_that_can_open_the_logs_page(role):
@@ -448,21 +448,21 @@ def test_is_reachable_by_every_role_that_can_open_the_logs_page(role):
 
     Handler-side team scoping is dead code if RouteChecks rejects the role first.
     """
-    from litellm.proxy.auth.route_checks import RouteChecks
+    from hangarllm.proxy.auth.route_checks import RouteChecks
 
     for facet_path in (END_USERS_PATH, USERS_PATH):
         for allowed in (
-            LiteLLMRoutes.internal_user_routes.value,
-            LiteLLMRoutes.internal_user_view_only_routes.value,
+            HangarLLMRoutes.internal_user_routes.value,
+            HangarLLMRoutes.internal_user_view_only_routes.value,
         ):
             assert ("/spend/logs/ui" in allowed) == (facet_path in allowed)
 
-        if role in (LitellmUserRoles.INTERNAL_USER, LitellmUserRoles.INTERNAL_USER_VIEW_ONLY):
+        if role in (HangarllmUserRoles.INTERNAL_USER, HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY):
             allowed_routes = (
-                LiteLLMRoutes.internal_user_routes.value
-                if role == LitellmUserRoles.INTERNAL_USER
-                else LiteLLMRoutes.internal_user_view_only_routes.value
+                HangarLLMRoutes.internal_user_routes.value
+                if role == HangarllmUserRoles.INTERNAL_USER
+                else HangarLLMRoutes.internal_user_view_only_routes.value
             )
             assert RouteChecks.check_route_access(route=facet_path, allowed_routes=allowed_routes)
         else:
-            assert facet_path in LiteLLMRoutes.admin_viewer_routes.value
+            assert facet_path in HangarLLMRoutes.admin_viewer_routes.value

@@ -7,7 +7,7 @@ import pytest
 from e2e_config import unique_marker
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from sdk_clients import SdkClients
 
@@ -41,7 +41,7 @@ class TestBedrockGuardrail:
         model_name: Final = f"bedrock-guardrail-{unique_marker()}"
         model_id: Final = proxy.create_model(
             model_name,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=BEDROCK_MODEL,
                 aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
                 aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",

@@ -103,13 +103,13 @@ def percentile(values: Sequence[float], quantile: float) -> float:
 
 
 def verify(response: object, expected_transport: str) -> None:
-    from litellm.litellm_core_utils.add_retry_fallback_headers import get_hidden_params_dict
+    from hangarllm.hangarllm_core_utils.add_retry_fallback_headers import get_hidden_params_dict
 
     pages: Final = getattr(response, "pages", ())
     if len(pages) != 1 or getattr(pages[0], "markdown", None) != EXPECTED_MARKDOWN:
         raise RuntimeError(f"unexpected OCR response: {response!r}")
     additional_headers: Final = get_hidden_params_dict(response).get("additional_headers")
-    rust_served: Final = isinstance(additional_headers, dict) and additional_headers.get("x-litellm-rust") == "true"
+    rust_served: Final = isinstance(additional_headers, dict) and additional_headers.get("x-hangarllm-rust") == "true"
     if rust_served != (expected_transport == "rust"):
         raise RuntimeError(f"unexpected transport for {expected_transport}: rust_marker={rust_served}")
 
@@ -129,12 +129,12 @@ def summarize(label: str, mode: str, size: int, samples: Sequence[float]) -> Res
 
 
 def sync_samples(
-    litellm: object, url: str, request_document: dict[str, str], count: int, expected_transport: str
+    hangarllm: object, url: str, request_document: dict[str, str], count: int, expected_transport: str
 ) -> tuple[float, ...]:
     samples: list[float] = []
     for _ in range(count):
         started: Final = time.perf_counter()
-        response: Final = litellm.ocr(
+        response: Final = hangarllm.ocr(
             model=MODEL, document=request_document, api_base=url, api_key="mock-key", timeout=30
         )
         samples.append(time.perf_counter() - started)
@@ -143,12 +143,12 @@ def sync_samples(
 
 
 async def async_samples(
-    litellm: object, url: str, request_document: dict[str, str], count: int, expected_transport: str
+    hangarllm: object, url: str, request_document: dict[str, str], count: int, expected_transport: str
 ) -> tuple[float, ...]:
     samples: list[float] = []
     for _ in range(count):
         started: Final = time.perf_counter()
-        response: Final = await litellm.aocr(
+        response: Final = await hangarllm.aocr(
             model=MODEL, document=request_document, api_base=url, api_key="mock-key", timeout=30
         )
         samples.append(time.perf_counter() - started)
@@ -167,8 +167,8 @@ async def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     args: Final = parser.parse_args()
 
-    import litellm
-    from litellm.integrations.custom_logger import CustomLogger
+    import hangarllm
+    from hangarllm.integrations.custom_logger import CustomLogger
 
     class NoopCallback(CustomLogger):
         def __init__(self) -> None:
@@ -195,21 +195,21 @@ async def main() -> int:
         "_async_success_callback",
         "_async_failure_callback",
     )
-    if any(getattr(litellm, name) for name in registry_names):
+    if any(getattr(hangarllm, name) for name in registry_names):
         raise RuntimeError("benchmark requires initially empty callback registrations")
     callback: Final = NoopCallback()
     if args.callbacks == "noop":
-        litellm.callbacks.append(callback)
+        hangarllm.callbacks.append(callback)
 
-    rust_toggle: Final = getattr(litellm, "rust", None)
+    rust_toggle: Final = getattr(hangarllm, "rust", None)
     if callable(rust_toggle):
         rust_toggle(False)
-    package: Final = Path(litellm.__file__).resolve()
-    version: Final = importlib.metadata.version("litellm")
+    package: Final = Path(hangarllm.__file__).resolve()
+    version: Final = importlib.metadata.version("hangarllm")
     native_path: str | None = None
     native_sha256: str | None = None
     try:
-        from litellm.rust_bridge import _native
+        from hangarllm.rust_bridge import _native
 
         native: Final = Path(_native.__file__).resolve()
         native_path = str(native)
@@ -225,20 +225,20 @@ async def main() -> int:
     try:
         for size in args.sizes:
             request_document: Final = document(size)
-            sync_samples(litellm, url, request_document, args.warmup, args.expected_transport)
+            sync_samples(hangarllm, url, request_document, args.warmup, args.expected_transport)
             sync_result: Final = summarize(
                 args.label,
                 "sync",
                 size,
-                sync_samples(litellm, url, request_document, args.iterations, args.expected_transport),
+                sync_samples(hangarllm, url, request_document, args.iterations, args.expected_transport),
             )
             results.append(sync_result)
-            await async_samples(litellm, url, request_document, args.warmup, args.expected_transport)
+            await async_samples(hangarllm, url, request_document, args.warmup, args.expected_transport)
             async_result: Final = summarize(
                 args.label,
                 "async",
                 size,
-                await async_samples(litellm, url, request_document, args.iterations, args.expected_transport),
+                await async_samples(hangarllm, url, request_document, args.iterations, args.expected_transport),
             )
             results.append(async_result)
             sys.stdout.write(json.dumps(asdict(sync_result)) + "\n")
@@ -249,8 +249,8 @@ async def main() -> int:
         server.server_close()
         thread.join()
 
-    from litellm.litellm_core_utils.litellm_logging import executor
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import executor
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     await GLOBAL_LOGGING_WORKER.flush()
     await asyncio.to_thread(executor.shutdown, wait=True)
@@ -262,7 +262,7 @@ async def main() -> int:
             per_mode,
         ):
             raise RuntimeError(f"callback delivery mismatch: {vars(callback)}")
-    elif any(getattr(litellm, name) for name in registry_names):
+    elif any(getattr(hangarllm, name) for name in registry_names):
         raise RuntimeError("callback registrations appeared in the no-callback case")
     await GLOBAL_LOGGING_WORKER.stop()
 

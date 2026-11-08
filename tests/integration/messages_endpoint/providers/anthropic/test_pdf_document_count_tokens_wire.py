@@ -138,7 +138,7 @@ def _peer_message(identity: str) -> Reply:
 
 def _prompt_tokens(call_id: str) -> int:
     rows: Final = eventually(
-        lambda: read_rows('SELECT prompt_tokens FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s', (call_id,)),
+        lambda: read_rows('SELECT prompt_tokens FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s', (call_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -283,8 +283,8 @@ def test_a_cached_pdf_message_keeps_the_peer_usage_on_both_spend_rows(
     assert (first.status_code, second.status_code) == (200, 200), (first.text, second.text)
     assert [(request.method, request.target) for request in provider.received()] == [("POST", "/v1/messages")]
     assert _JSON_OBJECT.validate_json(second.content)["id"] == f"msg_{marker}", second.text
-    assert first.headers["x-litellm-call-id"] != second.headers["x-litellm-call-id"]
-    assert [_prompt_tokens(response.headers["x-litellm-call-id"]) for response in (first, second)] == [
+    assert first.headers["x-hangarllm-call-id"] != second.headers["x-hangarllm-call-id"]
+    assert [_prompt_tokens(response.headers["x-hangarllm-call-id"]) for response in (first, second)] == [
         _PEER_INPUT_TOKENS,
         _PEER_INPUT_TOKENS,
     ]

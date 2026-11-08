@@ -14,27 +14,27 @@ from fastapi.testclient import TestClient
 from starlette.routing import WebSocketRoute
 from starlette.websockets import WebSocketDisconnect
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.constants import WEBSOCKET_CLOSE_REASON_MAX_BYTES
-from litellm.litellm_core_utils.get_model_cost_map import adopt_model_cost_map
-from litellm.llms.deepgram.common_utils import DeepgramSpeakMeter
-from litellm.proxy._lazy_features import LAZY_FEATURES
-from litellm.proxy._types import LiteLLMRoutes, UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import cache_key_object
-from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.constants import WEBSOCKET_CLOSE_REASON_MAX_BYTES
+from hangarllm.hangarllm_core_utils.get_model_cost_map import adopt_model_cost_map
+from hangarllm.llms.deepgram.common_utils import DeepgramSpeakMeter
+from hangarllm.proxy._lazy_features import LAZY_FEATURES
+from hangarllm.proxy._types import HangarLLMRoutes, UserAPIKeyAuth
+from hangarllm.proxy.auth.auth_checks import cache_key_object
+from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
     _websocket_relay,
     deepgram_listen_websocket_route,
     deepgram_speak_websocket_route,
     router,
 )
-from litellm.proxy.utils import hash_token
-from litellm.types.passthrough_endpoints.pass_through_endpoints import WebSocketSessionMeter
+from hangarllm.proxy.utils import hash_token
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import WebSocketSessionMeter
 
 GET_CREDENTIALS: Final = (
-    "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials"
+    "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials"
 )
-USER_API_KEY_AUTH: Final = "litellm.proxy.auth.user_api_key_auth.user_api_key_auth"
+USER_API_KEY_AUTH: Final = "hangarllm.proxy.auth.user_api_key_auth.user_api_key_auth"
 LISTEN_PATHS: Final = ("/deepgram/v1/listen", "/deepgram/listen")
 SPEAK_PATHS: Final = ("/deepgram/v1/speak", "/deepgram/speak")
 NOVA_2_STREAMING_KEY: Final = "deepgram/streaming/nova-2"
@@ -44,13 +44,13 @@ pytestmark: Final = pytest.mark.usefixtures("local_model_cost_map")
 
 def _price_nova_2_streaming(monkeypatch: pytest.MonkeyPatch) -> None:
     """An operator-supplied streaming row: the bundled map prices only nova-3 for streaming."""
-    monkeypatch.setitem(litellm.model_cost, NOVA_2_STREAMING_KEY, dict(litellm.model_cost["deepgram/streaming/nova-3"]))
+    monkeypatch.setitem(hangarllm.model_cost, NOVA_2_STREAMING_KEY, dict(hangarllm.model_cost["deepgram/streaming/nova-3"]))
 
 
 class _FakeWebSocket:
     def __init__(self, path: str, query: str) -> None:
         self.url = SimpleNamespace(path=path, query=query)
-        self.headers = {"authorization": "Bearer sk-litellm-virtual", "x-api-key": "sk-caller-secret"}
+        self.headers = {"authorization": "Bearer sk-hangarllm-virtual", "x-api-key": "sk-caller-secret"}
         self.accepts: list[str | None] = []
         self.closed: tuple[int, str] | None = None
 
@@ -122,7 +122,7 @@ def test_deepgram_listen_is_a_lazily_loaded_mapped_pass_through_route(path):
     billed as a mapped pass-through route like the other provider prefixes."""
     feature = next(feature for feature in LAZY_FEATURES if feature.name == "llm_passthrough")
     assert feature.matches(path)
-    assert any(path.startswith(prefix) for prefix in LiteLLMRoutes.mapped_pass_through_routes.value)
+    assert any(path.startswith(prefix) for prefix in HangarLLMRoutes.mapped_pass_through_routes.value)
 
 
 @pytest.mark.asyncio
@@ -130,7 +130,7 @@ def test_deepgram_listen_is_a_lazily_loaded_mapped_pass_through_route(path):
 async def test_deepgram_listen_forwards_query_and_injects_only_provider_auth(path, monkeypatch):
     monkeypatch.delenv("DEEPGRAM_API_BASE", raising=False)
     websocket = _FakeWebSocket(path, "encoding=linear16&sample_rate=16000&keywords=hi%3A2&keywords=there")
-    caller = UserAPIKeyAuth(api_key="sk-litellm-virtual", team_id="team-stt")
+    caller = UserAPIKeyAuth(api_key="sk-hangarllm-virtual", team_id="team-stt")
 
     with patch(GET_CREDENTIALS, return_value="dg-provider-key") as get_credentials:
         relay = await _serve(websocket, caller)
@@ -272,8 +272,8 @@ async def test_deepgram_listen_refuses_sessions_it_cannot_price(query, missing_k
     """A session with no streaming price would be logged at zero (or at the pre-recorded rate), letting a caller run
     up unmetered spend, so the proxy closes it before Deepgram is contacted and names the registry row to add."""
     monkeypatch.delenv("DEEPGRAM_API_BASE", raising=False)
-    monkeypatch.delitem(litellm.model_cost, missing_key, raising=False)
-    assert "deepgram/nova-2" in litellm.model_cost
+    monkeypatch.delitem(hangarllm.model_cost, missing_key, raising=False)
+    assert "deepgram/nova-2" in hangarllm.model_cost
     websocket = _FakeWebSocket("/deepgram/v1/listen", query)
 
     with patch(GET_CREDENTIALS, return_value="dg-provider-key"):
@@ -323,7 +323,7 @@ def _app_with_relay(relay: _FakeRelay) -> FastAPI:
     return app
 
 
-def test_deepgram_listen_rejects_connections_without_a_litellm_key():
+def test_deepgram_listen_rejects_connections_without_a_hangarllm_key():
     relay = _FakeRelay()
     client = TestClient(_app_with_relay(relay))
 
@@ -349,7 +349,7 @@ def test_deepgram_listen_callback_rejection_reaches_the_client_as_a_policy_close
         with pytest.raises(WebSocketDisconnect) as disconnect:
             with client.websocket_connect(
                 "/deepgram/v1/listen?model=nova-3&callback=https%3A%2F%2Fsink.example%2Fdg",
-                headers={"Authorization": "Bearer sk-litellm-virtual"},
+                headers={"Authorization": "Bearer sk-hangarllm-virtual"},
             ) as connection:
                 connection.receive_text()
 
@@ -358,11 +358,11 @@ def test_deepgram_listen_callback_rejection_reaches_the_client_as_a_policy_close
     assert relay.calls == []
 
 
-def test_deepgram_listen_authenticates_the_litellm_key_and_relays_to_deepgram(monkeypatch):
+def test_deepgram_listen_authenticates_the_hangarllm_key_and_relays_to_deepgram(monkeypatch):
     monkeypatch.delenv("DEEPGRAM_API_BASE", raising=False)
     relay = _FakeRelay()
     client = TestClient(_app_with_relay(relay))
-    caller = UserAPIKeyAuth(api_key="hashed-sk-litellm", team_id="team-stt")
+    caller = UserAPIKeyAuth(api_key="hashed-sk-hangarllm", team_id="team-stt")
 
     with (
         patch(GET_CREDENTIALS, return_value="dg-provider-key"),
@@ -370,11 +370,11 @@ def test_deepgram_listen_authenticates_the_litellm_key_and_relays_to_deepgram(mo
     ):
         with client.websocket_connect(
             "/deepgram/v1/listen?model=nova-3&punctuate=true",
-            headers={"Authorization": "Bearer sk-litellm-virtual"},
+            headers={"Authorization": "Bearer sk-hangarllm-virtual"},
         ):
             pass
 
-    assert auth.await_args.kwargs["api_key"] == "Bearer sk-litellm-virtual"
+    assert auth.await_args.kwargs["api_key"] == "Bearer sk-hangarllm-virtual"
     assert relay.calls == [
         _RelayCall(
             target="wss://api.deepgram.com/v1/listen?model=nova-3&punctuate=true",
@@ -411,7 +411,7 @@ def test_deepgram_listen_authorizes_the_model_it_will_actually_send_upstream(que
     """A key allowed only ``nova-2`` must not reach ``nova-3`` by leaving ``model`` out and letting the proxy fill
     in its default: the real key auth path must see the same model the upstream target will carry."""
     monkeypatch.delenv("DEEPGRAM_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "max_budget", 0.0)
+    monkeypatch.setattr(hangarllm, "max_budget", 0.0)
     _price_nova_2_streaming(monkeypatch)
     cache = asyncio.run(_cache_restricted_key("sk-only-nova-2", ["nova-2"]))
     relay = _FakeRelay()
@@ -420,7 +420,7 @@ def test_deepgram_listen_authorizes_the_model_it_will_actually_send_upstream(que
     with (
         patch(GET_CREDENTIALS, return_value="dg-provider-key"),
         patch.multiple(  # test-quality-ok: the real key auth path reads these proxy_server globals and has no injection seam
-            "litellm.proxy.proxy_server",
+            "hangarllm.proxy.proxy_server",
             master_key="sk-master",
             prisma_client=MagicMock(),
             user_api_key_cache=cache,
@@ -449,7 +449,7 @@ def test_deepgram_listen_strips_a_second_model_that_would_outrank_the_authorized
     """Deepgram honours the last repeated ``model``; auth and pricing read the first. A key allowed only ``nova-2``
     must not smuggle ``nova-3`` past authorization behind an authorized first value."""
     monkeypatch.delenv("DEEPGRAM_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "max_budget", 0.0)
+    monkeypatch.setattr(hangarllm, "max_budget", 0.0)
     _price_nova_2_streaming(monkeypatch)
     cache = asyncio.run(_cache_restricted_key("sk-only-nova-2", ["nova-2"]))
     relay = _FakeRelay()
@@ -458,7 +458,7 @@ def test_deepgram_listen_strips_a_second_model_that_would_outrank_the_authorized
     with (
         patch(GET_CREDENTIALS, return_value="dg-provider-key"),
         patch.multiple(  # test-quality-ok: the real key auth path reads these proxy_server globals and has no injection seam
-            "litellm.proxy.proxy_server",
+            "hangarllm.proxy.proxy_server",
             master_key="sk-master",
             prisma_client=MagicMock(),
             user_api_key_cache=cache,
@@ -475,7 +475,7 @@ def test_deepgram_listen_strips_a_second_model_that_would_outrank_the_authorized
     assert [call.target for call in relay.calls] == ["wss://api.deepgram.com/v1/listen?model=nova-2&language=en"]
 
 
-def test_deepgram_listen_echoes_the_browser_subprotocol_that_carries_the_litellm_key(monkeypatch):
+def test_deepgram_listen_echoes_the_browser_subprotocol_that_carries_the_hangarllm_key(monkeypatch):
     """Browsers cannot set headers, so they send the key as a subprotocol and abort the handshake unless the
     server echoes that subprotocol back; the key itself must still stay off the upstream connection."""
     monkeypatch.delenv("DEEPGRAM_API_BASE", raising=False)
@@ -488,9 +488,9 @@ def test_deepgram_listen_echoes_the_browser_subprotocol_that_carries_the_litellm
     ):
         with client.websocket_connect(
             "/deepgram/v1/listen?model=nova-3",
-            subprotocols=["openai-insecure-api-key.sk-litellm-virtual"],
+            subprotocols=["openai-insecure-api-key.sk-hangarllm-virtual"],
         ) as connection:
-            assert connection.accepted_subprotocol == "openai-insecure-api-key.sk-litellm-virtual"
+            assert connection.accepted_subprotocol == "openai-insecure-api-key.sk-hangarllm-virtual"
 
     assert [call.custom_headers for call in relay.calls] == [
         MappingProxyType({"Authorization": "Token dg-provider-key"})
@@ -516,7 +516,7 @@ async def test_deepgram_speak_relays_with_provider_auth_and_meters_the_session(
     monkeypatch.delenv("DEEPGRAM_API_BASE", raising=False)
     monkeypatch.setenv("DEEPGRAM_API_KEY", "dg-provider-key")
     websocket: Final = _FakeWebSocket(path, "encoding=linear16&sample_rate=24000")
-    caller: Final = UserAPIKeyAuth(api_key="sk-litellm-virtual", team_id="team-tts")
+    caller: Final = UserAPIKeyAuth(api_key="sk-hangarllm-virtual", team_id="team-tts")
     target: Final = "wss://api.deepgram.com/v1/speak?encoding=linear16&sample_rate=24000&model=aura-asteria-en"
 
     relay: Final = await _serve_speak(websocket, caller)
@@ -529,7 +529,7 @@ async def test_deepgram_speak_relays_with_provider_auth_and_meters_the_session(
             forward_headers=False,
             endpoint=path,
             accept_websocket=False,
-            meter=DeepgramSpeakMeter(target, litellm.model_cost["deepgram/aura"]["input_cost_per_character"]),
+            meter=DeepgramSpeakMeter(target, hangarllm.model_cost["deepgram/aura"]["input_cost_per_character"]),
         )
     ]
     assert websocket.accepts == [None]
@@ -542,11 +542,11 @@ async def test_deepgram_speak_bills_at_the_connect_time_rate_after_a_cost_map_re
 ) -> None:
     monkeypatch.delenv("DEEPGRAM_API_BASE", raising=False)
     monkeypatch.setenv("DEEPGRAM_API_KEY", "dg-provider-key")
-    rate: Final = litellm.model_cost["deepgram/aura-2"]["input_cost_per_character"]
+    rate: Final = hangarllm.model_cost["deepgram/aura-2"]["input_cost_per_character"]
 
     relay: Final = await _serve_speak(_FakeWebSocket("/deepgram/v1/speak", "model=aura-2-thalia-en"))
     meters: Final = [call.meter for call in relay.calls if isinstance(call.meter, DeepgramSpeakMeter)]
-    adopt_model_cost_map({key: row for key, row in litellm.model_cost.items() if key != "deepgram/aura-2"})
+    adopt_model_cost_map({key: row for key, row in hangarllm.model_cost.items() if key != "deepgram/aura-2"})
 
     assert [meter.price(47).response_cost for meter in meters] == [47 * rate]
 
@@ -632,13 +632,13 @@ def test_deepgram_speak_relays_only_the_voice_the_key_was_checked_against(
     the voice the upstream target will carry"""
     monkeypatch.delenv("DEEPGRAM_API_BASE", raising=False)
     monkeypatch.setenv("DEEPGRAM_API_KEY", "dg-provider-key")
-    monkeypatch.setattr(litellm, "max_budget", 0.0)
+    monkeypatch.setattr(hangarllm, "max_budget", 0.0)
     cache: Final = asyncio.run(_cache_restricted_key("sk-only-thalia", ["aura-2-thalia-en"]))
     relay: Final = _FakeRelay()
     client: Final = TestClient(_app_with_relay(relay))
 
     with patch.multiple(  # test-quality-ok: the real key auth path reads these proxy_server globals and has no injection seam
-        "litellm.proxy.proxy_server",
+        "hangarllm.proxy.proxy_server",
         master_key="sk-master",
         prisma_client=MagicMock(),
         user_api_key_cache=cache,
@@ -663,13 +663,13 @@ def test_deepgram_speak_relays_only_the_voice_the_key_was_checked_against(
 def test_deepgram_speak_refuses_a_voice_the_key_is_not_allowed(query: str, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("DEEPGRAM_API_BASE", raising=False)
     monkeypatch.setenv("DEEPGRAM_API_KEY", "dg-provider-key")
-    monkeypatch.setattr(litellm, "max_budget", 0.0)
+    monkeypatch.setattr(hangarllm, "max_budget", 0.0)
     cache: Final = asyncio.run(_cache_restricted_key("sk-only-thalia", ["aura-2-thalia-en"]))
     relay: Final = _FakeRelay()
     client: Final = TestClient(_app_with_relay(relay))
 
     with patch.multiple(  # test-quality-ok: the real key auth path reads these proxy_server globals and has no injection seam
-        "litellm.proxy.proxy_server",
+        "hangarllm.proxy.proxy_server",
         master_key="sk-master",
         prisma_client=MagicMock(),
         user_api_key_cache=cache,

@@ -11,11 +11,11 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.custom_httpx.aiohttp_transport import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.llms.custom_httpx.aiohttp_transport import (
     AiohttpResponseStream,
-    LiteLLMAiohttpTransport,
+    HangarLLMAiohttpTransport,
 )
 
 
@@ -56,7 +56,7 @@ async def test_aiohttp_transport_response_uses_stream_not_content():
 
             return Resp()
 
-    transport = LiteLLMAiohttpTransport(client=lambda: FakeSession())  # type: ignore
+    transport = HangarLLMAiohttpTransport(client=lambda: FakeSession())  # type: ignore
     response = await transport.handle_async_request(httpx.Request("GET", "http://example.com"))
 
     assert isinstance(response.stream, AiohttpResponseStream)
@@ -205,15 +205,15 @@ def _full_stream() -> _TrackingStream:
 
 @pytest.fixture
 def stream_router(monkeypatch: pytest.MonkeyPatch):
-    from litellm.router import Router
+    from hangarllm.router import Router
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/test",
                     "api_key": "fake",
                     "api_base": "https://primary.example/v1",
@@ -221,7 +221,7 @@ def stream_router(monkeypatch: pytest.MonkeyPatch):
             },
             {
                 "model_name": "other-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/test",
                     "api_key": "fake",
                     "api_base": "https://fallback.example/v1",
@@ -230,7 +230,7 @@ def stream_router(monkeypatch: pytest.MonkeyPatch):
         ],
         fallbacks=[{"test-model": ["other-model"]}],
     )
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 async def _open_stream(router, primary: _TrackingStream, fallback: _TrackingStream, mock_router):

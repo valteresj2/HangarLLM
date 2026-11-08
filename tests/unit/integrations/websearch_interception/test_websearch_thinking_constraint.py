@@ -5,7 +5,7 @@ in the websearch interception agentic loop.
 Covers:
   - M1-I1: max_tokens auto-adjustment when <= thinking.budget_tokens
   - M1-I3: Unit tests for thinking parameter validation
-  - M2-I5/I8: litellm_logging_obj excluded from follow-up kwargs to prevent SpendLog dedup
+  - M2-I5/I8: hangarllm_logging_obj excluded from follow-up kwargs to prevent SpendLog dedup
   - M3-I12: Regression tests for error scenarios
 """
 
@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.integrations.websearch_interception.handler import (
+from hangarllm.integrations.websearch_interception.handler import (
     WebSearchInterceptionLogger,
 )
 
@@ -30,7 +30,7 @@ def _make_tool_calls() -> List[Dict]:
             "id": "toolu_01",
             "type": "tool_use",
             "name": "web_search",
-            "input": {"query": "litellm spend tracking"},
+            "input": {"query": "hangarllm spend tracking"},
         }
     ]
 
@@ -65,7 +65,7 @@ class TestThinkingBudgetTokensConstraint:
 
         with (
             patch(
-                "litellm.integrations.websearch_interception.handler.anthropic_messages.acreate",
+                "hangarllm.integrations.websearch_interception.handler.anthropic_messages.acreate",
                 side_effect=_fake_acreate,
             ),
             patch.object(
@@ -101,7 +101,7 @@ class TestThinkingBudgetTokensConstraint:
 
         with (
             patch(
-                "litellm.integrations.websearch_interception.handler.anthropic_messages.acreate",
+                "hangarllm.integrations.websearch_interception.handler.anthropic_messages.acreate",
                 side_effect=_fake_acreate,
             ),
             patch.object(
@@ -137,7 +137,7 @@ class TestThinkingBudgetTokensConstraint:
 
         with (
             patch(
-                "litellm.integrations.websearch_interception.handler.anthropic_messages.acreate",
+                "hangarllm.integrations.websearch_interception.handler.anthropic_messages.acreate",
                 side_effect=_fake_acreate,
             ),
             patch.object(
@@ -173,7 +173,7 @@ class TestThinkingBudgetTokensConstraint:
 
         with (
             patch(
-                "litellm.integrations.websearch_interception.handler.anthropic_messages.acreate",
+                "hangarllm.integrations.websearch_interception.handler.anthropic_messages.acreate",
                 side_effect=_fake_acreate,
             ),
             patch.object(
@@ -206,7 +206,7 @@ class TestThinkingBudgetTokensConstraint:
 
         with (
             patch(
-                "litellm.integrations.websearch_interception.handler.anthropic_messages.acreate",
+                "hangarllm.integrations.websearch_interception.handler.anthropic_messages.acreate",
                 side_effect=_fake_acreate,
             ),
             patch.object(
@@ -267,12 +267,12 @@ class TestResolveMaxTokensEdgeCases:
 
 
 # ---------------------------------------------------------------------------
-# M2-I5 / M2-I8: litellm_logging_obj excluded from follow-up kwargs
+# M2-I5 / M2-I8: hangarllm_logging_obj excluded from follow-up kwargs
 # ---------------------------------------------------------------------------
 
 
 class TestLoggingObjExcludedFromFollowUp:
-    """Verify litellm_logging_obj is NOT forwarded to the follow-up acreate() call.
+    """Verify hangarllm_logging_obj is NOT forwarded to the follow-up acreate() call.
 
     Passing the same logging object to both initial and follow-up calls causes
     the has_logged_async_success dedup flag to fire, silently preventing the
@@ -280,8 +280,8 @@ class TestLoggingObjExcludedFromFollowUp:
     """
 
     @pytest.mark.asyncio
-    async def test_litellm_logging_obj_excluded_from_anthropic_followup(self):
-        """The Anthropic messages follow-up must NOT receive litellm_logging_obj."""
+    async def test_hangarllm_logging_obj_excluded_from_anthropic_followup(self):
+        """The Anthropic messages follow-up must NOT receive hangarllm_logging_obj."""
         logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"])
         captured_kwargs: Dict[str, Any] = {}
 
@@ -293,7 +293,7 @@ class TestLoggingObjExcludedFromFollowUp:
 
         with (
             patch(
-                "litellm.integrations.websearch_interception.handler.anthropic_messages.acreate",
+                "hangarllm.integrations.websearch_interception.handler.anthropic_messages.acreate",
                 side_effect=_fake_acreate,
             ),
             patch.object(
@@ -310,21 +310,21 @@ class TestLoggingObjExcludedFromFollowUp:
                 logging_obj=fake_logging_obj,
                 stream=False,
                 kwargs={
-                    "litellm_logging_obj": fake_logging_obj,
+                    "hangarllm_logging_obj": fake_logging_obj,
                     "metadata": {"user_api_key": "test-key-hash"},
                     "temperature": 0.5,
                 },
             )
 
-        # litellm_logging_obj must be absent from the follow-up call
-        assert "litellm_logging_obj" not in captured_kwargs
+        # hangarllm_logging_obj must be absent from the follow-up call
+        assert "hangarllm_logging_obj" not in captured_kwargs
         # But other kwargs (metadata, temperature) must be preserved
         assert captured_kwargs.get("metadata") == {"user_api_key": "test-key-hash"}
         assert captured_kwargs.get("temperature") == 0.5
 
     @pytest.mark.asyncio
     async def test_websearch_flags_also_excluded(self):
-        """Both _websearch_interception flags and litellm_logging_obj must be excluded."""
+        """Both _websearch_interception flags and hangarllm_logging_obj must be excluded."""
         logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"])
         captured_kwargs: Dict[str, Any] = {}
 
@@ -334,7 +334,7 @@ class TestLoggingObjExcludedFromFollowUp:
 
         with (
             patch(
-                "litellm.integrations.websearch_interception.handler.anthropic_messages.acreate",
+                "hangarllm.integrations.websearch_interception.handler.anthropic_messages.acreate",
                 side_effect=_fake_acreate,
             ),
             patch.object(
@@ -351,14 +351,14 @@ class TestLoggingObjExcludedFromFollowUp:
                 logging_obj=_make_logging_obj(),
                 stream=False,
                 kwargs={
-                    "litellm_logging_obj": MagicMock(),
+                    "hangarllm_logging_obj": MagicMock(),
                     "_websearch_interception_converted_stream": True,
                     "_websearch_interception_other": "x",
                     "api_key": "fake",
                 },
             )
 
-        assert "litellm_logging_obj" not in captured_kwargs
+        assert "hangarllm_logging_obj" not in captured_kwargs
         assert "_websearch_interception_converted_stream" not in captured_kwargs
         assert "_websearch_interception_other" not in captured_kwargs
         assert captured_kwargs.get("api_key") == "fake"
@@ -383,7 +383,7 @@ class TestFollowUpErrorScenarios:
 
         with (
             patch(
-                "litellm.integrations.websearch_interception.handler.anthropic_messages.acreate",
+                "hangarllm.integrations.websearch_interception.handler.anthropic_messages.acreate",
                 side_effect=_fail_acreate,
             ),
             patch.object(
@@ -415,7 +415,7 @@ class TestFollowUpErrorScenarios:
 
         with (
             patch(
-                "litellm.integrations.websearch_interception.handler.anthropic_messages.acreate",
+                "hangarllm.integrations.websearch_interception.handler.anthropic_messages.acreate",
                 side_effect=_fake_acreate,
             ),
             patch.object(
@@ -443,7 +443,7 @@ class TestFollowUpErrorScenarios:
     @pytest.mark.asyncio
     async def test_metadata_preserved_after_logging_obj_exclusion(self):
         """Proxy metadata (user_api_key, team_id, etc.) must survive in follow-up kwargs
-        even after litellm_logging_obj is excluded — so the new logging_obj from
+        even after hangarllm_logging_obj is excluded — so the new logging_obj from
         function_setup has access to proxy tracking metadata."""
         logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"])
         captured_kwargs: Dict[str, Any] = {}
@@ -462,7 +462,7 @@ class TestFollowUpErrorScenarios:
 
         with (
             patch(
-                "litellm.integrations.websearch_interception.handler.anthropic_messages.acreate",
+                "hangarllm.integrations.websearch_interception.handler.anthropic_messages.acreate",
                 side_effect=_fake_acreate,
             ),
             patch.object(
@@ -479,14 +479,14 @@ class TestFollowUpErrorScenarios:
                 logging_obj=_make_logging_obj(),
                 stream=False,
                 kwargs={
-                    "litellm_logging_obj": MagicMock(),
+                    "hangarllm_logging_obj": MagicMock(),
                     "metadata": proxy_metadata,
-                    "litellm_call_id": "call-abc-123",
+                    "hangarllm_call_id": "call-abc-123",
                 },
             )
 
-        # litellm_logging_obj excluded
-        assert "litellm_logging_obj" not in captured_kwargs
+        # hangarllm_logging_obj excluded
+        assert "hangarllm_logging_obj" not in captured_kwargs
         # But ALL proxy metadata must be preserved
         assert captured_kwargs.get("metadata") == proxy_metadata
-        assert captured_kwargs.get("litellm_call_id") == "call-abc-123"
+        assert captured_kwargs.get("hangarllm_call_id") == "call-abc-123"

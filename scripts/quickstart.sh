@@ -1,10 +1,10 @@
 #!/bin/sh
-# LiteLLM Gateway quickstart: the gateway, Postgres, and the admin UI in one command.
-#   curl -fsSL https://raw.githubusercontent.com/BerriAI/litellm/main/scripts/quickstart.sh | sh
+# HangarLLM Gateway quickstart: the gateway, Postgres, and the admin UI in one command.
+#   curl -fsSL https://raw.githubusercontent.com/valteresj2/HangarLLM/main/scripts/quickstart.sh | sh
 # On Windows, scripts/quickstart.ps1 does the same in PowerShell.
 #
 # To read it before running it:
-#   curl -fsSL https://raw.githubusercontent.com/BerriAI/litellm/main/scripts/quickstart.sh -o quickstart.sh
+#   curl -fsSL https://raw.githubusercontent.com/valteresj2/HangarLLM/main/scripts/quickstart.sh -o quickstart.sh
 #   less quickstart.sh
 #   sh quickstart.sh
 #
@@ -14,18 +14,18 @@
 # It asks nothing when there is no terminal, under CI or Claude Code, or when
 # run with --yes.
 #
-# It also takes an action, which the litellm-gateway command it installs takes too:
-#   curl -fsSL https://raw.githubusercontent.com/BerriAI/litellm/main/scripts/quickstart.sh | sh -s -- stop
+# It also takes an action, which the hangarllm-gateway command it installs takes too:
+#   curl -fsSL https://raw.githubusercontent.com/valteresj2/HangarLLM/main/scripts/quickstart.sh | sh -s -- stop
 #   status, start (up), stop (down), restart, logs, open, update, uninstall
 #
-#   --yes, -y        no questions: install to ~/litellm-gateway, don't open a browser,
+#   --yes, -y        no questions: install to ~/hangarllm-gateway, don't open a browser,
 #                    and let uninstall delete the database without asking
-#   LITELLM_DIR      folder to install into (skips the folder question)
-#   LITELLM_PORT     port for the gateway (default 4000, or the next free one)
+#   HANGARLLM_DIR      folder to install into (skips the folder question)
+#   HANGARLLM_PORT     port for the gateway (default 4000, or the next free one)
 #   NO_COLOR         plain output, which agents, CI, and log files always get
 #
 # New installs listen on this machine only (127.0.0.1). To reach the gateway
-# from other machines, remove LITELLM_BIND from .env and put it behind TLS.
+# from other machines, remove HANGARLLM_BIND from .env and put it behind TLS.
 #
 # Keys and the database password are random (openssl rand), written only to
 # .env with permissions 600, and never printed. When you ask, the admin
@@ -34,10 +34,10 @@
 # Everything runs inside main(), so a partial download runs nothing.
 set -eu
 
-COMPOSE_URL="${LITELLM_COMPOSE_URL:-https://raw.githubusercontent.com/BerriAI/litellm/main/docker/docker-compose.quickstart.yml}"
-SCRIPT_URL="${LITELLM_SCRIPT_URL:-https://raw.githubusercontent.com/BerriAI/litellm/main/scripts/quickstart.sh}"
-# A port set by the caller is never moved; later steps export LITELLM_PORT too.
-PORT_PINNED="${LITELLM_PORT:+1}"
+COMPOSE_URL="${HANGARLLM_COMPOSE_URL:-https://raw.githubusercontent.com/valteresj2/HangarLLM/main/docker/docker-compose.quickstart.yml}"
+SCRIPT_URL="${HANGARLLM_SCRIPT_URL:-https://raw.githubusercontent.com/valteresj2/HangarLLM/main/scripts/quickstart.sh}"
+# A port set by the caller is never moved; later steps export HANGARLLM_PORT too.
+PORT_PINNED="${HANGARLLM_PORT:+1}"
 
 # ---------------------------------------------------------------- output
 
@@ -66,7 +66,7 @@ setup_output() {
     [ -z "${CI:-}" ] && [ -z "${CLAUDECODE:-}" ]; then
     STYLE=1
     e="$(printf '\033')"
-    # The accent is the LiteLLM blue, lightened so it reads on dark and light themes.
+    # The accent is the HangarLLM blue, lightened so it reads on dark and light themes.
     case "${COLORTERM:-}" in
       truecolor | 24bit) C_ACC="${e}[38;2;91;108;255m" ;;
       *) C_ACC="${e}[94m" ;;
@@ -309,7 +309,7 @@ usage() {
   cat <<'USAGE'
 Usage: quickstart.sh [--yes] [action]
 
-With no action it installs the LiteLLM Gateway, or shows a menu to manage the
+With no action it installs the HangarLLM Gateway, or shows a menu to manage the
 install it finds. Actions:
   status      whether it is running, and where
   start       start it (also: up)
@@ -324,7 +324,7 @@ install it finds. Actions:
   --yes, -y   ask nothing; without a terminal, uninstall needs it
 
 From the install command:
-  curl -fsSL https://raw.githubusercontent.com/BerriAI/litellm/main/scripts/quickstart.sh | sh -s -- status
+  curl -fsSL https://raw.githubusercontent.com/valteresj2/HangarLLM/main/scripts/quickstart.sh | sh -s -- status
 USAGE
 }
 
@@ -355,8 +355,8 @@ port_owner() {
       *[!a-z0-9_-]*) OWNER_PROJECT='' ;;
     esac
     case "$OWNER_PROJECT" in
-      litellm-gateway*)
-        OWNER="another LiteLLM quickstart install ($ENGINE_NAME project $OWNER_PROJECT)"
+      hangarllm-gateway*)
+        OWNER="another HangarLLM quickstart install ($ENGINE_NAME project $OWNER_PROJECT)"
         FREE_IT="$ENGINE compose -p $OWNER_PROJECT stop"
         ;;
       *) OWNER_PROJECT='' OWNER="the $ENGINE_NAME container $name" FREE_IT="$ENGINE stop $name" ;;
@@ -368,40 +368,40 @@ port_owner() {
   [ -n "$pid" ] || return 0
   FREE_IT="kill $pid"
   case "$(ps -o args= -p "$pid" 2>/dev/null)" in
-    *litellm*) OWNER="a litellm server (pid $pid), maybe one started after pip install litellm" ;;
+    *hangarllm*) OWNER="a hangarllm server (pid $pid), maybe one started after pip install hangarllm" ;;
     *) OWNER="$(basename "$(ps -o comm= -p "$pid" 2>/dev/null || echo a program)") (pid $pid)" ;;
   esac
 }
 
-# Sets DIR to an existing install: LITELLM_DIR, this folder, ./litellm-gateway,
-# or ~/litellm-gateway, whichever has a .env first.
+# Sets DIR to an existing install: HANGARLLM_DIR, this folder, ./hangarllm-gateway,
+# or ~/hangarllm-gateway, whichever has a .env first.
 locate_install() {
   DIR=''
-  if [ -n "${LITELLM_DIR:-}" ]; then
-    if [ -f "$LITELLM_DIR/.env" ]; then DIR="$LITELLM_DIR"; fi
+  if [ -n "${HANGARLLM_DIR:-}" ]; then
+    if [ -f "$HANGARLLM_DIR/.env" ]; then DIR="$HANGARLLM_DIR"; fi
   elif [ -f .env ] && [ -f docker-compose.quickstart.yml ]; then
     DIR="$(pwd)"
-  elif [ -f litellm-gateway/.env ]; then
-    DIR="$(pwd)/litellm-gateway"
-  elif [ -f "$HOME/litellm-gateway/.env" ]; then
-    DIR="$HOME/litellm-gateway"
+  elif [ -f hangarllm-gateway/.env ]; then
+    DIR="$(pwd)/hangarllm-gateway"
+  elif [ -f "$HOME/hangarllm-gateway/.env" ]; then
+    DIR="$HOME/hangarllm-gateway"
   fi
   [ -n "$DIR" ]
 }
 
 pick_folder() {
-  home_dir="$HOME/litellm-gateway"
-  here_dir="$(pwd)/litellm-gateway"
+  home_dir="$HOME/hangarllm-gateway"
+  here_dir="$(pwd)/hangarllm-gateway"
   found=0
   if locate_install; then
     found=1
-  elif [ -n "${LITELLM_DIR:-}" ]; then
-    DIR="$LITELLM_DIR"
+  elif [ -n "${HANGARLLM_DIR:-}" ]; then
+    DIR="$HANGARLLM_DIR"
   elif [ "$here_dir" = "$home_dir" ]; then
     DIR="$home_dir"
   else
     tab="$(printf '\t')"
-    menu "Where should LiteLLM keep its files (.env with your keys, and the compose file)?" 1 \
+    menu "Where should HangarLLM keep its files (.env with your keys, and the compose file)?" 1 \
       "$(tildify "$home_dir")${tab}recommended, reruns always find it" \
       "$(tildify "$here_dir")${tab}this folder"
     if [ "$CHOICE" = 2 ]; then DIR="$here_dir"; else DIR="$home_dir"; fi
@@ -423,7 +423,7 @@ pick_folder() {
     fail "Git tracks a .env file in this folder," "so your keys could be committed."
     cat >&2 <<'MSG'
 
-  Install into another folder (set LITELLM_DIR), or stop tracking the file
+  Install into another folder (set HANGARLLM_DIR), or stop tracking the file
   first with:  git rm --cached .env
 MSG
     exit 1
@@ -454,9 +454,9 @@ MSG
 
 pick_port() {
   saved=""
-  [ -f .env ] && saved="$(sed -n 's/^LITELLM_PORT=//p' .env | tail -n 1)"
-  if [ -n "${LITELLM_PORT:-}" ]; then
-    PORT="$LITELLM_PORT"
+  [ -f .env ] && saved="$(sed -n 's/^HANGARLLM_PORT=//p' .env | tail -n 1)"
+  if [ -n "${HANGARLLM_PORT:-}" ]; then
+    PORT="$HANGARLLM_PORT"
   elif [ -n "$saved" ]; then
     PORT="$saved"
   elif [ -f .env ]; then
@@ -467,7 +467,7 @@ pick_port() {
     while ! port_free "$PORT"; do
       PORT=$((PORT + 1))
       if [ "$PORT" -gt 4099 ]; then
-        fail "Ports 4000 to 4099 are all in use." "Set LITELLM_PORT to a free port and run this again."
+        fail "Ports 4000 to 4099 are all in use." "Set HANGARLLM_PORT to a free port and run this again."
         exit 1
       fi
     done
@@ -475,18 +475,18 @@ pick_port() {
       step "Port ${C_BOLD}4000${C_OFF} is free"
     else
       port_owner 4000
-      warn "Port 4000 is in use${OWNER:+ by $OWNER}, so LiteLLM will use ${C_BOLD}$PORT${C_OFF}"
+      warn "Port 4000 is in use${OWNER:+ by $OWNER}, so HangarLLM will use ${C_BOLD}$PORT${C_OFF}"
     fi
   fi
-  export LITELLM_PORT="$PORT"
+  export HANGARLLM_PORT="$PORT"
 }
 
 # Docker names containers and the database volume after the project, so an
 # install outside the home folder gets its own name and never shares a
-# database with another litellm-gateway folder.
+# database with another hangarllm-gateway folder.
 check_new_install() {
-  project=litellm-gateway
-  [ "$DIR" = "$HOME/litellm-gateway" ] || project="litellm-gateway-$(printf '%s' "$DIR" | cksum | cut -d ' ' -f 1)"
+  project=hangarllm-gateway
+  [ "$DIR" = "$HOME/hangarllm-gateway" ] || project="hangarllm-gateway-$(printf '%s' "$DIR" | cksum | cut -d ' ' -f 1)"
   # Postgres keeps the password it was created with, so a new password over an
   # old database volume would lock the gateway out. Stop and explain instead.
   if "$ENGINE" volume inspect "${project}_postgres_data" >/dev/null 2>&1; then
@@ -505,11 +505,11 @@ MSG
 # Compose prefers values already set in the shell over .env, so drop any
 # inherited ones: .env stays the only source for keys and the project name.
 clean_env() {
-  unset LITELLM_MASTER_KEY LITELLM_SALT_KEY POSTGRES_PASSWORD COMPOSE_PROJECT_NAME
+  unset HANGARLLM_MASTER_KEY HANGARLLM_SALT_KEY POSTGRES_PASSWORD COMPOSE_PROJECT_NAME
   # The bind address follows .env when .env sets it (every install this script
   # creates does). For an older .env without it, a value exported in the shell
-  # is kept, so an intentional LITELLM_BIND=127.0.0.1: is not dropped.
-  if grep -q '^LITELLM_BIND=' .env; then unset LITELLM_BIND; fi
+  # is kept, so an intentional HANGARLLM_BIND=127.0.0.1: is not dropped.
+  if grep -q '^HANGARLLM_BIND=' .env; then unset HANGARLLM_BIND; fi
 }
 
 use_install() {
@@ -527,7 +527,7 @@ fetch_compose() {
   curl -fsSL -o docker-compose.quickstart.yml "$COMPOSE_URL"
 }
 
-# The litellm-gateway command: the copy of this script kept beside .env, run
+# The hangarllm-gateway command: the copy of this script kept beside .env, run
 # against this folder, so up, down, status, and the rest work from anywhere.
 install_command() {
   if tmp="$(mktemp quickstart.sh.XXXXXX)"; then
@@ -541,36 +541,36 @@ install_command() {
   quoted="$(printf '%s' "$DIR" | sed "s/'/'\\\\''/g")"
   {
     printf '#!/bin/sh\n'
-    printf '# Manages the LiteLLM Gateway in this folder. Run it for a menu, or with one of\n'
+    printf '# Manages the HangarLLM Gateway in this folder. Run it for a menu, or with one of\n'
     printf '# status, up, down, restart, logs, open, update, uninstall\n'
-    printf "export LITELLM_DIR='%s'\n" "$quoted"
+    printf "export HANGARLLM_DIR='%s'\n" "$quoted"
     # shellcheck disable=SC2016 # expanded when the command runs
-    printf 'exec sh "$LITELLM_DIR/quickstart.sh" "$@"\n'
-  } >litellm-gateway
-  chmod 755 litellm-gateway
+    printf 'exec sh "$HANGARLLM_DIR/quickstart.sh" "$@"\n'
+  } >hangarllm-gateway
+  chmod 755 hangarllm-gateway
   # Linked into ~/.local/bin when that is on PATH. A link another install made
   # stays, unless that install is gone.
-  link="$HOME/.local/bin/litellm-gateway"
+  link="$HOME/.local/bin/hangarllm-gateway"
   case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) return 0 ;; esac
   [ -d "$HOME/.local/bin" ] || return 0
   if [ -L "$link" ]; then
-    if [ "$(readlink "$link")" = "$DIR/litellm-gateway" ] || [ -e "$link" ]; then return 0; fi
+    if [ "$(readlink "$link")" = "$DIR/hangarllm-gateway" ] || [ -e "$link" ]; then return 0; fi
     rm -f "$link"
   elif [ -e "$link" ]; then
     return 0
   fi
-  ln -s "$DIR/litellm-gateway" "$link"
+  ln -s "$DIR/hangarllm-gateway" "$link"
 }
 
-# Sets COMMAND to how this install's litellm-gateway command runs from anywhere.
+# Sets COMMAND to how this install's hangarllm-gateway command runs from anywhere.
 find_command() {
   COMMAND=''
-  [ -x "$DIR/litellm-gateway" ] || return 0
-  COMMAND="$(tildify "$DIR")/litellm-gateway"
+  [ -x "$DIR/hangarllm-gateway" ] || return 0
+  COMMAND="$(tildify "$DIR")/hangarllm-gateway"
   case ":$PATH:" in
     *":$HOME/.local/bin:"*)
-      if [ "$(readlink "$HOME/.local/bin/litellm-gateway" 2>/dev/null)" = "$DIR/litellm-gateway" ]; then
-        COMMAND=litellm-gateway
+      if [ "$(readlink "$HOME/.local/bin/hangarllm-gateway" 2>/dev/null)" = "$DIR/hangarllm-gateway" ]; then
+        COMMAND=hangarllm-gateway
       fi
       ;;
   esac
@@ -585,7 +585,7 @@ hint() {
     up) set -- up -d ;;
     down) set -- stop ;;
     uninstall) set -- down --volumes ;;
-    logs) set -- logs litellm ;;
+    logs) set -- logs hangarllm ;;
   esac
   printf 'cd %s && %s compose -f docker-compose.quickstart.yml %s' "$(tildify "$DIR")" "$ENGINE" "$*"
 }
@@ -593,7 +593,7 @@ hint() {
 # The gateway container's status, such as "Up 2 hours", or nothing when there is none.
 gateway_status() {
   "$ENGINE" ps -a --filter "label=com.docker.compose.project=$project" \
-    --filter label=com.docker.compose.service=litellm --format '{{.Status}}' 2>/dev/null | head -n 1
+    --filter label=com.docker.compose.service=hangarllm --format '{{.Status}}' 2>/dev/null | head -n 1
 }
 
 is_running() {
@@ -618,7 +618,7 @@ gateway_version() {
 # its request logs. It needs the admin key, which curl reads from stdin so it
 # stays off the command line. Empty when the gateway cannot say.
 gateway_requests() {
-  key="$(sed -n 's/^LITELLM_MASTER_KEY=//p' .env | tail -n 1)"
+  key="$(sed -n 's/^HANGARLLM_MASTER_KEY=//p' .env | tail -n 1)"
   [ -n "$key" ] || return 0
   printf 'header = "Authorization: Bearer %s"\n' "$key" |
     curl -fsS --max-time 5 -K - \
@@ -648,15 +648,15 @@ next_free_port() {
 # file (mode 600) and a rename so the keys are never half written.
 move_port() {
   ENV_TMP="$(mktemp .env.XXXXXX)" || return 1
-  if ! awk '!/^LITELLM_PORT=/' .env >"$ENV_TMP" ||
-    ! printf 'LITELLM_PORT=%s\n' "$NEXT_PORT" >>"$ENV_TMP" || ! mv -f "$ENV_TMP" .env; then
+  if ! awk '!/^HANGARLLM_PORT=/' .env >"$ENV_TMP" ||
+    ! printf 'HANGARLLM_PORT=%s\n' "$NEXT_PORT" >>"$ENV_TMP" || ! mv -f "$ENV_TMP" .env; then
     rm -f "$ENV_TMP"
     ENV_TMP=''
     return 1
   fi
   ENV_TMP=''
   PORT="$NEXT_PORT"
-  export LITELLM_PORT="$PORT"
+  export HANGARLLM_PORT="$PORT"
   url="http://localhost:$PORT/ui"
 }
 
@@ -683,7 +683,7 @@ check_port() {
       if [ "$CHOICE" = 1 ]; then
         old="$PORT"
         if move_port; then
-          step "LiteLLM moved from port $old to ${C_BOLD}$PORT${C_OFF}"
+          step "HangarLLM moved from port $old to ${C_BOLD}$PORT${C_OFF}"
           return 0
         fi
         fail "Could not write $(tildify "$DIR")/.env."
@@ -692,7 +692,7 @@ check_port() {
     fi
   fi
   fail "Port $PORT is in use by ${OWNER:-another program}." \
-    "Free it, or set LITELLM_PORT in $(tildify "$DIR")/.env to another port${NEXT_PORT:+, such as $NEXT_PORT}."
+    "Free it, or set HANGARLLM_PORT in $(tildify "$DIR")/.env to another port${NEXT_PORT:+, such as $NEXT_PORT}."
   if [ -n "$FREE_IT" ]; then printf '  To free it:  %s\n' "$FREE_IT" >&2; fi
   exit 1
 }
@@ -714,9 +714,9 @@ launch() {
   for image in $(compose config --images 2>/dev/null); do
     "$ENGINE" image inspect "$image" >/dev/null 2>&1 || detail="downloading images, first run only"
   done
-  [ "$STYLE" = 1 ] || echo "Starting LiteLLM and Postgres${detail:+ ($detail)}..."
-  if ! spin "Starting LiteLLM and Postgres" "$detail" compose up -d; then
-    fail "$ENGINE_NAME could not start LiteLLM and Postgres." "Its output is above."
+  [ "$STYLE" = 1 ] || echo "Starting HangarLLM and Postgres${detail:+ ($detail)}..."
+  if ! spin "Starting HangarLLM and Postgres" "$detail" compose up -d; then
+    fail "$ENGINE_NAME could not start HangarLLM and Postgres." "Its output is above."
     exit 1
   fi
   if ! spin "Waiting for the gateway to be ready" "" wait_ready; then
@@ -724,24 +724,24 @@ launch() {
     echo "    $(hint logs)" >&2
     exit 1
   fi
-  step "LiteLLM is up at ${C_ACC}$url${C_OFF} ${C_DIM}· $(elapsed_since "$started")"
+  step "HangarLLM is up at ${C_ACC}$url${C_OFF} ${C_DIM}· $(elapsed_since "$started")"
 }
 
 stop_stack() {
   if [ -z "$(project_containers)" ]; then
-    step "LiteLLM is already stopped"
+    step "HangarLLM is already stopped"
     return 0
   fi
-  if ! spin "Stopping LiteLLM and Postgres" "" compose stop; then
-    fail "$ENGINE_NAME could not stop LiteLLM and Postgres." "Its output is above."
+  if ! spin "Stopping HangarLLM and Postgres" "" compose stop; then
+    fail "$ENGINE_NAME could not stop HangarLLM and Postgres." "Its output is above."
     exit 1
   fi
-  step "Stopped LiteLLM. Your models, keys, and logs are kept ${C_DIM}· start it again: $(hint up)"
+  step "Stopped HangarLLM. Your models, keys, and logs are kept ${C_DIM}· start it again: $(hint up)"
 }
 
 restart_stack() {
-  if [ -n "$(project_containers)" ] && ! spin "Stopping LiteLLM and Postgres" "" compose stop; then
-    fail "$ENGINE_NAME could not stop LiteLLM and Postgres." "Its output is above."
+  if [ -n "$(project_containers)" ] && ! spin "Stopping HangarLLM and Postgres" "" compose stop; then
+    fail "$ENGINE_NAME could not stop HangarLLM and Postgres." "Its output is above."
     exit 1
   fi
   launch
@@ -758,7 +758,7 @@ update_stack() {
   for image in $images; do
     old="$old $("$ENGINE" image inspect --format '{{.Id}}' "$image" 2>/dev/null)"
   done
-  [ "$STYLE" = 1 ] || echo "Downloading the latest LiteLLM and Postgres images..."
+  [ "$STYLE" = 1 ] || echo "Downloading the latest HangarLLM and Postgres images..."
   if ! spin "Downloading the latest images" "" compose pull; then
     fail "$ENGINE_NAME could not download the images." "Its output is above."
     exit 1
@@ -774,24 +774,24 @@ update_stack() {
   done
   after="$(gateway_version)"
   if [ -n "$before" ] && [ "$before" = "$after" ]; then
-    step "LiteLLM $after is already the latest"
+    step "HangarLLM $after is already the latest"
   elif [ -n "$before" ] && [ -n "$after" ]; then
-    step "Updated LiteLLM from $before to $after"
+    step "Updated HangarLLM from $before to $after"
   else
-    step "LiteLLM ${after:+$after }is on the latest image"
+    step "HangarLLM ${after:+$after }is on the latest image"
   fi
 }
 
 show_logs() {
   if [ -z "$(project_containers -a)" ]; then
-    step "No logs yet: start LiteLLM first"
+    step "No logs yet: start HangarLLM first"
     return 0
   fi
   if [ "${1:-}" = follow ]; then
     printf '%sThe gateway logs. Press Ctrl+C to stop following them.%s\n' "${C_DIM}" "${C_OFF}"
-    exec "$ENGINE" compose -f docker-compose.quickstart.yml logs -f --tail 100 litellm
+    exec "$ENGINE" compose -f docker-compose.quickstart.yml logs -f --tail 100 hangarllm
   fi
-  compose logs --tail 100 litellm
+  compose logs --tail 100 hangarllm
 }
 
 desktop_row() {
@@ -802,7 +802,7 @@ desktop_row() {
 
 show_status() {
   status="$(gateway_status)"
-  image="$(compose config --images 2>/dev/null | grep -m 1 litellm)" || image=''
+  image="$(compose config --images 2>/dev/null | grep -m 1 hangarllm)" || image=''
   desktop="$(desktop_row)"
   case "$status" in
     Up*)
@@ -814,11 +814,11 @@ show_status() {
         0) requests='Requests|none yet' ;;
         *) requests="Requests|$requests handled" ;;
       esac
-      box "LiteLLM is running" "Admin UI|$url" "Version|${version:-starting}" "Uptime|${uptime%% (*}" \
+      box "HangarLLM is running" "Admin UI|$url" "Version|${version:-starting}" "Uptime|${uptime%% (*}" \
         ${requests:+"$requests"} "Folder|$(tildify "$DIR")" "Image|$image" ${desktop:+"$desktop"} "Stop it|$(hint down)"
       ;;
     *)
-      box "LiteLLM is stopped" "Folder|$(tildify "$DIR")" "Image|$image" ${desktop:+"$desktop"} \
+      box "HangarLLM is stopped" "Folder|$(tildify "$DIR")" "Image|$image" ${desktop:+"$desktop"} \
         "Start it|$(hint up)" "Remove it|$(hint uninstall)"
       ;;
   esac
@@ -828,7 +828,7 @@ open_ui() {
   if is_running; then
     open_url "$url"
   else
-    warn "LiteLLM is stopped. Start it with: $(hint up)"
+    warn "HangarLLM is stopped. Start it with: $(hint up)"
   fi
 }
 
@@ -838,26 +838,26 @@ uninstall() {
   [ -f docker-compose.quickstart.yml ] || fetch_compose
   images="$(compose config --images 2>/dev/null)" || images=''
   link=''
-  if [ "$(readlink "$HOME/.local/bin/litellm-gateway" 2>/dev/null)" = "$DIR/litellm-gateway" ]; then
-    link="$HOME/.local/bin/litellm-gateway"
+  if [ "$(readlink "$HOME/.local/bin/hangarllm-gateway" 2>/dev/null)" = "$DIR/hangarllm-gateway" ]; then
+    link="$HOME/.local/bin/hangarllm-gateway"
   fi
   if [ "$INTERACTIVE" = 1 ]; then
-    printf '\n%sThis removes LiteLLM from %s:%s\n' "${C_BOLD}" "$(tildify "$DIR")" "${C_OFF}"
+    printf '\n%sThis removes HangarLLM from %s:%s\n' "${C_BOLD}" "$(tildify "$DIR")" "${C_OFF}"
     printf '  - its containers (%s project %s)\n' "$ENGINE_NAME" "$project"
     printf '  - its database, the %s volume %s, with your models, keys, and spend logs\n' "$ENGINE_NAME" "$volume"
     printf '  - its files in %s, including .env with the admin password\n' "$(tildify "$DIR")"
-    if [ -n "$link" ]; then printf '  - the litellm-gateway command in %s\n' "$(tildify "$HOME/.local/bin")"; fi
-    menu "Remove LiteLLM and delete its database?" 2 "Yes, remove it" "No, keep it"
+    if [ -n "$link" ]; then printf '  - the hangarllm-gateway command in %s\n' "$(tildify "$HOME/.local/bin")"; fi
+    menu "Remove HangarLLM and delete its database?" 2 "Yes, remove it" "No, keep it"
     if [ "$CHOICE" != 1 ]; then
-      step "Kept LiteLLM and its data"
+      step "Kept HangarLLM and its data"
       return 1
     fi
   elif [ "$NO_QUESTIONS" != 1 ]; then
-    fail "Removing LiteLLM deletes its database ($ENGINE_NAME volume $volume)." "To confirm, run it again with --yes."
+    fail "Removing HangarLLM deletes its database ($ENGINE_NAME volume $volume)." "To confirm, run it again with --yes."
     exit 1
   fi
 
-  [ "$STYLE" = 1 ] || echo "Removing the LiteLLM and Postgres containers and the database..."
+  [ "$STYLE" = 1 ] || echo "Removing the HangarLLM and Postgres containers and the database..."
   if ! spin "Removing the containers and the database" "" compose down --volumes --remove-orphans; then
     fail "$ENGINE_NAME could not remove them." "Its output is above."
     exit 1
@@ -875,7 +875,7 @@ uninstall() {
         if (u ~ /^[kK]/) m = 1e3; else if (u ~ /^M/) m = 1e6; else if (u ~ /^G/) m = 1e9; else if (u ~ /^T/) m = 1e12
         s += n * m } END { if (s > 0) printf " (%.1f GB)", s / 1e9 }')"
     tab="$(printf '\t')"
-    menu "Also delete the LiteLLM and Postgres images${size}?" 2 \
+    menu "Also delete the HangarLLM and Postgres images${size}?" 2 \
       "Yes, delete them" "No, keep them${tab}a reinstall starts faster"
     if [ "$CHOICE" = 1 ]; then
       for image in $kept; do
@@ -889,14 +889,14 @@ uninstall() {
     fi
   fi
 
-  rm -f .env docker-compose.quickstart.yml quickstart.sh quickstart.ps1 litellm-gateway litellm-gateway.cmd
+  rm -f .env docker-compose.quickstart.yml quickstart.sh quickstart.ps1 hangarllm-gateway hangarllm-gateway.cmd
   if [ -f .gitignore ] && ! grep -qvxE '\*|\.env' .gitignore; then rm -f .gitignore; fi
   if [ -n "$link" ]; then rm -f "$link"; fi
   cd "$HOME"
   if rmdir "$DIR" 2>/dev/null; then
     step "Deleted $(tildify "$DIR")"
   else
-    step "Deleted the LiteLLM files in $(tildify "$DIR") ${C_DIM}(the folder stays: it has other files)"
+    step "Deleted the HangarLLM files in $(tildify "$DIR") ${C_DIM}(the folder stays: it has other files)"
   fi
 
   left=''
@@ -907,7 +907,7 @@ uninstall() {
     warn "Still there:${left%,}"
     return 0
   fi
-  step "LiteLLM is removed. Nothing is left running, and its data is deleted"
+  step "HangarLLM is removed. Nothing is left running, and its data is deleted"
   if [ -n "$kept" ]; then
     printf '  %sThe images stay, so a reinstall starts faster. To delete them:%s %s image rm%s\n' \
       "${C_DIM}" "${C_OFF}" "$ENGINE" "$kept"
@@ -940,16 +940,16 @@ find_clipboard() {
 # The admin password is the master key. It goes through a pipe, so it is
 # never on screen or in the process list.
 copy_password() {
-  pw="$(sed -n 's/^LITELLM_MASTER_KEY=//p' .env | head -n 1)"
+  pw="$(sed -n 's/^HANGARLLM_MASTER_KEY=//p' .env | head -n 1)"
   if [ -z "$pw" ]; then
-    warn "No LITELLM_MASTER_KEY in $(tildify "$DIR")/.env."
+    warn "No HANGARLLM_MASTER_KEY in $(tildify "$DIR")/.env."
     return 0
   fi
   # shellcheck disable=SC2086 # CLIP is a command and its flags
   if printf '%s' "$pw" | $CLIP >/dev/null 2>&1; then
     step "Copied the admin password. Paste it into the sign-in page."
   else
-    warn "Could not copy it. The password is LITELLM_MASTER_KEY in $(tildify "$DIR")/.env."
+    warn "Could not copy it. The password is HANGARLLM_MASTER_KEY in $(tildify "$DIR")/.env."
   fi
   pw=''
 }
@@ -979,7 +979,7 @@ next_steps() {
 }
 
 # The menu a rerun shows for an existing install. Its options follow whether
-# LiteLLM is running, and come back after each choice until Done.
+# HangarLLM is running, and come back after each choice until Done.
 manage() {
   show_status
   find_clipboard
@@ -987,14 +987,14 @@ manage() {
   pick=1
   while :; do
     if is_running; then
-      question="LiteLLM is running at $url. What next?"
+      question="HangarLLM is running at $url. What next?"
       set -- "Open the admin UI in your browser"
       [ -z "$CLIP" ] || set -- "$@" "Copy the admin password${tab}to the clipboard, ready to paste"
       set -- "$@" "Stop it${tab}keeps your models, keys, and logs" "Restart it" \
         "Show the logs${tab}the last 100 lines" "Update it${tab}download the latest image and restart" \
         "Remove it${tab}delete its containers, database, and files" "Done"
     else
-      question="LiteLLM is stopped. What next?"
+      question="HangarLLM is stopped. What next?"
       set -- "Start it${tab}at $url" "Update it${tab}download the latest image and start" \
         "Show the logs${tab}the last 100 lines" "Remove it${tab}delete its containers, database, and files" "Done"
     fi
@@ -1048,10 +1048,10 @@ main() {
   if [ -n "$ACTION" ]; then
     :
   elif [ "$STYLE" = 1 ]; then
-    printf '\n%s%s LiteLLM quickstart%s\n' "${C_ACC}${C_BOLD}" "$S_HEAD" "${C_OFF}"
+    printf '\n%s%s HangarLLM quickstart%s\n' "${C_ACC}${C_BOLD}" "$S_HEAD" "${C_OFF}"
     printf '%s  The gateway, Postgres, and the admin UI in one command%s\n\n' "${C_DIM}" "${C_OFF}"
   else
-    echo "LiteLLM quickstart"
+    echo "HangarLLM quickstart"
   fi
 
   # Podman and Rancher Desktop (nerdctl in containerd mode; its dockerd mode
@@ -1064,13 +1064,13 @@ main() {
     fi
   done
   if [ -z "$ENGINE" ]; then
-    fail "No container engine found (docker, podman, or nerdctl)." "The LiteLLM Gateway runs in a container alongside a Postgres database."
+    fail "No container engine found (docker, podman, or nerdctl)." "The HangarLLM Gateway runs in a container alongside a Postgres database."
     cat >&2 <<'MSG'
 
   Install Docker (https://docs.docker.com/get-docker/), Podman (https://podman.io),
   or Rancher Desktop (https://rancherdesktop.io), then run this again.
-  Or deploy in one click (Railway or Render):  https://docs.litellm.ai/docs/proxy/docker_quick_start
-  Only need to call models from Python?  pip install litellm
+  Or deploy in one click (Railway or Render):  https://github.com/valteresj2/HangarLLM#readme
+  Only need to call models from Python?  pip install hangarllm
 MSG
     exit 1
   fi
@@ -1092,7 +1092,7 @@ MSG
 
   if [ -n "$ACTION" ]; then
     if ! locate_install; then
-      fail "No LiteLLM install found" "in ${LITELLM_DIR:-this folder, ./litellm-gateway, or ~/litellm-gateway}."
+      fail "No HangarLLM install found" "in ${HANGARLLM_DIR:-this folder, ./hangarllm-gateway, or ~/hangarllm-gateway}."
       printf '  Install it with:  curl -fsSL %s | sh\n' "$SCRIPT_URL" >&2
       exit 1
     fi
@@ -1100,7 +1100,7 @@ MSG
     find_command
     case "$ACTION" in
       status) show_status ;;
-      start) if is_running; then step "LiteLLM is already running at ${C_ACC}$url${C_OFF}"; else launch; fi ;;
+      start) if is_running; then step "HangarLLM is already running at ${C_ACC}$url${C_OFF}"; else launch; fi ;;
       stop) stop_stack ;;
       restart) restart_stack ;;
       logs) if [ "$INTERACTIVE" = 1 ]; then show_logs follow; else show_logs; fi ;;
@@ -1117,7 +1117,7 @@ MSG
   pick_folder
   if [ "$found" = 1 ] && [ "$INTERACTIVE" = 1 ]; then
     use_install
-    if [ ! -x litellm-gateway ] || [ ! -f quickstart.sh ]; then install_command; fi
+    if [ ! -x hangarllm-gateway ] || [ ! -f quickstart.sh ]; then install_command; fi
     find_command
     manage
     return 0
@@ -1140,7 +1140,7 @@ MSG
     # failed write never leaves a partial .env that a rerun would mistake for a
     # finished install.
     if ! ENV_TMP="$(mktemp .env.XXXXXX)" ||
-      ! printf 'LITELLM_MASTER_KEY=sk-%s\nLITELLM_SALT_KEY=sk-%s\nPOSTGRES_PASSWORD=%s\nLITELLM_PORT=%s\nLITELLM_BIND=127.0.0.1:\nCOMPOSE_PROJECT_NAME=%s\n' \
+      ! printf 'HANGARLLM_MASTER_KEY=sk-%s\nHANGARLLM_SALT_KEY=sk-%s\nPOSTGRES_PASSWORD=%s\nHANGARLLM_PORT=%s\nHANGARLLM_BIND=127.0.0.1:\nCOMPOSE_PROJECT_NAME=%s\n' \
         "$master" "$salt" "$db_password" "$PORT" "$project" >"$ENV_TMP" || ! mv -f "$ENV_TMP" .env; then
       if [ -n "$ENV_TMP" ]; then rm -f "$ENV_TMP"; fi
       fail "Could not write $(tildify "$DIR")/.env."
@@ -1156,18 +1156,18 @@ MSG
   find_command
   launch
 
-  password="the LITELLM_MASTER_KEY value in $(tildify "$DIR")/.env"
+  password="the HANGARLLM_MASTER_KEY value in $(tildify "$DIR")/.env"
   CLIP=''
   if [ "$INTERACTIVE" = 1 ]; then find_clipboard; fi
   if [ -n "$CLIP" ]; then
-    password="copy it below, or LITELLM_MASTER_KEY in $(tildify "$DIR")/.env"
+    password="copy it below, or HANGARLLM_MASTER_KEY in $(tildify "$DIR")/.env"
   fi
   desktop="$(desktop_row)"
-  # A rerun finds ~/litellm-gateway on its own; any other folder needs naming.
+  # A rerun finds ~/hangarllm-gateway on its own; any other folder needs naming.
   rerun="rerun the install command"
-  [ "$DIR" = "$HOME/litellm-gateway" ] || rerun="$rerun with LITELLM_DIR=$(tildify "$DIR")"
+  [ "$DIR" = "$HOME/hangarllm-gateway" ] || rerun="$rerun with HANGARLLM_DIR=$(tildify "$DIR")"
   echo
-  box "LiteLLM is running" \
+  box "HangarLLM is running" \
     "Admin UI|$url" \
     "Username|admin" \
     "Password|$password" \

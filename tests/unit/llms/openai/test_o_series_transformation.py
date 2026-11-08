@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm import ModelResponse
-from litellm.llms.openai.chat.o_series_transformation import OpenAIOSeriesConfig
+import hangarllm
+from hangarllm import ModelResponse
+from hangarllm.llms.openai.chat.o_series_transformation import OpenAIOSeriesConfig
 import os
 
 
@@ -61,12 +61,12 @@ async def test_o1_handle_system_role(model):
     - role 'system' is translated to 'user'
     """
     from openai import AsyncOpenAI
-    from litellm.utils import supports_system_messages
+    from hangarllm.utils import supports_system_messages
 
-    os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     client = AsyncOpenAI(api_key="fake-api-key")
 
@@ -74,7 +74,7 @@ async def test_o1_handle_system_role(model):
         client, "post"
     ) as mock_client:
         try:
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model=model,
                 max_tokens=10,
                 messages=[{"role": "system", "content": "Be a good bot!"}],
@@ -113,11 +113,11 @@ async def test_o1_handle_tool_calling_optional_params(
     - max_tokens is translated to 'max_completion_tokens'
     - role 'system' is translated to 'user'
     """
-    from litellm.utils import ProviderConfigManager
-    from litellm.types.utils import LlmProviders
+    from hangarllm.utils import ProviderConfigManager
+    from hangarllm.types.utils import LlmProviders
 
-    os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
     config = ProviderConfigManager.get_provider_chat_config(
         model=model, provider=LlmProviders.OPENAI
@@ -137,7 +137,7 @@ async def test_o1_max_completion_tokens(model: str):
     """
     from openai import AsyncOpenAI
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     client = AsyncOpenAI(api_key="fake-api-key")
 
@@ -145,7 +145,7 @@ async def test_o1_max_completion_tokens(model: str):
         client, "post"
     ) as mock_client:
         try:
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model=model,
                 max_completion_tokens=10,
                 messages=[{"role": "user", "content": "Hello!"}],
@@ -164,11 +164,11 @@ async def test_o1_max_completion_tokens(model: str):
         assert request_body["messages"] == [{"role": "user", "content": "Hello!"}]
 
 
-def test_litellm_responses():
+def test_hangarllm_responses():
     """
     ensures that type of completion_tokens_details is correctly handled / returned
     """
-    from litellm.types.utils import CompletionTokensDetails
+    from hangarllm.types.utils import CompletionTokensDetails
 
     response = ModelResponse(
         usage={
@@ -206,15 +206,15 @@ def test_o_series_request_turns_system_into_user_without_touching_the_callers_me
 ) -> None:
     model: Final = "o-series-test-model-without-system-role"
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         model,
-        {"litellm_provider": "openai", "mode": "chat", "supports_system_messages": False},
+        {"hangarllm_provider": "openai", "mode": "chat", "supports_system_messages": False},
     )
     messages: Final = [{"role": "system", "content": "Be terse"}, {"role": "user", "content": "Hi"}]
     messages_before: Final = copy.deepcopy(messages)
 
     body: Final = OpenAIOSeriesConfig().transform_request(
-        model=model, messages=messages, optional_params={}, litellm_params={}, headers={}
+        model=model, messages=messages, optional_params={}, hangarllm_params={}, headers={}
     )
 
     assert [message["role"] for message in body["messages"]] == ["user", "user"]

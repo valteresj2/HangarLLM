@@ -1,6 +1,6 @@
 """Record/replay reverse proxy for the dockerized real-provider spend E2Es.
 
-Several E2E tests run the litellm proxy in its own container and curl it over
+Several E2E tests run the hangarllm proxy in its own container and curl it over
 real HTTP, then assert on spend, cost, or rerank output. Those calls reach real
 provider APIs (OpenAI image gen and chat, Cohere rerank, Anthropic messages),
 so every commit run paid for them and was exposed to provider outages (the 401
@@ -44,13 +44,13 @@ _LOGGER = logging.getLogger("openai_record_replay")
 _LOGGER.setLevel(logging.INFO)
 
 CASSETTE_TTL_SECONDS = 24 * 60 * 60
-RECORD_KEY_PREFIX = "litellm:openai:record:"
+RECORD_KEY_PREFIX = "hangarllm:openai:record:"
 RECORDER_REDIS_URL_ENV = "CASSETTE_REDIS_URL"
 UPSTREAM_BASE_URL_ENV = "RECORDER_UPSTREAM_BASE_URL"
 DEFAULT_UPSTREAM_BASE_URL = "https://api.openai.com"
 # One recorder fronts many providers. A non-default provider is addressed by
 # prefixing the request path with ``/__recorder_upstream/<host>/`` via the
-# model's ``api_base``. This rides ``api_base`` (which every litellm provider
+# model's ``api_base``. This rides ``api_base`` (which every hangarllm provider
 # honours) rather than a custom header (which some provider handlers, e.g.
 # cohere rerank, silently drop).
 UPSTREAM_PATH_PREFIX = "/__recorder_upstream/"

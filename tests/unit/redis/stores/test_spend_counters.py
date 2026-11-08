@@ -3,11 +3,11 @@ from typing import Final
 
 import pytest
 
-from litellm._internal_context import current_service_target
-from litellm.caching.redis_batch import Batch, request_redis_batch_scope
-from litellm.caching.redis_cache import RedisCache
-from litellm.redis.stores.connection import RedisStores, connect
-from litellm.redis.stores.spend_counters import (
+from hangarllm._internal_context import current_service_target
+from hangarllm.caching.redis_batch import Batch, request_redis_batch_scope
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.redis.stores.connection import RedisStores, connect
+from hangarllm.redis.stores.spend_counters import (
     SPEND_COUNTERS_TARGET,
     SpendCounterStore,
     end_user_counter,
@@ -24,8 +24,8 @@ from litellm.redis.stores.spend_counters import (
     team_window_counter,
     user_counter,
 )
-from litellm.redis.store_settings import RedisStoreSettings
-from litellm.rust_bridge._native import NativeRedisClient, NativeRedisStoreError, NativeSpendCounters, SpendRead
+from hangarllm.redis.store_settings import RedisStoreSettings
+from hangarllm.rust_bridge._native import NativeRedisClient, NativeRedisStoreError, NativeSpendCounters, SpendRead
 from tests.unit.caching.test_redis_batch import FakeNatives, fake_send
 
 from .spend_counters_double import FakeSpendCounters

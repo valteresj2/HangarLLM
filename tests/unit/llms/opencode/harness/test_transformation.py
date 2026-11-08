@@ -8,23 +8,23 @@ from typing import Final
 import pytest
 from pydantic import BaseModel
 
-from litellm.harness.context import SessionContext
-from litellm.harness.errors import (
+from hangarllm.harness.context import SessionContext
+from hangarllm.harness.errors import (
     CapabilityUnsupported,
     HarnessError,
     HarnessInstallFailed,
     OptionsMismatch,
     SandboxError,
 )
-from litellm.harness.handlers.cli_handler import PERSIST_DIR_SCRIPT, CLIHarnessHandler
-from litellm.harness.options import CodexOptions, OpenCodeOptions
-from litellm.harness.sandbox.base import CompletedRun
-from litellm.harness.types import Harness, Reasoning, Text, ToolCall, ToolResult
-from litellm.llms.base_llm.harness.transformation import (
+from hangarllm.harness.handlers.cli_handler import PERSIST_DIR_SCRIPT, CLIHarnessHandler
+from hangarllm.harness.options import CodexOptions, OpenCodeOptions
+from hangarllm.harness.sandbox.base import CompletedRun
+from hangarllm.harness.types import Harness, Reasoning, Text, ToolCall, ToolResult
+from hangarllm.llms.base_llm.harness.transformation import (
     HarnessSessionSetup,
     HarnessTurnError,
 )
-from litellm.llms.opencode.harness.transformation import (
+from hangarllm.llms.opencode.harness.transformation import (
     INSTRUCTIONS_FILENAME,
     OPENCODE_ISOLATION_ENV,
     OPENCODE_SESSION_TITLE,
@@ -370,15 +370,15 @@ def test_build_config_merges_user_config_under_managed_keys():
         instructions_path="/tmp/p/instructions.md",
         skills_path="/tmp/p/skills",
     )
-    provider = config["provider"]["litellm"]
+    provider = config["provider"]["hangarllm"]
     assert provider["npm"] == "@ai-sdk/openai-compatible"
     assert provider["options"] == {
         "baseURL": "http://h:1/v1",
         "apiKey": "{file:/tmp/p/token}",
     }
     assert provider["models"] == {"m1": {}}
-    assert config["model"] == config["small_model"] == "litellm/m1"
-    assert config["enabled_providers"] == ["litellm"]
+    assert config["model"] == config["small_model"] == "hangarllm/m1"
+    assert config["enabled_providers"] == ["hangarllm"]
     assert config["instructions"] == ["RULES.md", "/tmp/p/instructions.md"]
     assert config["skills"] == {"paths": ["/tmp/p/skills"]}
     assert config["compaction"] == {"auto": False}
@@ -423,7 +423,7 @@ def test_session_setup_token_only_in_private_file():
     assert setup.files == {TOKEN_FILENAME: TOKEN.encode()}
     assert TOKEN not in json.dumps(dict(setup.env))
     config = setup_config(setup)
-    assert config["provider"]["litellm"]["options"] == {
+    assert config["provider"]["hangarllm"]["options"] == {
         "baseURL": "http://host.docker.internal:4555/v1",
         "apiKey": "{file:/tmp/oc-1/token}",
     }
@@ -486,7 +486,7 @@ def test_turn_request_argv_and_session_continuation():
         "json",
         "--thinking",
         "-m",
-        "litellm/claude-haiku-4-5-20251001",
+        "hangarllm/claude-haiku-4-5-20251001",
         "--agent",
         "build",
         "--title",
@@ -537,7 +537,7 @@ async def test_start_writes_token_only_in_private_file():
     assert TOKEN not in json.dumps(call["cmd"])
     assert TOKEN not in json.dumps(call["env"])
     config = exec_config(sandbox)
-    assert config["provider"]["litellm"]["options"] == {
+    assert config["provider"]["hangarllm"]["options"] == {
         "baseURL": "http://host.docker.internal:4555/v1",
         "apiKey": "{file:/tmp/oc-1/token}",
     }
@@ -573,7 +573,7 @@ async def test_turn_argv_env_and_session_continuation():
         "json",
         "--thinking",
         "-m",
-        "litellm/claude-haiku-4-5-20251001",
+        "hangarllm/claude-haiku-4-5-20251001",
         "--agent",
         "build",
         "--title",
@@ -624,7 +624,7 @@ def exported_session(directory: str) -> str:
     reply: Final = {"id": SAVED_REPLY_MSG, "sessionID": SAVED, "parentID": SAVED_USER_MSG, "role": "assistant"}
     return json.dumps(
         {
-            "info": {"id": SAVED, "directory": directory, "title": "litellm-harness"},
+            "info": {"id": SAVED, "directory": directory, "title": "hangarllm-harness"},
             "messages": [
                 {"info": user, "parts": [{**user_part, "text": "Remember 4817"}]},
                 {"info": reply, "parts": [{**reply_part, "text": "OK"}]},
@@ -891,8 +891,8 @@ async def test_model_falls_back_to_endpoint_model():
     )
     sandbox.outputs.append(fixture_proc("turn1_write_read.jsonl"))
     await collect(handler, ctx, "x")
-    assert "litellm/gw-model" in sandbox.execs[0]["cmd"]
-    assert exec_config(sandbox)["provider"]["litellm"]["models"] == {"gw-model": {}}
+    assert "hangarllm/gw-model" in sandbox.execs[0]["cmd"]
+    assert exec_config(sandbox)["provider"]["hangarllm"]["models"] == {"gw-model": {}}
 
 
 def test_turn_request_never_loads_plugins():

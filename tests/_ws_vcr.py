@@ -4,7 +4,7 @@ The HTTP VCR layer (``tests/_vcr_redis_persister.py`` /
 ``tests/_vcr_conftest_common.py``) only intercepts httpx/aiohttp, so the
 realtime suite always reached the live provider. This module intercepts at the
 ``websockets.connect`` boundary instead and caches whole WebSocket sessions
-under a distinct ``litellm:vcr:wscassette:`` key, reusing the same Redis client,
+under a distinct ``hangarllm:vcr:wscassette:`` key, reusing the same Redis client,
 24h TTL, save-on-pass, and best-effort degradation semantics.
 
 Record mode logs every frame in order with its direction, a text/binary flag,
@@ -38,10 +38,10 @@ from tests._vcr_redis_persister import (
     _record_cache_failure,
 )
 
-WS_REDIS_KEY_PREFIX = "litellm:vcr:wscassette:"
+WS_REDIS_KEY_PREFIX = "hangarllm:vcr:wscassette:"
 WS_MAX_SESSIONS_PER_CASSETTE = 20
 WS_MAX_FRAMES_PER_SESSION = 2000
-WS_REPLAY_TIMEOUT_ENV = "LITELLM_WS_VCR_REPLAY_TIMEOUT"
+WS_REPLAY_TIMEOUT_ENV = "HANGARLLM_WS_VCR_REPLAY_TIMEOUT"
 WS_DEFAULT_REPLAY_TIMEOUT_SECONDS = 15.0
 WS_CASSETTE_SCHEMA_VERSION = 1
 

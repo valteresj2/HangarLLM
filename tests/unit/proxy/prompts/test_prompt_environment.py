@@ -1,10 +1,10 @@
 import json
 import pytest
 from unittest.mock import MagicMock
-from litellm.types.prompts.init_prompts import (
+from hangarllm.types.prompts.init_prompts import (
     PromptInfo,
     PromptSpec,
-    PromptLiteLLMParams,
+    PromptHangarLLMParams,
 )
 
 
@@ -24,7 +24,7 @@ def test_prompt_spec_includes_environment_and_created_by():
     """PromptSpec should carry environment and created_by fields."""
     spec = PromptSpec(
         prompt_id="test",
-        litellm_params=PromptLiteLLMParams(
+        hangarllm_params=PromptHangarLLMParams(
             prompt_id="test", prompt_integration="dotprompt"
         ),
         prompt_info=PromptInfo(prompt_type="db", environment="staging"),
@@ -39,7 +39,7 @@ def test_prompt_spec_default_environment():
     """PromptSpec environment should default to 'development'."""
     spec = PromptSpec(
         prompt_id="test",
-        litellm_params=PromptLiteLLMParams(
+        hangarllm_params=PromptHangarLLMParams(
             prompt_id="test", prompt_integration="dotprompt"
         ),
         prompt_info=PromptInfo(prompt_type="db"),
@@ -50,7 +50,7 @@ def test_prompt_spec_default_environment():
 
 def test_create_versioned_prompt_spec_includes_environment():
     """create_versioned_prompt_spec should populate environment and created_by from DB row."""
-    from litellm.proxy.prompts.prompt_endpoints import create_versioned_prompt_spec
+    from hangarllm.proxy.prompts.prompt_endpoints import create_versioned_prompt_spec
 
     mock_db_prompt = MagicMock()
     mock_db_prompt.model_dump.return_value = {
@@ -59,7 +59,7 @@ def test_create_versioned_prompt_spec_includes_environment():
         "version": 2,
         "environment": "staging",
         "created_by": "user-456",
-        "litellm_params": json.dumps(
+        "hangarllm_params": json.dumps(
             {
                 "prompt_id": "test_prompt",
                 "prompt_integration": "dotprompt",
@@ -79,12 +79,12 @@ def test_create_versioned_prompt_spec_includes_environment():
 async def test_create_prompt_stores_environment_and_created_by():
     """create_prompt should pass environment and created_by to the DB."""
     from unittest.mock import AsyncMock, patch
-    from litellm.proxy._types import UserAPIKeyAuth, LitellmUserRoles
-    from litellm.proxy.prompts.prompt_endpoints import create_prompt, Prompt
+    from hangarllm.proxy._types import UserAPIKeyAuth, HangarllmUserRoles
+    from hangarllm.proxy.prompts.prompt_endpoints import create_prompt, Prompt
 
     mock_user_auth = UserAPIKeyAuth(
         api_key="sk-9876",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         user_id="user-789",
     )
 
@@ -96,7 +96,7 @@ async def test_create_prompt_stores_environment_and_created_by():
         "version": 1,
         "environment": "staging",
         "created_by": "user-789",
-        "litellm_params": json.dumps(
+        "hangarllm_params": json.dumps(
             {
                 "prompt_id": "my_prompt",
                 "prompt_integration": "dotprompt",
@@ -106,33 +106,33 @@ async def test_create_prompt_stores_environment_and_created_by():
         "created_at": None,
         "updated_at": None,
     }
-    mock_prisma_client.db.litellm_prompttable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_prompttable.create = AsyncMock(
         return_value=mock_db_entry
     )
-    mock_prisma_client.db.litellm_prompttable.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_prompttable.find_many = AsyncMock(return_value=[])
 
     request = Prompt(
         prompt_id="my_prompt",
-        litellm_params=PromptLiteLLMParams(
+        hangarllm_params=PromptHangarLLMParams(
             prompt_id="my_prompt", prompt_integration="dotprompt"
         ),
         prompt_info=PromptInfo(prompt_type="db", environment="staging"),
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client):
         with patch(
-            "litellm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
+            "hangarllm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
         ) as mock_registry:
             mock_registry.initialize_prompt.return_value = PromptSpec(
                 prompt_id="my_prompt.v1",
-                litellm_params=request.litellm_params,
+                hangarllm_params=request.hangarllm_params,
                 prompt_info=request.prompt_info,
                 environment="staging",
                 created_by="user-789",
             )
             await create_prompt(request=request, user_api_key_dict=mock_user_auth)
 
-            create_call = mock_prisma_client.db.litellm_prompttable.create.call_args
+            create_call = mock_prisma_client.db.hangarllm_prompttable.create.call_args
             data = create_call.kwargs["data"]
             assert data["environment"] == "staging"
             assert data["created_by"] == "user-789"
@@ -142,19 +142,19 @@ async def test_create_prompt_stores_environment_and_created_by():
 async def test_update_prompt_stores_environment_and_created_by():
     """update_prompt should pass environment and created_by to new version."""
     from unittest.mock import AsyncMock, patch
-    from litellm.proxy._types import UserAPIKeyAuth, LitellmUserRoles
-    from litellm.proxy.prompts.prompt_endpoints import update_prompt, Prompt
+    from hangarllm.proxy._types import UserAPIKeyAuth, HangarllmUserRoles
+    from hangarllm.proxy.prompts.prompt_endpoints import update_prompt, Prompt
 
     mock_user_auth = UserAPIKeyAuth(
         api_key="sk-9876",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         user_id="user-update",
     )
 
     mock_prisma_client = MagicMock()
     mock_existing = MagicMock()
     mock_existing.version = 1
-    mock_prisma_client.db.litellm_prompttable.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_prompttable.find_many = AsyncMock(
         return_value=[mock_existing]
     )
 
@@ -165,7 +165,7 @@ async def test_update_prompt_stores_environment_and_created_by():
         "version": 2,
         "environment": "production",
         "created_by": "user-update",
-        "litellm_params": json.dumps(
+        "hangarllm_params": json.dumps(
             {
                 "prompt_id": "my_prompt",
                 "prompt_integration": "dotprompt",
@@ -175,26 +175,26 @@ async def test_update_prompt_stores_environment_and_created_by():
         "created_at": None,
         "updated_at": None,
     }
-    mock_prisma_client.db.litellm_prompttable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_prompttable.create = AsyncMock(
         return_value=mock_db_entry
     )
 
     request = Prompt(
         prompt_id="my_prompt",
-        litellm_params=PromptLiteLLMParams(
+        hangarllm_params=PromptHangarLLMParams(
             prompt_id="my_prompt", prompt_integration="dotprompt"
         ),
         prompt_info=PromptInfo(prompt_type="db", environment="production"),
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client):
         with patch(
-            "litellm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
+            "hangarllm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
         ) as mock_registry:
             mock_registry.has_config_prompt.return_value = False
             mock_registry.initialize_prompt.return_value = PromptSpec(
                 prompt_id="my_prompt.v2",
-                litellm_params=request.litellm_params,
+                hangarllm_params=request.hangarllm_params,
                 prompt_info=request.prompt_info,
                 environment="production",
                 created_by="user-update",
@@ -203,7 +203,7 @@ async def test_update_prompt_stores_environment_and_created_by():
                 prompt_id="my_prompt", request=request, user_api_key_dict=mock_user_auth
             )
 
-            create_call = mock_prisma_client.db.litellm_prompttable.create.call_args
+            create_call = mock_prisma_client.db.hangarllm_prompttable.create.call_args
             data = create_call.kwargs["data"]
             assert data["environment"] == "production"
             assert data["created_by"] == "user-update"
@@ -213,23 +213,23 @@ async def test_update_prompt_stores_environment_and_created_by():
 async def test_delete_prompt_scoped_to_environment():
     """delete_prompt with environment param should scope deletion."""
     from unittest.mock import AsyncMock, patch
-    from litellm.proxy._types import UserAPIKeyAuth, LitellmUserRoles
-    from litellm.proxy.prompts.prompt_endpoints import delete_prompt
+    from hangarllm.proxy._types import UserAPIKeyAuth, HangarllmUserRoles
+    from hangarllm.proxy.prompts.prompt_endpoints import delete_prompt
 
     mock_user_auth = UserAPIKeyAuth(
         api_key="sk-9876",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_prompttable.delete_many = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_prompttable.delete_many = AsyncMock(return_value=None)
 
     with patch(
-        "litellm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
+        "hangarllm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
     ) as mock_registry:
         prompt_spec = PromptSpec(
             prompt_id="test_prompt.v1",
-            litellm_params=PromptLiteLLMParams(
+            hangarllm_params=PromptHangarLLMParams(
                 prompt_id="test_prompt", prompt_integration="dotprompt"
             ),
             prompt_info=PromptInfo(prompt_type="db"),
@@ -238,14 +238,14 @@ async def test_delete_prompt_scoped_to_environment():
         mock_registry.resolve_prompt_spec.return_value = prompt_spec
         mock_registry.has_config_prompt.return_value = False
 
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client):
             await delete_prompt(
                 prompt_id="test_prompt",
                 user_api_key_dict=mock_user_auth,
                 environment="staging",
             )
 
-            mock_prisma_client.db.litellm_prompttable.delete_many.assert_called_once_with(
+            mock_prisma_client.db.hangarllm_prompttable.delete_many.assert_called_once_with(
                 where={"prompt_id": "test_prompt", "environment": "staging"}
             )
             mock_registry.delete_prompts_by_base_id.assert_called_once_with(

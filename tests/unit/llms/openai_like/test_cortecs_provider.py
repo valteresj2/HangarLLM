@@ -5,12 +5,12 @@ from typing import Final
 import pytest
 import respx
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
+import hangarllm
+from hangarllm.caching.llm_caching_handler import LLMClientCache
 
 
 def test_cortecs_provider_resolution(monkeypatch: pytest.MonkeyPatch):
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     monkeypatch.setenv("CORTECS_API_KEY", "cortecs-test-key")
 
@@ -28,7 +28,7 @@ def test_cortecs_provider_resolution(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_cortecs_provider_keeps_explicit_credentials(monkeypatch: pytest.MonkeyPatch):
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     monkeypatch.setenv("CORTECS_API_KEY", "cortecs-env-key")
 
@@ -45,9 +45,9 @@ def test_cortecs_provider_keeps_explicit_credentials(monkeypatch: pytest.MonkeyP
 
 
 def test_cortecs_is_available_in_add_model_form():
-    fields_path = Path(litellm.__file__).parent / "proxy" / "public_endpoints" / "provider_create_fields.json"
+    fields_path = Path(hangarllm.__file__).parent / "proxy" / "public_endpoints" / "provider_create_fields.json"
     providers = json.loads(fields_path.read_text())
-    cortecs = next(provider for provider in providers if provider["litellm_provider"] == "cortecs")
+    cortecs = next(provider for provider in providers if provider["hangarllm_provider"] == "cortecs")
 
     assert cortecs["provider"] == "CORTECS"
     assert cortecs["provider_display_name"] == "Cortecs"
@@ -77,7 +77,7 @@ def test_cortecs_chat_completion_request():
                 "usage": {"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7},
             },
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="cortecs/gpt-6-sol",
             messages=[{"role": "user", "content": "Say hello"}],
             api_key="cortecs-test-key",
@@ -115,7 +115,7 @@ def test_cortecs_responses_request():
                 "usage": {"input_tokens": 4, "output_tokens": 3, "total_tokens": 7},
             },
         )
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model="cortecs/gpt-6-sol",
             input="Say hello",
             api_key="cortecs-test-key",
@@ -133,8 +133,8 @@ def test_cortecs_responses_request():
 
 @pytest.mark.asyncio
 async def test_cortecs_anthropic_messages_request(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
     with respx.mock() as upstream:
         route: Final = upstream.post("https://api.cortecs.ai/v1/messages").respond(
             200,
@@ -149,7 +149,7 @@ async def test_cortecs_anthropic_messages_request(monkeypatch: pytest.MonkeyPatc
                 "usage": {"input_tokens": 4, "output_tokens": 3},
             },
         )
-        response: Final = await litellm.anthropic.messages.acreate(
+        response: Final = await hangarllm.anthropic.messages.acreate(
             model="cortecs/gpt-6-sol",
             messages=[{"role": "user", "content": "Say hello"}],
             max_tokens=32,

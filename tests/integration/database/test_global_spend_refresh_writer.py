@@ -97,7 +97,7 @@ def materialize_stock_view(writer_url: str) -> None:
 def insert_spend(writer_url: str) -> None:
     with psycopg.connect(writer_url, autocommit=True) as owner:
         owner.execute(
-            'INSERT INTO "LiteLLM_SpendLogs" (request_id, call_type, "startTime", "endTime", spend) '
+            'INSERT INTO "HangarLLM_SpendLogs" (request_id, call_type, "startTime", "endTime", spend) '
             "VALUES (%s, 'acompletion', now(), now(), %s)",
             (f"integration-{uuid.uuid4().hex}", SPEND),
         )

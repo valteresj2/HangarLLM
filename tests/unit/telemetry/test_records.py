@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.telemetry.records import StatusClass
+from hangarllm.telemetry.records import StatusClass
 
 
 @pytest.mark.parametrize(

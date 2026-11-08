@@ -40,7 +40,7 @@ def test_fal_queue_submit_charges_and_polls_pass_through_free(gateway: Gateway, 
     config.write_text(
         "model_list: []\n"
         "general_settings:\n"
-        "  master_key: os.environ/LITELLM_MASTER_KEY\n"
+        "  master_key: os.environ/HANGARLLM_MASTER_KEY\n"
         "  database_url: os.environ/DATABASE_URL\n"
         "  store_model_in_db: true\n"
         "  disable_spend_logs: false\n"
@@ -66,8 +66,8 @@ def test_fal_queue_submit_charges_and_polls_pass_through_free(gateway: Gateway, 
             assert json.loads(result_response.content) == _UPSTREAM_BODY
             submit_spend: Final = eventually(
                 lambda: read_rows(
-                    'SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
-                    (submit.headers["x-litellm-call-id"],),
+                    'SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
+                    (submit.headers["x-hangarllm-call-id"],),
                 ),
                 lambda values: len(values) == 1,
                 seconds=70,
@@ -75,8 +75,8 @@ def test_fal_queue_submit_charges_and_polls_pass_through_free(gateway: Gateway, 
             assert float(submit_spend[0]["spend"]) == pytest.approx(_EXPECTED_SPEND)
             poll_rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id=ANY(%s)',
-                    ([status_response.headers["x-litellm-call-id"], result_response.headers["x-litellm-call-id"]],),
+                    'SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id=ANY(%s)',
+                    ([status_response.headers["x-hangarllm-call-id"], result_response.headers["x-hangarllm-call-id"]],),
                 ),
                 lambda values: len(values) == 2,
                 seconds=70,
@@ -100,7 +100,7 @@ def test_fal_queue_submit_to_catalog_key_the_pricer_cannot_price_is_rejected_not
     config.write_text(
         "model_list: []\n"
         "general_settings:\n"
-        "  master_key: os.environ/LITELLM_MASTER_KEY\n"
+        "  master_key: os.environ/HANGARLLM_MASTER_KEY\n"
         "  database_url: os.environ/DATABASE_URL\n"
         "  store_model_in_db: true\n"
         "  disable_spend_logs: false\n"
@@ -137,7 +137,7 @@ def test_fal_queue_submit_prices_string_resolution_like_the_integer(gateway: Gat
     config.write_text(
         "model_list: []\n"
         "general_settings:\n"
-        "  master_key: os.environ/LITELLM_MASTER_KEY\n"
+        "  master_key: os.environ/HANGARLLM_MASTER_KEY\n"
         "  database_url: os.environ/DATABASE_URL\n"
         "  store_model_in_db: true\n"
         "  disable_spend_logs: false\n"
@@ -160,16 +160,16 @@ def test_fal_queue_submit_prices_string_resolution_like_the_integer(gateway: Gat
             assert json.loads(string.content) == {"request_id": "req-1", "status": "IN_QUEUE"}
             numeric_rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
-                    (numeric.headers["x-litellm-call-id"],),
+                    'SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
+                    (numeric.headers["x-hangarllm-call-id"],),
                 ),
                 lambda values: len(values) == 1,
                 seconds=70,
             )
             string_rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
-                    (string.headers["x-litellm-call-id"],),
+                    'SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
+                    (string.headers["x-hangarllm-call-id"],),
                 ),
                 lambda values: len(values) == 1,
                 seconds=70,

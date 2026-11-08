@@ -1,0 +1,20 @@
+[package]
+name = "hangarllm-redis-resolve"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+hangarllm-python-compat.workspace = true
+hangarllm-redis-types.workspace = true
+hangarllm-secret-value.workspace = true
+serde_json.workspace = true
+strum.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true
+serde.workspace = true

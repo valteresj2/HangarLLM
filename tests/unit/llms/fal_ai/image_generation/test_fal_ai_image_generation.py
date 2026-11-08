@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm import aimage_generation
+from hangarllm import aimage_generation
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -60,7 +60,7 @@ async def test_fal_ai_image_generation_basic(model, expected_endpoint):
 
         return mock_response
 
-    with patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
         mock_post.side_effect = capture_post_call
 
         test_api_key = "test-fal-ai-key-12345"

@@ -4,20 +4,20 @@ from typing import Final
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from litellm.proxy._types import (
+from hangarllm.proxy._types import (
     ROLES_WITHIN_ORG,
     BudgetNewRequest,
     ChangePasswordRequest,
     GenerateKeyRequest,
     GenerateKeyResponse,
     KeyRequest,
-    LiteLLM_AuditLogs,
-    LiteLLM_BudgetTable,
-    LiteLLM_EndUserTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
-    LitellmUserRoles,
+    HangarLLM_AuditLogs,
+    HangarLLM_BudgetTable,
+    HangarLLM_EndUserTable,
+    HangarLLM_TeamMembership,
+    HangarLLM_TeamTable,
+    HangarLLM_UserTable,
+    HangarllmUserRoles,
     NewCustomerRequest,
     NewMCPServerRequest,
     NewTeamRequest,
@@ -103,10 +103,10 @@ def test_an_absent_api_key_leaves_the_token_unset():
 
 
 AUDIENCE_CASES = (
-    ("https://litellm.example.com", False, True),
+    ("https://hangarllm.example.com", False, True),
     (None, True, True),
     (None, False, False),
-    ("https://litellm.example.com", True, False),
+    ("https://hangarllm.example.com", True, False),
 )
 
 
@@ -114,7 +114,7 @@ AUDIENCE_CASES = (
 def test_a_jwt_issuer_must_name_an_audience_or_opt_out_of_one_but_never_both(
     audience, disable_audience_validation, is_accepted
 ):
-    from litellm.proxy._types import JWTIssuerConfig
+    from hangarllm.proxy._types import JWTIssuerConfig
 
     fields = {
         "issuer": "https://idp.example.com",
@@ -207,7 +207,7 @@ def test_an_organization_member_may_hold_a_role_that_exists_within_an_organizati
     assert request.role == role
 
 
-ROLES_OUTSIDE_ORG = tuple(role for role in LitellmUserRoles if role not in ROLES_WITHIN_ORG)
+ROLES_OUTSIDE_ORG = tuple(role for role in HangarllmUserRoles if role not in ROLES_WITHIN_ORG)
 
 
 @pytest.mark.parametrize("role", ROLES_OUTSIDE_ORG)
@@ -272,9 +272,9 @@ def test_management_requests_leave_omitted_rate_limits_unset(
 @pytest.mark.parametrize(("response_model", "identifiers"), (
     (GenerateKeyResponse, {"key": "sk-test"}),
     (NewUserResponse, {"key": "sk-test"}),
-    (LiteLLM_TeamTable, {"team_id": "team-test"}),
-    (LiteLLM_UserTable, {"user_id": "user-test"}),
-    (LiteLLM_BudgetTable, {"budget_id": "budget-test"}),
+    (HangarLLM_TeamTable, {"team_id": "team-test"}),
+    (HangarLLM_UserTable, {"user_id": "user-test"}),
+    (HangarLLM_BudgetTable, {"budget_id": "budget-test"}),
 ))
 def test_existing_negative_rate_limits_remain_readable(
     response_model: type[BaseModel], identifiers: dict[str, str]
@@ -285,13 +285,13 @@ def test_existing_negative_rate_limits_remain_readable(
 
 
 def test_existing_customer_negative_rate_limits_remain_readable() -> None:
-    customer: Final = LiteLLM_EndUserTable.model_validate({
+    customer: Final = HangarLLM_EndUserTable.model_validate({
         "user_id": "customer-test", "blocked": False,
-        "litellm_budget_table": {"rpm_limit": -1, "tpm_limit": -100},
+        "hangarllm_budget_table": {"rpm_limit": -1, "tpm_limit": -100},
     })
-    assert customer.litellm_budget_table is not None
-    assert customer.litellm_budget_table.rpm_limit == -1
-    assert customer.litellm_budget_table.tpm_limit == -100
+    assert customer.hangarllm_budget_table is not None
+    assert customer.hangarllm_budget_table.rpm_limit == -1
+    assert customer.hangarllm_budget_table.tpm_limit == -100
 
 
 USER_IDENTIFIER_CASES = (
@@ -312,17 +312,17 @@ def test_a_user_update_must_say_which_user_it_updates(fields, is_accepted):
         UpdateUserRequest(**fields)
 
 
-def _audit_log(**overrides) -> LiteLLM_AuditLogs:
+def _audit_log(**overrides) -> HangarLLM_AuditLogs:
     fields = {
         "id": "audit-1",
         "updated_at": "2026-01-01T00:00:00",
         "changed_by": "user-1",
         "action": "updated",
-        "table_name": "LiteLLM_VerificationToken",
+        "table_name": "HangarLLM_VerificationToken",
         "object_id": "key-1",
         **overrides,
     }
-    return LiteLLM_AuditLogs(**fields)
+    return HangarLLM_AuditLogs(**fields)
 
 
 SECRET = "sk-verysecretvalue1234567890"
@@ -389,8 +389,8 @@ def test_team_membership_budget_table_optional_no_crash():
         "team_id": "test-team",
         "budget_id": None,
     }
-    result = LiteLLM_TeamMembership.model_validate(data)
-    assert result.litellm_budget_table is None
+    result = HangarLLM_TeamMembership.model_validate(data)
+    assert result.hangarllm_budget_table is None
 
 
 def test_team_membership_budget_table_present_still_works():
@@ -398,28 +398,28 @@ def test_team_membership_budget_table_present_still_works():
         "user_id": "test-user",
         "team_id": "test-team",
         "budget_id": "some-budget-id",
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
-    result = LiteLLM_TeamMembership.model_validate(data)
-    assert result.litellm_budget_table is None
+    result = HangarLLM_TeamMembership.model_validate(data)
+    assert result.hangarllm_budget_table is None
 
 
 def test_a_jwt_issuer_can_override_the_virtual_key_claim_field_while_other_issuers_keep_the_global_one():
-    from litellm.proxy._types import LiteLLM_JWTAuth, UnregisteredJWTClientBehavior
+    from hangarllm.proxy._types import HangarLLM_JWTAuth, UnregisteredJWTClientBehavior
 
-    jwt_auth = LiteLLM_JWTAuth(
+    jwt_auth = HangarLLM_JWTAuth(
         virtual_key_claim_field="client_id",
         issuers=[
             {
                 "issuer": "https://team-idp.example.com",
                 "jwks_url": "https://team-idp.example.com/keys",
-                "audience": "litellm",
+                "audience": "hangarllm",
                 "team_id_jwt_field": "sub",
             },
             {
                 "issuer": "https://service-idp.example.com",
                 "jwks_url": "https://service-idp.example.com/keys",
-                "audience": "litellm",
+                "audience": "hangarllm",
                 "virtual_key_claim_field": "sub",
                 "unregistered_jwt_client_behavior": "reject",
             },
@@ -445,15 +445,15 @@ def test_a_jwt_issuer_can_override_the_virtual_key_claim_field_while_other_issue
 def test_virtual_key_mapping_counts_as_configured_when_any_issuer_sets_the_claim_field(
     global_field, issuer_field, is_configured
 ):
-    from litellm.proxy._types import LiteLLM_JWTAuth
+    from hangarllm.proxy._types import HangarLLM_JWTAuth
 
-    jwt_auth = LiteLLM_JWTAuth(
+    jwt_auth = HangarLLM_JWTAuth(
         virtual_key_claim_field=global_field,
         issuers=[
             {
                 "issuer": "https://idp.example.com",
                 "jwks_url": "https://idp.example.com/keys",
-                "audience": "litellm",
+                "audience": "hangarllm",
                 "virtual_key_claim_field": issuer_field,
             }
         ],
@@ -504,7 +504,7 @@ def test_change_password_request_passwords_hidden_from_repr():
 def test_mcp_advertised_versions_reject_unavailable_revisions(versions):
     from pydantic import ValidationError
 
-    from litellm.proxy._types import ConfigGeneralSettings
+    from hangarllm.proxy._types import ConfigGeneralSettings
 
     with pytest.raises(ValidationError):
         ConfigGeneralSettings(mcp_advertised_versions=versions)
@@ -512,7 +512,7 @@ def test_mcp_advertised_versions_reject_unavailable_revisions(versions):
 
 @pytest.mark.parametrize("revision", ["unknown", None])
 def test_mcp_metadata_rejects_unavailable_upstream_protocol(revision):
-    from litellm.proxy._types import NewMCPServerRequest, UpdateMCPServerRequest
+    from hangarllm.proxy._types import NewMCPServerRequest, UpdateMCPServerRequest
 
     payload = {"server_id": "test", "transport": "http", "url": "https://example.com/mcp", "mcp_info": {"protocol_version": revision}}
     for model in (NewMCPServerRequest, UpdateMCPServerRequest):
@@ -559,16 +559,16 @@ STDIO_SERVER_FIELDS = {"server_id": "stdio-1", "transport": "stdio", "command": 
 
 @pytest.mark.parametrize("request_model", MCP_SERVER_REQUESTS)
 def test_a_stdio_mcp_server_is_refused_while_stdio_is_not_enabled(monkeypatch, request_model):
-    monkeypatch.delenv("LITELLM_ENABLE_MCP_STDIO", raising=False)
+    monkeypatch.delenv("HANGARLLM_ENABLE_MCP_STDIO", raising=False)
 
-    with pytest.raises(ValidationError, match="LITELLM_ENABLE_MCP_STDIO=true"):
+    with pytest.raises(ValidationError, match="HANGARLLM_ENABLE_MCP_STDIO=true"):
         request_model(**STDIO_SERVER_FIELDS)
 
 
 @pytest.mark.parametrize("request_model", MCP_SERVER_REQUESTS)
 @pytest.mark.parametrize("flag", ["true", "TRUE", " True "])
 def test_a_stdio_mcp_server_is_accepted_once_stdio_is_enabled(monkeypatch, request_model, flag):
-    monkeypatch.setenv("LITELLM_ENABLE_MCP_STDIO", flag)
+    monkeypatch.setenv("HANGARLLM_ENABLE_MCP_STDIO", flag)
 
     assert request_model(**STDIO_SERVER_FIELDS).command == "python"
 
@@ -576,15 +576,15 @@ def test_a_stdio_mcp_server_is_accepted_once_stdio_is_enabled(monkeypatch, reque
 @pytest.mark.parametrize("request_model", MCP_SERVER_REQUESTS)
 @pytest.mark.parametrize("flag", ["false", "1", "yes", ""])
 def test_only_an_explicit_true_enables_stdio_mcp_servers(monkeypatch, request_model, flag):
-    monkeypatch.setenv("LITELLM_ENABLE_MCP_STDIO", flag)
+    monkeypatch.setenv("HANGARLLM_ENABLE_MCP_STDIO", flag)
 
-    with pytest.raises(ValidationError, match="LITELLM_ENABLE_MCP_STDIO=true"):
+    with pytest.raises(ValidationError, match="HANGARLLM_ENABLE_MCP_STDIO=true"):
         request_model(**STDIO_SERVER_FIELDS)
 
 
 @pytest.mark.parametrize("request_model", MCP_SERVER_REQUESTS)
 def test_a_stdio_command_outside_the_allowlist_is_refused_even_when_stdio_is_enabled(monkeypatch, request_model):
-    monkeypatch.setenv("LITELLM_ENABLE_MCP_STDIO", "true")
+    monkeypatch.setenv("HANGARLLM_ENABLE_MCP_STDIO", "true")
 
     with pytest.raises(ValidationError, match="not in the allowed commands list"):
         request_model(**{**STDIO_SERVER_FIELDS, "command": "/bin/sh"})
@@ -593,7 +593,7 @@ def test_a_stdio_command_outside_the_allowlist_is_refused_even_when_stdio_is_ena
 @pytest.mark.parametrize("request_model", MCP_SERVER_REQUESTS)
 @pytest.mark.parametrize("missing", ["command", "args"])
 def test_an_enabled_stdio_mcp_server_still_needs_a_command_and_args(monkeypatch, request_model, missing):
-    monkeypatch.setenv("LITELLM_ENABLE_MCP_STDIO", "true")
+    monkeypatch.setenv("HANGARLLM_ENABLE_MCP_STDIO", "true")
 
     with pytest.raises(ValidationError, match=f"{missing} is required for stdio transport"):
         request_model(**{k: v for k, v in STDIO_SERVER_FIELDS.items() if k != missing})
@@ -601,7 +601,7 @@ def test_an_enabled_stdio_mcp_server_still_needs_a_command_and_args(monkeypatch,
 
 @pytest.mark.parametrize("request_model", MCP_SERVER_REQUESTS)
 def test_an_http_mcp_server_is_unaffected_by_the_stdio_flag(monkeypatch, request_model):
-    monkeypatch.delenv("LITELLM_ENABLE_MCP_STDIO", raising=False)
+    monkeypatch.delenv("HANGARLLM_ENABLE_MCP_STDIO", raising=False)
 
     assert request_model(server_id="http-1", transport="http", url="https://mcp.example.com").url == "https://mcp.example.com"
     with pytest.raises(ValidationError, match="url or spec_path is required"):
@@ -628,7 +628,7 @@ def test_modern_http_upstream_protocol_is_available(request_model):
     "setting", ["max_batch_file_records", "max_batch_file_uploads_per_day", "max_file_downloads_per_minute"]
 )
 def test_batch_file_caps_accept_only_positive_limits(setting):
-    from litellm.proxy._types import ConfigGeneralSettings
+    from hangarllm.proxy._types import ConfigGeneralSettings
 
     for invalid in (0, -5):
         with pytest.raises(ValidationError):

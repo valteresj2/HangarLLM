@@ -13,8 +13,8 @@ from prisma import Prisma
 from prisma.errors import DataError
 from psycopg import sql
 
-from litellm.proxy.spend_tracking.key_metadata_recovery import attach_user_details
-from litellm.repositories.chunked_in import count_in, delete_many_in, find_many_in, update_many_in
+from hangarllm.proxy.spend_tracking.key_metadata_recovery import attach_user_details
+from hangarllm.repositories.chunked_in import count_in, delete_many_in, find_many_in, update_many_in
 
 ROWS: Final = 40_000
 OUTSIDE: Final = 25
@@ -27,15 +27,15 @@ def _scoped_url(url: str, schema: str) -> str:
 
 @asynccontextmanager
 async def _user_table(users: int) -> AsyncIterator[Prisma]:
-    """A private schema holding a copy of the migrated `LiteLLM_UserTable`, seeded with `users` rows."""
+    """A private schema holding a copy of the migrated `HangarLLM_UserTable`, seeded with `users` rows."""
     schema: Final = f"integration_{uuid.uuid4().hex}"
     url: Final = os.environ["DATABASE_URL"]
-    table: Final = sql.Identifier(schema, "LiteLLM_UserTable")
+    table: Final = sql.Identifier(schema, "HangarLLM_UserTable")
     with psycopg.connect(url, autocommit=True) as setup:
         setup.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
         try:
             setup.execute(
-                sql.SQL('CREATE TABLE {} (LIKE "LiteLLM_UserTable" INCLUDING DEFAULTS INCLUDING CONSTRAINTS)').format(
+                sql.SQL('CREATE TABLE {} (LIKE "HangarLLM_UserTable" INCLUDING DEFAULTS INCLUDING CONSTRAINTS)').format(
                     table
                 )
             )
@@ -58,11 +58,11 @@ async def _user_table(users: int) -> AsyncIterator[Prisma]:
 
 @asynccontextmanager
 async def _config_table() -> AsyncIterator[tuple[Prisma, str]]:
-    """A private schema holding only `LiteLLM_Config`, seeded with ROWS listed and OUTSIDE unlisted rows."""
+    """A private schema holding only `HangarLLM_Config`, seeded with ROWS listed and OUTSIDE unlisted rows."""
     schema: Final = f"integration_{uuid.uuid4().hex}"
     url: Final = os.environ["DATABASE_URL"]
     scoped_url: Final = _scoped_url(url, schema)
-    table: Final = sql.Identifier(schema, "LiteLLM_Config")
+    table: Final = sql.Identifier(schema, "HangarLLM_Config")
     with psycopg.connect(url, autocommit=True) as setup:
         setup.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
         try:
@@ -96,7 +96,7 @@ def _listed() -> list[str]:
 def _count(schema: str, condition: sql.Composable) -> int:
     with psycopg.connect(os.environ["DATABASE_URL"]) as connection:
         row: Final = connection.execute(
-            sql.SQL("SELECT count(*) FROM {} WHERE ").format(sql.Identifier(schema, "LiteLLM_Config")) + condition
+            sql.SQL("SELECT count(*) FROM {} WHERE ").format(sql.Identifier(schema, "HangarLLM_Config")) + condition
         ).fetchone()
     assert row is not None
     return int(row[0])
@@ -107,11 +107,11 @@ async def test_a_raw_in_filter_over_the_bind_parameter_cap_is_rejected_by_postgr
     async with _config_table() as (database, schema):
         where: Final = {"param_name": {"in": _listed()}}
         with pytest.raises(DataError, match="too many bind variables"):
-            await database.litellm_config.count(where=where)
+            await database.hangarllm_config.count(where=where)
         with pytest.raises(DataError, match="too many bind variables"):
-            await database.litellm_config.update_many(where=where, data={"reload_revision": 1})
+            await database.hangarllm_config.update_many(where=where, data={"reload_revision": 1})
         with pytest.raises(DataError, match="too many bind variables"):
-            await database.litellm_config.delete_many(where=where)
+            await database.hangarllm_config.delete_many(where=where)
         assert _count(schema, sql.SQL("reload_revision = 0")) == ROWS + OUTSIDE
 
 
@@ -122,10 +122,10 @@ async def test_a_raw_in_filter_over_the_bind_parameter_cap_is_rejected_by_postgr
 async def test_find_many_in_and_count_in_read_every_row_past_the_bind_parameter_cap() -> None:
     async with _config_table() as (database, _):
         values: Final = [*_listed(), *_listed()[:100], "missing"]
-        rows: Final = await find_many_in(database.litellm_config, "param_name", values)
+        rows: Final = await find_many_in(database.hangarllm_config, "param_name", values)
         assert sorted(row.param_name for row in rows) == sorted(_listed())
-        assert await count_in(database.litellm_config, "param_name", values) == ROWS
-        assert await count_in(database.litellm_config, "param_name", values, where={"reload_revision": 1}) == 0
+        assert await count_in(database.hangarllm_config, "param_name", values) == ROWS
+        assert await count_in(database.hangarllm_config, "param_name", values, where={"reload_revision": 1}) == 0
 
 
 @pytest.mark.covers("other.database.chunked_in.update_many_in_updates_every_row_in_a_transaction")
@@ -133,7 +133,7 @@ async def test_update_many_in_updates_every_row_inside_one_transaction() -> None
     async with _config_table() as (database, schema):
         async with database.tx(timeout=timedelta(seconds=60)) as transaction:
             updated: Final = await update_many_in(
-                transaction.litellm_config,
+                transaction.hangarllm_config,
                 "param_name",
                 _listed(),
                 data={"reload_revision": 7},
@@ -148,7 +148,7 @@ async def test_update_many_in_updates_every_row_inside_one_transaction() -> None
 async def test_delete_many_in_deletes_every_listed_row_and_nothing_else() -> None:
     async with _config_table() as (database, schema):
         deleted: Final = await delete_many_in(
-            database.litellm_config, "param_name", _listed(), atomicity="per_chunk_ok", where={"reload_revision": 0}
+            database.hangarllm_config, "param_name", _listed(), atomicity="per_chunk_ok", where={"reload_revision": 0}
         )
         assert deleted == ROWS
         assert _count(schema, sql.SQL("TRUE")) == OUTSIDE

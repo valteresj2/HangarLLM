@@ -4,9 +4,9 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+import hangarllm
+from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
 
 class TestBedrockGPTOSS:
@@ -46,7 +46,7 @@ class TestBedrockGPTOSS:
 
         with patch.object(client, "post", new=Mock()) as mock_post:
             try:
-                litellm.completion(
+                hangarllm.completion(
                     model="bedrock/converse/openai.gpt-oss-20b-1:0",
                     messages=[
                         {"role": "user", "content": "How is the weather in Mumbai?"}

@@ -4,7 +4,7 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.db.db_lookup_gate import DBLookupDeadlineExceeded, DBLookupStallTracker, bounded_db_lookup
+from hangarllm.proxy.db.db_lookup_gate import DBLookupDeadlineExceeded, DBLookupStallTracker, bounded_db_lookup
 
 
 async def _never_answers() -> None:

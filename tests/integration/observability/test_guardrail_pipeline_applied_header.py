@@ -24,8 +24,8 @@ from tests.integration._support.process import owned_proxy
 from tests.integration._support.upstream import aws_event_stream_frame
 from tests.integration._support.wire import Reply, Request, Wire, wire_server
 
-_HEADER: Final = "x-litellm-applied-guardrails"
-_VENDOR_PATH: Final = "/beta/litellm_basic_guardrail_api"
+_HEADER: Final = "x-hangarllm-applied-guardrails"
+_VENDOR_PATH: Final = "/beta/hangarllm_basic_guardrail_api"
 _PROMPT_SHIELD_PATH: Final = "/contentsafety/text:shieldPrompt"
 _PROMPT_SHIELD: Final = "prompt-shield-step"
 _REQUEST_FIRST: Final = "request-first-step"
@@ -103,7 +103,7 @@ _SYNC_SUCCESS_RECORDER: Final = """
 import json
 from pathlib import Path
 
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 class SyncSuccessRecorder(CustomLogger):
@@ -300,7 +300,7 @@ def _vendor(request: Request) -> Reply:
 def _guardrail(name: str, mode: str, vendor: Wire, **params: object) -> dict[str, object]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "generic_guardrail_api",
             "mode": mode,
             "default_on": False,
@@ -329,8 +329,8 @@ def _config(directory: Path, vendor: Wire, upstream: Wire) -> Path:
         _SYNC_SUCCESS_RECORDER.format(path=str(directory / "sync-success-log.jsonl"))
     )
     configuration: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    configuration["litellm_settings"] = {
-        **configuration.get("litellm_settings", {}),
+    configuration["hangarllm_settings"] = {
+        **configuration.get("hangarllm_settings", {}),
         "callbacks": ["otel", "sync_success_recorder.recorder"],
     }
     configuration["finetune_settings"] = [
@@ -340,7 +340,7 @@ def _config(directory: Path, vendor: Wire, upstream: Wire) -> Path:
         *configuration.get("model_list", []),
         {
             "model_name": _BEDROCK_MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"bedrock/{_BEDROCK_MODEL_ID}",
                 "api_base": upstream.url,
                 "aws_access_key_id": "AKIASYNTHETICPROVIDER",
@@ -350,7 +350,7 @@ def _config(directory: Path, vendor: Wire, upstream: Wire) -> Path:
         },
         {
             "model_name": _JUDGE_MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-6-luna",
                 "api_base": f"{vendor.url}/{_JUDGE}/v1",
                 "api_key": "synthetic-judge-key",
@@ -369,7 +369,7 @@ def _config(directory: Path, vendor: Wire, upstream: Wire) -> Path:
         ),
         {
             "guardrail_name": _UNGATED_STEP,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "dynamoai",
                 "mode": "post_call",
                 "default_on": False,
@@ -379,7 +379,7 @@ def _config(directory: Path, vendor: Wire, upstream: Wire) -> Path:
         },
         {
             "guardrail_name": _JUDGE,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "decision_model",
                 "mode": "post_call",
                 "default_on": False,
@@ -396,7 +396,7 @@ def _config(directory: Path, vendor: Wire, upstream: Wire) -> Path:
         },
         {
             "guardrail_name": _PROMPT_SHIELD,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "azure/prompt_shield",
                 "mode": "pre_call",
                 "default_on": False,
@@ -688,7 +688,7 @@ def test_the_spend_log_and_the_trace_name_only_the_steps_that_ran(
     team, response = _ask_as_new_team(rig, tag, stream=stream, path=path)
     assert response.status_code == 200, response.text
     rows: Final = eventually(
-        lambda: rig.gateway.rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE team_id = %s', (team,)),
+        lambda: rig.gateway.rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE team_id = %s', (team,)),
         lambda found: len(found) == 1,
         seconds=70,
     )
@@ -735,7 +735,7 @@ def test_a_response_pipeline_names_a_judge_step_that_records_its_own_results(rig
     assert _steps_that_ran(rig) == (_JUDGE, _RESPONSE_SECOND)
     assert sorted(response.headers.get(_HEADER, "").split(",")) == [_JUDGE, _RESPONSE_SECOND], dict(response.headers)
     rows: Final = eventually(
-        lambda: rig.gateway.rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE team_id = %s', (team,)),
+        lambda: rig.gateway.rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE team_id = %s', (team,)),
         lambda found: len(found) == 1,
         seconds=70,
     )
@@ -771,7 +771,7 @@ def test_a_pass_through_route_names_its_response_pipeline_up_front_because_its_h
         response.headers
     )
     rows: Final = eventually(
-        lambda: rig.gateway.rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE team_id = %s', (team,)),
+        lambda: rig.gateway.rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE team_id = %s', (team,)),
         lambda found: len(found) == 1,
         seconds=70,
     )
@@ -802,7 +802,7 @@ def test_an_image_generation_names_its_response_pipeline_up_front_because_its_sp
         response.headers
     )
     rows: Final = eventually(
-        lambda: rig.gateway.rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE team_id = %s', (team,)),
+        lambda: rig.gateway.rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE team_id = %s', (team,)),
         lambda found: len(found) == 1,
         seconds=70,
     )
@@ -816,7 +816,7 @@ def _applied_in_header_spend_log_and_trace(
     rig: _Rig, since: int, team: str, response: httpx.Response, *, rows_expected: int = 1
 ) -> tuple[list[str], list[list[str]], list[list[str]]]:
     rows: Final = eventually(
-        lambda: rig.gateway.rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE team_id = %s', (team,)),
+        lambda: rig.gateway.rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE team_id = %s', (team,)),
         lambda found: len(found) == rows_expected,
         seconds=70,
     )
@@ -833,7 +833,7 @@ def _applied_in_header_spend_log_and_trace(
 def _cache_hits_and_metadata_logged(rig: _Rig, team: str, count: int) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: rig.gateway.rows(
-            'SELECT cache_hit, metadata FROM "LiteLLM_SpendLogs" WHERE team_id = %s ORDER BY "startTime"', (team,)
+            'SELECT cache_hit, metadata FROM "HangarLLM_SpendLogs" WHERE team_id = %s ORDER BY "startTime"', (team,)
         ),
         lambda found: len(found) == count,
         seconds=70,
@@ -1075,7 +1075,7 @@ def test_an_agent_message_names_every_response_step_that_ran_in_the_spend_log_an
     assert response.status_code == 200, response.text
     assert sorted(_steps_that_ran(rig)) == expected
     rows: Final = eventually(
-        lambda: rig.gateway.rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE team_id = %s', (team,)),
+        lambda: rig.gateway.rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE team_id = %s', (team,)),
         lambda found: len(found) == 1,
         seconds=70,
     )

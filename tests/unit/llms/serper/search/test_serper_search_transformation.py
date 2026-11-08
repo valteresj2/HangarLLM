@@ -9,9 +9,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.serper.search.transformation import SerperSearchConfig
+import hangarllm
+from hangarllm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from hangarllm.llms.serper.search.transformation import SerperSearchConfig
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -51,13 +51,13 @@ class TestSerperSearch:
 
         # Mock the httpx AsyncClient post method
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = mock_response
 
             # Make the search call
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="latest developments in AI",
                 search_provider="serper",
                 max_results=5,
@@ -120,12 +120,12 @@ class TestSerperSearch:
         }
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = mock_response
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="test query",
                 search_provider="serper",
                 country="US",
@@ -154,12 +154,12 @@ class TestSerperSearch:
         }
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = mock_response
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="machine learning",
                 search_provider="serper",
                 search_domain_filter=["arxiv.org", "nature.com"],
@@ -184,12 +184,12 @@ class TestSerperSearch:
         }
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = mock_response
 
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="xyznonexistent",
                 search_provider="serper",
             )
@@ -207,12 +207,12 @@ def _transform(payload: object) -> SearchResponse:
 def test_serper_organic_results_keep_provider_order_and_ignore_other_sections():
     response = _transform(
         {
-            "searchParameters": {"q": "litellm", "type": "search", "engine": "google"},
-            "knowledgeGraph": {"title": "LiteLLM", "attributes": {"Founded": "2023"}},
+            "searchParameters": {"q": "hangarllm", "type": "search", "engine": "google"},
+            "knowledgeGraph": {"title": "HangarLLM", "attributes": {"Founded": "2023"}},
             "organic": [
                 {
-                    "title": "LiteLLM",
-                    "link": "https://example.com/litellm",
+                    "title": "HangarLLM",
+                    "link": "https://example.com/hangarllm",
                     "snippet": "Call every LLM API",
                     "date": "Jan 15, 2025",
                     "position": 1,
@@ -221,7 +221,7 @@ def test_serper_organic_results_keep_provider_order_and_ignore_other_sections():
                 {"title": "Docs", "link": "https://example.com/docs", "snippet": "Docs", "position": 2},
                 {"title": "Blog", "link": "https://example.com/blog", "snippet": "Blog", "date": None},
             ],
-            "peopleAlsoAsk": [{"question": "What is LiteLLM?", "title": "FAQ", "link": "https://example.com/faq"}],
+            "peopleAlsoAsk": [{"question": "What is HangarLLM?", "title": "FAQ", "link": "https://example.com/faq"}],
             "credits": 1,
         }
     )
@@ -229,7 +229,7 @@ def test_serper_organic_results_keep_provider_order_and_ignore_other_sections():
     assert response.object == "search"
     assert response.results == [
         SearchResult(
-            title="LiteLLM", url="https://example.com/litellm", snippet="Call every LLM API", date="Jan 15, 2025"
+            title="HangarLLM", url="https://example.com/hangarllm", snippet="Call every LLM API", date="Jan 15, 2025"
         ),
         SearchResult(title="Docs", url="https://example.com/docs", snippet="Docs"),
         SearchResult(title="Blog", url="https://example.com/blog", snippet="Blog"),

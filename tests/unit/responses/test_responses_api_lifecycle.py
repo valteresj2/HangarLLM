@@ -10,10 +10,10 @@ import openai
 import pytest
 import respx
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.responses.streaming_iterator import ResponsesAPIStreamingIterator, SyncResponsesAPIStreamingIterator
-from litellm.types.llms.openai import ResponsesAPIResponse
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.responses.streaming_iterator import ResponsesAPIStreamingIterator, SyncResponsesAPIStreamingIterator
+from hangarllm.types.llms.openai import ResponsesAPIResponse
 from tests.unit.proxy.conftest import httpx_transport
 
 pytestmark: Final = pytest.mark.usefixtures(httpx_transport.__name__)
@@ -25,19 +25,19 @@ CancelProvider: TypeAlias = Literal["openai", "azure"]
 def _invoke_unsupported_response_operation(provider: Provider, operation: Operation) -> object:
     match operation:
         case "delete":
-            return litellm.delete_responses(
+            return hangarllm.delete_responses(
                 response_id="resp_unsupported",
                 custom_llm_provider=provider,
                 api_key="sk-test",
             )
         case "get":
-            return litellm.get_responses(
+            return hangarllm.get_responses(
                 response_id="resp_unsupported",
                 custom_llm_provider=provider,
                 api_key="sk-test",
             )
         case "cancel":
-            return litellm.cancel_responses(
+            return hangarllm.cancel_responses(
                 response_id="resp_unsupported",
                 custom_llm_provider=provider,
                 api_key="sk-test",
@@ -46,14 +46,14 @@ def _invoke_unsupported_response_operation(provider: Provider, operation: Operat
 
 async def _invoke_cancel_response(sync_mode: bool, call_kwargs: dict[str, object]) -> object:
     if sync_mode:
-        return litellm.cancel_responses(**call_kwargs)
-    return await litellm.acancel_responses(**call_kwargs)
+        return hangarllm.cancel_responses(**call_kwargs)
+    return await hangarllm.acancel_responses(**call_kwargs)
 
 
 async def _invoke_get_response(sync_mode: bool, call_kwargs: dict[str, object]) -> object:
     if sync_mode:
-        return litellm.get_responses(**call_kwargs)
-    return await litellm.aget_responses(**call_kwargs)
+        return hangarllm.get_responses(**call_kwargs)
+    return await hangarllm.aget_responses(**call_kwargs)
 
 
 @pytest.mark.parametrize(
@@ -69,7 +69,7 @@ async def _invoke_get_response(sync_mode: bool, call_kwargs: dict[str, object]) 
 )
 def test_unsupported_response_lifecycle_operation_fails_before_http(provider: Provider, operation: Operation) -> None:
     with respx.mock() as mock_router:
-        with pytest.raises(litellm.APIConnectionError) as exc_info:
+        with pytest.raises(hangarllm.APIConnectionError) as exc_info:
             _invoke_unsupported_response_operation(provider, operation)
         calls: Final = tuple(mock_router.calls)
 
@@ -200,8 +200,8 @@ def _retrieve_kwargs(provider: StreamProvider) -> dict[str, object]:
 
 async def _retrieve(sync_mode: bool, **kwargs: object) -> object:
     if sync_mode:
-        return litellm.get_responses(response_id=_STORED_RESPONSE_ID, **kwargs)
-    return await litellm.aget_responses(response_id=_STORED_RESPONSE_ID, **kwargs)
+        return hangarllm.get_responses(response_id=_STORED_RESPONSE_ID, **kwargs)
+    return await hangarllm.aget_responses(response_id=_STORED_RESPONSE_ID, **kwargs)
 
 
 async def _event_types(stream: object) -> tuple[str, ...]:
@@ -303,7 +303,7 @@ async def test_resumed_stream_cut_before_its_terminal_event_raises(sync_mode: bo
             return_value=httpx.Response(200, headers=_STREAM_HEADERS, content=_replay_body(_delta_event(4)))
         )
         stream: Final = await _retrieve(sync_mode, stream=True, starting_after=3, **_retrieve_kwargs("openai"))
-        with pytest.raises(litellm.APIConnectionError, match="before any terminal event"):
+        with pytest.raises(hangarllm.APIConnectionError, match="before any terminal event"):
             await _event_types(stream)
 
 
@@ -398,7 +398,7 @@ async def test_a_rejected_resume_keeps_the_provider_error(sync_mode: bool) -> No
 async def test_a_resume_that_times_out_raises_a_timeout(sync_mode: bool) -> None:
     with respx.mock() as mock_router:
         route: Final = _retrieve_route(mock_router, "openai").mock(side_effect=httpx.ReadTimeout("slow"))
-        with pytest.raises(litellm.Timeout):
+        with pytest.raises(hangarllm.Timeout):
             await _retrieve(sync_mode, stream=True, timeout=1.0, **_retrieve_kwargs("openai"))
         (call,) = route.calls
 
@@ -422,7 +422,7 @@ async def test_a_malformed_resume_query_is_rejected_before_any_upstream_call(
 ) -> None:
     with respx.mock(assert_all_called=False) as mock_router:
         route: Final = _retrieve_route(mock_router, "openai")
-        with pytest.raises(litellm.BadRequestError) as exc_info:
+        with pytest.raises(hangarllm.BadRequestError) as exc_info:
             await _retrieve(sync_mode, **_retrieve_kwargs("openai"), **resume_kwargs)
 
     assert exc_info.value.status_code == 400
@@ -482,7 +482,7 @@ async def test_streamed_retrieve_on_an_unsupported_provider_is_a_400_without_dro
 ) -> None:
     with respx.mock(assert_all_called=False) as mock_router:
         route: Final = _unsupported_provider_route(mock_router, provider)
-        with pytest.raises(litellm.UnsupportedParamsError) as exc_info:
+        with pytest.raises(hangarllm.UnsupportedParamsError) as exc_info:
             await _retrieve(sync_mode, stream=True, starting_after=3, **_unsupported_provider_kwargs(provider))
 
     assert exc_info.value.status_code == 400
@@ -510,11 +510,11 @@ async def test_streamed_retrieve_on_an_unsupported_provider_drops_the_stream_und
 
 @pytest.mark.asyncio
 async def test_a_routed_resume_requested_in_extra_query_gets_the_deployment_stream_timeout() -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "background-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.5",
                     "api_key": "sk-test",
                     "api_base": "https://api.openai.com/v1",
@@ -549,11 +549,11 @@ async def test_a_routed_resume_requested_in_extra_query_gets_the_deployment_stre
 async def test_a_routed_plain_retrieve_where_config_forces_stream_answers_the_response_object(
     deployment_stream: dict[str, bool], router_defaults: dict[str, bool] | None
 ) -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "background-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.5",
                     "api_key": "sk-test",
                     "api_base": "https://api.openai.com/v1",
@@ -561,7 +561,7 @@ async def test_a_routed_plain_retrieve_where_config_forces_stream_answers_the_re
                 },
             }
         ],
-        default_litellm_params=router_defaults,
+        default_hangarllm_params=router_defaults,
     )
     with respx.mock() as mock_router:
         route: Final = _retrieve_route(mock_router, "openai").mock(
@@ -576,11 +576,11 @@ async def test_a_routed_plain_retrieve_where_config_forces_stream_answers_the_re
 
 @pytest.mark.asyncio
 async def test_a_routed_create_on_a_deployment_that_forces_stream_still_streams() -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "background-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.5",
                     "api_key": "sk-test",
                     "api_base": "https://api.openai.com/v1",
@@ -613,12 +613,12 @@ def test_a_sync_streamed_retrieve_logs_success_with_the_finished_response(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     success_log: Final = _SuccessLog()
-    monkeypatch.setattr(litellm, "callbacks", [success_log])
+    monkeypatch.setattr(hangarllm, "callbacks", [success_log])
     with respx.mock() as mock_router:
         _retrieve_route(mock_router, "openai").mock(
             return_value=httpx.Response(200, headers=_STREAM_HEADERS, content=_REPLAY_AFTER_3)
         )
-        stream: Final = litellm.get_responses(
+        stream: Final = hangarllm.get_responses(
             response_id=_STORED_RESPONSE_ID, stream=True, starting_after=3, **_retrieve_kwargs("openai")
         )
         assert isinstance(stream, SyncResponsesAPIStreamingIterator)
@@ -647,7 +647,7 @@ async def test_cancel_responses_reply_carries_the_id_retrieve_gives_for_the_same
         "custom_llm_provider": "openai",
         "api_key": "sk-test",
         "response_id": upstream_id,
-        "litellm_metadata": {"model_info": {"id": "deployment-1"}},
+        "hangarllm_metadata": {"model_info": {"id": "deployment-1"}},
     }
 
     with respx.mock() as mock_router:

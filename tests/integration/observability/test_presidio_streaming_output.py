@@ -226,7 +226,7 @@ def presidio_rig(
         config["guardrails"] = [
             {
                 "guardrail_name": guardrail,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "presidio",
                     "mode": "post_call",
                     "default_on": default_on,

@@ -583,7 +583,7 @@ def test_arize_otel_v2_a12_plain_text_has_metadata_without_tool_calls(gateway: G
         ), response.text
         attributes: Final = _matching_marker_span(rig.destination, marker)
         assert _json_object(attributes["metadata"].encode()) == {"trace_marker": marker}, attributes
-        assert attributes["litellm.metadata.trace_marker"] == marker, attributes
+        assert attributes["hangarllm.metadata.trace_marker"] == marker, attributes
         assert not any(".tool_calls." in key for key in attributes), attributes
         assert _json_messages(attributes["output.value"]) == [
             {"role": "assistant", "content": "The weather is clear"}
@@ -726,7 +726,7 @@ def test_arize_otel_v2_a14_two_choices_each_with_tool_calls(gateway: Gateway, tm
             == '{"city": "Berlin"}'
         ), attributes
         assert _json_object(attributes["metadata"].encode()) == {"trace_marker": marker}, attributes
-        assert attributes["litellm.metadata.trace_marker"] == marker, attributes
+        assert attributes["hangarllm.metadata.trace_marker"] == marker, attributes
 
 
 def _cache_call(
@@ -889,7 +889,7 @@ def test_arize_otel_v2_a_cache(surface: str, gateway: Gateway, tmp_path: Path) -
         first: Final = _cache_call(rig, surface, marker)
         assert first[0] == (f"call_{marker}", "lookup_weather", expected_arguments), first
         assert first[1].startswith("resp_") if surface == "responses" else first[1] == marker, first
-        assert not first[2].get("x-litellm-cache-key"), first[2]
+        assert not first[2].get("x-hangarllm-cache-key"), first[2]
         first_span: Final = _matching_marker_span(rig.destination, marker)
         _assert_tool_span_for_marker(first_span, marker)
         second: Final = _cache_call(rig, surface, marker, cache_hit=True)
@@ -899,7 +899,7 @@ def test_arize_otel_v2_a_cache(surface: str, gateway: Gateway, tmp_path: Path) -
             request for request in rig.provider.drain() if request.method == "POST" and marker.encode() in request.body
         )
         assert len(forwarded) == 1, forwarded
-        assert re.fullmatch(r"[0-9a-f]{64}", second[2].get("x-litellm-cache-key", "")), second[2]
+        assert re.fullmatch(r"[0-9a-f]{64}", second[2].get("x-hangarllm-cache-key", "")), second[2]
         forwarded_body: Final = _json_object(forwarded[0].body)
         if surface in ("chat", "chat-stream"):
             assert "metadata" not in forwarded_body, forwarded[0]
@@ -908,7 +908,7 @@ def test_arize_otel_v2_a_cache(surface: str, gateway: Gateway, tmp_path: Path) -
         else:
             assert forwarded_body["metadata"] == {}, forwarded[0]
         sentinel_response: Final = _cache_call(rig, surface, sentinel)
-        assert not sentinel_response[2].get("x-litellm-cache-key"), sentinel_response[2]
+        assert not sentinel_response[2].get("x-hangarllm-cache-key"), sentinel_response[2]
         sentinel_forwarded: Final = tuple(
             request
             for request in rig.provider.drain()
@@ -917,7 +917,7 @@ def test_arize_otel_v2_a_cache(surface: str, gateway: Gateway, tmp_path: Path) -
         assert len(sentinel_forwarded) == 1, sentinel_forwarded
         spans: Final = _llm_spans_through_markers(rig.destination, (sentinel,))
         sentinel_spans: Final = tuple(
-            attributes for attributes in spans if attributes.get("litellm.metadata.trace_marker") == sentinel
+            attributes for attributes in spans if attributes.get("hangarllm.metadata.trace_marker") == sentinel
         )
         assert len(sentinel_spans) == 1, spans
         _assert_tool_span_for_marker(sentinel_spans[0], sentinel)
@@ -925,12 +925,12 @@ def test_arize_otel_v2_a_cache(surface: str, gateway: Gateway, tmp_path: Path) -
             attributes
             for attributes in spans
             if (
-                attributes.get("litellm.metadata.trace_marker") == marker
-                and attributes.get("litellm.cache_hit") == "True"
+                attributes.get("hangarllm.metadata.trace_marker") == marker
+                and attributes.get("hangarllm.cache_hit") == "True"
             )
         )
         assert len(cache_hit_spans) == 1, spans
-        assert cache_hit_spans[0]["litellm.cost.total"] == "0.0", cache_hit_spans
+        assert cache_hit_spans[0]["hangarllm.cost.total"] == "0.0", cache_hit_spans
 
 
 def test_arize_otel_v2_cache_hit_exports_llm_span(gateway: Gateway, tmp_path: Path) -> None:
@@ -947,17 +947,17 @@ def test_arize_otel_v2_cache_hit_exports_llm_span(gateway: Gateway, tmp_path: Pa
         first: Final = _cache_call(rig, "chat", marker)
         assert first[0] == (f"call_{marker}", "lookup_weather", '{"city": "Paris"}'), first
         assert first[1] == marker, first
-        assert not first[2].get("x-litellm-cache-key"), first[2]
+        assert not first[2].get("x-hangarllm-cache-key"), first[2]
         second: Final = _cache_call(rig, "chat", marker, cache_hit=True)
         assert second[0] == first[0], second
         assert second[1] == first[1], second
-        assert second[2].get("x-litellm-cache-key"), second[2]
+        assert second[2].get("x-hangarllm-cache-key"), second[2]
         forwarded: Final = tuple(
             request for request in rig.provider.drain() if request.method == "POST" and marker.encode() in request.body
         )
         assert len(forwarded) == 1, forwarded
         sentinel_response: Final = _cache_call(rig, "chat", sentinel)
-        assert not sentinel_response[2].get("x-litellm-cache-key"), sentinel_response[2]
+        assert not sentinel_response[2].get("x-hangarllm-cache-key"), sentinel_response[2]
         sentinel_forwarded: Final = tuple(
             request
             for request in rig.provider.drain()
@@ -966,12 +966,12 @@ def test_arize_otel_v2_cache_hit_exports_llm_span(gateway: Gateway, tmp_path: Pa
         assert len(sentinel_forwarded) == 1, sentinel_forwarded
         spans: Final = _llm_spans_through_markers(rig.destination, (sentinel,))
         marker_spans: Final = tuple(
-            attributes for attributes in spans if attributes.get("litellm.metadata.trace_marker") == marker
+            attributes for attributes in spans if attributes.get("hangarllm.metadata.trace_marker") == marker
         )
         assert len(marker_spans) == 2, spans
         cache_hit_spans: Final = tuple(
-            attributes for attributes in marker_spans if attributes.get("litellm.cache_hit") == "True"
+            attributes for attributes in marker_spans if attributes.get("hangarllm.cache_hit") == "True"
         )
         assert len(cache_hit_spans) == 1, marker_spans
         _assert_tool_span_for_marker(cache_hit_spans[0], marker)
-        assert cache_hit_spans[0]["litellm.cost.total"] == "0.0", marker_spans
+        assert cache_hit_spans[0]["hangarllm.cost.total"] == "0.0", marker_spans

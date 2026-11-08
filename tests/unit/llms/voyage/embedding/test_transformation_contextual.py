@@ -9,16 +9,16 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.voyage.embedding.transformation_contextual import VoyageContextualEmbeddingConfig
-from litellm.types.utils import EmbeddingResponse
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.voyage.embedding.transformation_contextual import VoyageContextualEmbeddingConfig
+from hangarllm.types.utils import EmbeddingResponse
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
 class TestVoyageAI:
-    def get_custom_llm_provider(self) -> litellm.LlmProviders:
-        return litellm.LlmProviders.VOYAGE
+    def get_custom_llm_provider(self) -> hangarllm.LlmProviders:
+        return hangarllm.LlmProviders.VOYAGE
 
     def get_base_embedding_call_args(self) -> dict:
         return {
@@ -29,13 +29,13 @@ class TestVoyageAI:
     @pytest.mark.parametrize("sync_mode", [True, False])
     async def test_basic_embedding(self, sync_mode):
         """Override base test to handle Voyage embeddings properly"""
-        litellm.set_verbose = True
+        hangarllm.set_verbose = True
         embedding_call_args = self.get_base_embedding_call_args()
 
         # Mock the embedding function to avoid API calls
         with (
-            patch("litellm.embedding") as mock_embedding,
-            patch("litellm.aembedding") as mock_aembedding,
+            patch("hangarllm.embedding") as mock_embedding,
+            patch("hangarllm.aembedding") as mock_aembedding,
         ):
             # Create a mock response that matches Voyage format
             mock_response = MagicMock()
@@ -49,7 +49,7 @@ class TestVoyageAI:
             mock_aembedding.return_value = mock_response
 
             if sync_mode is True:
-                response = litellm.embedding(
+                response = hangarllm.embedding(
                     **embedding_call_args,
                     input=["hello", "world"],
                 )
@@ -59,7 +59,7 @@ class TestVoyageAI:
                 assert len(response.data) > 0
                 assert response.usage.total_tokens > 0
             else:
-                response = await litellm.aembedding(
+                response = await hangarllm.aembedding(
                     **embedding_call_args,
                     input=["hello", "world"],
                 )
@@ -74,7 +74,7 @@ def test_voyage_ai_embedding_extra_params():
     """Test Voyage AI embedding with extra parameters"""
     try:
         # Mock the entire embedding function to avoid API calls
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("hangarllm.embedding") as mock_embedding:
             # Create a mock response
             mock_response = MagicMock()
             mock_response.usage.prompt_tokens = 24
@@ -82,7 +82,7 @@ def test_voyage_ai_embedding_extra_params():
             mock_response.model = "voyage-3-lite"
             mock_embedding.return_value = mock_response
 
-            litellm.embedding(
+            hangarllm.embedding(
                 model="voyage/voyage-3-lite",
                 input=["a"],
                 dimensions=512,
@@ -105,14 +105,14 @@ def test_voyage_ai_embedding_prompt_token_mapping():
     """Test Voyage AI embedding token mapping"""
     try:
         # Mock the entire embedding function
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("hangarllm.embedding") as mock_embedding:
             # Create a mock response with usage
             mock_response = MagicMock()
             mock_response.usage.prompt_tokens = 120
             mock_response.usage.total_tokens = 120
             mock_embedding.return_value = mock_response
 
-            response = litellm.embedding(
+            response = hangarllm.embedding(
                 model="voyage/voyage-3-lite",
                 input=["a"],
                 dimensions=512,
@@ -133,7 +133,7 @@ class TestVoyageContextualEmbeddings:
 
     def test_contextual_embedding_model_detection(self):
         """Test that contextual models are correctly identified"""
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -152,7 +152,7 @@ class TestVoyageContextualEmbeddings:
 
     def test_contextual_embedding_url_generation(self):
         """Test URL generation for contextual embeddings"""
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -178,7 +178,7 @@ class TestVoyageContextualEmbeddings:
 
     def test_contextual_embedding_request_transformation(self):
         """Test request transformation for contextual embeddings"""
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -196,10 +196,10 @@ class TestVoyageContextualEmbeddings:
 
     def test_contextual_embedding_response_transformation(self):
         """Test response transformation for contextual embeddings"""
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
-        from litellm.types.utils import EmbeddingResponse
+        from hangarllm.types.utils import EmbeddingResponse
 
         config = VoyageContextualEmbeddingConfig()
 
@@ -246,7 +246,7 @@ class TestVoyageContextualEmbeddings:
 
     def test_contextual_embedding_parameter_mapping(self):
         """Test parameter mapping for contextual embeddings"""
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -262,7 +262,7 @@ class TestVoyageContextualEmbeddings:
 
     def test_contextual_embedding_environment_validation(self):
         """Test environment validation for contextual embeddings"""
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -280,7 +280,7 @@ class TestVoyageContextualEmbeddings:
 
     def test_contextual_embedding_error_handling(self):
         """Test error handling for contextual embeddings"""
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
             VoyageError,
         )
@@ -295,8 +295,8 @@ class TestVoyageContextualEmbeddings:
 
     def test_contextual_vs_regular_embedding_differences(self):
         """Test that contextual and regular embeddings are handled differently"""
-        from litellm.llms.voyage.embedding.transformation import VoyageEmbeddingConfig
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation import VoyageEmbeddingConfig
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -321,7 +321,7 @@ class TestVoyageContextualEmbeddings:
         """Test full integration of contextual embeddings"""
         try:
             # Mock the entire embedding function to avoid API calls
-            with patch("litellm.embedding") as mock_embedding:
+            with patch("hangarllm.embedding") as mock_embedding:
                 # Create a mock response that matches the expected structure
                 mock_response = MagicMock()
                 mock_response.model = "voyage-context-3"
@@ -341,7 +341,7 @@ class TestVoyageContextualEmbeddings:
                 ]
                 mock_embedding.return_value = mock_response
 
-                response = litellm.embedding(
+                response = hangarllm.embedding(
                     model="voyage/voyage-context-3",
                     input=[["Hello", "world"]],
                     input_type="document",
@@ -365,7 +365,7 @@ class TestVoyageContextualEmbeddings:
         """Test contextual embeddings with multiple input groups"""
         try:
             # Mock the entire embedding function
-            with patch("litellm.embedding") as mock_embedding:
+            with patch("hangarllm.embedding") as mock_embedding:
                 # Create a mock response for multiple input groups
                 mock_response = MagicMock()
                 mock_response.model = "voyage-context-3"
@@ -395,7 +395,7 @@ class TestVoyageContextualEmbeddings:
                 ]
                 mock_embedding.return_value = mock_response
 
-                response = litellm.embedding(
+                response = hangarllm.embedding(
                     model="voyage/voyage-context-3",
                     input=[["Hello", "world"], ["Test"]],
                 )
@@ -434,7 +434,7 @@ def event_loop():
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown(event_loop):
-    import litellm
+    import hangarllm
 
     original_state = {}
     for attr in (
@@ -444,21 +444,21 @@ def setup_and_teardown(event_loop):
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     asyncio.set_event_loop(event_loop)
     yield
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     pending = asyncio.all_tasks(event_loop)
     for task in pending:
         task.cancel()
@@ -467,17 +467,17 @@ def setup_and_teardown(event_loop):
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
-    "cohere_key": getattr(litellm, "cohere_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
+    "cohere_key": getattr(hangarllm, "cohere_key", None),
 }
 
 
@@ -491,7 +491,7 @@ def _transform(payload: object) -> EmbeddingResponse:
         stream=False,
         call_type="embedding",
         start_time=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-id",
+        hangarllm_call_id="call-id",
         function_id="function-id",
     )
     return VoyageContextualEmbeddingConfig().transform_embedding_response(
@@ -502,7 +502,7 @@ def _transform(payload: object) -> EmbeddingResponse:
         api_key="sk-test",
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
 
@@ -575,7 +575,7 @@ def test_voyage_contextual_embedding_token_count_that_is_not_an_integer_is_rejec
 def test_get_complete_url_ignores_a_trailing_slash_on_api_base(api_base: str):
     assert (
         VoyageContextualEmbeddingConfig().get_complete_url(
-            api_base=api_base, api_key=None, model="voyage-context-3", optional_params={}, litellm_params={}
+            api_base=api_base, api_key=None, model="voyage-context-3", optional_params={}, hangarllm_params={}
         )
         == "https://gateway.example.com/voyage/v1/contextualizedembeddings"
     )

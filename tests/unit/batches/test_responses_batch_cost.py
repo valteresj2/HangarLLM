@@ -1,6 +1,6 @@
 """Token and spend reconciliation for /v1/responses batches.
 
-Regression guard for https://github.com/BerriAI/litellm/issues/35363: a batch
+Regression guard for upstream issue 35363 a batch
 output line built by the Responses API reports ``input_tokens`` /
 ``output_tokens`` where a chat line reports ``prompt_tokens`` /
 ``completion_tokens``. The usage object was constructed straight from the raw
@@ -15,23 +15,23 @@ file mixing Responses-shaped and chat-shaped lines sums across both.
 
 import pytest
 
-import litellm
-import litellm.batches.batch_utils as bu
+import hangarllm
+import hangarllm.batches.batch_utils as bu
 
 MODEL = "gpt-5.6"
 
 
 @pytest.fixture
 def local_model_cost_map(monkeypatch):
-    original_model_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
-    litellm.get_model_info.cache_clear()
+    original_model_cost = hangarllm.model_cost
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
+    hangarllm.get_model_info.cache_clear()
     try:
         yield
     finally:
-        litellm.model_cost = original_model_cost
-        litellm.get_model_info.cache_clear()
+        hangarllm.model_cost = original_model_cost
+        hangarllm.get_model_info.cache_clear()
 
 
 def _responses_line(input_tokens: int, output_tokens: int) -> dict:
@@ -78,7 +78,7 @@ def test_responses_shaped_usage_maps_onto_prompt_and_completion_tokens():
 async def test_responses_batch_reconciles_to_real_tokens_and_spend(local_model_cost_map):
     """A completed Responses batch records the provider's token counts and a
     non-zero spend at the model's batch rates."""
-    model_info = litellm.get_model_info(model=MODEL, custom_llm_provider="openai")
+    model_info = hangarllm.get_model_info(model=MODEL, custom_llm_provider="openai")
     input_tokens = 33
     output_tokens = 57
 
@@ -105,7 +105,7 @@ async def test_responses_batch_reconciles_to_real_tokens_and_spend(local_model_c
 async def test_mixed_shape_batch_output_sums_across_both_line_shapes(local_model_cost_map):
     """An output file carrying both line shapes sums both. A fix keyed off the
     batch's declared endpoint rather than each line's shape would miss this."""
-    model_info = litellm.get_model_info(model=MODEL, custom_llm_provider="openai")
+    model_info = hangarllm.get_model_info(model=MODEL, custom_llm_provider="openai")
 
     result = await bu.calculate_batch_cost_and_usage(
         file_content_dictionary=[_responses_line(100, 50), _chat_line(33, 57)],

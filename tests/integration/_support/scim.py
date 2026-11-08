@@ -23,7 +23,7 @@ from pydantic import JsonValue
 GROUP_SCHEMA: Final = "urn:ietf:params:scim:schemas:core:2.0:Group"
 PATCH_OP_SCHEMA: Final = "urn:ietf:params:scim:api:messages:2.0:PatchOp"
 SEED_USERS_SQL: Final = """
-INSERT INTO "LiteLLM_UserTable" (user_id, user_role, teams, models)
+INSERT INTO "HangarLLM_UserTable" (user_id, user_role, teams, models)
 SELECT %s || '-' || lpad(n::text, 3, '0'), 'internal_user', '{}'::text[], '{}'::text[]
 FROM generate_series(1, %s::int) AS n
 """
@@ -41,7 +41,7 @@ WHERE waiter.locktype = 'advisory'
       WHERE held.locktype = 'advisory' AND held.granted AND held.pid = %s::int
   )
 """
-TAKE_USER_ROW_LOCK_SQL: Final = 'SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s FOR UPDATE'
+TAKE_USER_ROW_LOCK_SQL: Final = 'SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s FOR UPDATE'
 WAITERS_ON_ROWS_LOCKED_BY_SQL: Final = """
 SELECT count(*)::text AS waiting
 FROM pg_locks waiter
@@ -58,7 +58,7 @@ WHERE waiter.locktype = 'transactionid'
 def seed_users(scenario: Scenario, count: int) -> tuple[str, ...]:
     prefix: Final = f"integration-scim-{uuid.uuid4().hex}"
     write_rows(SEED_USERS_SQL, (prefix, str(count)))
-    scenario.cleanups.callback(write_rows, 'DELETE FROM "LiteLLM_UserTable" WHERE user_id LIKE %s', (f"{prefix}-%",))
+    scenario.cleanups.callback(write_rows, 'DELETE FROM "HangarLLM_UserTable" WHERE user_id LIKE %s', (f"{prefix}-%",))
     return tuple(f"{prefix}-{index:03d}" for index in range(1, count + 1))
 
 
@@ -111,7 +111,7 @@ def delete_group(candidate: Gateway, team: str, *, key: str | None = None) -> ht
 
 
 def delete_team_if_present(scenario: Scenario, team: str) -> None:
-    if read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,)):
+    if read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,)):
         scenario.delete_team(team)
 
 
@@ -137,17 +137,17 @@ def service_account_key(candidate: Gateway, scenario: Scenario, team: str) -> st
 
 
 def membership_user_ids(team: str) -> frozenset[str]:
-    rows: Final = read_rows('SELECT user_id FROM "LiteLLM_TeamMembership" WHERE team_id = %s', (team,))
+    rows: Final = read_rows('SELECT user_id FROM "HangarLLM_TeamMembership" WHERE team_id = %s', (team,))
     return frozenset(string_value(row["user_id"]) for row in rows)
 
 
 def keys_of(team: str) -> frozenset[str]:
-    rows: Final = read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE team_id = %s', (team,))
+    rows: Final = read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE team_id = %s', (team,))
     return frozenset(string_value(row["token"]) for row in rows)
 
 
 def users_referencing(team: str) -> frozenset[str]:
-    rows: Final = read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE %s = ANY(teams)', (team,))
+    rows: Final = read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE %s = ANY(teams)', (team,))
     return frozenset(string_value(row["user_id"]) for row in rows)
 
 

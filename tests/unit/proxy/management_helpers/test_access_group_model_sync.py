@@ -3,14 +3,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.proxy.db.prisma_client import PrismaWrapper
-from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
-from litellm.proxy.management_helpers.access_group_model_sync import (
+from hangarllm.proxy.db.prisma_client import PrismaWrapper
+from hangarllm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+from hangarllm.proxy.management_helpers.access_group_model_sync import (
     sync_access_groups_for_deleted_model,
     sync_access_groups_for_renamed_model,
 )
 
-_INVALIDATE = "litellm.proxy.management_helpers.access_group_model_sync.invalidate_access_group_caches"
+_INVALIDATE = "hangarllm.proxy.management_helpers.access_group_model_sync.invalidate_access_group_caches"
 
 
 def _routed_prisma_client(deployment_count: int, writer_unavailable: bool = False):
@@ -34,7 +34,7 @@ def _access_group_updates(writer_inner):
     return [
         call
         for call in writer_inner.query_raw.await_args_list
-        if call.args[0].startswith('UPDATE "LiteLLM_AccessGroupTable"')
+        if call.args[0].startswith('UPDATE "HangarLLM_AccessGroupTable"')
     ]
 
 

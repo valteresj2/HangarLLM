@@ -9,7 +9,7 @@ The core recognises a /v1/messages call by its endpoint's name, so this module r
 
 import pytest
 
-from litellm.router_core import RouterCore
+from hangarllm.router_core import RouterCore
 from tests.unit.test_router.core.fallbacks_helpers import (
     MESSAGES,
     MakeCore,
@@ -84,7 +84,7 @@ async def test_a_refusal_is_returned_to_the_caller_when_no_fallback_would_resolv
     assert host.deployments_called("anthropic_messages") == ["a"]
     assert isinstance(response, dict)
     assert response["stop_reason"] == "refusal"
-    assert response["_hidden_params"]["additional_headers"]["x-litellm-attempted-fallbacks"] == 0
+    assert response["_hidden_params"]["additional_headers"]["x-hangarllm-attempted-fallbacks"] == 0
 
 
 @pytest.mark.asyncio

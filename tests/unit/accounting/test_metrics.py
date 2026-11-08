@@ -4,9 +4,9 @@ import sys
 import pytest
 from prometheus_client.metrics import MetricWrapperBase
 
-from litellm.accounting import metrics
-from litellm.accounting.metrics import record_deliveries
-from litellm.repositories.accounting_delivery_repository import DeliveryMetrics
+from hangarllm.accounting import metrics
+from hangarllm.accounting.metrics import record_deliveries
+from hangarllm.repositories.accounting_delivery_repository import DeliveryMetrics
 
 _DELIVERY_METRICS = DeliveryMetrics(
     pending_count=4, parked_count=1, oldest_pending_seconds=-3.0, batch_count=7, table_bytes=8192

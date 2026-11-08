@@ -12,8 +12,8 @@ from unittest.mock import DEFAULT, AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
 HEALTHY_ONLY_SETTING = {"model_list_healthy_only": True}
 
@@ -21,7 +21,7 @@ HEALTHY_ONLY_SETTING = {"model_list_healthy_only": True}
 @pytest.fixture
 def patched_model_list(monkeypatch):
     """Stub router + utility helpers used by `model_list`."""
-    from litellm.proxy import utils as proxy_utils
+    from hangarllm.proxy import utils as proxy_utils
 
     router = MagicMock()
     router.get_fully_blocked_model_names = MagicMock(return_value=set())
@@ -58,12 +58,12 @@ def patched_model_info_v1(monkeypatch):
     """Stub router + globals used by the `/v1/model/info` list path."""
     healthy_row = {
         "model_name": "gpt-4",
-        "litellm_params": {"model": "gpt-4"},
+        "hangarllm_params": {"model": "gpt-4"},
         "model_info": {"id": "healthy-id", "db_model": False},
     }
     unhealthy_row = {
         "model_name": "claude-sonnet",
-        "litellm_params": {"model": "anthropic/claude-sonnet"},
+        "hangarllm_params": {"model": "anthropic/claude-sonnet"},
         "model_info": {"id": "unhealthy-id", "db_model": False},
     }
     router = MagicMock()
@@ -84,7 +84,7 @@ def patched_model_info_v1(monkeypatch):
     monkeypatch.setattr(proxy_server, "llm_router", router)
     monkeypatch.setattr(proxy_server, "prisma_client", None)
     monkeypatch.setattr(proxy_server, "general_settings", {})
-    monkeypatch.setattr(proxy_server, "_enrich_model_info_with_litellm_data", lambda model, **kw: model)
+    monkeypatch.setattr(proxy_server, "_enrich_model_info_with_hangarllm_data", lambda model, **kw: model)
     return router
 
 
@@ -92,7 +92,7 @@ def _admin_key() -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         api_key="sk-test",
         user_id="u",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         team_models=[],
     )
 
@@ -121,8 +121,8 @@ async def test_model_list_default_keeps_unhealthy_models(patched_model_list):
 async def test_model_list_healthy_only_applies_to_scope_expand(
     patched_model_list, monkeypatch
 ):
-    from litellm.proxy.auth import model_checks
-    from litellm.proxy.management_endpoints import common_utils
+    from hangarllm.proxy.auth import model_checks
+    from hangarllm.proxy.management_endpoints import common_utils
 
     async def _fake_admin(**kwargs):
         return True
@@ -159,8 +159,8 @@ async def test_model_list_general_setting_hides_unhealthy_models(patched_model_l
 
 @pytest.mark.asyncio
 async def test_model_list_general_setting_applies_to_scope_expand(patched_model_list, monkeypatch):
-    from litellm.proxy.auth import model_checks
-    from litellm.proxy.management_endpoints import common_utils
+    from hangarllm.proxy.auth import model_checks
+    from hangarllm.proxy.management_endpoints import common_utils
 
     async def _fake_admin(**kwargs):
         return True
@@ -259,12 +259,12 @@ async def test_retrieve_model_general_setting_hides_unhealthy_model(patched_mode
 @pytest.mark.asyncio
 async def test_retrieve_model_default_serves_unhealthy_model(patched_model_list, monkeypatch):
     """Without the opt-in, retrieve keeps serving unhealthy models."""
-    import litellm
+    import hangarllm
 
     deployment = MagicMock()
-    deployment.litellm_params.model = "anthropic/claude-sonnet"
+    deployment.hangarllm_params.model = "anthropic/claude-sonnet"
     patched_model_list.get_deployment_by_model_group_name.return_value = deployment
-    monkeypatch.setattr(litellm, "get_llm_provider", lambda model: (model, "anthropic", None, None))
+    monkeypatch.setattr(hangarllm, "get_llm_provider", lambda model: (model, "anthropic", None, None))
 
     response = await proxy_server.model_info(
         model_id="claude-sonnet",
@@ -280,7 +280,7 @@ async def test_model_info_v1_healthy_only_hides_unhealthy_deployments(
 ):
     response = await proxy_server.model_info_v1(
         user_api_key_dict=_admin_key(),
-        litellm_model_id=None,
+        hangarllm_model_id=None,
         healthy_only=True,
     )
     assert [m["model_name"] for m in json.loads(response.body)["data"]] == ["gpt-4"]
@@ -292,7 +292,7 @@ async def test_model_info_v1_general_setting_hides_unhealthy_deployments(patched
 
     response = await proxy_server.model_info_v1(
         user_api_key_dict=_admin_key(),
-        litellm_model_id=None,
+        hangarllm_model_id=None,
     )
     assert [m["model_name"] for m in json.loads(response.body)["data"]] == ["gpt-4"]
 
@@ -303,27 +303,27 @@ async def test_model_info_v1_default_keeps_unhealthy_deployments(
 ):
     response = await proxy_server.model_info_v1(
         user_api_key_dict=_admin_key(),
-        litellm_model_id=None,
+        hangarllm_model_id=None,
     )
     assert [m["model_name"] for m in json.loads(response.body)["data"]] == ["gpt-4", "claude-sonnet"]
     patched_model_info_v1.health.return_value.fully_unhealthy_model_names.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_model_info_v1_litellm_model_id_lookup_ignores_health_filter(patched_model_info_v1, monkeypatch):
+async def test_model_info_v1_hangarllm_model_id_lookup_ignores_health_filter(patched_model_info_v1, monkeypatch):
     """The by-id lookup backs the dashboard's model detail view; turning the
     proxy-wide filter on must not make an unhealthy model unopenable there."""
     monkeypatch.setattr(proxy_server, "general_settings", HEALTHY_ONLY_SETTING)
     deployment = MagicMock()
     deployment.model_dump.return_value = {
         "model_name": "claude-sonnet",
-        "litellm_params": {"model": "anthropic/claude-sonnet"},
+        "hangarllm_params": {"model": "anthropic/claude-sonnet"},
         "model_info": {"id": "unhealthy-id"},
     }
     patched_model_info_v1.registry.return_value.deployment.return_value = deployment
 
     response = await proxy_server.model_info_v1(
         user_api_key_dict=_admin_key(),
-        litellm_model_id="unhealthy-id",
+        hangarllm_model_id="unhealthy-id",
     )
     assert [m["model_name"] for m in json.loads(response.body)["data"]] == ["claude-sonnet"]

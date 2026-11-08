@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.integrations.clickhouse import clickhouse_batch_logger as module
-from litellm.integrations.clickhouse.clickhouse_batch_logger import ClickHouseBatchLogger
+from hangarllm.integrations.clickhouse import clickhouse_batch_logger as module
+from hangarllm.integrations.clickhouse.clickhouse_batch_logger import ClickHouseBatchLogger
 
 
 class _TestLogger(ClickHouseBatchLogger):

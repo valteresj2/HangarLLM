@@ -15,8 +15,8 @@ def test_qdrant_semantic_cache_initialization(monkeypatch):
     """
     # Mock the httpx clients and API calls
     with (
-        patch("litellm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
-        patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client"),
+        patch("hangarllm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
+        patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client"),
     ):
         # Mock the collection exists check
         mock_response = MagicMock()
@@ -30,7 +30,7 @@ def test_qdrant_semantic_cache_initialization(monkeypatch):
         mock_sync_client_instance.put.return_value = mock_index_response
         mock_sync_client.return_value = mock_sync_client_instance
 
-        from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+        from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
         # Initialize the cache with similarity threshold
         qdrant_cache = QdrantSemanticCache(
@@ -74,8 +74,8 @@ def test_qdrant_semantic_cache_get_cache_hit():
     Verifies that cached results are properly retrieved and parsed.
     """
     with (
-        patch("litellm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
-        patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client"),
+        patch("hangarllm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
+        patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client"),
     ):
         # Mock the collection exists check
         mock_response = MagicMock()
@@ -86,7 +86,7 @@ def test_qdrant_semantic_cache_get_cache_hit():
         mock_sync_client_instance.get.return_value = mock_response
         mock_sync_client.return_value = mock_sync_client_instance
 
-        from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+        from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
         # Initialize cache
         qdrant_cache = QdrantSemanticCache(
@@ -115,7 +115,7 @@ def test_qdrant_semantic_cache_get_cache_hit():
 
         # Mock the embedding function
         with patch(
-            "litellm.embedding", return_value={"data": [{"embedding": [0.1, 0.2, 0.3]}]}
+            "hangarllm.embedding", return_value={"data": [{"embedding": [0.1, 0.2, 0.3]}]}
         ):
             # Test get_cache with a message
             result = qdrant_cache.get_cache(
@@ -148,11 +148,11 @@ def test_qdrant_semantic_cache_rejects_unscoped_cache_hit():
     Test QDRANT semantic cache rejects old or unscoped cache hits.
 
     Legacy points have only text and response payloads, so they cannot be
-    safely migrated to a generated LiteLLM cache key.
+    safely migrated to a generated HangarLLM cache key.
     """
     with (
-        patch("litellm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
-        patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client"),
+        patch("hangarllm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
+        patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client"),
     ):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -162,7 +162,7 @@ def test_qdrant_semantic_cache_rejects_unscoped_cache_hit():
         mock_sync_client_instance.get.return_value = mock_response
         mock_sync_client.return_value = mock_sync_client_instance
 
-        from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+        from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
         qdrant_cache = QdrantSemanticCache(
             collection_name="test_collection",
@@ -187,7 +187,7 @@ def test_qdrant_semantic_cache_rejects_unscoped_cache_hit():
         qdrant_cache.sync_client.post = MagicMock(return_value=mock_search_response)
 
         with patch(
-            "litellm.embedding", return_value={"data": [{"embedding": [0.1, 0.2, 0.3]}]}
+            "hangarllm.embedding", return_value={"data": [{"embedding": [0.1, 0.2, 0.3]}]}
         ):
             metadata = {}
             result = qdrant_cache.get_cache(
@@ -201,7 +201,7 @@ def test_qdrant_semantic_cache_rejects_unscoped_cache_hit():
 
 
 def test_qdrant_semantic_cache_payload_index_failure_is_non_blocking():
-    from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+    from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
     qdrant_cache = QdrantSemanticCache.__new__(QdrantSemanticCache)
     qdrant_cache.qdrant_api_base = "http://test.qdrant.local"
@@ -219,7 +219,7 @@ def test_qdrant_semantic_cache_payload_index_failure_is_non_blocking():
 
 
 def test_qdrant_semantic_cache_payload_index_exception_is_non_blocking():
-    from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+    from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
     qdrant_cache = QdrantSemanticCache.__new__(QdrantSemanticCache)
     qdrant_cache.qdrant_api_base = "http://test.qdrant.local"
@@ -234,7 +234,7 @@ def test_qdrant_semantic_cache_payload_index_exception_is_non_blocking():
 
 
 def _mock_qdrant_get_cache_result(qdrant_result):
-    from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+    from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
     qdrant_cache = QdrantSemanticCache.__new__(QdrantSemanticCache)
     qdrant_cache.embedding_model = "text-embedding-ada-002"
@@ -261,7 +261,7 @@ def test_qdrant_semantic_cache_get_cache_sets_metadata_on_empty_miss(qdrant_resu
     metadata = {}
 
     with patch(
-        "litellm.embedding", return_value={"data": [{"embedding": [0.1, 0.2, 0.3]}]}
+        "hangarllm.embedding", return_value={"data": [{"embedding": [0.1, 0.2, 0.3]}]}
     ):
         result = qdrant_cache.get_cache(
             key="test_key",
@@ -274,7 +274,7 @@ def test_qdrant_semantic_cache_get_cache_sets_metadata_on_empty_miss(qdrant_resu
 
 
 def test_qdrant_semantic_cache_get_cache_sets_metadata_on_below_threshold_miss():
-    from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+    from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
     qdrant_cache, _ = _mock_qdrant_get_cache_result(
         [
@@ -291,7 +291,7 @@ def test_qdrant_semantic_cache_get_cache_sets_metadata_on_below_threshold_miss()
     metadata = {}
 
     with patch(
-        "litellm.embedding", return_value={"data": [{"embedding": [0.1, 0.2, 0.3]}]}
+        "hangarllm.embedding", return_value={"data": [{"embedding": [0.1, 0.2, 0.3]}]}
     ):
         result = qdrant_cache.get_cache(
             key="test_key",
@@ -309,8 +309,8 @@ def test_qdrant_semantic_cache_get_cache_miss():
     Verifies that None is returned when no similar cached results are found.
     """
     with (
-        patch("litellm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
-        patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client"),
+        patch("hangarllm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
+        patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client"),
     ):
         # Mock the collection exists check
         mock_response = MagicMock()
@@ -321,7 +321,7 @@ def test_qdrant_semantic_cache_get_cache_miss():
         mock_sync_client_instance.get.return_value = mock_response
         mock_sync_client.return_value = mock_sync_client_instance
 
-        from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+        from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
         # Initialize cache
         qdrant_cache = QdrantSemanticCache(
@@ -339,7 +339,7 @@ def test_qdrant_semantic_cache_get_cache_miss():
 
         # Mock the embedding function
         with patch(
-            "litellm.embedding", return_value={"data": [{"embedding": [0.1, 0.2, 0.3]}]}
+            "hangarllm.embedding", return_value={"data": [{"embedding": [0.1, 0.2, 0.3]}]}
         ):
             # Test get_cache with a message
             result = qdrant_cache.get_cache(
@@ -360,8 +360,8 @@ async def test_qdrant_semantic_cache_async_get_cache_hit():
     Verifies that cached results are properly retrieved and parsed asynchronously.
     """
     with (
-        patch("litellm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
-        patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_async_client,
+        patch("hangarllm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
+        patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_async_client,
     ):
         # Mock the collection exists check
         mock_response = MagicMock()
@@ -376,7 +376,7 @@ async def test_qdrant_semantic_cache_async_get_cache_hit():
         mock_async_client_instance = AsyncMock()
         mock_async_client.return_value = mock_async_client_instance
 
-        from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+        from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
         # Initialize cache
         qdrant_cache = QdrantSemanticCache(
@@ -406,7 +406,7 @@ async def test_qdrant_semantic_cache_async_get_cache_hit():
 
         # Mock the async embedding function
         with patch(
-            "litellm.aembedding",
+            "hangarllm.aembedding",
             return_value={"data": [{"embedding": [0.4, 0.5, 0.6]}]},
         ):
             # Test async_get_cache with a message
@@ -446,8 +446,8 @@ async def test_qdrant_semantic_cache_async_get_cache_miss():
     Verifies that None is returned when no similar cached results are found.
     """
     with (
-        patch("litellm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
-        patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_async_client,
+        patch("hangarllm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
+        patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_async_client,
     ):
         # Mock the collection exists check
         mock_response = MagicMock()
@@ -462,7 +462,7 @@ async def test_qdrant_semantic_cache_async_get_cache_miss():
         mock_async_client_instance = AsyncMock()
         mock_async_client.return_value = mock_async_client_instance
 
-        from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+        from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
         # Initialize cache
         qdrant_cache = QdrantSemanticCache(
@@ -480,7 +480,7 @@ async def test_qdrant_semantic_cache_async_get_cache_miss():
 
         # Mock the async embedding function
         with patch(
-            "litellm.aembedding",
+            "hangarllm.aembedding",
             return_value={"data": [{"embedding": [0.7, 0.8, 0.9]}]},
         ):
             # Test async_get_cache with a message
@@ -503,8 +503,8 @@ def test_qdrant_semantic_cache_set_cache():
     Verifies that responses are properly stored in the cache.
     """
     with (
-        patch("litellm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
-        patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client"),
+        patch("hangarllm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
+        patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client"),
     ):
         # Mock the collection exists check
         mock_response = MagicMock()
@@ -515,7 +515,7 @@ def test_qdrant_semantic_cache_set_cache():
         mock_sync_client_instance.get.return_value = mock_response
         mock_sync_client.return_value = mock_sync_client_instance
 
-        from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+        from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
         # Initialize cache
         qdrant_cache = QdrantSemanticCache(
@@ -538,7 +538,7 @@ def test_qdrant_semantic_cache_set_cache():
 
         # Mock the embedding function
         with patch(
-            "litellm.embedding", return_value={"data": [{"embedding": [0.1, 0.1, 0.1]}]}
+            "hangarllm.embedding", return_value={"data": [{"embedding": [0.1, 0.1, 0.1]}]}
         ):
             # Test set_cache
             qdrant_cache.set_cache(
@@ -565,8 +565,8 @@ async def test_qdrant_semantic_cache_async_set_cache():
     Verifies that responses are properly stored in the cache asynchronously.
     """
     with (
-        patch("litellm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
-        patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_async_client,
+        patch("hangarllm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
+        patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_async_client,
     ):
         # Mock the collection exists check
         mock_response = MagicMock()
@@ -581,7 +581,7 @@ async def test_qdrant_semantic_cache_async_set_cache():
         mock_async_client_instance = AsyncMock()
         mock_async_client.return_value = mock_async_client_instance
 
-        from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+        from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
         # Initialize cache
         qdrant_cache = QdrantSemanticCache(
@@ -604,7 +604,7 @@ async def test_qdrant_semantic_cache_async_set_cache():
 
         # Mock the async embedding function
         with patch(
-            "litellm.aembedding",
+            "hangarllm.aembedding",
             return_value={"data": [{"embedding": [0.2, 0.2, 0.2]}]},
         ):
             # Test async_set_cache
@@ -633,8 +633,8 @@ def test_qdrant_semantic_cache_custom_vector_size():
     creation payload instead of the default 1536.
     """
     with (
-        patch("litellm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
-        patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client"),
+        patch("hangarllm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
+        patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client"),
     ):
         # Mock the collection does NOT exist (so it will be created)
         mock_exists_response = MagicMock()
@@ -659,7 +659,7 @@ def test_qdrant_semantic_cache_custom_vector_size():
         mock_sync_client_instance.put.return_value = mock_create_response
         mock_sync_client.return_value = mock_sync_client_instance
 
-        from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+        from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
         # Initialize with custom vector_size of 768
         qdrant_cache = QdrantSemanticCache(
@@ -691,8 +691,8 @@ def test_qdrant_semantic_cache_default_vector_size():
     is not provided, and stores it as self.vector_size.
     """
     with (
-        patch("litellm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
-        patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client"),
+        patch("hangarllm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
+        patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client"),
     ):
         # Mock the collection exists check
         mock_response = MagicMock()
@@ -703,8 +703,8 @@ def test_qdrant_semantic_cache_default_vector_size():
         mock_sync_client_instance.get.return_value = mock_response
         mock_sync_client.return_value = mock_sync_client_instance
 
-        from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
-        from litellm.constants import QDRANT_VECTOR_SIZE
+        from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
+        from hangarllm.constants import QDRANT_VECTOR_SIZE
 
         # Initialize without vector_size
         qdrant_cache = QdrantSemanticCache(
@@ -724,8 +724,8 @@ def test_qdrant_semantic_cache_large_vector_size():
     for models like Stella, bge-en-icl, etc.
     """
     with (
-        patch("litellm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
-        patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client"),
+        patch("hangarllm.llms.custom_httpx.http_handler.get_httpx_client") as mock_sync_client,
+        patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client"),
     ):
         # Mock the collection does NOT exist (so it will be created)
         mock_exists_response = MagicMock()
@@ -748,7 +748,7 @@ def test_qdrant_semantic_cache_large_vector_size():
         mock_sync_client_instance.put.return_value = mock_create_response
         mock_sync_client.return_value = mock_sync_client_instance
 
-        from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+        from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
         # Initialize with a large vector_size of 4096
         qdrant_cache = QdrantSemanticCache(
@@ -773,14 +773,14 @@ def test_qdrant_semantic_cache_large_vector_size():
 
 
 def _router_proxy_module(router, model_name):
-    mod = types.ModuleType("litellm.proxy.proxy_server")
+    mod = types.ModuleType("hangarllm.proxy.proxy_server")
     mod.llm_router = router
     mod.llm_model_list = [{"model_name": model_name}]
     return mod
 
 
 def test_qdrant_sync_get_cache_routes_through_router(monkeypatch):
-    from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+    from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
     cache = QdrantSemanticCache.__new__(QdrantSemanticCache)
     cache.embedding_model = "sem-embed"
@@ -801,11 +801,11 @@ def test_qdrant_sync_get_cache_routes_through_router(monkeypatch):
     )
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "hangarllm.proxy.proxy_server",
         _router_proxy_module(router, "sem-embed"),
     )
 
-    with patch("litellm.embedding") as direct_embed:
+    with patch("hangarllm.embedding") as direct_embed:
         result = cache.get_cache(
             key="test_key",
             messages=[{"content": "What is the capital of France?"}],
@@ -819,7 +819,7 @@ def test_qdrant_sync_get_cache_routes_through_router(monkeypatch):
 
 
 def test_qdrant_sync_set_cache_falls_back_to_direct(monkeypatch):
-    from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+    from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
     cache = QdrantSemanticCache.__new__(QdrantSemanticCache)
     cache.embedding_model = "text-embedding-ada-002"
@@ -831,13 +831,13 @@ def test_qdrant_sync_set_cache_falls_back_to_direct(monkeypatch):
     put_response.status_code = 200
     cache.sync_client.put.return_value = put_response
 
-    fake_proxy = types.ModuleType("litellm.proxy.proxy_server")
+    fake_proxy = types.ModuleType("hangarllm.proxy.proxy_server")
     fake_proxy.llm_router = None
     fake_proxy.llm_model_list = None
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", fake_proxy)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", fake_proxy)
 
     with patch(
-        "litellm.embedding", return_value={"data": [{"embedding": [0.1, 0.1, 0.1]}]}
+        "hangarllm.embedding", return_value={"data": [{"embedding": [0.1, 0.1, 0.1]}]}
     ) as direct_embed:
         cache.set_cache(
             key="test_key",
@@ -850,7 +850,7 @@ def test_qdrant_sync_set_cache_falls_back_to_direct(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_qdrant_async_embedding_forwards_full_metadata(monkeypatch):
-    from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+    from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
     cache = QdrantSemanticCache.__new__(QdrantSemanticCache)
     cache.embedding_model = "sem-embed"
@@ -860,7 +860,7 @@ async def test_qdrant_async_embedding_forwards_full_metadata(monkeypatch):
     router.aembedding = AsyncMock(return_value={"data": [{"embedding": [0.1, 0.2]}]})
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "hangarllm.proxy.proxy_server",
         _router_proxy_module(router, "sem-embed"),
     )
 
@@ -879,13 +879,13 @@ LONG_PROMPT = " ".join(f"token{i}" for i in range(300))
 
 
 def _token_count(model, text):
-    import litellm
+    import hangarllm
 
-    return len(litellm.encode(model=model, text=text))
+    return len(hangarllm.encode(model=model, text=text))
 
 
 def test_qdrant_get_embedding_truncates_to_deployment_max_input_tokens(monkeypatch):
-    from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+    from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
     cache = QdrantSemanticCache.__new__(QdrantSemanticCache)
     cache.embedding_model = "sem-embed"
@@ -895,7 +895,7 @@ def test_qdrant_get_embedding_truncates_to_deployment_max_input_tokens(monkeypat
     router.embedding = MagicMock(return_value={"data": [{"embedding": [0.5, 0.6]}]})
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "hangarllm.proxy.proxy_server",
         _router_proxy_module(router, "sem-embed"),
     )
 
@@ -908,7 +908,7 @@ def test_qdrant_get_embedding_truncates_to_deployment_max_input_tokens(monkeypat
 
 @pytest.mark.asyncio
 async def test_qdrant_async_embedding_explicit_limit_beats_deployment_limit(monkeypatch):
-    from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+    from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
     cache = QdrantSemanticCache.__new__(QdrantSemanticCache)
     cache.embedding_model = "sem-embed"
@@ -919,7 +919,7 @@ async def test_qdrant_async_embedding_explicit_limit_beats_deployment_limit(monk
     router.aembedding = AsyncMock(return_value={"data": [{"embedding": [0.1, 0.2]}]})
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "hangarllm.proxy.proxy_server",
         _router_proxy_module(router, "sem-embed"),
     )
 
@@ -931,7 +931,7 @@ async def test_qdrant_async_embedding_explicit_limit_beats_deployment_limit(monk
 
 @pytest.mark.asyncio
 async def test_qdrant_async_embedding_call_is_bounded(monkeypatch):
-    from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+    from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
     cache = QdrantSemanticCache.__new__(QdrantSemanticCache)
     cache.embedding_model = "sem-embed"
@@ -943,7 +943,7 @@ async def test_qdrant_async_embedding_call_is_bounded(monkeypatch):
     router.aembedding = AsyncMock(return_value={"data": [{"embedding": [0.1, 0.2]}]})
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "hangarllm.proxy.proxy_server",
         _router_proxy_module(router, "sem-embed"),
     )
 
@@ -958,7 +958,7 @@ async def test_qdrant_async_embedding_gives_up_on_unresponsive_endpoint(monkeypa
     import asyncio
     import time
 
-    from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+    from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
     cache = QdrantSemanticCache.__new__(QdrantSemanticCache)
     cache.embedding_model = "sem-embed"
@@ -974,7 +974,7 @@ async def test_qdrant_async_embedding_gives_up_on_unresponsive_endpoint(monkeypa
     router.aembedding = never_responds
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "hangarllm.proxy.proxy_server",
         _router_proxy_module(router, "sem-embed"),
     )
 
@@ -985,8 +985,8 @@ async def test_qdrant_async_embedding_gives_up_on_unresponsive_endpoint(monkeypa
 
 
 def test_qdrant_semantic_cache_defaults_embedding_timeout():
-    from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
-    from litellm.constants import SEMANTIC_CACHE_EMBEDDING_TIMEOUT_SECONDS
+    from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
+    from hangarllm.constants import SEMANTIC_CACHE_EMBEDDING_TIMEOUT_SECONDS
 
     cache = QdrantSemanticCache.__new__(QdrantSemanticCache)
     assert cache.embedding_timeout == SEMANTIC_CACHE_EMBEDDING_TIMEOUT_SECONDS
@@ -996,13 +996,13 @@ def test_qdrant_semantic_cache_defaults_embedding_timeout():
 @pytest.mark.asyncio
 async def test_qdrant_async_embedding_truncates_off_the_event_loop(monkeypatch):
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.hangarllm_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
     )
 
-    from litellm.caching.qdrant_semantic_cache import QdrantSemanticCache
+    from hangarllm.caching.qdrant_semantic_cache import QdrantSemanticCache
 
     warm_tokenizer("sem-embed")
     cache = QdrantSemanticCache.__new__(QdrantSemanticCache)
@@ -1015,7 +1015,7 @@ async def test_qdrant_async_embedding_truncates_off_the_event_loop(monkeypatch):
     router.aembedding = AsyncMock(return_value={"data": [{"embedding": [0.1, 0.2]}]})
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "hangarllm.proxy.proxy_server",
         _router_proxy_module(router, "sem-embed"),
     )
 

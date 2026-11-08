@@ -10,14 +10,14 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import SESSION_ID_GENERATED_METADATA_KEY
-from litellm.litellm_core_utils.get_supported_openai_params import get_supported_openai_params
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.fireworks_ai.chat.transformation import FireworksAIConfig
-from litellm.llms.fireworks_ai.common_utils import get_fireworks_session_id
-from litellm.types.utils import (
+import hangarllm
+from hangarllm._logging import verbose_logger
+from hangarllm.constants import SESSION_ID_GENERATED_METADATA_KEY
+from hangarllm.hangarllm_core_utils.get_supported_openai_params import get_supported_openai_params
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.fireworks_ai.chat.transformation import FireworksAIConfig
+from hangarllm.llms.fireworks_ai.common_utils import get_fireworks_session_id
+from hangarllm.types.utils import (
     ChatCompletionMessageToolCall,
     Function,
     Message,
@@ -25,7 +25,7 @@ from litellm.types.utils import (
 )
 
 
-def test_validate_environment_sets_session_affinity_from_litellm_session_id():
+def test_validate_environment_sets_session_affinity_from_hangarllm_session_id():
     config = FireworksAIConfig()
 
     headers = config.validate_environment(
@@ -33,7 +33,7 @@ def test_validate_environment_sets_session_affinity_from_litellm_session_id():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={"litellm_session_id": "session-123"},
+        hangarllm_params={"hangarllm_session_id": "session-123"},
         api_key="test-key",
     )
 
@@ -48,7 +48,7 @@ def test_validate_environment_sets_session_affinity_from_metadata_session_id():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={"metadata": {"session_id": "metadata-session-123"}},
+        hangarllm_params={"metadata": {"session_id": "metadata-session-123"}},
         api_key="test-key",
     )
 
@@ -63,7 +63,7 @@ def test_validate_environment_sets_session_affinity_from_session_id():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={"session_id": "session-id-123"},
+        hangarllm_params={"session_id": "session-id-123"},
         api_key="test-key",
     )
 
@@ -73,7 +73,7 @@ def test_validate_environment_sets_session_affinity_from_session_id():
 def test_validate_environment_ignores_trace_id_for_session_affinity():
     """A trace id must not become the session id.
 
-    litellm_trace_id defaults to a fresh uuid4 per request, so pinning
+    hangarllm_trace_id defaults to a fresh uuid4 per request, so pinning
     x-session-affinity to it sent every request to a different Fireworks node and
     prompt caching never hit (cached_tokens stayed 0 across identical prompts).
     """
@@ -84,7 +84,7 @@ def test_validate_environment_ignores_trace_id_for_session_affinity():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={"litellm_trace_id": "trace-id-123"},
+        hangarllm_params={"hangarllm_trace_id": "trace-id-123"},
         api_key="test-key",
     )
 
@@ -99,9 +99,9 @@ def test_validate_environment_prefers_session_id_over_trace_id():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={
-            "litellm_session_id": "session-123",
-            "litellm_trace_id": "trace-id-123",
+        hangarllm_params={
+            "hangarllm_session_id": "session-123",
+            "hangarllm_trace_id": "trace-id-123",
         },
         api_key="test-key",
     )
@@ -117,7 +117,7 @@ def test_validate_environment_does_not_set_session_affinity_without_session_id()
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test-key",
     )
 
@@ -132,7 +132,7 @@ def test_validate_environment_preserves_explicit_session_affinity_header():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={"litellm_session_id": "session-123"},
+        hangarllm_params={"hangarllm_session_id": "session-123"},
         api_key="test-key",
     )
 
@@ -147,7 +147,7 @@ def test_validate_environment_sets_json_content_type():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test-key",
     )
 
@@ -162,7 +162,7 @@ def test_validate_environment_preserves_explicit_content_type():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test-key",
     )
 
@@ -178,7 +178,7 @@ def test_validate_environment_sets_json_content_type_with_session_affinity():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={"litellm_session_id": "session-123"},
+        hangarllm_params={"hangarllm_session_id": "session-123"},
         api_key="test-key",
     )
 
@@ -196,7 +196,7 @@ def test_validate_environment_resolves_api_key_from_env_and_sets_content_type(mo
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert headers["Authorization"] == "Bearer fw-env-key"
@@ -219,14 +219,14 @@ def test_validate_environment_raises_without_api_key(monkeypatch):
             model="accounts/fireworks/models/test-model",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
 
-def test_get_fireworks_session_id_prefers_litellm_session_id_over_trace_id():
+def test_get_fireworks_session_id_prefers_hangarllm_session_id_over_trace_id():
     assert (
         get_fireworks_session_id(
-            {"litellm_session_id": "session-123", "litellm_trace_id": "trace-123"}
+            {"hangarllm_session_id": "session-123", "hangarllm_trace_id": "trace-123"}
         )
         == "session-123"
     )
@@ -238,8 +238,8 @@ def test_get_fireworks_session_id_ignores_proxy_generated_session_id():
     assert (
         get_fireworks_session_id(
             {
-                "litellm_session_id": "generated-1",
-                "litellm_trace_id": "generated-1",
+                "hangarllm_session_id": "generated-1",
+                "hangarllm_trace_id": "generated-1",
                 "metadata": {"session_id": "generated-1", SESSION_ID_GENERATED_METADATA_KEY: True},
             }
         )
@@ -353,7 +353,7 @@ def test_get_supported_openai_params_parallel_tool_calls_without_tool_choice(
     config = FireworksAIConfig()
     model = "fireworks_ai/test-tools-without-tool-choice"
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         model,
         {
             "supports_function_calling": True,
@@ -372,7 +372,7 @@ def test_get_provider_info_omits_false_supports_reasoning(monkeypatch):
     """Test that Fireworks only overrides supports_reasoning for supported models."""
     config = FireworksAIConfig()
     model = "fireworks_ai/test-reasoning-false"
-    monkeypatch.setitem(litellm.model_cost, model, {"supports_reasoning": False})
+    monkeypatch.setitem(hangarllm.model_cost, model, {"supports_reasoning": False})
 
     info = config.get_provider_info(model)
 
@@ -414,10 +414,10 @@ def test_get_models_url_no_double_v1(api_base, expected_url_prefix):
 
     with (
         patch(
-            "litellm.module_level_client.get", return_value=mock_response
+            "hangarllm.module_level_client.get", return_value=mock_response
         ) as mock_get,
         patch(
-            "litellm.llms.fireworks_ai.chat.transformation.get_secret_str",
+            "hangarllm.llms.fireworks_ai.chat.transformation.get_secret_str",
             side_effect=lambda key: {
                 "FIREWORKS_API_KEY": "test-key",
                 "FIREWORKS_API_BASE": api_base,
@@ -462,7 +462,7 @@ def test_transform_messages_helper_removes_provider_specific_fields():
     ]
     # Call helper
     out = config._transform_messages_helper(
-        messages, model="fireworks/test", litellm_params={}
+        messages, model="fireworks/test", hangarllm_params={}
     )
     for msg in out:
         assert "provider_specific_fields" not in msg
@@ -491,14 +491,14 @@ def test_transform_messages_helper_strips_thinking_blocks_but_keeps_reasoning_co
         },
     ]
     out = config._transform_messages_helper(
-        messages, model="accounts/fireworks/models/glm-5p1", litellm_params={}
+        messages, model="accounts/fireworks/models/glm-5p1", hangarllm_params={}
     )
     assert "thinking_blocks" not in out[1]
     assert out[1]["reasoning_content"] == "internal"
     assert out[1]["content"] == "I can help."
 
 
-def test_tool_search_reply_sent_to_fireworks_drops_litellm_response_fields():
+def test_tool_search_reply_sent_to_fireworks_drops_hangarllm_response_fields():
     tool_search_reply = {
         "role": "assistant",
         "content": "",
@@ -521,7 +521,7 @@ def test_tool_search_reply_sent_to_fireworks_drops_litellm_response_fields():
             {"role": "tool", "tool_call_id": "call_1", "content": "sunny"},
         ],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -550,7 +550,7 @@ def test_cache_control_is_stripped_from_the_request_but_kept_on_the_callers_mess
         model="accounts/fireworks/models/gpt-oss-120b",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -565,7 +565,7 @@ def test_cache_control_is_stripped_from_the_request_but_kept_on_the_callers_mess
 # coming from MCP servers (legacy `definitions`) or OpenAPI-derived gateways
 # such as AWS AgentCore (`components.schemas`) used to leave dangling `$ref`
 # pointers, causing upstream "Error resolving schema reference" failures. See
-# https://github.com/BerriAI/litellm/issues/26692.
+# upstream issue 26692
 # -----------------------------------------------------------------------------
 
 
@@ -789,7 +789,7 @@ def test_transform_request_routes_short_form_router_to_routers_path():
         model="glm-5p1-fast",
         messages=[{"role": "user", "content": "Hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert result["model"] == "accounts/fireworks/routers/glm-5p1-fast"
@@ -803,7 +803,7 @@ def test_transform_request_routes_short_form_model_to_models_path():
         model="glm-5p2",
         messages=[{"role": "user", "content": "Hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert result["model"] == "accounts/fireworks/models/glm-5p2"
@@ -846,7 +846,7 @@ def _run_transform_response(response_body: dict) -> ModelResponse:
         request_data={},
         messages=[{"role": "user", "content": "Hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
         api_key="test-key",
     )
@@ -909,7 +909,7 @@ def test_native_openai_params_flow_end_to_end_with_drop_params_false():
         "service_tier": "auto",
         "prediction": {"type": "content", "content": "x"},
     }
-    optional_params = litellm.get_optional_params(
+    optional_params = hangarllm.get_optional_params(
         model="accounts/fireworks/models/llama-v3-70b-instruct",
         custom_llm_provider="fireworks_ai",
         drop_params=False,
@@ -940,7 +940,7 @@ def test_stream_options_include_usage_auto_injected():
         model="accounts/fireworks/models/glm-5p1",
         messages=[{"role": "user", "content": "Hi"}],
         optional_params={"stream": True},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert result["stream_options"] == {"include_usage": True}
@@ -952,7 +952,7 @@ def test_stream_options_not_injected_when_not_streaming():
         model="accounts/fireworks/models/glm-5p1",
         messages=[{"role": "user", "content": "Hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert "stream_options" not in result
@@ -964,7 +964,7 @@ def test_stream_options_preserves_user_override():
         model="accounts/fireworks/models/glm-5p1",
         messages=[{"role": "user", "content": "Hi"}],
         optional_params={"stream": True, "stream_options": {"include_usage": False}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert result["stream_options"]["include_usage"] is False
@@ -994,7 +994,7 @@ def test_thinking_param_passthrough():
 def test_thinking_and_reasoning_effort_conflict_rejected():
     config = FireworksAIConfig()
     with pytest.raises(
-        litellm.BadRequestError,
+        hangarllm.BadRequestError,
         match="does not support specifying both `thinking` and `reasoning_effort`",
     ):
         config.map_openai_params(
@@ -1027,11 +1027,11 @@ def test_transform_messages_helper_rejects_file_blocks():
     ]
 
     with pytest.raises(
-        litellm.BadRequestError,
+        hangarllm.BadRequestError,
         match="Fireworks AI chat completions does not support file content blocks",
     ):
         config._transform_messages_helper(
-            messages, model="accounts/fireworks/models/kimi-k2p6", litellm_params={}
+            messages, model="accounts/fireworks/models/kimi-k2p6", hangarllm_params={}
         )
 
 
@@ -1052,9 +1052,9 @@ def test_transform_messages_helper_rejects_non_vision_image_inputs():
         }
     ]
 
-    with pytest.raises(litellm.BadRequestError, match="does not support image inputs"):
+    with pytest.raises(hangarllm.BadRequestError, match="does not support image inputs"):
         config._transform_messages_helper(
-            messages, model="accounts/fireworks/models/glm-5p2", litellm_params={}
+            messages, model="accounts/fireworks/models/glm-5p2", hangarllm_params={}
         )
 
 
@@ -1076,7 +1076,7 @@ def test_transform_messages_helper_allows_vision_image_inputs():
     ]
 
     out = config._transform_messages_helper(
-        messages, model="accounts/fireworks/models/llama-v3p2-11b-vision-instruct", litellm_params={}
+        messages, model="accounts/fireworks/models/llama-v3p2-11b-vision-instruct", hangarllm_params={}
     )
     assert out == messages
 
@@ -1111,7 +1111,7 @@ def test_image_inputs_not_rejected_for_fuzzy_non_vision_match():
         }
     ]
     out = config._transform_messages_helper(
-        messages, model=custom_model, litellm_params={}
+        messages, model=custom_model, hangarllm_params={}
     )
     assert out == messages
 
@@ -1126,7 +1126,7 @@ def test_transform_messages_helper_skips_non_dict_content():
     ]
 
     out = config._transform_messages_helper(
-        messages, model="accounts/fireworks/models/glm-5p2", litellm_params={}
+        messages, model="accounts/fireworks/models/glm-5p2", hangarllm_params={}
     )
     assert out == messages
 
@@ -1141,7 +1141,7 @@ def test_transform_messages_helper_no_transform_inline():
         }
     ]
     out = config._transform_messages_helper(
-        messages, model="accounts/fireworks/models/llama-v3p2-11b-vision-instruct", litellm_params={}
+        messages, model="accounts/fireworks/models/llama-v3p2-11b-vision-instruct", hangarllm_params={}
     )
     block = out[0]["content"][0]
     assert block["image_url"] == url
@@ -1153,7 +1153,7 @@ def test_get_provider_info_vision_from_model_cost(monkeypatch):
 
     vision_model = "fireworks_ai/test-vision-from-cost"
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         vision_model,
         {"supports_vision": True, "supports_pdf_input": True},
     )
@@ -1162,7 +1162,7 @@ def test_get_provider_info_vision_from_model_cost(monkeypatch):
     assert info["supports_pdf_input"] is True
 
     no_vision_model = "fireworks_ai/test-no-vision-from-cost"
-    monkeypatch.setitem(litellm.model_cost, no_vision_model, {})
+    monkeypatch.setitem(hangarllm.model_cost, no_vision_model, {})
     info_no_vision = config.get_provider_info(no_vision_model)
     assert info_no_vision.get("supports_vision") is not True
     assert "supports_pdf_input" not in info_no_vision
@@ -1301,14 +1301,14 @@ def test_streaming_surfaces_fireworks_response_fields():
     """
     The Fireworks-specific response fields captured into _hidden_params for
     non-streaming calls must also reach streamed responses. They ride the
-    streamed chunks' provider_specific_fields (litellm rebuilds each streamed
+    streamed chunks' provider_specific_fields (hangarllm rebuilds each streamed
     chunk, so per-chunk _hidden_params does not survive): per-choice
     token_ids/raw_output on the content chunk, response-level
     perf_metrics/prompt_token_ids on the final usage chunk. Driving the real
-    litellm.completion(stream=True) path also covers the get_model_response_iterator
+    hangarllm.completion(stream=True) path also covers the get_model_response_iterator
     wiring; dropping the Fireworks iterator would leave these fields unset.
     """
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     model = "accounts/fireworks/models/llama-v3p1-8b-instruct"
     raw_output = {"completion": "Hi"}
@@ -1357,7 +1357,7 @@ def test_streaming_surfaces_fireworks_response_fields():
 
     client = HTTPHandler()
     with patch.object(client, "post", return_value=raw_response):
-        stream = litellm.completion(
+        stream = hangarllm.completion(
             model=f"fireworks_ai/{model}",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -1384,7 +1384,7 @@ def test_transform_request_routes_router_slug():
         model="routers/glm-latest",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1398,7 +1398,7 @@ def test_transform_request_bare_slug_stays_model():
         model="glm-4p6",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1413,7 +1413,7 @@ def test_transform_request_direct_route_passthrough():
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1718,7 +1718,7 @@ def test_map_extra_body_params_no_extra_body():
 
 
 def test_nim_vllm_extras_translated_end_to_end_in_request_body():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     model = "accounts/fireworks/models/glm-5p1"
     body = {
@@ -1743,7 +1743,7 @@ def test_nim_vllm_extras_translated_end_to_end_in_request_body():
 
     client = MagicMock(spec=HTTPHandler)
     client.post.return_value = raw_response
-    litellm.completion(
+    hangarllm.completion(
         model=f"fireworks_ai/{model}",
         messages=[{"role": "user", "content": "hi"}],
         api_key="fw-test-key",
@@ -1768,7 +1768,7 @@ def test_nim_vllm_extras_translated_end_to_end_in_request_body():
 
 
 def test_streaming_preserves_selected_model_for_private_accounting():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     requested_route = (
         "accounts/fireworks/routers/firerouter/"
@@ -1816,7 +1816,7 @@ def test_streaming_preserves_selected_model_for_private_accounting():
 
     client = HTTPHandler()
     with patch.object(client, "post", return_value=raw_response):
-        stream = litellm.completion(
+        stream = hangarllm.completion(
             model=f"fireworks_ai/{requested_route}",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -1831,16 +1831,16 @@ def test_streaming_preserves_selected_model_for_private_accounting():
         chunk._hidden_params.get("provider_response_model") for chunk in chunks
     } == {selected_model}
 
-    assembled = litellm.stream_chunk_builder(chunks=chunks)
+    assembled = hangarllm.stream_chunk_builder(chunks=chunks)
     assert assembled is not None
     assert assembled.model == requested_route
     assert assembled._hidden_params["provider_response_model"] == selected_model
-    selected_model_info = litellm.model_cost[f"fireworks_ai/{selected_model}"]
+    selected_model_info = hangarllm.model_cost[f"fireworks_ai/{selected_model}"]
     expected_cost = (
         5 * selected_model_info["input_cost_per_token"]
         + selected_model_info["output_cost_per_token"]
     )
-    assert litellm.completion_cost(
+    assert hangarllm.completion_cost(
         completion_response=assembled,
         custom_llm_provider="fireworks_ai",
     ) == pytest.approx(expected_cost)
@@ -1866,7 +1866,7 @@ _LISTED_ROUTERS = ("auto", "auto-instant", "firerouter")
 def test_listed_router_short_name_resolves_to_its_catalog_row_and_accepts_tool_choice_and_reasoning(
     router: str,
 ) -> None:
-    info = litellm.get_model_info(model=f"fireworks_ai/{router}")
+    info = hangarllm.get_model_info(model=f"fireworks_ai/{router}")
     params = FireworksAIConfig().get_supported_openai_params(router)
 
     assert info["key"] == f"fireworks_ai/accounts/fireworks/routers/{router}"
@@ -1921,14 +1921,14 @@ def test_listed_router_request_is_sent_to_the_router_resource_and_billed_at_the_
         }
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=f"fireworks_ai/{router}",
         messages=[{"role": "user", "content": "ping"}],
         api_key="fw-test-key",
         client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(handler))),
     )
 
-    served_info: Final = litellm.model_cost[f"fireworks_ai/{served_model}"]
+    served_info: Final = hangarllm.model_cost[f"fireworks_ai/{served_model}"]
     expected_cost: Final = 23 * served_info["input_cost_per_token"] + 41 * served_info["output_cost_per_token"]
     assert handler.request_body is not None
     assert handler.request_body["model"] == f"accounts/fireworks/routers/{router}"
@@ -2032,10 +2032,10 @@ def test_transform_inline_no_longer_added(content, expected_url):
     image_block = {"type": "image_url", **content}
     messages = [{"role": "user", "content": [image_block]}]
 
-    result = litellm.FireworksAIConfig()._transform_messages_helper(
+    result = hangarllm.FireworksAIConfig()._transform_messages_helper(
         messages=messages,
         model=VISION_MODEL,
-        litellm_params={},
+        hangarllm_params={},
     )
     result_image_block = result[0]["content"][0]
     if isinstance(expected_url, str):
@@ -2050,20 +2050,20 @@ def test_transform_inline_no_longer_added(content, expected_url):
 )
 def test_global_disable_flag_no_longer_adds_transform_inline(is_disabled):
     url = "http://example.com/image.png"
-    litellm.disable_add_transform_inline_image_block = is_disabled
+    hangarllm.disable_add_transform_inline_image_block = is_disabled
     messages = [
         {
             "role": "user",
             "content": [{"type": "image_url", "image_url": url}],
         }
     ]
-    result = litellm.FireworksAIConfig()._transform_messages_helper(
+    result = hangarllm.FireworksAIConfig()._transform_messages_helper(
         messages=messages,
         model=VISION_MODEL,
-        litellm_params={},
+        hangarllm_params={},
     )
     assert result[0]["content"][0]["image_url"] == url
-    litellm.disable_add_transform_inline_image_block = False  # Reset for other tests
+    hangarllm.disable_add_transform_inline_image_block = False  # Reset for other tests
 
 
 fireworks = FireworksAIConfig()
@@ -2071,7 +2071,7 @@ fireworks = FireworksAIConfig()
 
 VISION_MODEL = next(
     key.removeprefix("fireworks_ai/")
-    for key, info in litellm.model_cost.items()
+    for key, info in hangarllm.model_cost.items()
     if key.startswith("fireworks_ai/accounts/fireworks/models/") and info.get("supports_vision") is True
 )
 
@@ -2089,7 +2089,7 @@ _MODELS_URL: Final = f"{_FIREWORKS_BASE}/accounts/acct/models"
 
 
 def _complete_against_reply(reply: object) -> ModelResponse:
-    return litellm.completion(
+    return hangarllm.completion(
         model="fireworks_ai/accounts/fireworks/models/llama-v3p1-8b-instruct",
         messages=[{"role": "user", "content": "ping"}],
         api_key="fw-test-key",
@@ -2128,7 +2128,7 @@ def test_completion_keeps_unmodelled_reply_fields_and_nested_fireworks_metrics()
     [pytest.param([_CHAT_REPLY], id="list"), pytest.param("pong", id="string"), pytest.param(7, id="number")],
 )
 def test_completion_with_non_object_reply_raises_api_connection_error(reply: object) -> None:
-    with pytest.raises(litellm.APIConnectionError):
+    with pytest.raises(hangarllm.APIConnectionError):
         _complete_against_reply(reply)
 
 
@@ -2216,41 +2216,41 @@ def _fireworks_chat_client() -> MagicMock:
         pytest.param(
             {"fireworks_forward_user_id": True, "metadata": {"user_api_key_user_id": "dev-alice"}},
             "dev-alice",
-            id="opted-in-sends-litellm-user-id",
+            id="opted-in-sends-hangarllm-user-id",
         ),
         pytest.param(
             {"fireworks_forward_user_id": True, "metadata": {"user_api_key_user_id": "dev-alice"}, "user": "caller"},
             "dev-alice",
-            id="litellm-user-id-replaces-caller-user",
+            id="hangarllm-user-id-replaces-caller-user",
         ),
         pytest.param(
-            {"fireworks_forward_user_id": True, "litellm_metadata": {"user_api_key_user_id": "dev-bob"}},
+            {"fireworks_forward_user_id": True, "hangarllm_metadata": {"user_api_key_user_id": "dev-bob"}},
             "dev-bob",
-            id="reads-litellm-metadata",
+            id="reads-hangarllm-metadata",
         ),
         pytest.param(
             {
                 "fireworks_forward_user_id": True,
                 "metadata": {"tags": ["caller-tag"]},
-                "litellm_metadata": {"user_api_key_user_id": "dev-bob"},
+                "hangarllm_metadata": {"user_api_key_user_id": "dev-bob"},
             },
             "dev-bob",
-            id="reads-litellm-metadata-next-to-caller-metadata",
+            id="reads-hangarllm-metadata-next-to-caller-metadata",
         ),
         pytest.param(
             {"fireworks_forward_user_id": True, "metadata": {"user_api_key_user_id": ""}, "user": "caller"},
             "caller",
-            id="empty-litellm-user-id-keeps-caller-user",
+            id="empty-hangarllm-user-id-keeps-caller-user",
         ),
         pytest.param(
             {"fireworks_forward_user_id": True, "metadata": {"user_api_key_user_id": None}, "user": "caller"},
             "caller",
-            id="no-litellm-user-id-keeps-caller-user",
+            id="no-hangarllm-user-id-keeps-caller-user",
         ),
         pytest.param(
             {"fireworks_forward_user_id": True, "metadata": {"user_api_key_user_id": None}},
             None,
-            id="no-litellm-user-id-sends-no-user",
+            id="no-hangarllm-user-id-sends-no-user",
         ),
         pytest.param(
             {"metadata": {"user_api_key_user_id": "dev-alice"}, "user": "caller"},
@@ -2274,7 +2274,7 @@ def _fireworks_chat_client() -> MagicMock:
                 "extra_body": {"user": "dev-bob", "prompt_cache_max_len": 1},
             },
             "dev-alice",
-            id="litellm-user-id-replaces-extra-body-user",
+            id="hangarllm-user-id-replaces-extra-body-user",
         ),
         pytest.param(
             {"metadata": {"user_api_key_user_id": "dev-alice"}, "extra_body": {"user": "dev-bob"}},
@@ -2283,9 +2283,9 @@ def _fireworks_chat_client() -> MagicMock:
         ),
     ],
 )
-def test_completion_forwards_litellm_user_id_as_user(call_kwargs: dict[str, object], expected_user: str | None) -> None:
+def test_completion_forwards_hangarllm_user_id_as_user(call_kwargs: dict[str, object], expected_user: str | None) -> None:
     client: Final = _fireworks_chat_client()
-    litellm.completion(
+    hangarllm.completion(
         model="fireworks_ai/accounts/fireworks/models/kimi-k3",
         messages=[{"role": "user", "content": "hi"}],
         api_key="fw-test-key",
@@ -2297,10 +2297,10 @@ def test_completion_forwards_litellm_user_id_as_user(call_kwargs: dict[str, obje
     assert "fireworks_forward_user_id" not in request_body
 
 
-def test_completion_forwards_litellm_user_id_when_streaming() -> None:
+def test_completion_forwards_hangarllm_user_id_when_streaming() -> None:
     client: Final = _fireworks_chat_client()
     client.post.return_value.iter_text = lambda: iter(())
-    litellm.completion(
+    hangarllm.completion(
         model="fireworks_ai/accounts/fireworks/models/kimi-k3",
         messages=[{"role": "user", "content": "hi"}],
         api_key="fw-test-key",
@@ -2347,7 +2347,7 @@ def test_document_inlining_example(
         {"type": "text", "text": "What are the candidate's BA and MBA GPAs?"},
     ]
 
-    litellm.completion(
+    hangarllm.completion(
         model=f"fireworks_ai/{VISION_MODEL}",
         messages=[{"role": "user", "content": json.loads(json.dumps(content))}],
         disable_add_transform_inline_image_block=disable_add_transform_inline_image_block,
@@ -2362,7 +2362,7 @@ def test_document_inlining_example(
 def test_global_disable_flag_with_transform_messages_helper(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_add_transform_inline_image_block", True)
+    monkeypatch.setattr(hangarllm, "disable_add_transform_inline_image_block", True)
     route: Final = _mock_fireworks_vision_completion(respx_mock)
     content: Final = [
         {"type": "text", "text": "What's in this image?"},
@@ -2374,7 +2374,7 @@ def test_global_disable_flag_with_transform_messages_helper(
         },
     ]
 
-    litellm.completion(
+    hangarllm.completion(
         model=f"fireworks_ai/{VISION_MODEL}",
         messages=[{"role": "user", "content": json.loads(json.dumps(content))}],
         api_key="fireworks-test-key",
@@ -2521,7 +2521,7 @@ def test_fireworks_request_rewrites_tools_without_touching_the_callers_tool() ->
         model="accounts/fireworks/models/gpt-oss-120b",
         messages=[{"role": "user", "content": "Make a thing"}],
         optional_params={"tools": tools},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 

@@ -20,11 +20,11 @@ from prisma import Base64, models as prisma_models
 from prisma.errors import UniqueViolationError
 from pydantic import ValidationError
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import CommonProxyErrors, LiteLLM_ObjectPermissionTable, ProxyException, UserAPIKeyAuth
-from litellm.proxy.anthropic_endpoints.claude_code_endpoints import claude_code_marketplace
-from litellm.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_marketplace import (
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy._types import CommonProxyErrors, HangarLLM_ObjectPermissionTable, ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.anthropic_endpoints.claude_code_endpoints import claude_code_marketplace
+from hangarllm.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_marketplace import (
     delete_plugin,
     disable_plugin,
     enable_plugin,
@@ -34,10 +34,10 @@ from litellm.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_marketp
     register_plugin,
     update_plugin,
 )
-from litellm.proxy.deps.repositories import get_plugin_upload_repository
-from litellm.proxy.proxy_server import LitellmUserRoles, hash_token
-from litellm.repositories.plugin_upload_repository import PluginUploadRepository
-from litellm.types.proxy.claude_code_endpoints import (
+from hangarllm.proxy.deps.repositories import get_plugin_upload_repository
+from hangarllm.proxy.proxy_server import HangarllmUserRoles, hash_token
+from hangarllm.repositories.plugin_upload_repository import PluginUploadRepository
+from hangarllm.types.proxy.claude_code_endpoints import (
     MarketplaceResponse,
     RegisterPluginRequest,
     UpdatePluginRequest,
@@ -90,30 +90,30 @@ def _make_mock_prisma():
     mock_table.find_many = AsyncMock(side_effect=_find_many)
     mock_table.create = AsyncMock(side_effect=_create)
     mock_table.update = AsyncMock(side_effect=_update)
-    mock_client.db.litellm_claudecodeplugintable = mock_table
+    mock_client.db.hangarllm_claudecodeplugintable = mock_table
     mock_client.writer_db = mock_client.db
     mock_client.db.query_raw = AsyncMock(return_value=[])
     mock_client.db.tx.return_value.__aenter__.return_value = mock_client.db
-    mock_client.db.litellm_claudecodepluginversion.count = AsyncMock(return_value=0)
-    mock_client.db.litellm_claudecodepluginversion.create = AsyncMock()
-    mock_client.db.litellm_claudecodepluginupload.find_unique = AsyncMock(return_value=None)
-    mock_client.db.litellm_claudecodepluginupload.delete_many = AsyncMock(return_value=0)
-    mock_client.db.litellm_claudecodepluginupload.upsert = AsyncMock()
+    mock_client.db.hangarllm_claudecodepluginversion.count = AsyncMock(return_value=0)
+    mock_client.db.hangarllm_claudecodepluginversion.create = AsyncMock()
+    mock_client.db.hangarllm_claudecodepluginupload.find_unique = AsyncMock(return_value=None)
+    mock_client.db.hangarllm_claudecodepluginupload.delete_many = AsyncMock(return_value=0)
+    mock_client.db.hangarllm_claudecodepluginupload.upsert = AsyncMock()
     return mock_client
 
 
 def _uploads() -> PluginUploadRepository:
-    return PluginUploadRepository(litellm.proxy.proxy_server.prisma_client)
+    return PluginUploadRepository(hangarllm.proxy.proxy_server.prisma_client)
 
 
 _USER = UserAPIKeyAuth(
-    user_role=LitellmUserRoles.PROXY_ADMIN,
+    user_role=HangarllmUserRoles.PROXY_ADMIN,
     api_key=MASTER_KEY,
     user_id="test-user",
 )
 
 _NON_ADMIN_USER = UserAPIKeyAuth(
-    user_role=LitellmUserRoles.INTERNAL_USER,
+    user_role=HangarllmUserRoles.INTERNAL_USER,
     api_key="sk-5678",
     user_id="regular-user",
 )
@@ -134,8 +134,8 @@ _ARCHIVE_SOURCE = {
 @pytest.fixture(autouse=True)
 def _patch_proxy_globals(monkeypatch):
     """Scope prisma_client/master_key mutations to each test via monkeypatch."""
-    monkeypatch.setattr(litellm.proxy.proxy_server, "prisma_client", _make_mock_prisma())
-    monkeypatch.setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "prisma_client", _make_mock_prisma())
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
 
 
 @pytest.mark.asyncio
@@ -152,7 +152,7 @@ async def test_register_plugin_git_subdir_success():
 
 
 async def _read_stored_manifest(name: str) -> dict:
-    table = litellm.proxy.proxy_server.prisma_client.db.litellm_claudecodeplugintable
+    table = hangarllm.proxy.proxy_server.prisma_client.db.hangarllm_claudecodeplugintable
     record = await table.find_unique(where={"name": name})
     return json.loads(record.manifest_json)
 
@@ -218,11 +218,11 @@ async def test_update_plugin_replaces_existing_source():
 
 @pytest.mark.asyncio
 async def test_metadata_edits_preserve_uploaded_source_and_reject_a_changed_http_destination() -> None:
-    table: Final = litellm.proxy.proxy_server.prisma_client.writer_db.litellm_claudecodeplugintable
+    table: Final = hangarllm.proxy.proxy_server.prisma_client.writer_db.hangarllm_claudecodeplugintable
     await table.create(data={"name": _UPLOAD_NAME, "manifest_json": json.dumps({"source": _UPLOAD_SOURCE})})
     request: Final = UpdatePluginRequest(source=_UPLOAD_SOURCE, description="Updated description", version="1.0.0")
     response: Final = await update_plugin(uploads=_uploads(), plugin_name=_UPLOAD_NAME, request=request, user_api_key_dict=_USER)
-    expected: Final = {"name": _UPLOAD_NAME, "source": _UPLOAD_SOURCE, "description": "Updated description", "version": "1.0.0", "_litellm_published_by": _USER.user_id}
+    expected: Final = {"name": _UPLOAD_NAME, "source": _UPLOAD_SOURCE, "description": "Updated description", "version": "1.0.0", "_hangarllm_published_by": _USER.user_id}
     assert response.plugin.description == "Updated description"
     assert await _read_stored_manifest(_UPLOAD_NAME) == expected
     with pytest.raises(HTTPException) as error:
@@ -254,7 +254,7 @@ async def test_register_plugin_create_race_maps_unique_violation_to_409():
     the unique-constraint error) is mapped to 409, not surfaced as a 500."""
     from prisma.errors import UniqueViolationError
 
-    table = litellm.proxy.proxy_server.prisma_client.db.litellm_claudecodeplugintable
+    table = hangarllm.proxy.proxy_server.prisma_client.db.hangarllm_claudecodeplugintable
     table.create = AsyncMock(side_effect=UniqueViolationError({}, message="duplicate name"))
 
     with pytest.raises(HTTPException) as exc_info:
@@ -279,7 +279,7 @@ async def test_update_plugin_db_error_maps_to_structured_500():
         user_api_key_dict=_USER,
     )
 
-    table = litellm.proxy.proxy_server.prisma_client.db.litellm_claudecodeplugintable
+    table = hangarllm.proxy.proxy_server.prisma_client.db.hangarllm_claudecodeplugintable
     table.update = AsyncMock(side_effect=PrismaError("connection lost"))
 
     with pytest.raises(HTTPException) as exc_info:
@@ -303,7 +303,7 @@ async def test_update_plugin_deleted_mid_update_returns_404():
         user_api_key_dict=_USER,
     )
 
-    table = litellm.proxy.proxy_server.prisma_client.db.litellm_claudecodeplugintable
+    table = hangarllm.proxy.proxy_server.prisma_client.db.hangarllm_claudecodeplugintable
     existing: Final = await table.find_unique(where={"name": name})
     table.find_unique = AsyncMock(side_effect=[existing, None])
 
@@ -325,7 +325,7 @@ async def test_get_marketplace_skips_plugin_with_null_manifest():
         user_api_key_dict=_USER,
     )
 
-    table = litellm.proxy.proxy_server.prisma_client.db.litellm_claudecodeplugintable
+    table = hangarllm.proxy.proxy_server.prisma_client.db.hangarllm_claudecodeplugintable
     await table.create(data={"name": "null-manifest-plugin", "manifest_json": None, "enabled": True})
 
     response = await get_marketplace(request=MagicMock())
@@ -337,10 +337,10 @@ async def test_get_marketplace_skips_plugin_with_null_manifest():
 
 def _granted_user(skills: list[str]) -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-granted",
         user_id="granted-user",
-        object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="perm-1", skills=skills),
+        object_permission=HangarLLM_ObjectPermissionTable(object_permission_id="perm-1", skills=skills),
     )
 
 
@@ -504,7 +504,7 @@ async def test_update_plugin_without_installation_preference_clears_it():
 @pytest.mark.parametrize("stored_value", ["auto-install", 1, True, None])
 async def test_stored_unknown_installation_preference_is_not_served(stored_value, caplog):
     name = "hand-edited-plugin"
-    table = litellm.proxy.proxy_server.prisma_client.db.litellm_claudecodeplugintable
+    table = hangarllm.proxy.proxy_server.prisma_client.db.hangarllm_claudecodeplugintable
     await table.create(
         data={
             "name": name,
@@ -816,7 +816,7 @@ async def test_register_plugin_rejects_non_admin():
 
     assert exc_info.value.status_code == 403
 
-    table = litellm.proxy.proxy_server.prisma_client.db.litellm_claudecodeplugintable
+    table = hangarllm.proxy.proxy_server.prisma_client.db.hangarllm_claudecodeplugintable
     assert await table.find_unique(where={"name": "attacker-plugin"}) is None
 
 
@@ -862,7 +862,7 @@ async def test_enable_disable_delete_plugin_reject_non_admin():
             await coro
         assert exc_info.value.status_code == 403
 
-    table = litellm.proxy.proxy_server.prisma_client.db.litellm_claudecodeplugintable
+    table = hangarllm.proxy.proxy_server.prisma_client.db.hangarllm_claudecodeplugintable
     assert (await table.find_unique(where={"name": name})).enabled is True
 
 
@@ -878,7 +878,7 @@ async def test_register_plugin():
     )
 
     user_api_key_dict: Final = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key=MASTER_KEY,
         user_id="test-user",
     )
@@ -894,7 +894,7 @@ async def test_register_plugin():
     assert response.plugin.version == "1.0.0"
     assert response.plugin.enabled is True
 
-    stored_plugin: Final = await litellm.proxy.proxy_server.prisma_client.db.litellm_claudecodeplugintable.find_unique(
+    stored_plugin: Final = await hangarllm.proxy.proxy_server.prisma_client.db.hangarllm_claudecodeplugintable.find_unique(
         where={"name": plugin_name}
     )
     assert stored_plugin is not None
@@ -913,7 +913,7 @@ async def test_get_marketplace():
     )
 
     user_api_key_dict: Final = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key=MASTER_KEY,
         user_id="test-user",
     )
@@ -927,7 +927,7 @@ async def test_get_marketplace():
 
     body: Final = json.loads(response.body.decode())
 
-    assert body["name"] == "litellm"
+    assert body["name"] == "hangarllm"
     assert "plugins" in body
 
     our_plugin: Final = next((p for p in body["plugins"] if p["name"] == plugin_name), None)
@@ -955,7 +955,7 @@ async def test_register_plugin_git_subdir():
     )
 
     user_api_key_dict: Final = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key=MASTER_KEY,
         user_id="test-user",
     )
@@ -976,8 +976,8 @@ async def test_register_plugin_git_subdir():
 
 def test_marketplace_response_round_trips_installation_preference():
     catalog: Final = {
-        "name": "litellm",
-        "owner": {"name": "LiteLLM", "email": "support@litellm.ai"},
+        "name": "hangarllm",
+        "owner": {"name": "HangarLLM", "email": "support@github.com/valteresj2/HangarLLM#readme"},
         "plugins": [
             {
                 "name": "auto",
@@ -996,8 +996,8 @@ def test_marketplace_response_round_trips_installation_preference():
 
 def test_marketplace_response_rejects_unknown_installation_preference():
     catalog: Final = {
-        "name": "litellm",
-        "owner": {"name": "LiteLLM", "email": "support@litellm.ai"},
+        "name": "hangarllm",
+        "owner": {"name": "HangarLLM", "email": "support@github.com/valteresj2/HangarLLM#readme"},
         "plugins": [
             {
                 "name": "auto",
@@ -1013,16 +1013,16 @@ def test_marketplace_response_rejects_unknown_installation_preference():
 
 def _require_marketplace_auth(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        litellm.proxy.proxy_server, "general_settings", {"claude_code_marketplace_auth_required": True}
+        hangarllm.proxy.proxy_server, "general_settings", {"claude_code_marketplace_auth_required": True}
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", DualCache())
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "user_api_key_cache", DualCache())
 
 
 async def _get_marketplace_over_http(
     headers: Mapping[str, str] = MappingProxyType({}), params: Mapping[str, str] = MappingProxyType({})
 ) -> httpx.Response:
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=litellm.proxy.proxy_server.app), base_url="http://test"
+        transport=httpx.ASGITransport(app=hangarllm.proxy.proxy_server.app), base_url="http://test"
     ) as client:
         return await client.get("/claude-code/marketplace.json", headers=dict(headers), params=dict(params))
 
@@ -1056,7 +1056,7 @@ async def test_marketplace_auth_required_refuses_a_key_in_the_query_string(monke
     "headers",
     [
         {"Authorization": f"Bearer {MASTER_KEY}"},
-        {"x-litellm-api-key": f"Bearer {MASTER_KEY}"},
+        {"x-hangarllm-api-key": f"Bearer {MASTER_KEY}"},
     ],
 )
 async def test_marketplace_auth_required_serves_a_caller_with_a_valid_key(
@@ -1074,10 +1074,10 @@ async def test_marketplace_auth_required_serves_a_caller_with_a_valid_key(
 @pytest.mark.asyncio
 async def test_marketplace_auth_required_refuses_an_unknown_bearer_key(monkeypatch: pytest.MonkeyPatch) -> None:
     _require_marketplace_auth(monkeypatch)
-    litellm.proxy.proxy_server.prisma_client.get_data = AsyncMock(return_value=None)
+    hangarllm.proxy.proxy_server.prisma_client.get_data = AsyncMock(return_value=None)
     await _register_public_and_private_plugins()
 
-    response: Final = await _get_marketplace_over_http({"Authorization": "Bearer sk-not-a-litellm-key"})
+    response: Final = await _get_marketplace_over_http({"Authorization": "Bearer sk-not-a-hangarllm-key"})
 
     assert response.status_code == 401
     assert response.headers["www-authenticate"] == "Bearer"
@@ -1094,14 +1094,14 @@ _LIMITED_KEY: Final = "sk-limited"
         (
             UserAPIKeyAuth(
                 token=hash_token(_LIMITED_KEY),
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 allowed_routes=["/chat/completions"],
             ),
             403,
         ),
         (
             UserAPIKeyAuth(
-                token=hash_token(_LIMITED_KEY), user_role=LitellmUserRoles.INTERNAL_USER, spend=2.0, max_budget=1.0
+                token=hash_token(_LIMITED_KEY), user_role=HangarllmUserRoles.INTERNAL_USER, spend=2.0, max_budget=1.0
             ),
             422,
         ),
@@ -1112,7 +1112,7 @@ async def test_marketplace_auth_required_keeps_a_valid_key_refusal_status(
     monkeypatch: pytest.MonkeyPatch, limited_key_auth: UserAPIKeyAuth, status_code: int
 ) -> None:
     _require_marketplace_auth(monkeypatch)
-    litellm.proxy.proxy_server.user_api_key_cache.set_cache(key=hash_token(_LIMITED_KEY), value=limited_key_auth)
+    hangarllm.proxy.proxy_server.user_api_key_cache.set_cache(key=hash_token(_LIMITED_KEY), value=limited_key_auth)
     await _register_public_and_private_plugins()
 
     response: Final = await _get_marketplace_over_http({"Authorization": f"Bearer {_LIMITED_KEY}"})
@@ -1124,7 +1124,7 @@ async def test_marketplace_auth_required_keeps_a_valid_key_refusal_status(
 
 @pytest.mark.asyncio
 async def test_marketplace_without_auth_required_ignores_an_unrelated_authorization_header(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm.proxy.proxy_server, "general_settings", {})
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "general_settings", {})
     await _register_public_and_private_plugins()
 
     response: Final = await _get_marketplace_over_http({"Authorization": "Bearer an-identity-aware-proxy-token"})
@@ -1135,8 +1135,8 @@ async def test_marketplace_without_auth_required_ignores_an_unrelated_authorizat
 
 @pytest.mark.asyncio
 async def test_marketplace_500_body_carries_no_exception_text(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm.proxy.proxy_server, "general_settings", {})
-    table: Final = litellm.proxy.proxy_server.prisma_client.db.litellm_claudecodeplugintable
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "general_settings", {})
+    table: Final = hangarllm.proxy.proxy_server.prisma_client.db.hangarllm_claudecodeplugintable
     table.find_many = AsyncMock(side_effect=RuntimeError("could not reach postgres://admin:hunter2@db.internal"))
 
     response: Final = await _get_marketplace_over_http()
@@ -1152,9 +1152,9 @@ async def test_marketplace_auth_required_treats_a_quoted_or_unreadable_setting_a
     monkeypatch: pytest.MonkeyPatch, setting: object
 ) -> None:
     monkeypatch.setattr(
-        litellm.proxy.proxy_server, "general_settings", {"claude_code_marketplace_auth_required": setting}
+        hangarllm.proxy.proxy_server, "general_settings", {"claude_code_marketplace_auth_required": setting}
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", DualCache())
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "user_api_key_cache", DualCache())
     await _register_public_and_private_plugins()
 
     response: Final = await _get_marketplace_over_http()
@@ -1169,7 +1169,7 @@ async def test_marketplace_auth_required_off_values_keep_the_public_catalog(
     monkeypatch: pytest.MonkeyPatch, setting: object
 ) -> None:
     monkeypatch.setattr(
-        litellm.proxy.proxy_server, "general_settings", {"claude_code_marketplace_auth_required": setting}
+        hangarllm.proxy.proxy_server, "general_settings", {"claude_code_marketplace_auth_required": setting}
     )
     await _register_public_and_private_plugins()
 
@@ -1184,16 +1184,16 @@ async def test_marketplace_auth_required_refuses_the_database_outage_fallback_id
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "general_settings",
         {"claude_code_marketplace_auth_required": True, "allow_requests_on_db_unavailable": True},
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", DualCache())
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "user_api_key_cache", DualCache())
     await _register_public_and_private_plugins()
-    litellm.proxy.proxy_server.prisma_client.get_data = AsyncMock(side_effect=httpx.ConnectError("connection refused"))
-    litellm.proxy.proxy_server.prisma_client.attempt_db_reconnect = AsyncMock(return_value=False)
+    hangarllm.proxy.proxy_server.prisma_client.get_data = AsyncMock(side_effect=httpx.ConnectError("connection refused"))
+    hangarllm.proxy.proxy_server.prisma_client.attempt_db_reconnect = AsyncMock(return_value=False)
 
-    response: Final = await _get_marketplace_over_http({"Authorization": "Bearer sk-not-a-litellm-key"})
+    response: Final = await _get_marketplace_over_http({"Authorization": "Bearer sk-not-a-hangarllm-key"})
 
     assert response.status_code == 503
     assert "www-authenticate" not in response.headers
@@ -1204,9 +1204,9 @@ async def test_marketplace_auth_required_refuses_the_database_outage_fallback_id
 async def test_marketplace_without_a_database_answers_db_not_connected_for_a_query_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm.proxy.proxy_server, "general_settings", {})
-    monkeypatch.setattr(litellm.proxy.proxy_server, "prisma_client", None)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", DualCache())
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "general_settings", {})
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "prisma_client", None)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "user_api_key_cache", DualCache())
 
     response: Final = await _get_marketplace_over_http(params={"key": "sk-not-the-master-key"})
 
@@ -1223,38 +1223,38 @@ _UPLOAD_SOURCE: Final = {"source": "archive", "url": f"http://test{_UPLOAD_PATH}
 
 @pytest.fixture
 async def upload_storage(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[_UploadClient]:
-    prisma: Final = litellm.proxy.proxy_server.prisma_client
+    prisma: Final = hangarllm.proxy.proxy_server.prisma_client
     prisma.writer_db = MagicMock()
     prisma.writer_db.execute_raw = AsyncMock(return_value=1)
-    plugins: Final = prisma.writer_db.litellm_claudecodeplugintable
-    archives: Final = prisma.writer_db.litellm_claudecodepluginupload
-    prisma.writer_db.litellm_claudecodeplugindownload.create = AsyncMock(return_value=None)
-    plugins.create = AsyncMock(return_value=prisma_models.LiteLLM_ClaudeCodePluginTable(
+    plugins: Final = prisma.writer_db.hangarllm_claudecodeplugintable
+    archives: Final = prisma.writer_db.hangarllm_claudecodepluginupload
+    prisma.writer_db.hangarllm_claudecodeplugindownload.create = AsyncMock(return_value=None)
+    plugins.create = AsyncMock(return_value=prisma_models.HangarLLM_ClaudeCodePluginTable(
         id="uploaded-id", name=_UPLOAD_NAME, enabled=True, anonymous_download_count=0,
     ))
-    plugins.find_unique = AsyncMock(return_value=prisma_models.LiteLLM_ClaudeCodePluginTable(
+    plugins.find_unique = AsyncMock(return_value=prisma_models.HangarLLM_ClaudeCodePluginTable(
         id="uploaded-id", name=_UPLOAD_NAME, enabled=True, anonymous_download_count=0, manifest_json=json.dumps({"source": _UPLOAD_SOURCE}),
     ))
     prisma.writer_db.query_raw = AsyncMock(return_value=[])
     prisma.writer_db.tx.return_value.__aenter__.return_value = prisma.writer_db
-    prisma.writer_db.litellm_claudecodepluginversion.create = AsyncMock()
+    prisma.writer_db.hangarllm_claudecodepluginversion.create = AsyncMock()
     archives.create = AsyncMock()
-    archives.find_first = AsyncMock(return_value=prisma_models.LiteLLM_ClaudeCodePluginUpload(
+    archives.find_first = AsyncMock(return_value=prisma_models.HangarLLM_ClaudeCodePluginUpload(
         plugin_name=_UPLOAD_NAME, content=Base64.encode(b"stored archive"),
     ))
-    monkeypatch.setattr(litellm.proxy.proxy_server.app, "dependency_overrides", {
+    monkeypatch.setattr(hangarllm.proxy.proxy_server.app, "dependency_overrides", {
         get_plugin_upload_repository: lambda: PluginUploadRepository(prisma),
     })
-    monkeypatch.setattr(litellm.proxy.proxy_server, "general_settings", {})
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", DualCache())
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "general_settings", {})
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "user_api_key_cache", DualCache())
     monkeypatch.setenv("PROXY_BASE_URL", "http://test")
     monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
     for key, skills in ((_LIMITED_KEY, [_UPLOAD_NAME]), ("sk-plain", [])):
-        litellm.proxy.proxy_server.user_api_key_cache.set_cache(
+        hangarllm.proxy.proxy_server.user_api_key_cache.set_cache(
             key=hash_token(key), value=_granted_user(skills).model_copy(update={"token": hash_token(key)}),
         )
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=litellm.proxy.proxy_server.app), base_url="http://test",
+        transport=httpx.ASGITransport(app=hangarllm.proxy.proxy_server.app), base_url="http://test",
     ) as client:
         yield client, plugins, archives
 
@@ -1289,10 +1289,10 @@ async def test_skill_upload_creates_metadata_and_bytes_atomically_and_rejects_du
         "url": f"http://test/claude-code/plugins/{_UPLOAD_NAME}/archive/{digest}.zip",
         "sha256": digest,
     }
-    assert json.loads(stored["manifest_json"]) == {**metadata, "source": source, "_litellm_published_by": stored["created_by"]}
+    assert json.loads(stored["manifest_json"]) == {**metadata, "source": source, "_hangarllm_published_by": stored["created_by"]}
     assert stored == {
         "name": _UPLOAD_NAME, "description": "My notes", "version": "2.0.0",
-        "manifest_json": stored["manifest_json"], "created_by": litellm.proxy.proxy_server.litellm_proxy_admin_name,
+        "manifest_json": stored["manifest_json"], "created_by": hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name,
         "files_json": "{}", "updated_at": stored["updated_at"],
     }
     assert response.json() == {"status": "success", "action": "created", "plugin": {
@@ -1338,7 +1338,7 @@ async def test_archive_reads_only_authorized_current_bytes(
 ) -> None:
     client, plugins, archives = upload_storage
     manifest: Final = json.dumps({"source": source})
-    plugins.find_unique.return_value = None if source is None else prisma_models.LiteLLM_ClaudeCodePluginTable(
+    plugins.find_unique.return_value = None if source is None else prisma_models.HangarLLM_ClaudeCodePluginTable(
         id="uploaded-id", name=_UPLOAD_NAME, enabled=enabled, anonymous_download_count=0, manifest_json=manifest,
     )
     if not blob:
@@ -1352,10 +1352,10 @@ async def test_archive_reads_only_authorized_current_bytes(
             "id": "uploaded-id", "manifest_json": manifest, "enabled": enabled,
         }},
     })] if reads else [])
-    litellm.proxy.proxy_server.prisma_client.db.litellm_claudecodeplugintable.find_unique.assert_not_awaited()
-    events: Final = litellm.proxy.proxy_server.prisma_client.writer_db.litellm_claudecodeplugindownload
+    hangarllm.proxy.proxy_server.prisma_client.db.hangarllm_claudecodeplugintable.find_unique.assert_not_awaited()
+    events: Final = hangarllm.proxy.proxy_server.prisma_client.writer_db.hangarllm_claudecodeplugindownload
     assert events.create.await_count == int(status == 200 and key is not None)
-    assert litellm.proxy.proxy_server.prisma_client.writer_db.execute_raw.await_count == int(
+    assert hangarllm.proxy.proxy_server.prisma_client.writer_db.execute_raw.await_count == int(
         status == 200 and key is None
     )
 
@@ -1377,8 +1377,8 @@ async def test_archive_requires_header_credentials_for_private_content(
 ) -> None:
     client, plugins, archives = upload_storage
     plugins.find_unique.return_value.enabled = False
-    monkeypatch.setattr(litellm.proxy.proxy_server, "general_settings", {
-        "litellm_key_header_name": "X-Skill-Key", "claude_code_marketplace_auth_required": required,
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "general_settings", {
+        "hangarllm_key_header_name": "X-Skill-Key", "claude_code_marketplace_auth_required": required,
     })
     response: Final = await client.get(
         _UPLOAD_PATH, headers={header: f"Bearer {credential}" if credential else ""} if header else {},
@@ -1387,7 +1387,7 @@ async def test_archive_requires_header_credentials_for_private_content(
     assert response.status_code == status, response.text
     assert (response.content == b"stored archive") is (status == 200)
     assert archives.find_first.await_count == int(status == 200)
-    events: Final = litellm.proxy.proxy_server.prisma_client.writer_db.litellm_claudecodeplugindownload
+    events: Final = hangarllm.proxy.proxy_server.prisma_client.writer_db.hangarllm_claudecodeplugindownload
     assert events.create.await_count == int(status == 200)
 
 
@@ -1411,7 +1411,7 @@ async def test_download_history_rejects_unauthorized_invalid_and_unknown_request
         headers={"Authorization": f"Bearer {key}"} if key else {}, params=query,
     )
     assert response.status_code == status, response.text
-    events: Final = litellm.proxy.proxy_server.prisma_client.writer_db.litellm_claudecodeplugindownload
+    events: Final = hangarllm.proxy.proxy_server.prisma_client.writer_db.hangarllm_claudecodeplugindownload
     events.find_many.assert_not_called()
 
 

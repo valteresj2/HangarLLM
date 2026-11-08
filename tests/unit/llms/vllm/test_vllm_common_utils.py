@@ -4,7 +4,7 @@ import httpx
 import pytest
 import respx
 
-from litellm.llms.vllm.common_utils import HostedVLLMModelInfo
+from hangarllm.llms.vllm.common_utils import HostedVLLMModelInfo
 
 
 @respx.mock

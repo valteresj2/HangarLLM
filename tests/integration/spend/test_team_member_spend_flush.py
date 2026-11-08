@@ -24,7 +24,7 @@ pytestmark: Final = pytest.mark.shares_worker_state
 SINGLE_CONNECTION_CONFIG: Final = """
 model_list: []
 general_settings:
-  master_key: os.environ/LITELLM_MASTER_KEY
+  master_key: os.environ/HANGARLLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
   store_model_in_db: true
   proxy_batch_write_at: 1
@@ -37,7 +37,7 @@ router_settings:
 
 def _member_row(team_id: str, user_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT spend, total_spend FROM "LiteLLM_TeamMembership" WHERE team_id=%s AND user_id=%s',
+        'SELECT spend, total_spend FROM "HangarLLM_TeamMembership" WHERE team_id=%s AND user_id=%s',
         (team_id, user_id),
     )
 
@@ -49,12 +49,12 @@ def _member_spend_is(rows: list[dict[str, JsonValue]], amount: float) -> bool:
 
 
 def _daily_user_spend_rows(user_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT spend FROM "LiteLLM_DailyUserSpend" WHERE user_id=%s', (user_id,))
+    return read_rows('SELECT spend FROM "HangarLLM_DailyUserSpend" WHERE user_id=%s', (user_id,))
 
 
 def _logged_spend(request_id: str) -> float:
     rows: Final = eventually(
-        lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (request_id,)),
+        lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (request_id,)),
         lambda found: len(found) == 1,
         seconds=30,
     )
@@ -102,7 +102,7 @@ def test_fractional_member_spend_lands_after_a_whole_number_flush_on_the_same_co
         repeat_spend: Final = _logged_spend(_chat(candidate, first_key, paid))
         eventually(lambda: _member_row(team, first), lambda rows: _member_spend_is(rows, repeat_spend), seconds=30)
         eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_TeamTable" WHERE team_id=%s', (team,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_TeamTable" WHERE team_id=%s', (team,)),
             lambda rows: float(str(rows[0]["spend"])) == pytest.approx(paid_spend + repeat_spend),
             seconds=30,
         )

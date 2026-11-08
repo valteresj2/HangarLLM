@@ -11,14 +11,14 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
+import hangarllm
 
-from litellm.llms.dashscope.common_utils import DashScopeError
-from litellm.llms.dashscope.rerank.transformation import (
+from hangarllm.llms.dashscope.common_utils import DashScopeError
+from hangarllm.llms.dashscope.rerank.transformation import (
     DEFAULT_RERANK_URL,
     DashScopeRerankConfig,
 )
-from litellm.types.rerank import RerankResponse
+from hangarllm.types.rerank import RerankResponse
 
 
 class TestDashScopeRerankURL:
@@ -356,12 +356,12 @@ class TestDashScopeRerankResponse:
 
 class TestProviderConfigManagerDispatch:
     def test_dashscope_returns_rerank_config(self):
-        import litellm
-        from litellm.utils import ProviderConfigManager
+        import hangarllm
+        from hangarllm.utils import ProviderConfigManager
 
         cfg = ProviderConfigManager.get_provider_rerank_config(
             model="qwen3-rerank",
-            provider=litellm.LlmProviders.DASHSCOPE,
+            provider=hangarllm.LlmProviders.DASHSCOPE,
             api_base=None,
             present_version_params=[],
         )
@@ -481,7 +481,7 @@ def test_rerank_sends_an_explicit_base_over_the_rerank_env(
         upstream.post("https://dashscope-intl.aliyuncs.com/compatible-api/v1/reranks").respond(
             200, json={"id": "r1", "results": [{"index": 0, "relevance_score": 0.9}], "usage": {"total_tokens": 5}}
         )
-        response: Final = litellm.rerank(
+        response: Final = hangarllm.rerank(
             model=f"{provider}/qwen3-rerank", query="q", documents=["a"], api_base=api_base, api_key="sk-test"
         )
 

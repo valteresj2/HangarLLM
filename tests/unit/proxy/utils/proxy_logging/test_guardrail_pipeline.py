@@ -23,34 +23,34 @@ from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stub
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.exceptions import SensitiveDataRouteException
-from litellm.integrations.custom_guardrail import (
+import hangarllm
+from hangarllm.exceptions import SensitiveDataRouteException
+from hangarllm.integrations.custom_guardrail import (
     CustomGuardrail,
     ModifyResponseException,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.guardrail_translation.utils import stream_item_field
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.callback_utils import (
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.prometheus import PrometheusLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms.base_llm.guardrail_translation.utils import stream_item_field
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_utils.callback_utils import (
     add_guardrail_to_applied_guardrails_header,
     get_logging_caching_headers,
 )
-from litellm.llms.openai.chat.guardrail_translation.handler import OpenAIChatCompletionsHandler
-from litellm.proxy.policy_engine.pipeline_executor import recorded_guardrail_information
-from litellm.proxy.utils import ProxyLogging, _streamable_post_call_pipelines, stream_gated_guardrail_names
-from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import ContentFilterGuardrail
-from litellm.types.guardrails import BlockedWord, ContentFilterAction, GuardrailEventHooks
-from litellm.caching.dual_cache import DualCache
-from litellm.types.utils import CallTypes, CallTypesLiteral, LLMResponseTypes
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.proxy.policy_engine.pipeline_types import (
+from hangarllm.llms.openai.chat.guardrail_translation.handler import OpenAIChatCompletionsHandler
+from hangarllm.proxy.policy_engine.pipeline_executor import recorded_guardrail_information
+from hangarllm.proxy.utils import ProxyLogging, _streamable_post_call_pipelines, stream_gated_guardrail_names
+from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.content_filter import ContentFilterGuardrail
+from hangarllm.types.guardrails import BlockedWord, ContentFilterAction, GuardrailEventHooks
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.types.utils import CallTypes, CallTypesLiteral, LLMResponseTypes
+from hangarllm.types.llms.openai import ResponsesAPIResponse
+from hangarllm.types.proxy.policy_engine.pipeline_types import (
     GuardrailPipeline,
     PipelineStep,
 )
-from litellm.types.utils import TextChoices, TextCompletionResponse
+from hangarllm.types.utils import TextChoices, TextCompletionResponse
 
 
 @pytest.fixture(autouse=True)
@@ -69,15 +69,15 @@ def test_should_use_guardrail_load_balancing_truth_table(proxy_logging):
     snapshot = {}
     router = route_entry_points_to_stubs(MagicMock())
     router.guardrail_list = [{"guardrail_name": "g1"}, {"guardrail_name": "g1"}]
-    with patch("litellm.proxy.proxy_server.llm_router", router):
+    with patch("hangarllm.proxy.proxy_server.llm_router", router):
         snapshot["multiple_deployments"] = proxy_logging._should_use_guardrail_load_balancing("g1")
     router.guardrail_list = [{"guardrail_name": "g1"}]
-    with patch("litellm.proxy.proxy_server.llm_router", router):
+    with patch("hangarllm.proxy.proxy_server.llm_router", router):
         snapshot["single_deployment"] = proxy_logging._should_use_guardrail_load_balancing("g1")
-    with patch("litellm.proxy.proxy_server.llm_router", None):
+    with patch("hangarllm.proxy.proxy_server.llm_router", None):
         snapshot["no_router"] = proxy_logging._should_use_guardrail_load_balancing("g1")
     router.guardrail_list = [{"guardrail_name": "other"}, {"guardrail_name": "other"}]
-    with patch("litellm.proxy.proxy_server.llm_router", router):
+    with patch("hangarllm.proxy.proxy_server.llm_router", router):
         snapshot["unmatched_name"] = proxy_logging._should_use_guardrail_load_balancing("g1")
     assert snapshot == {
         "multiple_deployments": True,
@@ -90,7 +90,7 @@ def test_should_use_guardrail_load_balancing_truth_table(proxy_logging):
 def test_should_use_guardrail_load_balancing_error_on_bad_guardrail_list(proxy_logging):
     router = route_entry_points_to_stubs(MagicMock())
     router.guardrail_list = "not a list"
-    with patch("litellm.proxy.proxy_server.llm_router", router):
+    with patch("hangarllm.proxy.proxy_server.llm_router", router):
         with pytest.raises((TypeError, AttributeError)):
             proxy_logging._should_use_guardrail_load_balancing("g1")
 
@@ -175,7 +175,7 @@ async def test_execute_guardrail_with_load_balancing_routes_through_router(proxy
     cb = _make_guardrail()
     router = route_entry_points_to_stubs(MagicMock())
     router.get_available_guardrail = MagicMock(return_value={"callback": cb})
-    with patch("litellm.proxy.proxy_server.llm_router", router):
+    with patch("hangarllm.proxy.proxy_server.llm_router", router):
         out = await proxy_logging._execute_guardrail_with_load_balancing(
             guardrail_name="g",
             hook_type="pre_call",
@@ -188,7 +188,7 @@ async def test_execute_guardrail_with_load_balancing_routes_through_router(proxy
 
 @pytest.mark.asyncio
 async def test_execute_guardrail_with_load_balancing_router_none_raises(proxy_logging, make_user_api_key_auth):
-    with patch("litellm.proxy.proxy_server.llm_router", None):
+    with patch("hangarllm.proxy.proxy_server.llm_router", None):
         with pytest.raises(ValueError, match="Router not initialized"):
             await proxy_logging._execute_guardrail_with_load_balancing(
                 guardrail_name="g",
@@ -203,7 +203,7 @@ async def test_execute_guardrail_with_load_balancing_router_none_raises(proxy_lo
 async def test_execute_guardrail_with_load_balancing_no_callback_raises(proxy_logging, make_user_api_key_auth):
     router = route_entry_points_to_stubs(MagicMock())
     router.get_available_guardrail = MagicMock(return_value={"callback": None})
-    with patch("litellm.proxy.proxy_server.llm_router", router):
+    with patch("hangarllm.proxy.proxy_server.llm_router", router):
         with pytest.raises(ValueError, match="No callback found"):
             await proxy_logging._execute_guardrail_with_load_balancing(
                 guardrail_name="g",
@@ -281,7 +281,7 @@ def test_process_guardrail_metadata_calls_header_helper(proxy_logging, monkeypat
     def fake_add(request_data, guardrail_name):
         calls.append({"data": request_data, "name": guardrail_name})
 
-    from litellm.proxy.common_utils import callback_utils
+    from hangarllm.proxy.common_utils import callback_utils
 
     monkeypatch.setattr(callback_utils, "add_guardrail_to_applied_guardrails_header", fake_add)
     data = {"metadata": {"guardrails": ["g1", "g2"]}}
@@ -306,7 +306,7 @@ def test_process_guardrail_metadata_skips_already_applied(proxy_logging, monkeyp
     def fake_add(request_data, guardrail_name):
         calls.append(guardrail_name)
 
-    from litellm.proxy.common_utils import callback_utils
+    from hangarllm.proxy.common_utils import callback_utils
 
     monkeypatch.setattr(callback_utils, "add_guardrail_to_applied_guardrails_header", fake_add)
     data = {"metadata": {"guardrails": ["g1", "g2"], "applied_guardrails": ["g1"]}}
@@ -315,7 +315,7 @@ def test_process_guardrail_metadata_skips_already_applied(proxy_logging, monkeyp
 
 
 def test_process_guardrail_metadata_no_metadata_is_noop(proxy_logging, monkeypatch):
-    from litellm.proxy.common_utils import callback_utils
+    from hangarllm.proxy.common_utils import callback_utils
 
     monkeypatch.setattr(
         callback_utils,
@@ -356,7 +356,7 @@ async def test_maybe_execute_pipelines_skips_pipelines_with_other_mode(
     pipeline.mode = "post_call"  # not pre_call
     data = {"metadata": {"_guardrail_pipelines": [("p1", pipeline)]}, "model": "m", "messages": []}
     executed = MagicMock()
-    monkeypatch.setattr("litellm.proxy.policy_engine.pipeline_executor.PipelineExecutor.execute_steps", executed)
+    monkeypatch.setattr("hangarllm.proxy.policy_engine.pipeline_executor.PipelineExecutor.execute_steps", executed)
     out, replacement = await proxy_logging._maybe_execute_pipelines(
         data=data,
         user_api_key_dict=make_user_api_key_auth(),
@@ -371,15 +371,15 @@ async def test_maybe_execute_pipelines_skips_pipelines_with_other_mode(
 @pytest.mark.parametrize(
     ("policy_state_key", "caller_metadata_key", "call_type"),
     [
-        ("litellm_metadata", "metadata", "anthropic_messages"),
-        ("metadata", "litellm_metadata", "completion"),
+        ("hangarllm_metadata", "metadata", "anthropic_messages"),
+        ("metadata", "hangarllm_metadata", "completion"),
     ],
 )
 @pytest.mark.asyncio
 async def test_maybe_execute_pipelines_finds_policy_state_when_caller_sends_own_metadata(
     proxy_logging, make_user_api_key_auth, monkeypatch, policy_state_key, caller_metadata_key, call_type
 ):
-    """The route picks the bucket the policy engine writes to (``litellm_metadata`` on
+    """The route picks the bucket the policy engine writes to (``hangarllm_metadata`` on
     /v1/messages, ``metadata`` on chat completions), and the caller can populate the other
     one, e.g. Claude Code sending ``metadata.user_id``. The pipeline must still run and block."""
 
@@ -387,7 +387,7 @@ async def test_maybe_execute_pipelines_finds_policy_state_when_caller_sends_own_
         async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
             raise HTTPException(status_code=400, detail={"error": "blocked by pipeline"})
 
-    monkeypatch.setattr(litellm, "callbacks", [BlockingGuardrail(guardrail_name="gr-1")])
+    monkeypatch.setattr(hangarllm, "callbacks", [BlockingGuardrail(guardrail_name="gr-1")])
     pipeline = GuardrailPipeline(mode="pre_call", steps=[PipelineStep(guardrail="gr-1", on_fail="block")])
     data = {
         caller_metadata_key: {"user_id": "user_abc"},
@@ -424,7 +424,7 @@ async def test_maybe_execute_pipelines_blocks_on_block_terminal_action_raises(
         return fake_result
 
     monkeypatch.setattr(
-        "litellm.proxy.policy_engine.pipeline_executor.PipelineExecutor.execute_steps",
+        "hangarllm.proxy.policy_engine.pipeline_executor.PipelineExecutor.execute_steps",
         fake_execute_steps,
     )
     with pytest.raises(HTTPException):
@@ -459,7 +459,7 @@ async def test_maybe_execute_pipelines_reraises_original_guardrail_exception(
         return fake_result
 
     monkeypatch.setattr(
-        "litellm.proxy.policy_engine.pipeline_executor.PipelineExecutor.execute_steps",
+        "hangarllm.proxy.policy_engine.pipeline_executor.PipelineExecutor.execute_steps",
         fake_execute_steps,
     )
     with pytest.raises(HTTPException) as info:
@@ -541,13 +541,13 @@ def test_handle_pipeline_result_block_enriches_with_guardrail_name_and_mode():
     result.original_exception = original
 
     data: dict[str, object] = {"model": "m"}
-    saved = litellm.callbacks
-    litellm.callbacks = [cb]
+    saved = hangarllm.callbacks
+    hangarllm.callbacks = [cb]
     try:
         with pytest.raises(HTTPException) as info:
             ProxyLogging._handle_pipeline_result(result=result, data=data, policy_name="p")
     finally:
-        litellm.callbacks = saved
+        hangarllm.callbacks = saved
 
     assert info.value is original
     assert info.value.detail["guardrail_name"] == "g"
@@ -571,13 +571,13 @@ def test_handle_pipeline_result_block_does_not_reraise_sensitive_data_route():
     result.step_results = [MagicMock(guardrail_name="pii-router")]
     result.original_exception = original
     data: dict[str, object] = {"model": "m"}
-    saved = litellm.callbacks
-    litellm.callbacks = [cb]
+    saved = hangarllm.callbacks
+    hangarllm.callbacks = [cb]
     try:
         with pytest.raises(HTTPException) as info:
             ProxyLogging._handle_pipeline_result(result=result, data=data, policy_name="p")
     finally:
-        litellm.callbacks = saved
+        hangarllm.callbacks = saved
     assert info.value.status_code == 400
     assert info.value.detail["error"]["type"] == "guardrail_pipeline_error"
     assert data["metadata"] == {"applied_guardrails": ["pii-router"]}
@@ -600,13 +600,13 @@ def test_handle_pipeline_result_block_does_not_reraise_modify_response():
     result.step_results = [MagicMock(guardrail_name="masker")]
     result.original_exception = original
     data: dict[str, object] = {"model": "m"}
-    saved = litellm.callbacks
-    litellm.callbacks = [cb]
+    saved = hangarllm.callbacks
+    hangarllm.callbacks = [cb]
     try:
         with pytest.raises(HTTPException) as info:
             ProxyLogging._handle_pipeline_result(result=result, data=data, policy_name="p")
     finally:
-        litellm.callbacks = saved
+        hangarllm.callbacks = saved
     assert info.value.status_code == 400
     assert info.value.detail["error"]["type"] == "guardrail_pipeline_error"
     assert data["metadata"] == {"applied_guardrails": ["masker"]}
@@ -647,7 +647,7 @@ async def test_run_guardrail_with_metrics_passes_result_and_records_success(monk
         return {"a": 1, "b": 2, "c": 3}
 
     prom = _prometheus_callback()
-    monkeypatch.setattr(litellm, "callbacks", [prom])
+    monkeypatch.setattr(hangarllm, "callbacks", [prom])
 
     out = await ProxyLogging._run_guardrail_with_metrics(
         callback=MagicMock(guardrail_name="g"), coro=task(), hook_type="during_call", request_data={}
@@ -673,7 +673,7 @@ async def test_run_guardrail_with_metrics_records_error_and_enriches(monkeypatch
     cb.guardrail_name = "presidio"
     cb.event_hook = "pre_call"
     prom = _prometheus_callback()
-    monkeypatch.setattr(litellm, "callbacks", [prom])
+    monkeypatch.setattr(hangarllm, "callbacks", [prom])
 
     with pytest.raises(HTTPException):
         await ProxyLogging._run_guardrail_with_metrics(callback=cb, coro=task(), hook_type="post_call", request_data={})
@@ -708,7 +708,7 @@ def _moderation_guardrail() -> MagicMock:
 async def test_during_call_hook_records_latency_metric(proxy_logging, make_user_api_key_auth, monkeypatch):
     cb = _moderation_guardrail()
     prom = _prometheus_callback()
-    monkeypatch.setattr(litellm, "callbacks", [prom, cb])
+    monkeypatch.setattr(hangarllm, "callbacks", [prom, cb])
 
     await proxy_logging.during_call_hook(
         data={"model": "m"},
@@ -742,7 +742,7 @@ class _RecordingApplyGuardrail(CustomGuardrail):
 async def test_during_call_hook_runs_every_unified_guardrail(proxy_logging, make_user_api_key_auth, monkeypatch):
     applied: list[str] = []
     guardrails = [_RecordingApplyGuardrail(f"judge-{i}", applied) for i in range(3)]
-    monkeypatch.setattr(litellm, "callbacks", guardrails)
+    monkeypatch.setattr(hangarllm, "callbacks", guardrails)
 
     await proxy_logging.during_call_hook(
         data={"model": "m", "messages": [{"role": "user", "content": "hi"}], "metadata": {}},
@@ -757,12 +757,12 @@ async def test_during_call_hook_runs_every_unified_guardrail(proxy_logging, make
 async def test_post_call_success_hook_records_latency_metric(proxy_logging, make_user_api_key_auth, monkeypatch):
     cb = _moderation_guardrail()
     prom = _prometheus_callback()
-    monkeypatch.setattr(litellm, "callbacks", [prom, cb])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [prom, cb])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
 
     await proxy_logging.post_call_success_hook(
         data={"model": "m"},
-        response=litellm.ModelResponse(),
+        response=hangarllm.ModelResponse(),
         user_api_key_dict=make_user_api_key_auth(),
     )
 
@@ -780,13 +780,13 @@ async def test_post_call_success_hook_records_latency_metric(proxy_logging, make
 
 @pytest.mark.asyncio
 async def test_process_prompt_template_no_op_when_no_prompt_spec(proxy_logging, monkeypatch):
-    from litellm.proxy.prompts import prompt_registry
+    from hangarllm.proxy.prompts import prompt_registry
 
     monkeypatch.setattr(prompt_registry.IN_MEMORY_PROMPT_REGISTRY, "resolve_prompt_spec", lambda *a, **kw: None)
     data: Dict[str, Any] = {"messages": [{"role": "user"}], "model": "m", "temperature": 0.1}
     await proxy_logging._process_prompt_template(
         data=data,
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
         prompt_id="some-id",
         prompt_version=1,
         call_type="completion",
@@ -796,11 +796,11 @@ async def test_process_prompt_template_no_op_when_no_prompt_spec(proxy_logging, 
 
 @pytest.mark.asyncio
 async def test_process_prompt_template_applies_when_spec_resolves(proxy_logging, monkeypatch):
-    from litellm.proxy.prompts import prompt_registry
+    from hangarllm.proxy.prompts import prompt_registry
 
     custom_logger = MagicMock()
     prompt_spec = MagicMock()
-    prompt_spec.litellm_params = MagicMock(prompt_id="resolved-id")
+    prompt_spec.hangarllm_params = MagicMock(prompt_id="resolved-id")
 
     monkeypatch.setattr(
         prompt_registry.IN_MEMORY_PROMPT_REGISTRY,
@@ -824,7 +824,7 @@ async def test_process_prompt_template_applies_when_spec_resolves(proxy_logging,
     }
     await proxy_logging._process_prompt_template(
         data=data,
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         prompt_id="x",
         prompt_version=None,
         call_type="completion",
@@ -845,11 +845,11 @@ async def test_process_prompt_template_applies_when_spec_resolves(proxy_logging,
 
 @pytest.mark.asyncio
 async def test_process_prompt_template_async_get_prompt_error_raises(proxy_logging, monkeypatch):
-    from litellm.proxy.prompts import prompt_registry
+    from hangarllm.proxy.prompts import prompt_registry
 
     custom_logger = MagicMock()
     prompt_spec = MagicMock()
-    prompt_spec.litellm_params = MagicMock(prompt_id="x")
+    prompt_spec.hangarllm_params = MagicMock(prompt_id="x")
     monkeypatch.setattr(
         prompt_registry.IN_MEMORY_PROMPT_REGISTRY,
         "get_prompt_callback_for_prompt",
@@ -861,7 +861,7 @@ async def test_process_prompt_template_async_get_prompt_error_raises(proxy_loggi
     with pytest.raises(RuntimeError):
         await proxy_logging._process_prompt_template(
             data={"messages": [], "model": "m", "prompt_id": "x"},
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             prompt_id="x",
             prompt_version=None,
             call_type="completion",
@@ -870,10 +870,10 @@ async def test_process_prompt_template_async_get_prompt_error_raises(proxy_loggi
 
 @pytest.mark.asyncio
 async def test_process_prompt_template_resolves_the_requested_environment(proxy_logging, monkeypatch):
-    from litellm.proxy.prompts import prompt_registry
+    from hangarllm.proxy.prompts import prompt_registry
 
     prompt_spec = MagicMock()
-    prompt_spec.litellm_params = MagicMock(prompt_id="greeting")
+    prompt_spec.hangarllm_params = MagicMock(prompt_id="greeting")
     resolve_calls: list[dict] = []
 
     def fake_resolve(prompt_id, version=None, environment=None):
@@ -897,7 +897,7 @@ async def test_process_prompt_template_resolves_the_requested_environment(proxy_
     }
     await proxy_logging._process_prompt_template(
         data=data,
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         prompt_id="greeting",
         prompt_version=1,
         call_type="completion",
@@ -911,11 +911,11 @@ async def test_process_prompt_template_resolves_the_requested_environment(proxy_
 
 @pytest.mark.asyncio
 async def test_pre_call_hook_matches_a_prompt_version_sent_as_a_json_string(proxy_logging, monkeypatch):
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.prompts import prompt_registry
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.prompts import prompt_registry
 
     prompt_spec = MagicMock()
-    prompt_spec.litellm_params = MagicMock(prompt_id="greeting")
+    prompt_spec.hangarllm_params = MagicMock(prompt_id="greeting")
     resolve_calls: list[dict] = []
 
     def fake_resolve(prompt_id, version=None, environment=None):
@@ -935,7 +935,7 @@ async def test_pre_call_hook_matches_a_prompt_version_sent_as_a_json_string(prox
         "model": "m",
         "prompt_id": "greeting",
         "prompt_version": "2",
-        "litellm_logging_obj": logging_obj,
+        "hangarllm_logging_obj": logging_obj,
     }
 
     result = await proxy_logging.pre_call_hook(user_api_key_dict=UserAPIKeyAuth(), data=data, call_type="completion")
@@ -946,11 +946,11 @@ async def test_pre_call_hook_matches_a_prompt_version_sent_as_a_json_string(prox
 
 @pytest.mark.asyncio
 async def test_process_prompt_template_aresponses_swaps_model_and_merges_input(proxy_logging, monkeypatch):
-    from litellm.proxy.prompts import prompt_registry
+    from hangarllm.proxy.prompts import prompt_registry
 
     custom_logger = MagicMock()
     prompt_spec = MagicMock()
-    prompt_spec.litellm_params = MagicMock(prompt_id="resolved-id")
+    prompt_spec.hangarllm_params = MagicMock(prompt_id="resolved-id")
     monkeypatch.setattr(
         prompt_registry.IN_MEMORY_PROMPT_REGISTRY,
         "get_prompt_callback_for_prompt",
@@ -972,7 +972,7 @@ async def test_process_prompt_template_aresponses_swaps_model_and_merges_input(p
     data: dict[str, object] = {"input": "Who are you?", "model": "anthropic-haiku-4-5", "prompt_id": "x"}
     await proxy_logging._process_prompt_template(
         data=data,
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         prompt_id="x",
         prompt_version=None,
         call_type="aresponses",
@@ -1025,13 +1025,13 @@ async def test_post_call_success_hook_runs_post_call_pipeline_and_reraises_block
             raise HTTPException(status_code=400, detail={"error": "output blocked"})
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [OutputBlockingGuardrail(guardrail_name="gr-post", event_hook=GuardrailEventHooks.post_call, default_on=False)],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data()
-    response = litellm.ModelResponse()
+    response = hangarllm.ModelResponse()
 
     with pytest.raises(HTTPException) as info:
         await proxy_logging.post_call_success_hook(
@@ -1055,13 +1055,13 @@ async def test_post_call_pipeline_pass_runs_once_and_leaves_request_data_untouch
             return None
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [RecordingGuardrail(guardrail_name="gr-post", event_hook=GuardrailEventHooks.post_call, default_on=False)],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data()
-    response = litellm.ModelResponse()
+    response = hangarllm.ModelResponse()
 
     out = await proxy_logging.post_call_success_hook(
         data=data, response=response, user_api_key_dict=make_user_api_key_auth()
@@ -1086,15 +1086,15 @@ async def test_post_call_pipeline_managed_default_on_guardrail_runs_exactly_once
             return None
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [CountingGuardrail(guardrail_name="gr-post", event_hook=GuardrailEventHooks.post_call, default_on=True)],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data()
 
     await proxy_logging.post_call_success_hook(
-        data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+        data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
     )
 
     assert seen["count"] == 1
@@ -1116,11 +1116,11 @@ async def test_post_call_hook_still_runs_guardrail_managed_only_by_pre_call_pipe
         steps=[PipelineStep(guardrail="gr-dual", on_pass="allow", on_fail="block")],
     )
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [DualStageGuardrail(guardrail_name="gr-dual", event_hook=["pre_call", "post_call"], default_on=True)],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = {
         "model": "m",
         "messages": [{"role": "user", "content": "hi"}],
@@ -1131,7 +1131,7 @@ async def test_post_call_hook_still_runs_guardrail_managed_only_by_pre_call_pipe
     }
 
     await proxy_logging.post_call_success_hook(
-        data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+        data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
     )
 
     assert seen["count"] == 1
@@ -1153,7 +1153,7 @@ async def test_pre_call_hook_still_runs_guardrail_managed_only_by_post_call_pipe
         steps=[PipelineStep(guardrail="gr-dual", on_pass="allow", on_fail="block")],
     )
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [DualStageGuardrail(guardrail_name="gr-dual", event_hook=["pre_call", "post_call"], default_on=True)],
     )
@@ -1209,14 +1209,14 @@ def _two_step_pipeline_data(
     }
 
 
-def _logging_obj(*, log_parked: bool, call_type: str = "acompletion") -> LiteLLMLoggingObj:
-    logging_obj: Final = LiteLLMLoggingObj(
+def _logging_obj(*, log_parked: bool, call_type: str = "acompletion") -> HangarLLMLoggingObj:
+    logging_obj: Final = HangarLLMLoggingObj(
         model="m",
         messages=[],
         stream=False,
         call_type=call_type,
         start_time=None,
-        litellm_call_id="call-1",
+        hangarllm_call_id="call-1",
         function_id="fn-1",
     )
     logging_obj.defer_async_logging = True
@@ -1237,7 +1237,7 @@ async def test_pre_call_hook_names_only_the_pre_call_pipeline_steps_that_ran(
 ) -> None:
     first: Final = _PipelineStepGuardrail("first", "pre_call")
     second: Final = _PipelineStepGuardrail("second", "pre_call")
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
 
     result: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
@@ -1255,7 +1255,7 @@ async def test_pre_call_hook_names_a_skipped_step_whose_guardrail_also_runs_outs
 ) -> None:
     first: Final = _PipelineStepGuardrail("first", "pre_call")
     second: Final = _PipelineStepGuardrail("second", ["pre_call", "post_call"])
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
 
     result: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
@@ -1293,7 +1293,7 @@ async def test_pre_call_hook_names_a_step_that_raised_before_the_pipeline_moved_
 ) -> None:
     first: Final = _RaisingPipelineStepGuardrail("first", error)
     second: Final = _PipelineStepGuardrail("second", "pre_call")
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
 
     result: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
@@ -1313,7 +1313,7 @@ async def test_deployment_hook_still_runs_a_pipeline_step_that_raised(
 ) -> None:
     first: Final = _RaisingPipelineStepGuardrail("first", error)
     second: Final = _PipelineStepGuardrail("second", "pre_call")
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
     result: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
         data=_two_step_pipeline_data("pre_call", "next", first_on_fail="next"),
@@ -1331,23 +1331,23 @@ async def test_deployment_hook_still_runs_a_pipeline_step_that_raised(
     assert (first.calls, second.calls) == (2, 1)
 
 
-class _OpensLitellmMetadataGuardrail(_PipelineStepGuardrail):
+class _OpensHangarllmMetadataGuardrail(_PipelineStepGuardrail):
     async def async_pre_call_hook(
         self, user_api_key_dict: UserAPIKeyAuth, cache: DualCache, data: dict[str, object], call_type: CallTypesLiteral
     ) -> dict[str, object]:
         self.calls += 1
-        data["litellm_metadata"] = {}
+        data["hangarllm_metadata"] = {}
         add_guardrail_to_applied_guardrails_header(request_data=data, guardrail_name=self.guardrail_name)
         return data
 
 
 @pytest.mark.asyncio
-async def test_pre_call_hook_names_a_step_that_ran_in_the_litellm_metadata_a_later_step_opened(
+async def test_pre_call_hook_names_a_step_that_ran_in_the_hangarllm_metadata_a_later_step_opened(
     proxy_logging: ProxyLogging, make_user_api_key_auth: Callable[..., UserAPIKeyAuth], monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     first: Final = _PipelineStepGuardrail("first", "pre_call")
-    second: Final = _OpensLitellmMetadataGuardrail("second", "pre_call")
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
+    second: Final = _OpensHangarllmMetadataGuardrail("second", "pre_call")
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
 
     result: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
@@ -1357,8 +1357,8 @@ async def test_pre_call_hook_names_a_step_that_ran_in_the_litellm_metadata_a_lat
 
     assert (first.calls, second.calls) == (1, 1)
     assert "applied_guardrails" not in result["metadata"]
-    assert result["litellm_metadata"]["applied_guardrails"] == ["second", "first"]
-    assert set(get_logging_caching_headers(result)["x-litellm-applied-guardrails"].split(",")) == {"first", "second"}
+    assert result["hangarllm_metadata"]["applied_guardrails"] == ["second", "first"]
+    assert set(get_logging_caching_headers(result)["x-hangarllm-applied-guardrails"].split(",")) == {"first", "second"}
 
 
 @pytest.mark.asyncio
@@ -1366,7 +1366,7 @@ async def test_pre_call_hook_names_a_step_that_ran_in_the_litellm_metadata_a_lat
     ("log_parked", "call_type", "bucket", "expected_after_response"),
     [
         pytest.param(True, "acompletion", "metadata", ["first"], id="success-log-waits-for-the-response-hooks"),
-        pytest.param(True, "acompletion", "litellm_metadata", ["first"], id="success-log-waits-litellm-metadata"),
+        pytest.param(True, "acompletion", "hangarllm_metadata", ["first"], id="success-log-waits-hangarllm-metadata"),
         pytest.param(False, "acompletion", "metadata", ["first", "second"], id="success-log-already-built"),
         pytest.param(
             True, "allm_passthrough_route", "metadata", ["first", "second"], id="pass-through-headers-already-out"
@@ -1387,8 +1387,8 @@ async def test_post_call_pipeline_drops_the_steps_that_did_not_run_only_while_no
 ) -> None:
     first: Final = _PipelineStepGuardrail("first", "post_call")
     second: Final = _PipelineStepGuardrail("second", "post_call")
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     request: Final = _two_step_pipeline_data("post_call", "allow")
 
     data: Final = await proxy_logging.pre_call_hook(
@@ -1397,7 +1397,7 @@ async def test_post_call_pipeline_drops_the_steps_that_did_not_run_only_while_no
             "model": request["model"],
             "messages": request["messages"],
             bucket: request["metadata"],
-            "litellm_logging_obj": _logging_obj(log_parked=log_parked, call_type=call_type),
+            "hangarllm_logging_obj": _logging_obj(log_parked=log_parked, call_type=call_type),
         },
         call_type="completion",
     )
@@ -1405,7 +1405,7 @@ async def test_post_call_pipeline_drops_the_steps_that_did_not_run_only_while_no
     logged_metadata: Final = data[bucket].copy()
 
     await proxy_logging.post_call_success_hook(
-        data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+        data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
     )
 
     assert (first.calls, second.calls) == (1, 0)
@@ -1444,19 +1444,19 @@ async def test_post_call_pipeline_keeps_a_step_an_earlier_pipeline_ran_that_a_la
     proxy_logging: ProxyLogging, make_user_api_key_auth: Callable[..., UserAPIKeyAuth], monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     guardrails: Final = [_PipelineStepGuardrail(name, "post_call") for name in ("first", "second", "third")]
-    monkeypatch.setattr(litellm, "callbacks", guardrails)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", guardrails)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
 
     data: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
         data={
             **_three_step_two_pipeline_data(),
-            "litellm_logging_obj": _logging_obj(log_parked=True),
+            "hangarllm_logging_obj": _logging_obj(log_parked=True),
         },
         call_type="completion",
     )
     await proxy_logging.post_call_success_hook(
-        data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+        data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
     )
 
     assert [guardrail.calls for guardrail in guardrails] == [1, 1, 1]
@@ -1470,8 +1470,8 @@ async def test_held_stream_pipeline_keeps_a_step_an_earlier_pipeline_ran_that_a_
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     guardrails: Final = [_PipelineStepGuardrail(name, "post_call") for name in ("first", "second", "third")]
-    monkeypatch.setattr(litellm, "callbacks", guardrails)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", guardrails)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     logging_obj: Final = _logging_obj(log_parked=False)
 
     async def stream_log(*args: object) -> None:
@@ -1484,7 +1484,7 @@ async def test_held_stream_pipeline_keeps_a_step_an_earlier_pipeline_ran_that_a_
         data={
             **_three_step_two_pipeline_data(),
             "stream": True,
-            "litellm_logging_obj": logging_obj,
+            "hangarllm_logging_obj": logging_obj,
         },
         call_type="completion",
     )
@@ -1526,17 +1526,17 @@ async def test_post_call_pipeline_that_ends_the_request_drops_the_steps_of_a_lat
 ) -> None:
     first: Final = _PipelineStepGuardrail("first", "post_call")
     second: Final = _PipelineStepGuardrail("second", "post_call")
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
-        data={**_ends_before_a_later_pipeline_data(ending), "litellm_logging_obj": _logging_obj(log_parked=True)},
+        data={**_ends_before_a_later_pipeline_data(ending), "hangarllm_logging_obj": _logging_obj(log_parked=True)},
         call_type="completion",
     )
 
     with pytest.raises(raised):
         await proxy_logging.post_call_success_hook(
-            data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+            data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
         )
 
     assert (first.calls, second.calls) == (1, 0)
@@ -1567,17 +1567,17 @@ async def test_post_call_pipeline_that_blocks_keeps_a_later_request_step_whose_g
     first: Final = _PipelineStepGuardrail("first", "post_call")
     gate: Final = _PipelineStepGuardrail("gate", "pre_call")
     second: Final = _PipelineStepGuardrail("second", ["pre_call", "post_call"])
-    monkeypatch.setattr(litellm, "callbacks", [first, gate, second])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [first, gate, second])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
-        data={**_blocks_before_a_later_request_pipeline_data(), "litellm_logging_obj": _logging_obj(log_parked=True)},
+        data={**_blocks_before_a_later_request_pipeline_data(), "hangarllm_logging_obj": _logging_obj(log_parked=True)},
         call_type="completion",
     )
 
     with pytest.raises(HTTPException):
         await proxy_logging.post_call_success_hook(
-            data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+            data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
         )
 
     assert sorted(data["metadata"]["applied_guardrails"]) == ["first", "gate", "second"]
@@ -1596,8 +1596,8 @@ async def test_held_stream_pipeline_that_ends_the_stream_drops_the_steps_of_a_la
 ) -> None:
     first: Final = _PipelineStepGuardrail("first", "post_call")
     second: Final = _PipelineStepGuardrail("second", "post_call")
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     logging_obj: Final = _logging_obj(log_parked=False)
 
     async def stream_log(*args: object) -> None:
@@ -1607,7 +1607,7 @@ async def test_held_stream_pipeline_that_ends_the_stream_drops_the_steps_of_a_la
     auth: Final = make_user_api_key_auth(request_route="/v1/chat/completions")
     data: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=auth,
-        data={**_ends_before_a_later_pipeline_data(ending), "stream": True, "litellm_logging_obj": logging_obj},
+        data={**_ends_before_a_later_pipeline_data(ending), "stream": True, "hangarllm_logging_obj": logging_obj},
         call_type="completion",
     )
 
@@ -1627,16 +1627,16 @@ async def test_post_call_pipeline_keeps_a_step_that_never_ran_whose_guardrail_ra
 ) -> None:
     first: Final = _PipelineStepGuardrail("first", "post_call")
     second: Final = _PipelineStepGuardrail("second", ["pre_call", "post_call"])
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
 
     data: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
-        data={**_two_step_pipeline_data("post_call", "allow"), "litellm_logging_obj": _logging_obj(log_parked=True)},
+        data={**_two_step_pipeline_data("post_call", "allow"), "hangarllm_logging_obj": _logging_obj(log_parked=True)},
         call_type="completion",
     )
     await proxy_logging.post_call_success_hook(
-        data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+        data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
     )
 
     assert (first.calls, second.calls) == (1, 1)
@@ -1658,8 +1658,8 @@ async def test_post_call_pipeline_drops_a_step_its_guardrail_skips_on_a_whole_re
 ) -> None:
     guardrails: Final = [_PipelineStepGuardrail(name, "post_call") for name in steps]
     guardrails[0].apply_stream_scope("streaming")
-    monkeypatch.setattr(litellm, "callbacks", guardrails)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", guardrails)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     pipeline: Final = GuardrailPipeline(
         mode="post_call", steps=[PipelineStep(guardrail=name, on_pass="next", on_fail="block") for name in steps]
     )
@@ -1674,42 +1674,42 @@ async def test_post_call_pipeline_drops_a_step_its_guardrail_skips_on_a_whole_re
                 "_guardrail_pipelines": [("governance", pipeline)],
                 "_pipeline_managed_guardrails": set(steps),
             },
-            "litellm_logging_obj": _logging_obj(log_parked=True),
+            "hangarllm_logging_obj": _logging_obj(log_parked=True),
         },
         call_type="completion",
     )
     await proxy_logging.post_call_success_hook(
-        data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+        data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
     )
 
     assert [guardrail.calls for guardrail in guardrails] == [0, 1][: len(steps)]
     assert data["metadata"].get("applied_guardrails") == expected
 
 
-class _OpensLitellmMetadataOnResponseGuardrail(_PipelineStepGuardrail):
+class _OpensHangarllmMetadataOnResponseGuardrail(_PipelineStepGuardrail):
     async def async_post_call_success_hook(
         self, data: dict[str, object], user_api_key_dict: UserAPIKeyAuth, response: LLMResponseTypes
     ) -> None:
         self.calls += 1
-        data["litellm_metadata"] = {"user_api_key_hash": "hashed"}
+        data["hangarllm_metadata"] = {"user_api_key_hash": "hashed"}
 
 
 @pytest.mark.asyncio
-async def test_post_call_pipeline_names_every_step_that_ran_in_metadata_after_a_step_opens_litellm_metadata(
+async def test_post_call_pipeline_names_every_step_that_ran_in_metadata_after_a_step_opens_hangarllm_metadata(
     proxy_logging: ProxyLogging, make_user_api_key_auth: Callable[..., UserAPIKeyAuth], monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    first: Final = _OpensLitellmMetadataOnResponseGuardrail("first", "post_call")
+    first: Final = _OpensHangarllmMetadataOnResponseGuardrail("first", "post_call")
     second: Final = _PipelineStepGuardrail("second", "post_call")
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
 
     data: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
-        data={**_two_step_pipeline_data("post_call", "next"), "litellm_logging_obj": _logging_obj(log_parked=True)},
+        data={**_two_step_pipeline_data("post_call", "next"), "hangarllm_logging_obj": _logging_obj(log_parked=True)},
         call_type="completion",
     )
     await proxy_logging.post_call_success_hook(
-        data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+        data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
     )
 
     assert (first.calls, second.calls) == (1, 1)
@@ -1717,13 +1717,13 @@ async def test_post_call_pipeline_names_every_step_that_ran_in_metadata_after_a_
 
 
 @pytest.mark.asyncio
-async def test_post_call_pipeline_keeps_a_step_a_later_pipeline_runs_after_an_earlier_one_opens_litellm_metadata(
+async def test_post_call_pipeline_keeps_a_step_a_later_pipeline_runs_after_an_earlier_one_opens_hangarllm_metadata(
     proxy_logging: ProxyLogging, make_user_api_key_auth: Callable[..., UserAPIKeyAuth], monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    first: Final = _OpensLitellmMetadataOnResponseGuardrail("first", "post_call")
+    first: Final = _OpensHangarllmMetadataOnResponseGuardrail("first", "post_call")
     second: Final = _PipelineStepGuardrail("second", "post_call")
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     stops_before_second: Final = GuardrailPipeline(
         mode="post_call",
         steps=[PipelineStep(guardrail="first", on_pass="allow"), PipelineStep(guardrail="second", on_pass="next")],
@@ -1746,12 +1746,12 @@ async def test_post_call_pipeline_keeps_a_step_a_later_pipeline_runs_after_an_ea
                 ],
                 "_pipeline_managed_guardrails": {"first", "second"},
             },
-            "litellm_logging_obj": _logging_obj(log_parked=True),
+            "hangarllm_logging_obj": _logging_obj(log_parked=True),
         },
         call_type="completion",
     )
     await proxy_logging.post_call_success_hook(
-        data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+        data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
     )
 
     assert (first.calls, second.calls) == (1, 1)
@@ -1764,7 +1764,7 @@ async def test_pre_call_hook_names_every_pipeline_step_when_the_pipelines_run_on
 ) -> None:
     first: Final = _PipelineStepGuardrail("first", "pre_call")
     second: Final = _PipelineStepGuardrail("second", "pre_call")
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
 
     result: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
@@ -1783,7 +1783,7 @@ async def test_deployment_hook_names_a_skipped_pre_call_step_it_ran(
 ) -> None:
     first: Final = _PipelineStepGuardrail("first", "pre_call")
     second: Final = _PipelineStepGuardrail("second", "pre_call")
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
     data: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
         data=_two_step_pipeline_data("pre_call", "allow"),
@@ -1808,7 +1808,7 @@ async def test_deployment_hook_names_a_skipped_pre_call_step_that_raised(
 ) -> None:
     first: Final = _PipelineStepGuardrail("first", "pre_call")
     second: Final = _RaisingPipelineStepGuardrail("second", error)
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
     data: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
         data=_two_step_pipeline_data("pre_call", "allow"),
@@ -1830,21 +1830,21 @@ async def test_post_call_pipeline_keeps_a_skipped_step_a_deployment_hook_ran(
 ) -> None:
     first: Final = _PipelineStepGuardrail("first", "post_call")
     second: Final = _PipelineStepGuardrail("second", "post_call")
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
-        data={**_two_step_pipeline_data("post_call", "allow"), "litellm_logging_obj": _logging_obj(log_parked=True)},
+        data={**_two_step_pipeline_data("post_call", "allow"), "hangarllm_logging_obj": _logging_obj(log_parked=True)},
         call_type="completion",
     )
 
     await second.async_post_call_success_deployment_hook(
         request_data={**data, "guardrails": ["second"]},
-        response=litellm.ModelResponse(),
+        response=hangarllm.ModelResponse(),
         call_type=CallTypes.acompletion,
     )
     await proxy_logging.post_call_success_hook(
-        data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+        data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
     )
 
     assert (first.calls, second.calls) == (1, 1)
@@ -1899,17 +1899,17 @@ async def test_deployment_hook_names_a_pipeline_step_requested_only_in_the_other
             "applied_guardrails": ["first"],
             "_pipeline_managed_guardrails": frozenset({"first", "second"}),
         },
-        "litellm_metadata": {"guardrails": ["second"]},
+        "hangarllm_metadata": {"guardrails": ["second"]},
     }
 
     await guardrail.async_pre_call_deployment_hook(kwargs=kwargs, call_type=CallTypes.completion)
 
     assert guardrail.calls == 1
-    assert sorted(get_logging_caching_headers(kwargs)["x-litellm-applied-guardrails"].split(",")) == ["first", "second"]
+    assert sorted(get_logging_caching_headers(kwargs)["x-hangarllm-applied-guardrails"].split(",")) == ["first", "second"]
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("named_bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("named_bucket", ["metadata", "hangarllm_metadata"])
 async def test_deployment_hook_names_a_pipeline_step_next_to_the_steps_already_named_when_both_buckets_exist(
     named_bucket: str,
 ) -> None:
@@ -1918,20 +1918,20 @@ async def test_deployment_hook_names_a_pipeline_step_next_to_the_steps_already_n
         "guardrails": ["first", "second"],
         "_pipeline_managed_guardrails": frozenset({"first", "second"}),
     }
-    litellm_metadata: Final[dict[str, object]] = {}
-    {"metadata": metadata, "litellm_metadata": litellm_metadata}[named_bucket]["applied_guardrails"] = ["first"]
+    hangarllm_metadata: Final[dict[str, object]] = {}
+    {"metadata": metadata, "hangarllm_metadata": hangarllm_metadata}[named_bucket]["applied_guardrails"] = ["first"]
     kwargs: Final[dict[str, object]] = {
         "model": "m",
         "messages": [{"role": "user", "content": "hi"}],
         "guardrails": ["second"],
         "metadata": metadata,
-        "litellm_metadata": litellm_metadata,
+        "hangarllm_metadata": hangarllm_metadata,
     }
 
     await guardrail.async_pre_call_deployment_hook(kwargs=kwargs, call_type=CallTypes.completion)
 
     assert guardrail.calls == 1
-    assert sorted(get_logging_caching_headers(kwargs)["x-litellm-applied-guardrails"].split(",")) == ["first", "second"]
+    assert sorted(get_logging_caching_headers(kwargs)["x-hangarllm-applied-guardrails"].split(",")) == ["first", "second"]
 
 
 @pytest.mark.asyncio
@@ -1966,8 +1966,8 @@ async def test_held_stream_pipeline_drops_the_steps_that_did_not_run_only_while_
 ) -> None:
     first: Final = _PipelineStepGuardrail("first", "post_call")
     second: Final = _PipelineStepGuardrail("second", "post_call")
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     logging_obj: Final = _logging_obj(log_parked=False)
 
     async def stream_log(*args: object) -> None:
@@ -1977,7 +1977,7 @@ async def test_held_stream_pipeline_drops_the_steps_that_did_not_run_only_while_
     auth: Final = make_user_api_key_auth(request_route="/v1/chat/completions")
     data: Final = await proxy_logging.pre_call_hook(
         user_api_key_dict=auth,
-        data={**_two_step_pipeline_data("post_call", "allow"), "stream": True, "litellm_logging_obj": logging_obj},
+        data={**_two_step_pipeline_data("post_call", "allow"), "stream": True, "hangarllm_logging_obj": logging_obj},
         call_type="completion",
     )
     assert data["metadata"]["applied_guardrails"] == ["first", "second"]
@@ -2000,22 +2000,22 @@ async def test_held_stream_pipeline_drops_the_steps_that_did_not_run_only_while_
 async def test_post_call_pipeline_replacement_response_reaches_caller(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
-    masked = litellm.ModelResponse()
+    masked = hangarllm.ModelResponse()
 
     class MaskingGuardrail(CustomGuardrail):
         async def async_post_call_success_hook(self, data, user_api_key_dict, response):
             return masked
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [MaskingGuardrail(guardrail_name="gr-post", event_hook=GuardrailEventHooks.post_call, default_on=False)],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data()
 
     out = await proxy_logging.post_call_success_hook(
-        data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+        data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
     )
 
     assert out is masked
@@ -2026,7 +2026,7 @@ async def test_post_call_pipeline_replacement_response_reaches_caller(
 async def test_post_call_pipeline_replacement_chains_to_next_step_without_pass_data(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
-    masked = litellm.ModelResponse()
+    masked = hangarllm.ModelResponse()
     seen: Dict[str, Any] = {}
 
     class MaskingGuardrail(CustomGuardrail):
@@ -2046,14 +2046,14 @@ async def test_post_call_pipeline_replacement_chains_to_next_step_without_pass_d
         ],
     )
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [
             MaskingGuardrail(guardrail_name="gr-mask", event_hook=GuardrailEventHooks.post_call, default_on=False),
             RecordingGuardrail(guardrail_name="gr-audit", event_hook=GuardrailEventHooks.post_call, default_on=False),
         ],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = {
         "model": "m",
         "messages": [{"role": "user", "content": "hi"}],
@@ -2064,7 +2064,7 @@ async def test_post_call_pipeline_replacement_chains_to_next_step_without_pass_d
     }
 
     out = await proxy_logging.post_call_success_hook(
-        data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+        data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
     )
 
     assert out is masked
@@ -2075,7 +2075,7 @@ def test_handle_pipeline_result_modify_response_carries_original_response():
     result = MagicMock()
     result.terminal_action = "modify_response"
     result.modify_response_message = "filtered"
-    response = litellm.ModelResponse()
+    response = hangarllm.ModelResponse()
 
     with pytest.raises(ModifyResponseException) as info:
         ProxyLogging._handle_pipeline_result(
@@ -2096,7 +2096,7 @@ def test_handle_pipeline_result_allow_on_post_call_keeps_metadata_writes_only():
     }
 
     out = ProxyLogging._handle_pipeline_result(
-        result=result, data=data, policy_name="p", original_response=litellm.ModelResponse()
+        result=result, data=data, policy_name="p", original_response=hangarllm.ModelResponse()
     )
 
     assert out is data
@@ -2120,15 +2120,15 @@ async def test_post_call_pipeline_guardrail_metadata_writes_reach_request_data(
             return None
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [HeaderWritingGuardrail(guardrail_name="gr-post", event_hook=GuardrailEventHooks.post_call, default_on=False)],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data()
 
     await proxy_logging.post_call_success_hook(
-        data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+        data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
     )
 
     assert data["metadata"]["applied_guardrails"] == ["gr-post"]
@@ -2152,16 +2152,16 @@ async def test_post_call_pipeline_block_keeps_guardrail_metadata_writes(
             raise HTTPException(status_code=400, detail={"error": "output blocked"})
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [BlockingWriterGuardrail(guardrail_name="gr-post", event_hook=GuardrailEventHooks.post_call, default_on=False)],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data()
 
     with pytest.raises(HTTPException):
         await proxy_logging.post_call_success_hook(
-            data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+            data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
         )
 
     assert data["metadata"]["applied_guardrails"] == ["gr-post"]
@@ -2183,7 +2183,7 @@ async def test_post_call_pipeline_managed_parallel_guardrail_runs_exactly_once(
             return None
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [
             CountingGuardrail(
@@ -2194,11 +2194,11 @@ async def test_post_call_pipeline_managed_parallel_guardrail_runs_exactly_once(
             )
         ],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data()
 
     await proxy_logging.post_call_success_hook(
-        data=data, response=litellm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
+        data=data, response=hangarllm.ModelResponse(), user_api_key_dict=make_user_api_key_auth()
     )
 
     assert seen["count"] == 1
@@ -2220,7 +2220,7 @@ async def test_pre_call_pipeline_managed_parallel_guardrail_runs_exactly_once(
         steps=[PipelineStep(guardrail="gr-pre", on_pass="allow", on_fail="block")],
     )
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [
             CountingGuardrail(
@@ -2253,12 +2253,12 @@ def _warnings(caplog: pytest.LogCaptureFixture) -> List[str]:
 async def test_streaming_request_whose_pipeline_guardrail_is_missing_streams_verbatim(
     proxy_logging, make_user_api_key_auth, monkeypatch, caplog
 ):
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     data = _post_call_pipeline_data(stream=True)
     chunks = _stream_chunks()
     delivered: List[Any] = []
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         out = await proxy_logging.pre_call_hook(
             user_api_key_dict=make_user_api_key_auth(),
             data=data,
@@ -2307,12 +2307,12 @@ async def test_post_call_success_hook_waits_for_pending_background_response_befo
     pending_status: str,
 ) -> None:
     seen: dict[str, object] = {}
-    monkeypatch.setattr(litellm, "callbacks", _output_blocking_callbacks(seen))
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", _output_blocking_callbacks(seen))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(background=True)
     response = _background_response(pending_status)
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
         out = await proxy_logging.post_call_success_hook(
             data=data, response=response, user_api_key_dict=make_user_api_key_auth()
         )
@@ -2335,8 +2335,8 @@ async def test_post_call_success_hook_runs_pipeline_on_retrieved_background_resp
     final_status: str,
 ) -> None:
     seen: dict[str, object] = {}
-    monkeypatch.setattr(litellm, "callbacks", _output_blocking_callbacks(seen))
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", _output_blocking_callbacks(seen))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data()
     response = _background_response(final_status, text="kumquat")
 
@@ -2362,7 +2362,7 @@ def _output_passing_callbacks() -> list[CustomGuardrail]:
 def _claimed_post_call_pipeline_data(
     *policy_names: str, extra_guardrails: dict[str, list[str]] | None = None, policy_source: str | None = "model:m"
 ):
-    from litellm.proxy.policy_engine.policy_registry import get_policy_registry
+    from hangarllm.proxy.policy_engine.policy_registry import get_policy_registry
 
     step = {"guardrail": "gr-post", "on_pass": "allow", "on_fail": "block"}
     get_policy_registry().load_policies(
@@ -2390,7 +2390,7 @@ def _claimed_post_call_pipeline_data(
 
 @pytest.fixture
 def clear_policy_registry() -> Iterator[None]:
-    from litellm.proxy.policy_engine.policy_registry import get_policy_registry
+    from hangarllm.proxy.policy_engine.policy_registry import get_policy_registry
 
     yield
     get_policy_registry().clear()
@@ -2403,8 +2403,8 @@ async def test_pending_background_response_withdraws_the_deferred_policy_claims(
     monkeypatch: pytest.MonkeyPatch,
     clear_policy_registry: None,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", _output_blocking_callbacks({}))
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", _output_blocking_callbacks({}))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _claimed_post_call_pipeline_data("response-governance")
 
     out = await proxy_logging.post_call_success_hook(
@@ -2425,11 +2425,11 @@ async def test_pending_background_response_warns_when_the_deferred_policy_was_ma
     clear_policy_registry: None,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", _output_blocking_callbacks({}))
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", _output_blocking_callbacks({}))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _claimed_post_call_pipeline_data("response-governance", policy_source="tag:governed+model:m")
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         out = await proxy_logging.post_call_success_hook(
             data=data, response=_background_response("queued"), user_api_key_dict=make_user_api_key_auth()
         )
@@ -2451,11 +2451,11 @@ async def test_pending_background_response_warns_when_the_deferred_policy_came_f
     clear_policy_registry: None,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", _output_blocking_callbacks({}))
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", _output_blocking_callbacks({}))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _claimed_post_call_pipeline_data("body-governance", policy_source=None)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         out = await proxy_logging.post_call_success_hook(
             data=data, response=_background_response("queued"), user_api_key_dict=make_user_api_key_auth()
         )
@@ -2477,10 +2477,10 @@ async def test_pending_background_response_matched_through_its_model_does_not_wa
     clear_policy_registry: None,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", _output_blocking_callbacks({}))
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", _output_blocking_callbacks({}))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         await proxy_logging.post_call_success_hook(
             data=_claimed_post_call_pipeline_data("response-governance"),
             response=_background_response("queued"),
@@ -2497,8 +2497,8 @@ async def test_pending_background_response_keeps_the_claim_of_a_policy_that_runs
     monkeypatch: pytest.MonkeyPatch,
     clear_policy_registry: None,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", _output_blocking_callbacks({}))
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", _output_blocking_callbacks({}))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _claimed_post_call_pipeline_data(
         "input-and-output-governance",
         "response-governance",
@@ -2526,11 +2526,11 @@ async def test_pending_background_response_keeps_the_claim_of_a_default_on_guard
             return response
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [DualStageGuardrail(guardrail_name="gr-post", event_hook=["pre_call", "post_call"], default_on=True)],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _claimed_post_call_pipeline_data("response-governance")
 
     await proxy_logging.post_call_success_hook(
@@ -2548,8 +2548,8 @@ async def test_retrieved_background_response_keeps_the_policy_claim_once_its_pip
     monkeypatch: pytest.MonkeyPatch,
     clear_policy_registry: None,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", _output_passing_callbacks())
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", _output_passing_callbacks())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _claimed_post_call_pipeline_data("response-governance")
 
     await proxy_logging.post_call_success_hook(
@@ -2568,10 +2568,10 @@ async def test_pre_call_hook_stays_quiet_on_background_request_with_post_call_pi
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     data = _post_call_pipeline_data(background=True)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         out = await proxy_logging.pre_call_hook(
             user_api_key_dict=make_user_api_key_auth(),
             data=data,
@@ -2603,8 +2603,8 @@ def _unified_stream_guardrail(seen: Dict[str, Any], block: bool = False) -> Cust
 
 def _stream_chunks() -> List[Any]:
     return [
-        litellm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": "hello "}, "finish_reason": None}]),
-        litellm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": "world"}, "finish_reason": "stop"}]),
+        hangarllm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": "hello "}, "finish_reason": None}]),
+        hangarllm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": "world"}, "finish_reason": "stop"}]),
     ]
 
 
@@ -2669,26 +2669,26 @@ def _iterator_and_legacy_hook_guardrail(name: str, seen: Dict[str, Any]) -> Cust
     return IteratorAndLegacyHookGuardrail(guardrail_name=name, event_hook=GuardrailEventHooks.post_call, default_on=True)
 
 
-def _rewritten_model_response(response: Any) -> litellm.ModelResponse:
+def _rewritten_model_response(response: Any) -> hangarllm.ModelResponse:
     payload = response.model_dump()
     payload["choices"][0]["message"]["content"] = "[REWRITTEN] " + payload["choices"][0]["message"]["content"]
-    return litellm.ModelResponse(**payload)
+    return hangarllm.ModelResponse(**payload)
 
 
 def _two_choice_stream_chunks() -> List[Any]:
     return [
-        litellm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": "hello "}, "finish_reason": None}]),
-        litellm.ModelResponseStream(choices=[{"index": 1, "delta": {"content": "bonjour "}, "finish_reason": None}]),
-        litellm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": "world"}, "finish_reason": "stop"}]),
-        litellm.ModelResponseStream(choices=[{"index": 1, "delta": {"content": "monde"}, "finish_reason": "stop"}]),
+        hangarllm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": "hello "}, "finish_reason": None}]),
+        hangarllm.ModelResponseStream(choices=[{"index": 1, "delta": {"content": "bonjour "}, "finish_reason": None}]),
+        hangarllm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": "world"}, "finish_reason": "stop"}]),
+        hangarllm.ModelResponseStream(choices=[{"index": 1, "delta": {"content": "monde"}, "finish_reason": "stop"}]),
     ]
 
 
-def _rewritten_every_choice(response: Any) -> litellm.ModelResponse:
+def _rewritten_every_choice(response: Any) -> hangarllm.ModelResponse:
     payload = response.model_dump()
     for choice in payload["choices"]:
         choice["message"]["content"] = "[REWRITTEN] " + choice["message"]["content"]
-    return litellm.ModelResponse(**payload)
+    return hangarllm.ModelResponse(**payload)
 
 
 def test_streamable_post_call_pipelines_keeps_hook_guardrails_and_drops_iterator_only(
@@ -2698,7 +2698,7 @@ def test_streamable_post_call_pipelines_keeps_hook_guardrails_and_drops_iterator
     legacy = _legacy_hook_stream_guardrail({})
     legacy.guardrail_name = "gr-legacy"
     iterator_only = _iterator_hook_only_guardrail("gr-iterator", {})
-    monkeypatch.setattr(litellm, "callbacks", [supported, legacy, iterator_only])
+    monkeypatch.setattr(hangarllm, "callbacks", [supported, legacy, iterator_only])
     governed = GuardrailPipeline(
         mode="post_call",
         steps=[PipelineStep(guardrail="gr-post", on_fail="next"), PipelineStep(guardrail="gr-legacy", on_fail="block")],
@@ -2712,7 +2712,7 @@ def test_streamable_post_call_pipelines_keeps_hook_guardrails_and_drops_iterator
         "metadata": {"_guardrail_pipelines": [("governed", governed), ("ungoverned", ungoverned), ("req", pre_call)]}
     }
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         streamable = _streamable_post_call_pipelines(data, make_user_api_key_auth(request_route="/v1/chat/completions"))
 
     assert streamable == (("governed", governed),)
@@ -2727,12 +2727,12 @@ def test_streamable_post_call_pipelines_keeps_hook_guardrails_and_drops_iterator
 def test_streamable_post_call_pipelines_keeps_legacy_hooks_off_routes_that_assemble_no_response(
     make_user_api_key_auth, monkeypatch, caplog, request_route
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_legacy_hook_stream_guardrail({})])
+    monkeypatch.setattr(hangarllm, "callbacks", [_legacy_hook_stream_guardrail({})])
     legacy = GuardrailPipeline(mode="post_call", steps=[PipelineStep(guardrail="gr-post", on_fail="block")])
     data = {"metadata": {"_guardrail_pipelines": [("legacy-governance", legacy)]}}
     auth = make_user_api_key_auth(request_route=request_route)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         streamable = _streamable_post_call_pipelines(data, auth)
 
     assert streamable == ()
@@ -2743,12 +2743,12 @@ def test_streamable_post_call_pipelines_keeps_legacy_hooks_off_routes_that_assem
 def test_streamable_post_call_pipelines_keeps_guardrails_with_their_own_iterator_hook_on_their_own_path(
     make_user_api_key_auth, monkeypatch, caplog
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_iterator_and_legacy_hook_guardrail("gr-post", {})])
+    monkeypatch.setattr(hangarllm, "callbacks", [_iterator_and_legacy_hook_guardrail("gr-post", {})])
     both_hooks = GuardrailPipeline(mode="post_call", steps=[PipelineStep(guardrail="gr-post", on_fail="block")])
     data = {"metadata": {"_guardrail_pipelines": [("both-hooks", both_hooks)]}}
     auth = make_user_api_key_auth(request_route="/v1/chat/completions")
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         streamable = _streamable_post_call_pipelines(data, auth)
 
     assert streamable == ()
@@ -2759,11 +2759,11 @@ def test_streamable_post_call_pipelines_keeps_guardrails_with_their_own_iterator
 def test_streamable_post_call_pipelines_is_empty_on_route_without_translation(
     make_user_api_key_auth, monkeypatch, caplog
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_unified_stream_guardrail({})])
+    monkeypatch.setattr(hangarllm, "callbacks", [_unified_stream_guardrail({})])
     governed = GuardrailPipeline(mode="post_call", steps=[PipelineStep(guardrail="gr-post", on_fail="block")])
     data = {"metadata": {"_guardrail_pipelines": [("governed", governed)]}}
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         streamable = _streamable_post_call_pipelines(data, make_user_api_key_auth(request_route="/custom/stream"))
 
     assert streamable == ()
@@ -2774,7 +2774,7 @@ def test_streamable_post_call_pipelines_is_empty_without_post_call_pipelines(mak
     pre_call = GuardrailPipeline(mode="pre_call", steps=[PipelineStep(guardrail="g", on_fail="block")])
     auth = make_user_api_key_auth(request_route="/custom/stream")
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         assert _streamable_post_call_pipelines({"metadata": {"_guardrail_pipelines": [("p", pre_call)]}}, auth) == ()
         assert _streamable_post_call_pipelines({"stream": True}, auth) == ()
 
@@ -2787,7 +2787,7 @@ async def test_pre_call_hook_allows_streaming_when_pipeline_guardrail_supports_u
     proxy_logging, make_user_api_key_auth, monkeypatch, request_route
 ):
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_unified_stream_guardrail(seen)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_unified_stream_guardrail(seen)])
     data = _post_call_pipeline_data(stream=True)
 
     out = await proxy_logging.pre_call_hook(
@@ -2808,13 +2808,13 @@ async def test_streaming_iterator_hook_runs_legacy_hook_and_delivers_its_rewrite
 ):
     seen: Dict[str, Any] = {}
     guardrail = _legacy_hook_stream_guardrail(seen, rewrite=_rewritten_model_response, native_lifecycle=native_lifecycle)
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
     chunks = _stream_chunks()
     auth = make_user_api_key_auth(request_route="/v1/chat/completions")
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         out = await proxy_logging.pre_call_hook(
             user_api_key_dict=auth, data=data, call_type="completion", guardrails_only=True
         )
@@ -2827,7 +2827,7 @@ async def test_streaming_iterator_hook_runs_legacy_hook_and_delivers_its_rewrite
 
     assert out is not None and out.get("stream") is True
     assert seen["count"] == 1
-    assert isinstance(seen["response"], litellm.ModelResponse)
+    assert isinstance(seen["response"], hangarllm.ModelResponse)
     assert seen["response"].choices[0].message.content == "hello world"
     assert seen["data"]["messages"] == data["messages"]
     assert seen["user_api_key_dict"] is auth
@@ -2845,13 +2845,13 @@ async def test_streaming_iterator_hook_delivers_legacy_hook_rewrite_on_every_cho
 ):
     seen: Dict[str, Any] = {}
     guardrail = _legacy_hook_stream_guardrail(seen, rewrite=_rewritten_every_choice)
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
     chunks = _two_choice_stream_chunks()
     auth = make_user_api_key_auth(request_route="/v1/chat/completions")
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         await proxy_logging.pre_call_hook(user_api_key_dict=auth, data=data, call_type="completion", guardrails_only=True)
         delivered = [
             item
@@ -2891,13 +2891,13 @@ async def test_streaming_iterator_hook_delivers_legacy_hook_rewrite_on_a_text_co
     proxy_logging, make_user_api_key_auth, monkeypatch, caplog
 ):
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_legacy_hook_stream_guardrail(seen, rewrite=_rewritten_text_completion)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_legacy_hook_stream_guardrail(seen, rewrite=_rewritten_text_completion)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = {**_post_call_pipeline_data(stream=True), "prompt": "hi"}
     chunks = [_text_completion_chunk("hello "), _text_completion_chunk("world"), _text_completion_chunk("", "stop")]
     auth = make_user_api_key_auth(request_route="/v1/completions")
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         await proxy_logging.pre_call_hook(
             user_api_key_dict=auth, data=data, call_type="text_completion", guardrails_only=True
         )
@@ -2934,8 +2934,8 @@ async def test_streaming_iterator_hook_delivers_a_flat_guardrail_block_on_a_text
     flat: Final = _FlatBlockGuardrail(
         guardrail_name="flat-block", event_hook=GuardrailEventHooks.post_call, default_on=True
     )
-    monkeypatch.setattr(litellm, "callbacks", [flat, _live_scan_guardrail(seen)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [flat, _live_scan_guardrail(seen)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data: Final = {**_post_call_pipeline_data(stream=True), "prompt": "hi"}
     chunks: Final = [
         _text_completion_chunk("A kum"),
@@ -2964,8 +2964,8 @@ async def test_streaming_iterator_hook_live_pipeline_scans_what_a_disconnected_t
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     seen: Final[Dict[str, Any]] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_live_scan_guardrail(seen)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_live_scan_guardrail(seen)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data: Final = {**_post_call_pipeline_data(step=_DETECT_ONLY_STEP, stream=True), "prompt": "hi"}
     chunks: Final = [
         _text_completion_chunk("hello "),
@@ -2991,8 +2991,8 @@ async def test_streaming_iterator_hook_releases_stream_untouched_when_legacy_hoo
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_legacy_hook_stream_guardrail(seen)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_legacy_hook_stream_guardrail(seen)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
     chunks = _stream_chunks()
 
@@ -3016,8 +3016,8 @@ async def test_streaming_iterator_hook_ends_stream_with_legacy_hook_exception(
 ):
     seen: Dict[str, Any] = {}
     blocked = HTTPException(status_code=400, detail={"error": "output blocked"})
-    monkeypatch.setattr(litellm, "callbacks", [_legacy_hook_stream_guardrail(seen, raises=blocked)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_legacy_hook_stream_guardrail(seen, raises=blocked)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
     delivered: List[Any] = []
 
@@ -3046,8 +3046,8 @@ async def test_streaming_iterator_hook_delivers_legacy_hook_rewrite_on_anthropic
     def rewrite(response: Any) -> Dict[str, Any]:
         return {**response, "content": [{"type": "text", "text": "[REWRITTEN] " + response["content"][0]["text"]}]}
 
-    monkeypatch.setattr(litellm, "callbacks", [_legacy_hook_stream_guardrail(seen, rewrite=rewrite)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_legacy_hook_stream_guardrail(seen, rewrite=rewrite)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
 
     delivered = [
@@ -3074,11 +3074,11 @@ async def test_streaming_iterator_hook_runs_iterator_hook_guardrail_whose_pipeli
     proxy_logging, make_user_api_key_auth, monkeypatch, caplog
 ):
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_iterator_hook_only_guardrail("gr-post", seen)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_iterator_hook_only_guardrail("gr-post", seen)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         delivered = [
             item
             async for item in proxy_logging.async_post_call_streaming_iterator_hook(
@@ -3098,11 +3098,11 @@ async def test_streaming_iterator_hook_runs_the_iterator_hook_of_a_guardrail_tha
     proxy_logging, make_user_api_key_auth, monkeypatch, caplog
 ):
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_iterator_and_legacy_hook_guardrail("gr-post", seen)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_iterator_and_legacy_hook_guardrail("gr-post", seen)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         delivered = [
             item
             async for item in proxy_logging.async_post_call_streaming_iterator_hook(
@@ -3132,7 +3132,7 @@ async def test_pre_call_hook_allows_streaming_when_pipeline_guardrail_rewrites_s
     seen: Dict[str, Any] = {}
     guardrail = _unified_stream_guardrail(seen)
     setattr(guardrail, rewrite_attribute, value)
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
     data = _post_call_pipeline_data(stream=True)
 
     out = await proxy_logging.pre_call_hook(
@@ -3156,7 +3156,7 @@ async def test_pre_call_hook_allows_streaming_when_content_filter_step_masks_or_
         event_hook=GuardrailEventHooks.post_call,
         blocked_words=[BlockedWord(keyword="persimmon", action=action)],
     )
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
     data = _post_call_pipeline_data(stream=True)
     user_api_key_dict = make_user_api_key_auth(request_route="/v1/chat/completions")
 
@@ -3176,7 +3176,7 @@ async def test_pre_call_hook_allows_streaming_when_content_filter_category_masks
         event_hook=GuardrailEventHooks.post_call,
         categories=[{"category": "bias_gender", "enabled": True, "action": "MASK"}],
     )
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
     data = _post_call_pipeline_data(stream=True)
     user_api_key_dict = make_user_api_key_auth(request_route="/v1/chat/completions")
 
@@ -3192,12 +3192,12 @@ async def test_streaming_iterator_hook_releases_stream_when_route_has_no_guardra
     proxy_logging, make_user_api_key_auth, monkeypatch, caplog
 ):
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_unified_stream_guardrail(seen)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_unified_stream_guardrail(seen)])
     data = _post_call_pipeline_data(stream=True)
     chunks = _stream_chunks()
     delivered: List[Any] = []
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         out = await proxy_logging.pre_call_hook(
             user_api_key_dict=make_user_api_key_auth(request_route="/custom/stream"),
             data=data,
@@ -3223,8 +3223,8 @@ async def test_streaming_iterator_hook_pipeline_allow_releases_buffered_chunks(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_unified_stream_guardrail(seen)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_unified_stream_guardrail(seen)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
     chunks = _stream_chunks()
 
@@ -3247,8 +3247,8 @@ async def test_streaming_iterator_hook_pipeline_block_withholds_all_chunks(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_unified_stream_guardrail(seen, block=True)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_unified_stream_guardrail(seen, block=True)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
     delivered: List[Any] = []
 
@@ -3286,10 +3286,10 @@ def _tool_call_stream_chunks() -> List[Any]:
         "function": {"name": "lookup", "arguments": '{"ssn": "123"}'},
     }
     return [
-        litellm.ModelResponseStream(
+        hangarllm.ModelResponseStream(
             choices=[{"index": 0, "delta": {"tool_calls": [tool_call]}, "finish_reason": None}]
         ),
-        litellm.ModelResponseStream(choices=[{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]),
+        hangarllm.ModelResponseStream(choices=[{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]),
     ]
 
 
@@ -3303,13 +3303,13 @@ async def test_streaming_iterator_hook_pipeline_delivers_runtime_tool_call_rewri
     proxy_logging, make_user_api_key_auth, monkeypatch, on_fail, on_error, caplog
 ):
     transform = lambda inputs: {"tool_calls": _echoed_tool_call_dicts('{"ssn": "[MASKED]"}')}  # noqa: E731
-    monkeypatch.setattr(litellm, "callbacks", [_rewriting_stream_guardrail(transform)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_rewriting_stream_guardrail(transform)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     step = PipelineStep(guardrail="gr-post", on_pass="allow", on_fail=on_fail, on_error=on_error)
     data = _post_call_pipeline_data(step=step, stream=True)
     delivered: List[Any] = []
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         async for item in proxy_logging.async_post_call_streaming_iterator_hook(
             user_api_key_dict=make_user_api_key_auth(request_route="/v1/chat/completions"),
             response=_async_chunk_iter(_tool_call_stream_chunks()),
@@ -3331,8 +3331,8 @@ async def test_streaming_iterator_hook_pipeline_delivers_runtime_text_rewrite(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     transform = lambda inputs: {"texts": ["hello [MASKED]"]}  # noqa: E731
-    monkeypatch.setattr(litellm, "callbacks", [_rewriting_stream_guardrail(transform)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_rewriting_stream_guardrail(transform)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
     chunks = _stream_chunks()
 
@@ -3367,14 +3367,14 @@ async def test_streaming_iterator_hook_pipeline_chains_text_rewrites_across_step
             return {**inputs, "texts": [text.replace("hello", "[GREETING]") for text in inputs["texts"]]}
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [
             FirstMask(guardrail_name="gr-first", event_hook=GuardrailEventHooks.post_call, default_on=False),
             SecondMask(guardrail_name="gr-second", event_hook=GuardrailEventHooks.post_call, default_on=False),
         ],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     pipeline = GuardrailPipeline(
         mode="post_call",
         steps=[
@@ -3413,8 +3413,8 @@ async def test_streaming_iterator_hook_pipeline_chains_text_rewrites_across_step
 async def test_streaming_iterator_hook_pipeline_releases_stream_echoed_in_another_shape(
     proxy_logging, make_user_api_key_auth, monkeypatch, make_chunks, transform
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_rewriting_stream_guardrail(transform)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_rewriting_stream_guardrail(transform)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
     chunks = make_chunks()
 
@@ -3435,12 +3435,12 @@ async def test_streaming_iterator_hook_skips_pipeline_and_warns_without_request_
     proxy_logging, make_user_api_key_auth, monkeypatch, caplog
 ):
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_unified_stream_guardrail(seen)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_unified_stream_guardrail(seen)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
     chunks = _stream_chunks()
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         delivered = [
             item
             async for item in proxy_logging.async_post_call_streaming_iterator_hook(
@@ -3471,11 +3471,11 @@ async def test_per_chunk_streaming_hook_runs_pipeline_managed_guardrail_without_
             return inputs
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [UnifiedRecordingGuardrail(guardrail_name="gr-post", event_hook=GuardrailEventHooks.post_call, default_on=True)],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
 
     result = await proxy_logging.async_post_call_streaming_hook(
@@ -3532,8 +3532,8 @@ async def test_streaming_iterator_hook_pipeline_modify_response_emits_translated
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_unified_stream_guardrail(seen, block=True)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_unified_stream_guardrail(seen, block=True)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     pipeline = GuardrailPipeline(
         mode="post_call",
         steps=[
@@ -3570,8 +3570,8 @@ async def test_streaming_iterator_hook_pipeline_modify_response_replaces_a_text_
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     seen: Final[Dict[str, Any]] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_unified_stream_guardrail(seen, block=True)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_unified_stream_guardrail(seen, block=True)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     pipeline: Final = GuardrailPipeline(
         mode="post_call",
         steps=[
@@ -3609,8 +3609,8 @@ async def test_streaming_iterator_hook_pipeline_delivers_text_rewrite_on_anthrop
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     transform = lambda inputs: {"texts": ["hello [MASKED]"]}  # noqa: E731
-    monkeypatch.setattr(litellm, "callbacks", [_rewriting_stream_guardrail(transform)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_rewriting_stream_guardrail(transform)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
     chunks = _anthropic_sse_chunks()
 
@@ -3639,21 +3639,21 @@ async def test_streaming_iterator_hook_pipeline_delivers_text_rewrite_on_anthrop
 
 @pytest.mark.asyncio
 async def test_pipeline_executor_discards_text_rewrite_when_translation_lacks_write_back(monkeypatch, caplog):
-    from litellm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
-    from litellm.proxy.policy_engine.pipeline_executor import PipelineExecutor
+    from hangarllm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
+    from hangarllm.proxy.policy_engine.pipeline_executor import PipelineExecutor
 
     class NoWriteBackTranslation(BaseTranslation):
-        async def process_input_messages(self, data, guardrail_to_apply, litellm_logging_obj):
+        async def process_input_messages(self, data, guardrail_to_apply, hangarllm_logging_obj):
             return data
 
-        async def process_output_response(self, response, guardrail_to_apply, litellm_logging_obj, **kwargs):
+        async def process_output_response(self, response, guardrail_to_apply, hangarllm_logging_obj, **kwargs):
             return response
 
         async def process_output_streaming_response(
             self,
             responses_so_far,
             guardrail_to_apply,
-            litellm_logging_obj,
+            hangarllm_logging_obj,
             user_api_key_dict=None,
             request_data=None,
             stream_transform_sink=None,
@@ -3668,10 +3668,10 @@ async def test_pipeline_executor_discards_text_rewrite_when_translation_lacks_wr
             return responses_so_far
 
     transform = lambda inputs: {"texts": ["hello [MASKED]"]}  # noqa: E731
-    monkeypatch.setattr(litellm, "callbacks", [_rewriting_stream_guardrail(transform)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_rewriting_stream_guardrail(transform)])
     chunks = _stream_chunks()
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await PipelineExecutor.execute_steps(
             steps=[PipelineStep(guardrail="gr-post", on_pass="allow", on_fail="block")],
             mode="post_call",
@@ -3707,8 +3707,8 @@ async def test_per_chunk_streaming_hook_skips_pipeline_managed_guardrail(
         guardrail_name="gr-post", event_hook=GuardrailEventHooks.post_call, default_on=True
     )
     free = RecordingGuardrail(guardrail_name="gr-free", event_hook=GuardrailEventHooks.post_call, default_on=True)
-    monkeypatch.setattr(litellm, "callbacks", [managed, free])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [managed, free])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
 
     result = await proxy_logging.async_post_call_streaming_hook(
@@ -3735,11 +3735,11 @@ async def test_per_chunk_streaming_hook_runs_guardrail_whose_pipeline_cannot_str
             return None
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [ChunkHookGuardrail(guardrail_name="gr-post", event_hook=GuardrailEventHooks.post_call, default_on=True)],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
 
     result = await proxy_logging.async_post_call_streaming_hook(
@@ -3786,8 +3786,8 @@ def _anthropic_tool_use_sse_chunks() -> List[bytes]:
 async def test_streaming_iterator_hook_pipeline_delivers_tool_use_rewrite_on_anthropic_sse(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_rewriting_stream_guardrail(_mask_tool_call_arguments)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_rewriting_stream_guardrail(_mask_tool_call_arguments)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
 
     delivered = [
@@ -3835,8 +3835,8 @@ def _responses_function_call_events() -> List[Dict[str, Any]]:
 async def test_streaming_iterator_hook_pipeline_delivers_function_call_rewrite_on_responses_events(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_rewriting_stream_guardrail(_mask_tool_call_arguments)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_rewriting_stream_guardrail(_mask_tool_call_arguments)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
 
     delivered = [
@@ -3864,11 +3864,11 @@ def _drop_tool_calls(inputs: Dict[str, Any]) -> Dict[str, Any]:
 async def test_streaming_iterator_hook_pipeline_discards_dropped_tool_call_on_chat_chunks(
     proxy_logging, make_user_api_key_auth, monkeypatch, caplog
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_rewriting_stream_guardrail(_drop_tool_calls)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_rewriting_stream_guardrail(_drop_tool_calls)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         delivered = [
             item
             async for item in proxy_logging.async_post_call_streaming_iterator_hook(
@@ -3887,11 +3887,11 @@ async def test_streaming_iterator_hook_pipeline_discards_dropped_tool_call_on_ch
 async def test_streaming_iterator_hook_pipeline_discards_dropped_tool_call_on_anthropic_sse(
     proxy_logging, make_user_api_key_auth, monkeypatch, caplog
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_rewriting_stream_guardrail(_drop_tool_calls)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_rewriting_stream_guardrail(_drop_tool_calls)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         delivered = [
             item
             async for item in proxy_logging.async_post_call_streaming_iterator_hook(
@@ -3909,11 +3909,11 @@ async def test_streaming_iterator_hook_pipeline_discards_dropped_tool_call_on_an
 async def test_streaming_iterator_hook_pipeline_discards_dropped_tool_call_on_responses_events(
     proxy_logging, make_user_api_key_auth, monkeypatch, caplog
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_rewriting_stream_guardrail(_drop_tool_calls)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_rewriting_stream_guardrail(_drop_tool_calls)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         delivered = [
             item
             async for item in proxy_logging.async_post_call_streaming_iterator_hook(
@@ -3963,13 +3963,13 @@ async def test_streaming_iterator_hook_pipeline_releases_buffered_content_when_a
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setattr(
-        litellm, "callbacks", [_rewriting_stream_guardrail(lambda inputs: {}), RaisingAcloseCallback()]
+        hangarllm, "callbacks", [_rewriting_stream_guardrail(lambda inputs: {}), RaisingAcloseCallback()]
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(stream=True)
     chunks = _tool_call_stream_chunks()
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         delivered = [
             item
             async for item in proxy_logging.async_post_call_streaming_iterator_hook(
@@ -4052,8 +4052,8 @@ async def test_streaming_iterator_hook_live_pipeline_releases_every_chunk_before
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_live_scan_guardrail(seen)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_live_scan_guardrail(seen)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(step=_DETECT_ONLY_STEP, stream=True)
 
     delivered, scans_before_delivery = await _deliver_with_scan_counts(
@@ -4095,8 +4095,8 @@ async def test_streaming_iterator_hook_pipeline_keeps_buffering_unless_a_detect_
     guardrail_kwargs: Dict[str, Any],
 ) -> None:
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_live_scan_guardrail(seen, **guardrail_kwargs)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_live_scan_guardrail(seen, **guardrail_kwargs)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(step=step, stream=True)
 
     delivered, scans_before_delivery = await _deliver_with_scan_counts(
@@ -4117,14 +4117,14 @@ async def test_streaming_iterator_hook_live_pipeline_discards_each_rewrite_befor
     first_seen: Final[Dict[str, Any]] = {}
     second_seen: Final[Dict[str, Any]] = {}
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [
             _live_scan_guardrail(first_seen, guardrail_name="gr-first", rewrite="hello [MASKED]"),
             _live_scan_guardrail(second_seen, guardrail_name="gr-second"),
         ],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     pipeline: Final = GuardrailPipeline(
         mode="post_call",
         steps=[
@@ -4136,7 +4136,7 @@ async def test_streaming_iterator_hook_live_pipeline_discards_each_rewrite_befor
     data["metadata"]["_guardrail_pipelines"] = [("response-governance", pipeline)]
     data["metadata"]["_pipeline_managed_guardrails"] = {"gr-first", "gr-second"}
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         delivered, scans_before_delivery = await _deliver_with_scan_counts(
             proxy_logging, make_user_api_key_auth(request_route="/v1/chat/completions"), data, second_seen
         )
@@ -4158,8 +4158,8 @@ async def test_streaming_iterator_hook_live_pipeline_scans_what_a_disconnected_c
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_live_scan_guardrail(seen)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_live_scan_guardrail(seen)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(step=_DETECT_ONLY_STEP, stream=True)
     stream = proxy_logging.async_post_call_streaming_iterator_hook(
         user_api_key_dict=make_user_api_key_auth(request_route="/v1/chat/completions"),
@@ -4182,8 +4182,8 @@ async def test_streaming_iterator_hook_live_pipeline_records_a_scan_that_failed_
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_live_scan_guardrail(seen, raises=RuntimeError("scanner down"))])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_live_scan_guardrail(seen, raises=RuntimeError("scanner down"))])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data = _post_call_pipeline_data(step=_DETECT_ONLY_STEP, stream=True)
     stream = proxy_logging.async_post_call_streaming_iterator_hook(
         user_api_key_dict=make_user_api_key_auth(request_route="/v1/chat/completions"),
@@ -4210,8 +4210,8 @@ async def test_streaming_iterator_hook_live_pipeline_scans_what_the_client_recei
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     seen: Final[Dict[str, Any]] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_live_scan_guardrail(seen)])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_live_scan_guardrail(seen)])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
     data: Final = _post_call_pipeline_data(step=_DETECT_ONLY_STEP, stream=True)
     stream: Final = proxy_logging.async_post_call_streaming_iterator_hook(
         user_api_key_dict=make_user_api_key_auth(request_route="/v1/chat/completions"),
@@ -4241,10 +4241,10 @@ async def test_live_pipeline_disconnect_scan_that_cannot_run_records_every_step_
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     seen: Dict[str, Any] = {}
-    monkeypatch.setattr(litellm, "callbacks", [_live_scan_guardrail(seen)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_live_scan_guardrail(seen)])
     data = _post_call_pipeline_data(step=_DETECT_ONLY_STEP, stream=True)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         await proxy_logging._scan_pipeline_stream_cut_short(
             released=_stream_chunks()[:1],
             user_api_key_dict=make_user_api_key_auth(request_route="/v1/chat/completions"),

@@ -8,17 +8,17 @@ import respx
 from respx import MockRouter
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm import transcription
-from litellm.litellm_core_utils.get_supported_openai_params import get_supported_openai_params
-from litellm.llms.base_llm.audio_transcription.transformation import (
+import hangarllm
+from hangarllm import transcription
+from hangarllm.hangarllm_core_utils.get_supported_openai_params import get_supported_openai_params
+from hangarllm.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
     BaseAudioTranscriptionConfig,
 )
-from litellm.llms.elevenlabs.audio_transcription.transformation import ElevenLabsAudioTranscriptionConfig
-from litellm.llms.mistral.audio_transcription.transformation import MistralAudioTranscriptionConfig
-from litellm.llms.ovhcloud.audio_transcription.transformation import OVHCloudAudioTranscriptionConfig
-from litellm.utils import ProviderConfigManager
+from hangarllm.llms.elevenlabs.audio_transcription.transformation import ElevenLabsAudioTranscriptionConfig
+from hangarllm.llms.mistral.audio_transcription.transformation import MistralAudioTranscriptionConfig
+from hangarllm.llms.ovhcloud.audio_transcription.transformation import OVHCloudAudioTranscriptionConfig
+from hangarllm.utils import ProviderConfigManager
 
 
 class _Kwargs(TypedDict, total=False):
@@ -56,7 +56,7 @@ _CASES: Final[tuple[_Case, ...]] = (
         "base_model": "gpt-4o-transcribe",
         "request_markers": (b"gpt-4o-transcribe", b'name="timestamp_granularities[]"\r\n\r\nword\r\n'),
         "marker_in_url": False,
-        "config_class": litellm.OpenAIGPTAudioTranscriptionConfig,
+        "config_class": hangarllm.OpenAIGPTAudioTranscriptionConfig,
     },
     {
         "id": "elevenlabs_scribe",
@@ -78,7 +78,7 @@ _CASES: Final[tuple[_Case, ...]] = (
         "base_model": "nova-2",
         "request_markers": (b"model=nova-2",),
         "marker_in_url": True,
-        "config_class": litellm.DeepgramAudioTranscriptionConfig,
+        "config_class": hangarllm.DeepgramAudioTranscriptionConfig,
     },
     {
         "id": "mistral_voxtral",
@@ -151,7 +151,7 @@ def test_audio_transcription(case: _Case, respx_mock: MockRouter) -> None:
 @pytest.mark.asyncio
 async def test_audio_transcription_async(case: _Case, respx_mock: MockRouter) -> None:
     route: Final = _register(case, respx_mock)
-    transcript: Final = await litellm.atranscription(**dict(case["kwargs"]), file=io.BytesIO(_AUDIO_BYTES))
+    transcript: Final = await hangarllm.atranscription(**dict(case["kwargs"]), file=io.BytesIO(_AUDIO_BYTES))
     _assert_translated_request(case, route.calls.last.request)
     assert transcript.text == "four score and seven years ago"
 
@@ -172,7 +172,7 @@ def test_audio_transcription_optional_params(case: _Case) -> None:
 def test_audio_transcription_config(case: _Case) -> None:
     config: Final = ProviderConfigManager.get_provider_audio_transcription_config(
         model=case["kwargs"]["model"],
-        provider=litellm.LlmProviders(case["provider"]),
+        provider=hangarllm.LlmProviders(case["provider"]),
     )
     assert type(config) is case["config_class"]
     assert isinstance(config, BaseAudioTranscriptionConfig)
@@ -182,7 +182,7 @@ def test_audio_transcription_config(case: _Case) -> None:
             api_key=None,
             model=case["base_model"],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert "api.deepgram.com" in complete_url
         assert "model=nova-2" in complete_url
@@ -191,7 +191,7 @@ def test_audio_transcription_config(case: _Case) -> None:
             model=case["base_model"],
             audio_file=io.BytesIO(_AUDIO_BYTES),
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert _AUDIO_BYTES in _transformed_payload(transformed)
 

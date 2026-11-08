@@ -7,20 +7,20 @@ from typing import Literal, Protocol
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.caching.caching import DualCache
-from litellm.exceptions import SensitiveDataRouteException
-from litellm.integrations.custom_guardrail import CustomGuardrail, log_guardrail_information
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
+import hangarllm
+from hangarllm._logging import verbose_logger
+from hangarllm.caching.caching import DualCache
+from hangarllm.exceptions import SensitiveDataRouteException
+from hangarllm.integrations.custom_guardrail import CustomGuardrail, log_guardrail_information
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
     ProxyServerRuntime,
     VectorStorePreCallHook,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.llms.openai import AllMessageValues, ResponsesAPIResponse
-from litellm.types.utils import (
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.llms.openai import AllMessageValues, ResponsesAPIResponse
+from hangarllm.types.utils import (
     CallTypes,
     CallTypesLiteral,
     Choices,
@@ -31,14 +31,14 @@ from litellm.types.utils import (
     ModelResponseStream,
     StreamingChoices,
 )
-from litellm.types.vector_stores import (
+from hangarllm.types.vector_stores import (
     VectorStoreResultContent,
     VectorStoreSearchFailure,
     VectorStoreSearchResponse,
     VectorStoreSearchResult,
 )
-from litellm.vector_stores.vector_store_registry import (
-    LiteLLM_ManagedVectorStore,
+from hangarllm.vector_stores.vector_store_registry import (
+    HangarLLM_ManagedVectorStore,
     VectorStoreRegistry,
 )
 
@@ -46,7 +46,7 @@ from litellm.vector_stores.vector_store_registry import (
 def _search_response(text: str) -> VectorStoreSearchResponse:
     return VectorStoreSearchResponse(
         object="vector_store.search_results.page",
-        search_query="what is litellm?",
+        search_query="what is hangarllm?",
         data=[
             VectorStoreSearchResult(
                 score=1.0,
@@ -64,7 +64,7 @@ def _first_message(response: ModelResponse) -> Message:
 
 @dataclass(frozen=True)
 class ExplodingRegistry:
-    async def pop_vector_stores_to_run_with_db_fallback(self, **kwargs: object) -> list[LiteLLM_ManagedVectorStore]:
+    async def pop_vector_stores_to_run_with_db_fallback(self, **kwargs: object) -> list[HangarLLM_ManagedVectorStore]:
         raise RuntimeError("the registry blew up")
 
 
@@ -78,7 +78,7 @@ class RecordingRouter:
         self.calls.append(kwargs)
         vector_store_id = str(kwargs["vector_store_id"])
         if vector_store_id in self.failing_vector_store_ids:
-            raise litellm.BadRequestError(
+            raise hangarllm.BadRequestError(
                 message=f"no healthy deployments for {vector_store_id}",
                 model="text-embedding-3-small",
                 llm_provider="openai",
@@ -114,11 +114,11 @@ class RegisterStores(Protocol):
 def registry_with(monkeypatch: pytest.MonkeyPatch) -> RegisterStores:
     def _register(*vector_store_ids: str, custom_llm_provider: str = "bedrock") -> None:
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "vector_store_registry",
             VectorStoreRegistry(
                 vector_stores=[
-                    LiteLLM_ManagedVectorStore(vector_store_id=vector_store_id, custom_llm_provider=custom_llm_provider)
+                    HangarLLM_ManagedVectorStore(vector_store_id=vector_store_id, custom_llm_provider=custom_llm_provider)
                     for vector_store_id in vector_store_ids
                 ],
             ),
@@ -137,7 +137,7 @@ def warnings() -> Iterator[list[logging.LogRecord]]:
 
 class FakeLoggingObj:
     def __init__(self, metadata: dict[str, str]) -> None:
-        self.model_call_details: dict[str, object] = {"litellm_params": {"metadata": metadata}}
+        self.model_call_details: dict[str, object] = {"hangarllm_params": {"metadata": metadata}}
 
 
 async def _run_hook(
@@ -148,12 +148,12 @@ async def _run_hook(
 ) -> tuple[str, list[AllMessageValues], dict[str, object]]:
     return await hook.async_get_chat_completion_prompt(
         model="chat-model",
-        messages=[{"role": "user", "content": "what is litellm?"}],
+        messages=[{"role": "user", "content": "what is hangarllm?"}],
         non_default_params={"vector_store_ids": vector_store_ids, **request_params},
         prompt_id=None,
         prompt_variables=None,
         dynamic_callback_params={},
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
 
 
@@ -175,7 +175,7 @@ async def test_hook_searches_through_the_injected_router_with_the_request_metada
     assert router.calls == [
         {
             "vector_store_id": "vs-router",
-            "query": "what is litellm?",
+            "query": "what is hangarllm?",
             "custom_llm_provider": "bedrock",
             "metadata": {"user_api_key_team_id": "team-a"},
         }
@@ -196,7 +196,7 @@ async def test_hook_falls_back_to_the_sdk_when_the_runtime_has_no_router(
         FakeLoggingObj({"user_api_key_team_id": "team-a"}),
     )
 
-    assert messages == [{"role": "user", "content": "what is litellm?"}]
+    assert messages == [{"role": "user", "content": "what is hangarllm?"}]
     assert len(warnings) == 1
     assert (
         warnings[0]
@@ -221,7 +221,7 @@ async def test_every_healthy_vector_store_contributes_its_own_context(registry_w
     assert [message["content"] for message in messages] == [
         "Context:\n\ncontext from vs-one\n\n",
         "Context:\n\ncontext from vs-two\n\n",
-        "what is litellm?",
+        "what is hangarllm?",
     ]
 
 
@@ -249,7 +249,7 @@ async def test_a_failing_vector_store_warns_with_its_id_and_the_other_stores_sti
     assert len(search_results) == 1
     assert [record.getMessage() for record in warnings] == [
         "Vector store search failed for vector_store_id=vs-broken, continuing without its context: "
-        "litellm.BadRequestError: no healthy deployments for vs-broken"
+        "hangarllm.BadRequestError: no healthy deployments for vs-broken"
     ]
 
 
@@ -259,7 +259,7 @@ async def test_the_only_vector_store_failing_leaves_the_messages_untouched(
     warnings: list[logging.LogRecord],
 ) -> None:
     registry_with("vs-broken")
-    original_messages = [{"role": "user", "content": "what is litellm?"}]
+    original_messages = [{"role": "user", "content": "what is hangarllm?"}]
 
     _, messages, _ = await _run_hook(
         VectorStorePreCallHook(
@@ -274,7 +274,7 @@ async def test_the_only_vector_store_failing_leaves_the_messages_untouched(
         (
             "WARNING",
             "Vector store search failed for vector_store_id=vs-broken, continuing without its context: "
-            "litellm.BadRequestError: no healthy deployments for vs-broken",
+            "hangarllm.BadRequestError: no healthy deployments for vs-broken",
         )
     ]
 
@@ -285,7 +285,7 @@ async def test_the_default_hook_reaches_the_proxy_router_through_its_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Regression (LIT-6752): a hook built with no arguments must still search through the proxy's own Router."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     registry_with("vs-default")
     router = RecordingRouter()
@@ -303,7 +303,7 @@ async def test_the_default_hook_reaches_the_proxy_router_through_its_runtime(
 
 
 def test_the_default_runtime_follows_the_proxy_globals(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     runtime = ProxyServerRuntime()
     monkeypatch.setattr(proxy_server, "llm_router", None)
@@ -339,7 +339,7 @@ async def test_a_failing_vector_store_is_reported_back_to_the_caller(
 
     response = ModelResponse(choices=[Choices(message=Message(content="an answer"))])
     await VectorStorePreCallHook(proxy_runtime=FakeProxyRuntime(router=None)).async_post_call_success_deployment_hook(
-        request_data={"litellm_logging_obj": logging_obj},
+        request_data={"hangarllm_logging_obj": logging_obj},
         response=response,
         call_type=CallTypes.acompletion,
     )
@@ -349,7 +349,7 @@ async def test_a_failing_vector_store_is_reported_back_to_the_caller(
         {
             "vector_store_id": "vs-broken",
             "custom_llm_provider": "bedrock",
-            "error": "litellm.BadRequestError: no healthy deployments for vs-broken",
+            "error": "hangarllm.BadRequestError: no healthy deployments for vs-broken",
         },
     )
     assert len(provider_specific_fields["search_results"]) == 1
@@ -368,7 +368,7 @@ async def test_a_healthy_vector_store_alone_reports_no_failures(registry_with: R
 
     response = ModelResponse(choices=[Choices(message=Message(content="an answer"))])
     await VectorStorePreCallHook(proxy_runtime=FakeProxyRuntime(router=None)).async_post_call_success_deployment_hook(
-        request_data={"litellm_logging_obj": logging_obj},
+        request_data={"hangarllm_logging_obj": logging_obj},
         response=response,
         call_type=CallTypes.acompletion,
     )
@@ -394,7 +394,7 @@ async def test_a_failing_vector_store_is_reported_on_the_responses_api_response(
 
     response = ResponsesAPIResponse(id="resp-lit6809", created_at=0, output=[])
     await VectorStorePreCallHook(proxy_runtime=FakeProxyRuntime(router=None)).async_post_call_success_deployment_hook(
-        request_data={"litellm_logging_obj": logging_obj},
+        request_data={"hangarllm_logging_obj": logging_obj},
         response=response,
         call_type=CallTypes.aresponses,
     )
@@ -403,7 +403,7 @@ async def test_a_failing_vector_store_is_reported_on_the_responses_api_response(
         {
             "vector_store_id": "vs-broken",
             "custom_llm_provider": "bedrock",
-            "error": "litellm.BadRequestError: no healthy deployments for vs-broken",
+            "error": "hangarllm.BadRequestError: no healthy deployments for vs-broken",
         }
     ]
 
@@ -421,7 +421,7 @@ async def test_a_healthy_vector_store_leaves_the_responses_api_response_alone(re
 
     response = ResponsesAPIResponse(id="resp-lit6809", created_at=0, output=[])
     await VectorStorePreCallHook(proxy_runtime=FakeProxyRuntime(router=None)).async_post_call_success_deployment_hook(
-        request_data={"litellm_logging_obj": logging_obj},
+        request_data={"hangarllm_logging_obj": logging_obj},
         response=response,
         call_type=CallTypes.aresponses,
     )
@@ -453,7 +453,7 @@ async def test_a_failing_vector_store_is_reported_on_the_streaming_chunk(registr
         {
             "vector_store_id": "vs-broken",
             "custom_llm_provider": "bedrock",
-            "error": "litellm.BadRequestError: no healthy deployments for vs-broken",
+            "error": "hangarllm.BadRequestError: no healthy deployments for vs-broken",
         },
     )
 
@@ -495,7 +495,7 @@ async def test_search_failures_join_the_provider_fields_the_message_already_carr
     returned = await VectorStorePreCallHook(
         proxy_runtime=FakeProxyRuntime(router=None)
     ).async_post_call_success_deployment_hook(
-        request_data={"litellm_logging_obj": _logging_obj_with_search_failures()},
+        request_data={"hangarllm_logging_obj": _logging_obj_with_search_failures()},
         response=response,
         call_type=CallTypes.acompletion,
     )
@@ -555,7 +555,7 @@ async def test_a_response_without_choices_is_returned_untouched(
     returned = await VectorStorePreCallHook(
         proxy_runtime=FakeProxyRuntime(router=None)
     ).async_post_call_success_deployment_hook(
-        request_data={"litellm_logging_obj": _logging_obj_with_search_failures()},
+        request_data={"hangarllm_logging_obj": _logging_obj_with_search_failures()},
         response=response,
         call_type=CallTypes.acompletion,
     )
@@ -600,14 +600,14 @@ async def test_the_search_receives_the_requests_own_metadata_object(registry_wit
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("litellm_params", [None, "metadata", ["metadata"], {"other": "value"}])
-async def test_a_request_without_metadata_in_its_litellm_params_searches_with_empty_metadata(
-    registry_with: RegisterStores, litellm_params: object
+@pytest.mark.parametrize("hangarllm_params", [None, "metadata", ["metadata"], {"other": "value"}])
+async def test_a_request_without_metadata_in_its_hangarllm_params_searches_with_empty_metadata(
+    registry_with: RegisterStores, hangarllm_params: object
 ) -> None:
     registry_with("vs-router")
     router = RecordingRouter()
     logging_obj = FakeLoggingObj({})
-    logging_obj.model_call_details["litellm_params"] = litellm_params
+    logging_obj.model_call_details["hangarllm_params"] = hangarllm_params
 
     await _run_hook(
         VectorStorePreCallHook(proxy_runtime=FakeProxyRuntime(router=router)),
@@ -625,9 +625,9 @@ async def test_error_mode_fails_the_request_instead_of_answering_without_the_kno
 ) -> None:
     """Regression (LIT-6809): opting in must turn an ungrounded answer into a 400 the caller can act on."""
     registry_with("vs-broken", "vs-healthy")
-    monkeypatch.setattr(litellm, "vector_store_search_failure_mode", "error")
+    monkeypatch.setattr(hangarllm, "vector_store_search_failure_mode", "error")
 
-    with pytest.raises(litellm.VectorStoreSearchError) as raised:
+    with pytest.raises(hangarllm.VectorStoreSearchError) as raised:
         await _run_hook(
             VectorStorePreCallHook(
                 proxy_runtime=FakeProxyRuntime(
@@ -643,10 +643,10 @@ async def test_error_mode_fails_the_request_instead_of_answering_without_the_kno
         {
             "vector_store_id": "vs-broken",
             "custom_llm_provider": "bedrock",
-            "error": "litellm.BadRequestError: no healthy deployments for vs-broken",
+            "error": "hangarllm.BadRequestError: no healthy deployments for vs-broken",
         },
     )
-    assert "vs-broken: litellm.BadRequestError: no healthy deployments for vs-broken" in raised.value.message
+    assert "vs-broken: hangarllm.BadRequestError: no healthy deployments for vs-broken" in raised.value.message
 
 
 @pytest.mark.asyncio
@@ -655,9 +655,9 @@ async def test_a_misspelled_failure_mode_annotates_instead_of_erroring_the_reque
     monkeypatch: pytest.MonkeyPatch,
     warnings: list[logging.LogRecord],
 ) -> None:
-    """Regression (LIT-6809): litellm_settings takes any value, so a typo must not become a 500."""
+    """Regression (LIT-6809): hangarllm_settings takes any value, so a typo must not become a 500."""
     registry_with("vs-broken")
-    monkeypatch.setattr(litellm, "vector_store_search_failure_mode", "erorr")
+    monkeypatch.setattr(hangarllm, "vector_store_search_failure_mode", "erorr")
 
     logging_obj = FakeLoggingObj({})
     _, messages, _ = await _run_hook(
@@ -668,12 +668,12 @@ async def test_a_misspelled_failure_mode_annotates_instead_of_erroring_the_reque
         logging_obj,
     )
 
-    assert messages[0]["content"] == "what is litellm?"
+    assert messages[0]["content"] == "what is hangarllm?"
     assert logging_obj.model_call_details["vector_store_search_failures"] == (
         {
             "vector_store_id": "vs-broken",
             "custom_llm_provider": "bedrock",
-            "error": "litellm.BadRequestError: no healthy deployments for vs-broken",
+            "error": "hangarllm.BadRequestError: no healthy deployments for vs-broken",
         },
     )
     assert any("erorr" in record.getMessage() for record in warnings)
@@ -685,7 +685,7 @@ async def test_error_mode_leaves_a_fully_healthy_request_alone(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     registry_with("vs-healthy")
-    monkeypatch.setattr(litellm, "vector_store_search_failure_mode", "error")
+    monkeypatch.setattr(hangarllm, "vector_store_search_failure_mode", "error")
 
     _, messages, _ = await _run_hook(
         VectorStorePreCallHook(proxy_runtime=FakeProxyRuntime(router=RecordingRouter())),
@@ -704,9 +704,9 @@ async def test_error_mode_does_not_swallow_the_raise_in_the_hooks_own_catch_all(
 ) -> None:
     """Regression (LIT-6809): the catch-all around the hook must not turn the opted-in failure back into a 200."""
     registry_with("vs-broken")
-    monkeypatch.setattr(litellm, "vector_store_search_failure_mode", "error")
+    monkeypatch.setattr(hangarllm, "vector_store_search_failure_mode", "error")
 
-    with pytest.raises(litellm.VectorStoreSearchError):
+    with pytest.raises(hangarllm.VectorStoreSearchError):
         await _run_hook(
             VectorStorePreCallHook(
                 proxy_runtime=FakeProxyRuntime(
@@ -726,7 +726,7 @@ async def test_a_crash_outside_the_search_names_the_requested_vector_stores(
     warnings: list[logging.LogRecord],
 ) -> None:
     """Regression (LIT-6809): the catch-all logged no store id, so an operator could not tell which store broke."""
-    monkeypatch.setattr(litellm, "vector_store_registry", ExplodingRegistry())
+    monkeypatch.setattr(hangarllm, "vector_store_registry", ExplodingRegistry())
 
     _, messages, _ = await _run_hook(
         VectorStorePreCallHook(proxy_runtime=FakeProxyRuntime(router=None)),
@@ -734,7 +734,7 @@ async def test_a_crash_outside_the_search_names_the_requested_vector_stores(
         FakeLoggingObj({}),
     )
 
-    assert messages == [{"role": "user", "content": "what is litellm?"}]
+    assert messages == [{"role": "user", "content": "what is hangarllm?"}]
     assert [record.getMessage() for record in warnings] == [
         "Error in VectorStorePreCallHook for vector_store_ids=('vs-one', 'vs-two'): the registry blew up"
     ]
@@ -809,7 +809,7 @@ class ApplyStyleGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: Mapping[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: HangarLLMLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         texts = list(inputs.get("texts") or [])
         self.seen_texts.append(texts)
@@ -830,7 +830,7 @@ async def test_a_retrieved_chunk_holding_an_injection_is_blocked_before_it_enter
     """A poisoned document was injected into the prompt unscanned: no guardrail hook ever saw retrieved chunks."""
     registry_with("vs-poisoned")
     guardrail = ScanningGuardrail(verdict="http_400")
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     with pytest.raises(HTTPException) as raised:
         await _run_hook(
@@ -854,7 +854,7 @@ async def test_a_rejection_message_from_the_guardrail_blocks_the_chunk_with_a_40
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     registry_with("vs-poisoned")
-    monkeypatch.setattr(litellm, "callbacks", [ScanningGuardrail(verdict="str_verdict")])
+    monkeypatch.setattr(hangarllm, "callbacks", [ScanningGuardrail(verdict="str_verdict")])
 
     with pytest.raises(HTTPException) as raised:
         await _run_hook(
@@ -877,7 +877,7 @@ async def test_a_masking_guardrail_rewrites_the_chunk_that_enters_the_prompt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     registry_with("vs-poisoned")
-    monkeypatch.setattr(litellm, "callbacks", [ScanningGuardrail(verdict="mask")])
+    monkeypatch.setattr(hangarllm, "callbacks", [ScanningGuardrail(verdict="mask")])
 
     _, messages, _ = await _run_hook(
         VectorStorePreCallHook(proxy_runtime=FakeProxyRuntime(router=_poisoned_router("vs-poisoned"))),
@@ -887,7 +887,7 @@ async def test_a_masking_guardrail_rewrites_the_chunk_that_enters_the_prompt(
 
     assert messages == [
         {"role": "user", "content": "Context:\n\n[REDACTED]\n\n"},
-        {"role": "user", "content": "what is litellm?"},
+        {"role": "user", "content": "what is hangarllm?"},
     ]
 
 
@@ -898,7 +898,7 @@ async def test_every_stores_chunk_is_scanned_on_its_own_and_kept_in_order(
 ) -> None:
     registry_with("vs-one", "vs-two")
     guardrail = ScanningGuardrail()
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     _, messages, _ = await _run_hook(
         VectorStorePreCallHook(proxy_runtime=FakeProxyRuntime(router=RecordingRouter())),
@@ -913,7 +913,7 @@ async def test_every_stores_chunk_is_scanned_on_its_own_and_kept_in_order(
     assert [message["content"] for message in messages] == [
         "Context:\n\ncontext from vs-one\n\n",
         "Context:\n\ncontext from vs-two\n\n",
-        "what is litellm?",
+        "what is hangarllm?",
     ]
 
 
@@ -930,7 +930,7 @@ async def test_a_guardrail_the_request_is_not_subject_to_never_sees_the_chunks(
 ) -> None:
     registry_with("vs-poisoned")
     guardrail = ScanningGuardrail(default_on=default_on, event_hook=event_hook)
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     _, messages, _ = await _run_hook(
         VectorStorePreCallHook(proxy_runtime=FakeProxyRuntime(router=_poisoned_router("vs-poisoned"))),
@@ -948,7 +948,7 @@ async def test_a_guardrail_the_request_opted_into_scans_the_chunks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     registry_with("vs-poisoned")
-    monkeypatch.setattr(litellm, "callbacks", [ScanningGuardrail(default_on=False)])
+    monkeypatch.setattr(hangarllm, "callbacks", [ScanningGuardrail(default_on=False)])
 
     with pytest.raises(HTTPException) as raised:
         await _run_hook(
@@ -967,7 +967,7 @@ async def test_a_guardrail_crash_during_the_scan_propagates_instead_of_injecting
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     registry_with("vs-poisoned")
-    monkeypatch.setattr(litellm, "callbacks", [ScanningGuardrail(verdict="crash")])
+    monkeypatch.setattr(hangarllm, "callbacks", [ScanningGuardrail(verdict="crash")])
 
     with pytest.raises(RuntimeError, match="scanner unavailable"):
         await _run_hook(
@@ -984,7 +984,7 @@ async def test_the_scan_runs_under_the_identity_the_proxy_stamped_on_the_request
 ) -> None:
     registry_with("vs-healthy")
     guardrail = ScanningGuardrail()
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     await _run_hook(
         VectorStorePreCallHook(proxy_runtime=FakeProxyRuntime(router=RecordingRouter())),
@@ -1003,7 +1003,7 @@ async def test_a_team_id_typed_into_the_request_body_never_outranks_the_stamped_
 ) -> None:
     registry_with("vs-healthy")
     guardrail = ScanningGuardrail()
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     await _run_hook(
         VectorStorePreCallHook(proxy_runtime=FakeProxyRuntime(router=RecordingRouter())),
@@ -1030,7 +1030,7 @@ async def test_the_scan_is_recorded_in_the_requests_guardrail_logging_informatio
     expected_status: str,
 ) -> None:
     registry_with("vs-one")
-    monkeypatch.setattr(litellm, "callbacks", [ScanningGuardrail()])
+    monkeypatch.setattr(hangarllm, "callbacks", [ScanningGuardrail()])
     metadata: dict[str, object] = {}
     router = _poisoned_router("vs-one") if poisoned else RecordingRouter()
 
@@ -1058,7 +1058,7 @@ async def test_an_apply_guardrail_style_guardrail_scans_the_chunks_too(
 ) -> None:
     registry_with("vs-poisoned")
     guardrail = ApplyStyleGuardrail()
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
     metadata: dict[str, object] = {}
 
     with pytest.raises(HTTPException) as raised:
@@ -1086,7 +1086,7 @@ async def test_a_route_verdict_on_a_chunk_blocks_the_request_instead_of_reroutin
 ) -> None:
     registry_with("vs-poisoned")
     guardrail = ScanningGuardrail(verdict="route")
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     with pytest.raises(HTTPException) as raised:
         await _run_hook(
@@ -1108,12 +1108,12 @@ async def test_chunks_are_scanned_against_the_clients_request_when_the_proxy_kep
 ) -> None:
     registry_with("vs-clean")
     guardrail = ScanningGuardrail()
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
     client_body = {
         "model": "kb-model",
         "user": "cav:grex",
         "temperature": 0,
-        "messages": [{"role": "user", "content": "what is litellm?"}],
+        "messages": [{"role": "user", "content": "what is hangarllm?"}],
     }
 
     await _run_hook(
@@ -1135,11 +1135,11 @@ async def test_a_team_guardrail_merged_into_the_metadata_scans_the_chunks_even_w
 ) -> None:
     registry_with("vs-poisoned")
     team_guardrail = ScanningGuardrail(default_on=False, guardrail_name="team-guardrail")
-    monkeypatch.setattr(litellm, "callbacks", [team_guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [team_guardrail])
     client_body = {
         "model": "kb-model",
         "guardrails": ["client-guardrail"],
-        "messages": [{"role": "user", "content": "what is litellm?"}],
+        "messages": [{"role": "user", "content": "what is hangarllm?"}],
     }
 
     with pytest.raises(HTTPException) as raised:
@@ -1164,11 +1164,11 @@ async def test_a_team_guardrail_merged_into_the_metadata_scans_the_chunks_even_w
     registry_with: RegisterStores,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The router folds a deployment's litellm_params.guardrails into the call as a top-level key."""
+    """The router folds a deployment's hangarllm_params.guardrails into the call as a top-level key."""
     registry_with("vs-poisoned")
     team_guardrail = ScanningGuardrail(default_on=False, guardrail_name="team-guardrail")
-    monkeypatch.setattr(litellm, "callbacks", [team_guardrail])
-    client_body = {"model": "kb-model", "messages": [{"role": "user", "content": "what is litellm?"}]}
+    monkeypatch.setattr(hangarllm, "callbacks", [team_guardrail])
+    client_body = {"model": "kb-model", "messages": [{"role": "user", "content": "what is hangarllm?"}]}
 
     with pytest.raises(HTTPException) as raised:
         await _run_hook(
@@ -1195,7 +1195,7 @@ async def test_chunks_are_scanned_against_the_sdk_kwargs_when_there_is_no_proxy_
 ) -> None:
     registry_with("vs-clean")
     guardrail = ScanningGuardrail()
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     await _run_hook(
         VectorStorePreCallHook(proxy_runtime=FakeProxyRuntime(router=_poisoned_router())),

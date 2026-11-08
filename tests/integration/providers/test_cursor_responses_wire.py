@@ -22,7 +22,7 @@ _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _PROXY_WORKERS: Final = max(1, int(os.environ.get("INTEGRATION_PROXY_WORKERS", "1")))
 _COST_MAP: Final = TypeAdapter(dict[str, dict[str, JsonValue]])
 _MODEL_ROW: Final = _COST_MAP.validate_json(
-    (files("litellm") / "model_prices_and_context_window_backup.json").read_bytes()
+    (files("hangarllm") / "model_prices_and_context_window_backup.json").read_bytes()
 )[_MODEL]
 _THINKING_LEVELS: Final = tuple(
     level
@@ -328,7 +328,7 @@ def test_cursor_responses_body_sends_only_client_metadata_and_bills_the_key(
         }, requests[0].body
         (row,) = eventually(
             lambda: gateway.rows(
-                'SELECT call_type, spend, metadata FROM "LiteLLM_SpendLogs" WHERE api_key = %s', (hashed_key,)
+                'SELECT call_type, spend, metadata FROM "HangarLLM_SpendLogs" WHERE api_key = %s', (hashed_key,)
             ),
             lambda rows: len(rows) == 1,
             seconds=70,
@@ -337,7 +337,7 @@ def test_cursor_responses_body_sends_only_client_metadata_and_bills_the_key(
         assert object_value(row["metadata"])["user_api_key_alias"] == alias, row
         assert isinstance(row["spend"], float) and row["spend"] > 0, row
         eventually(
-            lambda: gateway.rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token = %s', (hashed_key,)),
+            lambda: gateway.rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token = %s', (hashed_key,)),
             lambda tokens: len(tokens) == 1 and tokens[0]["spend"] == pytest.approx(row["spend"]),
             seconds=70,
         )
@@ -416,7 +416,7 @@ def test_cursor_messages_body_uses_chat_completions_wire(
                 "stream": stream,
             },
             key=key,
-            headers={"x-litellm-tags": _REQUEST_TAG},
+            headers={"x-hangarllm-tags": _REQUEST_TAG},
         )
         assert response.status_code == 200, response.text
         if stream:
@@ -508,7 +508,7 @@ def test_cursor_messages_body_uses_chat_completions_wire(
         }, requests[0].body
         (row,) = eventually(
             lambda: gateway.rows(
-                'SELECT call_type, team_id, request_tags FROM "LiteLLM_SpendLogs" WHERE api_key = %s',
+                'SELECT call_type, team_id, request_tags FROM "HangarLLM_SpendLogs" WHERE api_key = %s',
                 (sha256(key.encode()).hexdigest(),),
             ),
             lambda rows: len(rows) == 1,
@@ -563,7 +563,7 @@ def test_cursor_body_keeps_client_and_key_tags_and_enforces_the_client_tag_budge
         assert first.status_code == 200, first.text
         (row,) = eventually(
             lambda: gateway.rows(
-                'SELECT request_tags FROM "LiteLLM_SpendLogs" WHERE api_key = %s',
+                'SELECT request_tags FROM "HangarLLM_SpendLogs" WHERE api_key = %s',
                 (sha256(key.encode()).hexdigest(),),
             ),
             lambda rows: len(rows) == 1,

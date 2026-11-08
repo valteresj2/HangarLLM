@@ -8,11 +8,11 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.cohere.embed.transformation import CohereEmbeddingConfig
-from litellm.types.utils import EmbeddingResponse
+import hangarllm
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.cohere.embed.transformation import CohereEmbeddingConfig
+from hangarllm.types.utils import EmbeddingResponse
 
 FLOAT_VECTORS = [[0.1, 0.2], [0.3, 0.4]]
 INT8_VECTORS = [[1, -2], [3, 4]]
@@ -25,7 +25,7 @@ def _transform(payload: object) -> EmbeddingResponse:
         stream=False,
         call_type="embedding",
         start_time=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-id",
+        hangarllm_call_id="call-id",
         function_id="function-id",
     )
     logging_obj.model_call_details["input"] = ["hello", "world"]
@@ -37,7 +37,7 @@ def _transform(payload: object) -> EmbeddingResponse:
         api_key="sk-test",
         request_data={"model": "embed-english-v3.0", "texts": ["hello", "world"]},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
 
@@ -180,9 +180,9 @@ ONE_PIXEL_PNG: Final = (
 @pytest.fixture
 def _cohere_httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     client_cache: Final = LLMClientCache()
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", client_cache)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", client_cache)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", False)
     yield
     client_cache.flush_cache()
 
@@ -199,8 +199,8 @@ def _cohere_v2_embed_response(vectors: list[list[float]], texts: list[str]) -> d
 
 async def _embed(sync_mode: bool, **kwargs: object) -> EmbeddingResponse:
     if sync_mode:
-        return litellm.embedding(model="cohere/embed-v4.0", api_key="cohere-test-key", **kwargs)
-    return await litellm.aembedding(model="cohere/embed-v4.0", api_key="cohere-test-key", **kwargs)
+        return hangarllm.embedding(model="cohere/embed-v4.0", api_key="cohere-test-key", **kwargs)
+    return await hangarllm.aembedding(model="cohere/embed-v4.0", api_key="cohere-test-key", **kwargs)
 
 
 def _cohere_embedding_logging_obj() -> Logging:
@@ -210,7 +210,7 @@ def _cohere_embedding_logging_obj() -> Logging:
         stream=False,
         call_type="embedding",
         start_time=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="cohere-embedding-test-call",
+        hangarllm_call_id="cohere-embedding-test-call",
         function_id="cohere-embedding-test-function",
     )
 
@@ -277,7 +277,7 @@ def test_cohere_embed_v4_response_parses_multiple_embeddings() -> None:
         api_key="test-api-key",
         request_data={"texts": ["first", "second"]},
         optional_params={"embedding_types": ["float", "int8"]},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert response.object == "list"
@@ -406,7 +406,7 @@ async def test_cohere_embed_v4_image_tokens_are_billed_apart_from_input_tokens(
             },
         )
     )
-    model_info: Final = litellm.get_model_info("cohere/embed-v4.0")
+    model_info: Final = hangarllm.get_model_info("cohere/embed-v4.0")
 
     response: Final = await _embed(True, input=[ONE_PIXEL_PNG], input_type="image")
 

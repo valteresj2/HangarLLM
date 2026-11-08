@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
-from litellm._redis_credential_provider import ElastiCacheIAMCredentialProvider
+from hangarllm._redis_credential_provider import ElastiCacheIAMCredentialProvider
 
 
 class _FakeCredentials:

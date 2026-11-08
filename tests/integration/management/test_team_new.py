@@ -74,7 +74,7 @@ async def test_team_new_authz_matrix(
     )
     assert resp.status_code == expected_status, f"{actor.value} org={org_target}: {resp.status_code} {resp.text}"
 
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     if expected_status == 200:
         assert row is not None
         assert row.organization_id == org_id
@@ -90,7 +90,7 @@ async def test_team_new_rejects_negative_budget(gateway_client, db, resources, a
         json={"team_id": resources.prefix, "max_budget": -1},
     )
     assert resp.status_code == 400, resp.text
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert row is None
 
 
@@ -126,5 +126,5 @@ async def test_team_new_unknown_organization_is_400(gateway_client, db, resource
     )
     assert resp.status_code == 400, resp.text
     assert "Organization not found" in resp.text
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert row is None

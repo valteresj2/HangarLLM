@@ -24,7 +24,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.utils import (
+from hangarllm.proxy.utils import (
     hash_token_if_needed,
     hash_password,
     hash_token,
@@ -160,20 +160,20 @@ async def test_migrate_passwords_skips_when_no_plaintext() -> None:
     pc = MagicMock()
     pc.db = MagicMock()
     sha = hashlib.sha256(b"already-hashed").hexdigest()
-    pc.db.litellm_usertable.find_many = AsyncMock(
+    pc.db.hangarllm_usertable.find_many = AsyncMock(
         return_value=[
             _make_user("a", "scrypt:abc"),
             _make_user("b", sha),
         ]
     )
-    pc.db.litellm_usertable.update = AsyncMock()
+    pc.db.hangarllm_usertable.update = AsyncMock()
 
     result = await migrate_passwords_to_scrypt_async(pc)
     outcome = {
         "message": result,
-        "updates": pc.db.litellm_usertable.update.await_count,
-        "find_called": pc.db.litellm_usertable.find_many.await_count,
-        "fetch_filter": pc.db.litellm_usertable.find_many.await_args.kwargs["where"],
+        "updates": pc.db.hangarllm_usertable.update.await_count,
+        "find_called": pc.db.hangarllm_usertable.find_many.await_count,
+        "fetch_filter": pc.db.hangarllm_usertable.find_many.await_args.kwargs["where"],
     }
     assert outcome == {
         "message": "No plaintext passwords found",
@@ -197,20 +197,20 @@ async def test_migrate_passwords_upgrades_only_plaintext_rows() -> None:
         ),
         _make_user("null-pw", None),
     ]
-    pc.db.litellm_usertable.find_many = AsyncMock(return_value=users)
-    pc.db.litellm_usertable.update = AsyncMock()
+    pc.db.hangarllm_usertable.find_many = AsyncMock(return_value=users)
+    pc.db.hangarllm_usertable.update = AsyncMock()
 
     result = await migrate_passwords_to_scrypt_async(pc)
 
     updated_user_ids = sorted(
-        call.kwargs["where"]["user_id"] for call in pc.db.litellm_usertable.update.await_args_list
+        call.kwargs["where"]["user_id"] for call in pc.db.hangarllm_usertable.update.await_args_list
     )
     new_password_prefixes = sorted(
-        call.kwargs["data"]["password"][:7] for call in pc.db.litellm_usertable.update.await_args_list
+        call.kwargs["data"]["password"][:7] for call in pc.db.hangarllm_usertable.update.await_args_list
     )
     outcome = {
         "message": result,
-        "update_count": pc.db.litellm_usertable.update.await_count,
+        "update_count": pc.db.hangarllm_usertable.update.await_count,
         "updated_ids": updated_user_ids,
         "all_scrypt_prefixed": new_password_prefixes,
     }
@@ -226,7 +226,7 @@ async def test_migrate_passwords_upgrades_only_plaintext_rows() -> None:
 async def test_migrate_passwords_raises_on_db_failure() -> None:
     pc = MagicMock()
     pc.db = MagicMock()
-    pc.db.litellm_usertable.find_many = AsyncMock(side_effect=RuntimeError("db unavailable"))
+    pc.db.hangarllm_usertable.find_many = AsyncMock(side_effect=RuntimeError("db unavailable"))
     with pytest.raises(RuntimeError, match="db unavailable"):
         await migrate_passwords_to_scrypt_async(pc)
 
@@ -294,7 +294,7 @@ def test_fips_verify_needs_the_right_password_of_at_least_eight_characters() -> 
     ],
 )
 def test_fips_refuses_any_other_row_with_one_error_that_hides_it(caplog: pytest.LogCaptureFixture, row: str) -> None:
-    with caplog.at_level("ERROR", logger="LiteLLM Proxy"):
+    with caplog.at_level("ERROR", logger="HangarLLM Proxy"):
         assert verify_password(PASSWORD, row) is False
     assert [record.levelname for record in caplog.records] == ["ERROR"]
     assert row not in caplog.text
@@ -313,27 +313,27 @@ def test_standard_mode_verifies_the_rows_it_always_did(row: str, verifies: bool)
 @pytest.mark.usefixtures("fips_mode")
 async def test_fips_boot_migration_writes_no_row() -> None:
     pc: Final = MagicMock()
-    pc.db.litellm_usertable.find_many = AsyncMock(
+    pc.db.hangarllm_usertable.find_many = AsyncMock(
         return_value=[_make_user("plaintext-user", PASSWORD), _make_user("fips-user", PBKDF2_ROW)]
     )
-    pc.db.litellm_usertable.update = AsyncMock()
+    pc.db.hangarllm_usertable.update = AsyncMock()
 
     await migrate_passwords_to_scrypt_async(pc)
 
-    pc.db.litellm_usertable.update.assert_not_awaited()
+    pc.db.hangarllm_usertable.update.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_standard_boot_migration_hashes_a_plaintext_row_but_not_a_pbkdf2_row() -> None:
     pc: Final = MagicMock()
-    pc.db.litellm_usertable.find_many = AsyncMock(
+    pc.db.hangarllm_usertable.find_many = AsyncMock(
         return_value=[_make_user("plaintext-user", "pbkdf2:plaintext"), _make_user("fips-user", PBKDF2_ROW)]
     )
-    pc.db.litellm_usertable.update = AsyncMock()
+    pc.db.hangarllm_usertable.update = AsyncMock()
 
     await migrate_passwords_to_scrypt_async(pc)
 
-    updated: Final = pc.db.litellm_usertable.update.await_args_list
+    updated: Final = pc.db.hangarllm_usertable.update.await_args_list
     assert [update.kwargs["where"]["user_id"] for update in updated] == ["plaintext-user"]
 
 

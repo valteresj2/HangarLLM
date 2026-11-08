@@ -33,7 +33,7 @@ test.describe("Admin Settings - SCIM", () => {
   });
 
   test("a UI-minted SCIM token authorizes the SCIM API", async ({ page, request }) => {
-    test.skip(!process.env.LITELLM_LICENSE, "LITELLM_LICENSE not set in test env — /scim/v2 is premium-gated");
+    test.skip(!process.env.HANGARLLM_LICENSE, "HANGARLLM_LICENSE not set in test env — /scim/v2 is premium-gated");
 
     const token = await createScimTokenViaUi(page, `e2e-scim-api-${Date.now()}`);
 

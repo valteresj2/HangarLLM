@@ -1,4 +1,4 @@
-"""Behavior pins for ``litellm/litellm_core_utils/pattern_match_deployments.py``."""
+"""Behavior pins for ``hangarllm/hangarllm_core_utils/pattern_match_deployments.py``."""
 
 from __future__ import annotations
 
@@ -9,22 +9,22 @@ import httpx
 import pytest
 from pydantic import TypeAdapter
 
-import litellm
-from litellm import Router
-from litellm.litellm_core_utils import get_llm_provider_logic
-from litellm.router import Deployment, LiteLLM_Params
-from litellm.litellm_core_utils.pattern_match_deployments import PatternMatchRouter, PatternUtils
-from litellm.types.router import ModelInfo
+import hangarllm
+from hangarllm import Router
+from hangarllm.hangarllm_core_utils import get_llm_provider_logic
+from hangarllm.router import Deployment, HangarLLM_Params
+from hangarllm.hangarllm_core_utils.pattern_match_deployments import PatternMatchRouter, PatternUtils
+from hangarllm.types.router import ModelInfo
 import json
 from unittest.mock import MagicMock
 
 
 def _wildcard_deployment(model_name: str) -> dict:
-    return {"model_name": model_name, "litellm_params": {"model": model_name}}
+    return {"model_name": model_name, "hangarllm_params": {"model": model_name}}
 
 
 def _matched_models(matches: list[dict] | None) -> list[str]:
-    return [deployment["litellm_params"]["model"] for deployment in matches or []]
+    return [deployment["hangarllm_params"]["model"] for deployment in matches or []]
 
 
 def test_get_pattern_never_resolves_declared_authenticating_providers(monkeypatch):
@@ -103,7 +103,7 @@ def test_route_never_sorts_and_the_most_specific_pattern_still_wins_after_regist
     router = PatternMatchRouter(pattern_utils=_CountingPatternUtils)
     router.add_pattern("openai/*", _wildcard_deployment("openai/*"))
     router.add_pattern("anthropic/*", _wildcard_deployment("anthropic/*"))
-    router.add_pattern("openai/gpt-*", {"model_name": "openai/gpt-*", "litellm_params": {"model": "azure/gpt-*"}})
+    router.add_pattern("openai/gpt-*", {"model_name": "openai/gpt-*", "hangarllm_params": {"model": "azure/gpt-*"}})
     sorts_after_setup = _CountingPatternUtils.sorted_patterns.call_count
 
     for _ in range(3):
@@ -133,7 +133,7 @@ def test_add_pattern():
     router = PatternMatchRouter()
     deployment = Deployment(
         model_name="openai-1",
-        litellm_params=LiteLLM_Params(model="gpt-3.5-turbo"),
+        hangarllm_params=HangarLLM_Params(model="gpt-3.5-turbo"),
         model_info=ModelInfo(),
     )
     router.add_pattern("openai/*", deployment.to_json(exclude_none=True))
@@ -155,7 +155,7 @@ def test_add_pattern_vertex_ai():
     router = PatternMatchRouter()
     deployment = Deployment(
         model_name="this-can-be-anything",
-        litellm_params=LiteLLM_Params(model="vertex_ai/gemini-1.5-flash-latest"),
+        hangarllm_params=HangarLLM_Params(model="vertex_ai/gemini-1.5-flash-latest"),
         model_info=ModelInfo(),
     )
     router.add_pattern("vertex_ai/*", deployment.to_json(exclude_none=True))
@@ -177,12 +177,12 @@ def test_add_multiple_deployments():
     router = PatternMatchRouter()
     deployment1 = Deployment(
         model_name="openai-1",
-        litellm_params=LiteLLM_Params(model="gpt-3.5-turbo"),
+        hangarllm_params=HangarLLM_Params(model="gpt-3.5-turbo"),
         model_info=ModelInfo(),
     )
     deployment2 = Deployment(
         model_name="openai-2",
-        litellm_params=LiteLLM_Params(model="gpt-4"),
+        hangarllm_params=HangarLLM_Params(model="gpt-4"),
         model_info=ModelInfo(),
     )
     router.add_pattern("openai/*", deployment1.to_json(exclude_none=True))
@@ -224,8 +224,8 @@ def test_get_models_by_pattern_names_the_models_get_deployments_by_pattern_route
 ):
     router: Final = PatternMatchRouter()
     router.add_pattern("openai/*", _wildcard_deployment("openai/*"))
-    router.add_pattern("openai/*", {"model_name": "openai/*", "litellm_params": {"model": "azure/*"}})
-    router.add_pattern("openai/gpt-*", {"model_name": "openai/gpt-*", "litellm_params": {"model": "azure/gpt-*-prod"}})
+    router.add_pattern("openai/*", {"model_name": "openai/*", "hangarllm_params": {"model": "azure/*"}})
+    router.add_pattern("openai/gpt-*", {"model_name": "openai/gpt-*", "hangarllm_params": {"model": "azure/gpt-*-prod"}})
 
     routed: Final = router.get_deployments_by_pattern(model, custom_llm_provider=custom_llm_provider)
 
@@ -241,12 +241,12 @@ def test_route_with_multiple_matching_patterns():
     router = PatternMatchRouter()
     deployment1 = Deployment(
         model_name="openai-1",
-        litellm_params=LiteLLM_Params(model="gpt-3.5-turbo"),
+        hangarllm_params=HangarLLM_Params(model="gpt-3.5-turbo"),
         model_info=ModelInfo(),
     )
     deployment2 = Deployment(
         model_name="openai-2",
-        litellm_params=LiteLLM_Params(model="gpt-4"),
+        hangarllm_params=HangarLLM_Params(model="gpt-4"),
         model_info=ModelInfo(),
     )
     router.add_pattern("openai/*", deployment1.to_json(exclude_none=True))
@@ -263,7 +263,7 @@ def test_route_with_exception():
     router = PatternMatchRouter()
     deployment = Deployment(
         model_name="openai-1",
-        litellm_params=LiteLLM_Params(model="gpt-3.5-turbo"),
+        hangarllm_params=HangarLLM_Params(model="gpt-3.5-turbo"),
         model_info=ModelInfo(),
     )
     router.add_pattern("openai/*", deployment.to_json(exclude_none=True))
@@ -281,13 +281,13 @@ async def test_route_with_no_matching_pattern():
     """
     Tests that the router returns None when there is no matching pattern
     """
-    from litellm.types.router import RouterErrors
+    from hangarllm.types.router import RouterErrors
 
     router = Router(
         model_list=[
             {
                 "model_name": "*meta.llama3*",
-                "litellm_params": {"model": "bedrock/meta.llama3*"},
+                "hangarllm_params": {"model": "bedrock/meta.llama3*"},
             }
         ]
     )
@@ -309,7 +309,7 @@ async def test_route_with_no_matching_pattern():
     assert result.choices[0].message.content == "Works"
 
     ## FAILS
-    with pytest.raises(litellm.BadRequestError) as e:
+    with pytest.raises(hangarllm.BadRequestError) as e:
         await router.acompletion(
             model="my-fake-model",
             messages=[{"role": "user", "content": "Hello, world!"}],
@@ -318,7 +318,7 @@ async def test_route_with_no_matching_pattern():
 
     assert RouterErrors.no_deployments_available.value not in str(e.value)
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         await router.aembedding(
             model="my-fake-model",
             input="Hello, world!",
@@ -329,14 +329,14 @@ def test_router_pattern_match_e2e():
     """
     Tests the end to end flow of the router
     """
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
     router = Router(
         model_list=[
             {
                 "model_name": "llmengine/*",
-                "litellm_params": {"model": "anthropic/*", "api_key": "test"},
+                "hangarllm_params": {"model": "anthropic/*", "api_key": "test"},
             }
         ]
     )
@@ -365,12 +365,12 @@ def test_pattern_matching_router_with_default_wildcard_and_model_wildcard():
         model_list=[
             {
                 "model_name": "*",
-                "litellm_params": {"model": "*"},
+                "hangarllm_params": {"model": "*"},
                 "model_info": {"access_groups": ["default"]},
             },
             {
                 "model_name": "llmengine/*",
-                "litellm_params": {"model": "openai/*"},
+                "hangarllm_params": {"model": "openai/*"},
             },
         ]
     )
@@ -388,11 +388,11 @@ def test_pattern_matching_router_uses_default_wildcard_for_unmatched_model() -> 
         model_list=[
             {
                 "model_name": "*",
-                "litellm_params": {"model": "*"},
+                "hangarllm_params": {"model": "*"},
             },
             {
                 "model_name": "anthropic-*",
-                "litellm_params": {"model": "anthropic/claude"},
+                "hangarllm_params": {"model": "anthropic/claude"},
             },
         ]
     )
@@ -406,7 +406,7 @@ def test_sorted_patterns():
     """
     Tests that the pattern specificity is calculated correctly
     """
-    from litellm.litellm_core_utils.pattern_match_deployments import PatternUtils
+    from hangarllm.hangarllm_core_utils.pattern_match_deployments import PatternUtils
 
     sorted_patterns = PatternUtils.sorted_patterns(
         {
@@ -418,7 +418,7 @@ def test_sorted_patterns():
 
 
 def test_calculate_pattern_specificity():
-    from litellm.litellm_core_utils.pattern_match_deployments import PatternUtils
+    from hangarllm.hangarllm_core_utils.pattern_match_deployments import PatternUtils
 
     assert PatternUtils.calculate_pattern_specificity("llmengine/*") == (11, 1)
     assert PatternUtils.calculate_pattern_specificity("*") == (1, 1)
@@ -426,7 +426,7 @@ def test_calculate_pattern_specificity():
 
 def test_wildcard_priority_over_deployment_names():
     """
-    Test that wildcard routes take priority over deployment_names (litellm_params.model) matching.
+    Test that wildcard routes take priority over deployment_names (hangarllm_params.model) matching.
 
     Scenario:
     - deployment 1: model_name="zapier-multi-provider-text-embedding-3-small", model="openai/text-embedding-3-small"
@@ -434,18 +434,18 @@ def test_wildcard_priority_over_deployment_names():
     - deployment 3: model_name="openai/*", model="openai/*"
 
     When calling "openai/text-embedding-3-small", it should match deployment 3 (wildcard),
-    NOT deployment 1 (even though deployment 1's litellm_params.model matches).
+    NOT deployment 1 (even though deployment 1's hangarllm_params.model matches).
 
     Priority order should be:
     1. Exact model_name match
     2. Wildcard model_name match
-    3. deployment_names (litellm_params.model) match
+    3. deployment_names (hangarllm_params.model) match
     """
     router = Router(
         model_list=[
             {
                 "model_name": "zapier-multi-provider-text-embedding-3-small",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/text-embedding-3-small",
                     "api_base": "http://localhost:8080/openai",
                     "api_key": "test-key-1",
@@ -456,7 +456,7 @@ def test_wildcard_priority_over_deployment_names():
             },
             {
                 "model_name": "*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
                     "api_base": "http://localhost:8081/openai",
                     "api_key": "test-key-2",
@@ -464,7 +464,7 @@ def test_wildcard_priority_over_deployment_names():
             },
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
                     "api_base": "http://localhost:8082/openai",
                     "api_key": "test-key-3",
@@ -481,8 +481,8 @@ def test_wildcard_priority_over_deployment_names():
 
     # Should match the "openai/*" wildcard deployment (api_base ending in 8082)
     assert (
-        deployments[0]["litellm_params"]["api_base"] == "http://localhost:8082/openai"
-    ), f"Expected wildcard deployment (8082), got {deployments[0]['litellm_params']['api_base']}"
+        deployments[0]["hangarllm_params"]["api_base"] == "http://localhost:8082/openai"
+    ), f"Expected wildcard deployment (8082), got {deployments[0]['hangarllm_params']['api_base']}"
 
     # Test 2: Request exact model_name should still work
     deployments = router.get_model_list(
@@ -492,8 +492,8 @@ def test_wildcard_priority_over_deployment_names():
     assert deployments is not None, "No deployments found"
     assert len(deployments) == 1, f"Expected 1 deployment, got {len(deployments)}"
     assert (
-        deployments[0]["litellm_params"]["api_base"] == "http://localhost:8080/openai"
-    ), f"Expected exact match deployment (8080), got {deployments[0]['litellm_params']['api_base']}"
+        deployments[0]["hangarllm_params"]["api_base"] == "http://localhost:8080/openai"
+    ), f"Expected exact match deployment (8080), got {deployments[0]['hangarllm_params']['api_base']}"
 
     # Test 3: Request with "*" wildcard should match the "*" deployment
     deployments = router.get_model_list(model_name="some-random-model")
@@ -501,12 +501,12 @@ def test_wildcard_priority_over_deployment_names():
     assert deployments is not None, "No deployments found"
     assert len(deployments) == 1, f"Expected 1 deployment, got {len(deployments)}"
     assert (
-        deployments[0]["litellm_params"]["api_base"] == "http://localhost:8081/openai"
-    ), f"Expected '*' wildcard deployment (8081), got {deployments[0]['litellm_params']['api_base']}"
+        deployments[0]["hangarllm_params"]["api_base"] == "http://localhost:8081/openai"
+    ), f"Expected '*' wildcard deployment (8081), got {deployments[0]['hangarllm_params']['api_base']}"
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "custom_llm_provider", "expected"),
+    ("hangarllm_params", "custom_llm_provider", "expected"),
     [
         ({"model": "openai/*"}, "openai", True),
         ({"model": "openai/*"}, "dashscope", False),
@@ -514,8 +514,8 @@ def test_wildcard_priority_over_deployment_names():
     ],
 )
 def test_routes_to_provider_matches_the_provider_the_wildcard_deployment_sends_to(
-    litellm_params, custom_llm_provider, expected
+    hangarllm_params, custom_llm_provider, expected
 ):
     router = PatternMatchRouter()
-    router.add_pattern("*", {"model_name": "*", "litellm_params": litellm_params})
+    router.add_pattern("*", {"model_name": "*", "hangarllm_params": hangarllm_params})
     assert router.routes_to_provider("wan3.0-video", custom_llm_provider) is expected

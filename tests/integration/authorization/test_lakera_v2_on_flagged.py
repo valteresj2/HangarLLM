@@ -110,7 +110,7 @@ def _create_lakera_guardrail(
         {
             "guardrail": {
                 "guardrail_name": f"lakera-{uuid.uuid4().hex}",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "lakera_v2",
                     "mode": mode,
                     "default_on": False,
@@ -259,7 +259,7 @@ def test_lakera_v2_mask_without_payload_or_breakdown_is_rejected(
         {
             "guardrail": {
                 "guardrail_name": f"lakera-{uuid.uuid4().hex}",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "lakera_v2",
                     "mode": "pre_call",
                     "api_key": "synthetic-lakera-key",

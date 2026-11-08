@@ -199,7 +199,7 @@ def test_completed_batch_spend_row_records_reasoning_tokens_and_error_file_failu
         assert retrieval.json()["status"] == "completed", retrieval.text
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT status, prompt_tokens, completion_tokens, metadata FROM "LiteLLM_SpendLogs" '
+                'SELECT status, prompt_tokens, completion_tokens, metadata FROM "HangarLLM_SpendLogs" '
                 "WHERE api_key=%s AND call_type='aretrieve_batch'",
                 (sha256(key.encode()).hexdigest(),),
             ),
@@ -274,7 +274,7 @@ def test_completed_batch_spend_lands_under_batches_in_team_endpoint_activity(gat
         assert retrieval.json()["status"] == "completed", retrieval.text
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, prompt_tokens, completion_tokens, total_tokens FROM "LiteLLM_SpendLogs" '
+                'SELECT spend, prompt_tokens, completion_tokens, total_tokens FROM "HangarLLM_SpendLogs" '
                 "WHERE api_key=%s AND call_type='aretrieve_batch'",
                 (sha256(key.encode()).hexdigest(),),
             ),
@@ -323,14 +323,14 @@ def test_batch_reconciliation_delivers_each_configured_logger_once(gateway: Gate
                 "model_list": [
                     {
                         "model_name": "batch-bootstrap",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-6.1-sol",
                             "api_base": gateway.upstream_url + "/v1",
                             "api_key": "integration-provider-key",
                         },
                     }
                 ],
-                "litellm_settings": {
+                "hangarllm_settings": {
                     "callbacks": [
                         "integration._support.redaction_probe.sync_probe",
                         "integration._support.redaction_probe.probe",
@@ -338,7 +338,7 @@ def test_batch_reconciliation_delivers_each_configured_logger_once(gateway: Gate
                     ],
                 },
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "disable_model_info_refresh": True,
                     "proxy_batch_polling_interval": 1,
@@ -402,7 +402,7 @@ def test_batch_reconciliation_delivers_each_configured_logger_once(gateway: Gate
             assert eventually(events.qsize, lambda count: count >= 3, seconds=90) == 3
             rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT spend, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" '
+                    'SELECT spend, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" '
                     "WHERE api_key=%s AND call_type='aretrieve_batch'",
                     (sha256(key.encode()).hexdigest(),),
                     database_url=database,

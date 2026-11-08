@@ -7,7 +7,7 @@ Name of the test file is the name of the LLM provider - e.g. `test_openai.py` is
 Every test in this directory is auto-decorated with `@pytest.mark.vcr` (via
 `conftest.py`). The first time a test runs we hit the live provider and
 record the HTTP exchange into Redis under
-`litellm:vcr:cassette:<test_id>`. Every subsequent run within 24h replays
+`hangarllm:vcr:cassette:<test_id>`. Every subsequent run within 24h replays
 from Redis without touching the network. The 24h TTL means each new day's
 first run records again, so upstream API drift surfaces within a day.
 
@@ -29,16 +29,16 @@ provider APIs. The reusable conftest plumbing lives in
 - `tests/batches_tests/`
 - `tests/guardrails_tests/`
 - `tests/image_gen_tests/`
-- `tests/litellm_utils_tests/`
+- `tests/hangarllm_utils_tests/`
 - `tests/local_testing/` (covers `local_testing_part1`, `local_testing_part2`,
-  `litellm_router_testing`, `litellm_assistants_api_testing`,
+  `hangarllm_router_testing`, `hangarllm_assistants_api_testing`,
   `langfuse_logging_unit_tests`)
 - `tests/logging_callback_tests/`
 - `tests/pass_through_unit_tests/`
 - `tests/router_unit_tests/`
 - `tests/unified_google_tests/`
 
-Test directories that run LiteLLM proxy in Docker (e.g. `build_and_test`,
+Test directories that run HangarLLM proxy in Docker (e.g. `build_and_test`,
 `proxy_logging_guardrails_model_info_tests`, `proxy_store_model_in_db_tests`)
 are intentionally not included: VCR.py patches the in-process httpx
 transport, so it cannot intercept the LLM calls that originate inside the
@@ -66,5 +66,5 @@ make test-llm-translation-flush-vcr-cache
 Skip the cache entirely (every call goes live, no recording):
 
 ```bash
-LITELLM_VCR_DISABLE=1 uv run pytest tests/audio_tests/test_<file>.py
+HANGARLLM_VCR_DISABLE=1 uv run pytest tests/audio_tests/test_<file>.py
 ```

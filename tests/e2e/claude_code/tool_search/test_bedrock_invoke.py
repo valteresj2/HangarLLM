@@ -3,7 +3,7 @@
 HTTP-probe row. Sends a `/v1/messages` request whose `tools` array
 includes a `tool_search_tool_regex_20251119` discovery tool, and
 asserts the proxy round-trips it to the upstream without a 400. This
-verifies LiteLLM's tool-search beta-header translation
+verifies HangarLLM's tool-search beta-header translation
 (`advanced-tool-use-2025-11-20` for Anthropic-shape providers,
 `tool-search-tool-2025-10-19` for Vertex/Bedrock) survives end-to-end.
 
@@ -29,7 +29,7 @@ auto-deferral heuristic continuing to fire at today's tool count --
 both of which break silently when Claude Code's threshold changes
 between releases.
 
-The bugs LiteLLM has actually shipped fixes for in this area
+The bugs HangarLLM has actually shipped fixes for in this area
 (2.1.117, 2.1.72, 2.1.70 in the Claude Code release notes) are
 beta-header translation and proxy-side type recognition, not MCP
 fan-out behavior. An HTTP probe hits exactly that surface: the

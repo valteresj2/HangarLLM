@@ -1,6 +1,6 @@
 HOSTNAME=registry.terraform.io
 NAMESPACE=local
-NAME=litellm
+NAME=hangarllm
 VERSION=1.0.0
 OS_ARCH=darwin_amd64
 

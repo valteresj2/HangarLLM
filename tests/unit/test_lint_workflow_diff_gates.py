@@ -22,12 +22,12 @@ REPO_ROOT: Final = WORKFLOW.parents[2]
 DIFF_GATE: Final = re.compile(r'git diff --name-only --diff-filter=\w+ "\$GATE_BASE_SHA" HEAD -- (.+?) \|')
 GATES: Final = tuple(tuple(shlex.split(gate.group(1))) for gate in DIFF_GATE.finditer(WORKFLOW.read_text()))
 PYTHON_GATES: Final = tuple(gate for gate in GATES if gate[0].startswith(":(glob)"))
-REPOSITORY: Final = "BerriAI/litellm"
-UI_DASHBOARD: Final = "ui/litellm-dashboard"
-STACKED_BASE_REF: Final = "litellm_/stacked"
+REPOSITORY: Final = "valteresj2/HangarLLM"
+UI_DASHBOARD: Final = "ui/hangarllm-dashboard"
+STACKED_BASE_REF: Final = "hangarllm_/stacked"
 RELEASE_BASE_REF: Final = "stable/next"
 BASE_REFS: Final = ("main", STACKED_BASE_REF, RELEASE_BASE_REF)
-RENAMED_BASE_REF: Final = "litellm_renamed_before_the_rerun"
+RENAMED_BASE_REF: Final = "hangarllm_renamed_before_the_rerun"
 GITHUB_EXPRESSION: Final = re.compile(r"\$\{\{\s*(.+?)\s*\}\}")
 FAKE_GH: Final = r"""#!/usr/bin/env bash
 set -euo pipefail
@@ -226,7 +226,7 @@ def _changed_files_selected_by(tmp_path: Path, pathspecs: tuple[str, ...], files
 def test_workflow_still_carries_the_ruff_format_e2e_basedpyright_and_e2e_harness_diff_gates() -> None:
     assert len(GATES) == 3
     assert frozenset(gate[0] for gate in GATES) == frozenset(
-        {":(glob)litellm/**/*.py", ":(glob)tests/e2e/**/*.py", "tests/e2e"}
+        {":(glob)hangarllm/**/*.py", ":(glob)tests/e2e/**/*.py", "tests/e2e"}
     )
 
 
@@ -472,7 +472,7 @@ def _runs_for(step: MergeBaseStep, base_ref: str) -> bool:
 BASE_REF_CASES: Final = (
     ("main", "main", "main"),
     ("stacked", STACKED_BASE_REF, STACKED_BASE_REF),
-    ("rerun_after_the_stacked_base_was_deleted", "litellm_deleted_after_merge", "main"),
+    ("rerun_after_the_stacked_base_was_deleted", "hangarllm_deleted_after_merge", "main"),
     ("rerun_after_the_stacked_base_was_renamed", RENAMED_BASE_REF, STACKED_BASE_REF),
     ("rerun_after_a_retarget_off_main_to_a_stacked_branch", "main", STACKED_BASE_REF),
     ("rerun_after_a_retarget_off_main_to_a_release_branch", "main", RELEASE_BASE_REF),
@@ -543,17 +543,17 @@ def _ui_api_types_relevant(tmp_path: Path, changed: str) -> bool:
 @pytest.mark.parametrize(
     "changed",
     (
-        "litellm/proxy/proxy_server.py",
-        "litellm/types/router.py",
-        "litellm/tracing/generated/models.py",
-        "litellm/router_strategy/complexity_router/config.py",
-        "litellm/models/credentials.py",
-        "enterprise/litellm_enterprise/types/proxy/audit_logging_endpoints.py",
+        "hangarllm/proxy/proxy_server.py",
+        "hangarllm/types/router.py",
+        "hangarllm/tracing/generated/models.py",
+        "hangarllm/router_strategy/complexity_router/config.py",
+        "hangarllm/models/credentials.py",
+        "enterprise/hangarllm_enterprise/types/proxy/audit_logging_endpoints.py",
         "pyproject.toml",
         "uv.lock",
-        "ui/litellm-dashboard/scripts/gen-api-types.mjs",
-        "ui/litellm-dashboard/package-lock.json",
-        "ui/litellm-dashboard/src/lib/http/schema.d.ts",
+        "ui/hangarllm-dashboard/scripts/gen-api-types.mjs",
+        "ui/hangarllm-dashboard/package-lock.json",
+        "ui/hangarllm-dashboard/src/lib/http/schema.d.ts",
     ),
 )
 def test_ui_api_types_check_runs_on_a_pull_request_touching_any_spec_input(tmp_path: Path, changed: str) -> None:
@@ -563,12 +563,12 @@ def test_ui_api_types_check_runs_on_a_pull_request_touching_any_spec_input(tmp_p
 @pytest.mark.parametrize(
     "changed",
     (
-        "litellm-rust/crates/traces/src/lib.rs",
-        "litellm-proxy-extras/litellm_proxy_extras/utils.py",
+        "hangarllm-rust/crates/traces/src/lib.rs",
+        "hangarllm-proxy-extras/hangarllm_proxy_extras/utils.py",
         "tests/unit/test_router.py",
-        "ui/litellm-dashboard/src/app/page.tsx",
+        "ui/hangarllm-dashboard/src/app/page.tsx",
         "docs/my-website/docs/proxy/config.md",
-        "litellm-dashboard/pyproject.toml",
+        "hangarllm-dashboard/pyproject.toml",
     ),
 )
 def test_ui_api_types_check_skips_a_pull_request_that_cannot_change_the_spec(tmp_path: Path, changed: str) -> None:

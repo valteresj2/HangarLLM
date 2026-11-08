@@ -12,15 +12,15 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
-import litellm
-from litellm import Router
-from litellm.router import Deployment, LiteLLM_Params
+import hangarllm
+from hangarllm import Router
+from hangarllm.router import Deployment, HangarLLM_Params
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
 @pytest.fixture
 def isolate_passthrough_endpoint_router_state(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         passthrough_endpoint_router,
     )
 
@@ -37,15 +37,15 @@ def test_initialize_deployment_for_pass_through_success(reusable_credentials):
     """
     Test successful initialization of a Vertex AI pass-through deployment
     """
-    from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-    from litellm.types.utils import CredentialItem
+    from hangarllm.hangarllm_core_utils.credential_accessor import CredentialAccessor
+    from hangarllm.types.utils import CredentialItem
 
     vertex_project = "test-project"
     vertex_location = "us-central1"
     vertex_credentials = json.dumps({"type": "service_account", "project_id": "test"})
 
     if not reusable_credentials:
-        litellm_params = LiteLLM_Params(
+        hangarllm_params = HangarLLM_Params(
             model="vertex_ai/test-model",
             vertex_project=vertex_project,
             vertex_location=vertex_location,
@@ -67,22 +67,22 @@ def test_initialize_deployment_for_pass_through_success(reusable_credentials):
                 )
             ]
         )
-        litellm_params = LiteLLM_Params(
+        hangarllm_params = HangarLLM_Params(
             model="vertex_ai/test-model",
-            litellm_credential_name="vertex_credentials",
+            hangarllm_credential_name="vertex_credentials",
             use_in_pass_through=True,
         )
     router = Router(model_list=[])
     deployment = Deployment(
         model_name="vertex-test",
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
     )
 
     # Test the initialization
     router.add_deployment(deployment)
 
     # Verify the credentials were properly set
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         passthrough_endpoint_router,
     )
 
@@ -99,7 +99,7 @@ def test_initialize_deployment_for_pass_through_missing_params():
     router = Router(model_list=[])
     deployment = Deployment(
         model_name="vertex-test",
-        litellm_params=LiteLLM_Params(
+        hangarllm_params=HangarLLM_Params(
             model="vertex_ai/test-model",
             # Missing required parameters
             use_in_pass_through=True,
@@ -109,7 +109,7 @@ def test_initialize_deployment_for_pass_through_missing_params():
     # Test that initialization raises ValueError
     with pytest.raises(
         ValueError,
-        match="vertex_project, and vertex_location must be set in litellm_params for pass-through endpoints",
+        match="vertex_project, and vertex_location must be set in hangarllm_params for pass-through endpoints",
     ):
         router.add_deployment(deployment)
 
@@ -121,7 +121,7 @@ def test_initialize_deployment_when_pass_through_disabled():
     router = Router(model_list=[])
     deployment = Deployment(
         model_name="vertex-test",
-        litellm_params=LiteLLM_Params(
+        hangarllm_params=HangarLLM_Params(
             model="vertex_ai/test-model",
         ),
     )
@@ -143,7 +143,7 @@ def test_add_vertex_pass_through_deployment():
     # Create a deployment with Vertex AI pass-through settings
     deployment = Deployment(
         model_name="vertex-test",
-        litellm_params=LiteLLM_Params(
+        hangarllm_params=HangarLLM_Params(
             model="vertex_ai/test-model",
             vertex_project="test-project",
             vertex_location="us-central1",
@@ -156,7 +156,7 @@ def test_add_vertex_pass_through_deployment():
     router.add_deployment(deployment)
 
     # Get the vertex credentials from the router
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         passthrough_endpoint_router,
     )
 
@@ -180,20 +180,20 @@ def _vcr_outcome_gate(request, vcr):
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown():
     """
-    This fixture reloads litellm before every function. To speed up testing by removing callbacks being chained.
+    This fixture reloads hangarllm before every function. To speed up testing by removing callbacks being chained.
     """
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     try:
-        if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-            importlib.reload(litellm.proxy.proxy_server)
+        if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+            importlib.reload(hangarllm.proxy.proxy_server)
     except Exception as e:
-        print(f"Error reloading litellm.proxy.proxy_server: {e}")
+        print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
     loop = asyncio.get_event_loop_policy().new_event_loop()
     asyncio.set_event_loop(loop)
-    print(litellm)
+    print(hangarllm)
     yield
     loop.close()
     asyncio.set_event_loop(None)
@@ -206,7 +206,7 @@ async def test_gemini_pass_through_endpoint_forwards_key_and_body(
     import httpx
     from fastapi import Request, Response
 
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         gemini_proxy_route,
     )
 
@@ -259,12 +259,12 @@ async def test_gemini_pass_through_endpoint_forwards_key_and_body(
 async def test_router_passthrough_keeps_mapped_baggage_tags_outside_upstream_body():
     from fastapi import Request
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.common_utils.http_parsing_utils import read_request_body
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import get_passthrough_router_request_metadata
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.common_utils.http_parsing_utils import read_request_body
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import get_passthrough_router_request_metadata
+    from hangarllm.proxy.utils import ProxyLogging
 
     async def receive():
         return {"type": "http.request", "body": b'{"model":"qa-model"}'}
@@ -280,7 +280,7 @@ async def test_router_passthrough_keeps_mapped_baggage_tags_outside_upstream_bod
         receive,
     )
     admitted = await read_request_body(request)
-    await LiteLLMProxyRequestSetup.apply_baggage_tag_mappings_pre_auth(
+    await HangarLLMProxyRequestSetup.apply_baggage_tag_mappings_pre_auth(
         request,
         admitted,
         {"request_tag_mappings": [{"key": "entrypoint", "tag_prefix": "usecase:"}]},
@@ -362,7 +362,7 @@ _VERTEX_CLAUDE_REPLY: Final = {"id": "msg_vertex", "type": "message", "content":
 def test_vertex_upstream_headers_drop_only_the_configured_anthropic_betas(
     header_name: str, sent: str, dropped: set[str], expected: str | None
 ) -> None:
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         _without_dropped_anthropic_betas,
     )
 
@@ -397,13 +397,13 @@ def _vertex_service_account_json() -> str:
 def vertex_proxy(
     monkeypatch: pytest.MonkeyPatch, httpx_transport: None, isolate_passthrough_endpoint_router_state: None
 ) -> Iterator[TestClient]:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     router: Final = Router(
         model_list=[
             {
                 "model_name": "claude-sonnet-4-5",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/claude-sonnet-4-5",
                     "vertex_project": _VERTEX_DEPLOYMENT_PROJECT,
                     "vertex_location": "global",
@@ -451,7 +451,7 @@ def test_vertex_pass_through_drops_the_configured_anthropic_beta_before_calling_
     caller_headers: dict[str, str],
     upstream_authorization: str,
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setitem(
         proxy_server.general_settings, "vertex_ai_pass_through_drop_anthropic_betas", [_VERTEX_REJECTED_BETA]
@@ -463,7 +463,7 @@ def test_vertex_pass_through_drops_the_configured_anthropic_beta_before_calling_
     response: Final = vertex_proxy.post(
         f"{alias}/{model_path}",
         json=_VERTEX_CLAUDE_BODY,
-        headers={"x-litellm-api-key": "sk-caller", beta_header: _VERTEX_SENT_BETAS, **caller_headers},
+        headers={"x-hangarllm-api-key": "sk-caller", beta_header: _VERTEX_SENT_BETAS, **caller_headers},
     )
 
     assert (response.status_code, response.json()) == (200, _VERTEX_CLAUDE_REPLY)
@@ -482,7 +482,7 @@ def test_vertex_pass_through_drops_the_configured_anthropic_beta_before_calling_
 def test_vertex_pass_through_matches_a_configured_beta_written_the_way_the_header_is(
     vertex_proxy: TestClient, respx_mock: "respx.MockRouter", monkeypatch: pytest.MonkeyPatch, configured: list[str]
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setitem(proxy_server.general_settings, "vertex_ai_pass_through_drop_anthropic_betas", configured)
     upstream: Final = respx_mock.post(f"https://aiplatform.googleapis.com/{_VERTEX_CALLER_PATH}").mock(
@@ -493,7 +493,7 @@ def test_vertex_pass_through_matches_a_configured_beta_written_the_way_the_heade
         f"/vertex_ai/{_VERTEX_CALLER_PATH}",
         json=_VERTEX_CLAUDE_BODY,
         headers={
-            "x-litellm-api-key": "sk-caller",
+            "x-hangarllm-api-key": "sk-caller",
             "Authorization": f"Bearer {_VERTEX_CALLER_GOOGLE_TOKEN}",
             "anthropic-beta": _VERTEX_SENT_BETAS,
         },
@@ -505,7 +505,7 @@ def test_vertex_pass_through_matches_a_configured_beta_written_the_way_the_heade
 def test_vertex_pass_through_refuses_a_malformed_drop_setting_without_calling_vertex(
     vertex_proxy: TestClient, respx_mock: "respx.MockRouter", monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setitem(
         proxy_server.general_settings, "vertex_ai_pass_through_drop_anthropic_betas", _VERTEX_REJECTED_BETA
@@ -515,7 +515,7 @@ def test_vertex_pass_through_refuses_a_malformed_drop_setting_without_calling_ve
         f"/vertex_ai/{_VERTEX_CALLER_PATH}",
         json=_VERTEX_CLAUDE_BODY,
         headers={
-            "x-litellm-api-key": "sk-caller",
+            "x-hangarllm-api-key": "sk-caller",
             "Authorization": f"Bearer {_VERTEX_CALLER_GOOGLE_TOKEN}",
             "anthropic-beta": _VERTEX_SENT_BETAS,
         },
@@ -529,7 +529,7 @@ def test_vertex_pass_through_refuses_a_malformed_drop_setting_without_calling_ve
 def test_vertex_pass_through_forwards_a_request_without_betas_despite_a_malformed_drop_setting(
     vertex_proxy: TestClient, respx_mock: "respx.MockRouter", monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setitem(
         proxy_server.general_settings, "vertex_ai_pass_through_drop_anthropic_betas", _VERTEX_REJECTED_BETA
@@ -541,7 +541,7 @@ def test_vertex_pass_through_forwards_a_request_without_betas_despite_a_malforme
     response: Final = vertex_proxy.post(
         f"/vertex_ai/{_VERTEX_CALLER_PATH}",
         json=_VERTEX_CLAUDE_BODY,
-        headers={"x-litellm-api-key": "sk-caller", "Authorization": f"Bearer {_VERTEX_CALLER_GOOGLE_TOKEN}"},
+        headers={"x-hangarllm-api-key": "sk-caller", "Authorization": f"Bearer {_VERTEX_CALLER_GOOGLE_TOKEN}"},
     )
 
     assert (response.status_code, response.json()) == (200, _VERTEX_CLAUDE_REPLY)

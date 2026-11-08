@@ -6,7 +6,7 @@ import pytest
 
 from tests.integration._support.database_relay import TriggerScanner
 
-TRIGGER: Final = b'SELECT "startTime" FROM "LiteLLM_SpendLogs"'
+TRIGGER: Final = b'SELECT "startTime" FROM "HangarLLM_SpendLogs"'
 
 
 @pytest.mark.parametrize("split_at", range(1, len(TRIGGER)))

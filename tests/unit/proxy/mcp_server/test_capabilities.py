@@ -15,7 +15,7 @@ from mcp.types import (
 )
 from mcp_types.version import HANDSHAKE_PROTOCOL_VERSIONS
 
-from litellm.proxy.mcp_server.capabilities import (
+from hangarllm.proxy.mcp_server.capabilities import (
     GATEWAY_OPERATIONS,
     REVISION_SUPPORT,
     TRANSLATION_PAIRS,
@@ -24,7 +24,7 @@ from litellm.proxy.mcp_server.capabilities import (
     disabled_capabilities,
     enabled_gateway_operations,
 )
-from litellm.types.mcp import MCPTransport
+from hangarllm.types.mcp import MCPTransport
 
 
 @pytest.mark.parametrize("revision", HANDSHAKE_PROTOCOL_VERSIONS)
@@ -131,7 +131,7 @@ async def test_version_policy_gates_the_actual_sdk_handshake(versions, accepted)
 def test_modern_discovery_requires_opt_in_and_keeps_unsupported_features_disabled() -> None:
     from pydantic import TypeAdapter
 
-    from litellm.types.mcp import MCPAdvertisedVersions
+    from hangarllm.types.mcp import MCPAdvertisedVersions
 
     configured: Final = TypeAdapter(MCPAdvertisedVersions).validate_python(["2026-07-28"])
     result: Final = build_discovery(
@@ -154,8 +154,8 @@ def test_modern_discovery_requires_opt_in_and_keeps_unsupported_features_disable
 
 @pytest.mark.parametrize("path", ["/mcp/sse", "/mcp/example/sse/"])
 def test_modern_protocol_is_rejected_on_legacy_sse_paths(path: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server.server import unsupported_protocol_version
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server.server import unsupported_protocol_version
 
     monkeypatch.setitem(proxy_server.general_settings, "mcp_advertised_versions", ["2025-11-25", "2026-07-28"])
     assert unsupported_protocol_version({"path": "/mcp", "headers": [(b"mcp-protocol-version", b"2026-07-28")]}) is None
@@ -196,8 +196,8 @@ async def test_subscription_discovery_never_probes_unsupported_targets(mode, mon
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.mcp_server import subscriptions
-    from litellm.proxy.mcp_server.contracts import OperationContext
+    from hangarllm.proxy.mcp_server import subscriptions
+    from hangarllm.proxy.mcp_server.contracts import OperationContext
 
     probe = AsyncMock()
     target = SimpleNamespace(
@@ -249,7 +249,7 @@ async def test_version_policy_hides_disabled_capabilities_from_the_handshake(
     ],
 )
 def test_disabled_capabilities_follow_general_settings(configured, expected, monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setitem(proxy_server.general_settings, "mcp_disabled_capabilities", configured)
     assert disabled_capabilities() == expected

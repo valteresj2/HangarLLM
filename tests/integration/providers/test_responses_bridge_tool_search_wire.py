@@ -534,7 +534,7 @@ def _assert_dropped_on_wire(body: Mapping[str, JsonValue], names: Sequence[str])
 def _spend_rows(model: str, expected: int) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT request_id, status, cache_hit FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)
+            'SELECT request_id, status, cache_hit FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)
         ),
         lambda found: len(found) >= expected,
         seconds=70,
@@ -1153,7 +1153,7 @@ def test_drop_params_drops_a_malformed_tool_flag_and_without_it_the_request_is_r
         )
         if source in ("off", "null"):
             assert response.status_code == 400, response.text
-            assert "litellm.BadRequestError" in response.text, response.text
+            assert "hangarllm.BadRequestError" in response.text, response.text
             assert _FLAG_REFUSALS[flag] in response.text, response.text
             assert wire.drain() == (), response.text
             follow_up: Final = uuid.uuid4().hex
@@ -1202,9 +1202,9 @@ def test_a_scripted_provider_error_reaches_the_caller_and_lands_as_a_failed_spen
         assert f"scripted {status} marker-{marker}" in response.text, response.text
         request, body = _only_request(wire)
         _assert_anthropic_wire(request, body, ("get_weather",))
-        call_id: Final = response.headers["x-litellm-call-id"]
+        call_id: Final = response.headers["x-hangarllm-call-id"]
         rows: Final = eventually(
-            lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
+            lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
             lambda found: len(found) == 1,
             seconds=70,
         )

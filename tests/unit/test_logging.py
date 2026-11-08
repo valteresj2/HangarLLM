@@ -14,8 +14,8 @@ from typing import Final, List
 import pytest
 from pydantic import BaseModel, computed_field
 
-import litellm
-from litellm._logging import (
+import hangarllm
+from hangarllm._logging import (
     _COLOR_LOG_FORMAT,
     _MAX_SCRUBBED_ACCESS_ARG,
     _PLAIN_LOG_FORMAT,
@@ -46,11 +46,11 @@ from litellm._logging import (
     verbose_proxy_logger,
     verbose_router_logger,
 )
-from litellm.constants import LITELLM_TRUNCATED_PAYLOAD_FIELD
-from litellm.proxy.common_utils.banner import LITELLM_BANNER
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils import secret_redaction
-from litellm.types.utils import StandardLoggingPayload
+from hangarllm.constants import HANGARLLM_TRUNCATED_PAYLOAD_FIELD
+from hangarllm.proxy.common_utils.banner import HANGARLLM_BANNER
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils import secret_redaction
+from hangarllm.types.utils import StandardLoggingPayload
 
 
 class CacheHitCustomLogger(CustomLogger):
@@ -93,18 +93,18 @@ def test_json_mode_emits_one_record_per_logger(capfd):
 
 
 @pytest.mark.parametrize(
-    ("litellm_log", "want_info_lines"),
+    ("hangarllm_log", "want_info_lines"),
     [("INFO", 2), ("DEBUG", 2), (None, 0)],
 )
-def test_json_mode_root_logger_honours_litellm_log(monkeypatch, capfd, litellm_log, want_info_lines):
+def test_json_mode_root_logger_honours_hangarllm_log(monkeypatch, capfd, hangarllm_log, want_info_lines):
     root: Final = logging.getLogger()
     saved_level: Final = root.level
     saved_handlers: Final = list(root.handlers)
     saved_propagate: Final = root.propagate
-    if litellm_log is None:
-        monkeypatch.delenv("LITELLM_LOG", raising=False)
+    if hangarllm_log is None:
+        monkeypatch.delenv("HANGARLLM_LOG", raising=False)
     else:
-        monkeypatch.setenv("LITELLM_LOG", litellm_log)
+        monkeypatch.setenv("HANGARLLM_LOG", hangarllm_log)
     try:
         turn_on_json()
         logging.getLogger("some.third.party").info("library info line")
@@ -133,7 +133,7 @@ def test_json_formatter_parses_embedded_json_message():
     """
     formatter = JsonFormatter()
     record = logging.LogRecord(
-        name="LiteLLM",
+        name="HangarLLM",
         level=logging.DEBUG,
         pathname="",
         lineno=0,
@@ -159,11 +159,11 @@ def test_json_formatter_includes_extra_attributes():
     """
     formatter = JsonFormatter()
     record = logging.LogRecord(
-        name="LiteLLM",
+        name="HangarLLM",
         level=logging.DEBUG,
         pathname="",
         lineno=0,
-        msg="POST Request Sent from LiteLLM",
+        msg="POST Request Sent from HangarLLM",
         args=(),
         exc_info=None,
     )
@@ -171,7 +171,7 @@ def test_json_formatter_includes_extra_attributes():
     record.authorization = "Bearer sk-***"
     output = formatter.format(record)
     obj = json.loads(output)
-    assert obj["message"] == "POST Request Sent from LiteLLM"
+    assert obj["message"] == "POST Request Sent from HangarLLM"
     assert obj["api_base"] == "https://api.openai.com"
     assert obj["authorization"] == "Bearer sk-***"
 
@@ -182,7 +182,7 @@ def test_json_formatter_plain_message_unchanged():
     """
     formatter = JsonFormatter()
     record = logging.LogRecord(
-        name="LiteLLM",
+        name="HangarLLM",
         level=logging.INFO,
         pathname="",
         lineno=0,
@@ -207,14 +207,14 @@ def test_json_formatter_parses_embedded_python_dict_repr():
     msg = (
         "get_available_deployment for model: text-embedding-3-large, "
         "Selected deployment: {'model_name': 'text-embedding-3-large', "
-        "'litellm_params': {'api_key': 'sk**********', 'tpm': 1000000, 'rpm': 2000, "
-        "'use_in_pass_through': False, 'use_litellm_proxy': False, "
+        "'hangarllm_params': {'api_key': 'sk**********', 'tpm': 1000000, 'rpm': 2000, "
+        "'use_in_pass_through': False, 'use_hangarllm_proxy': False, "
         "'merge_reasoning_content_in_choices': False, 'model': 'text-embedding-3-large'}, "
         "'model_info': {'id': 'a624b057aec64ada48311', 'db_model': False}} "
         "for model: text-embedding-3-large"
     )
     record = logging.LogRecord(
-        name="LiteLLM Router",
+        name="HangarLLM Router",
         level=logging.INFO,
         pathname="",
         lineno=0,
@@ -228,13 +228,13 @@ def test_json_formatter_parses_embedded_python_dict_repr():
     assert obj["level"] == "INFO"
     # Python dict parsed and promoted to first-class properties
     assert obj["model_name"] == "text-embedding-3-large"
-    assert "litellm_params" in obj
+    assert "hangarllm_params" in obj
     # Redacted, not passed through: SecretRedactionFilter already collapses this
     # pair in the plain path before any formatter sees it, so the JSON path matching
     # it is production parity. The key survives because redaction is per-value here.
-    assert obj["litellm_params"]["api_key"] == "REDACTED"
-    assert obj["litellm_params"]["tpm"] == 1000000
-    assert obj["litellm_params"]["use_in_pass_through"] is False
+    assert obj["hangarllm_params"]["api_key"] == "REDACTED"
+    assert obj["hangarllm_params"]["tpm"] == 1000000
+    assert obj["hangarllm_params"]["use_in_pass_through"] is False
     assert "model_info" in obj
     assert obj["model_info"]["id"] == "a624b057aec64ada48311"
     assert obj["model_info"]["db_model"] is False
@@ -248,7 +248,7 @@ def test_json_formatter_output_stays_parseable_when_a_secret_is_redacted():
     """
     formatter = JsonFormatter()
     record = logging.LogRecord(
-        name="LiteLLM",
+        name="HangarLLM",
         level=logging.INFO,
         pathname="",
         lineno=0,
@@ -275,10 +275,10 @@ def test_json_formatter_output_stays_parseable_when_a_secret_is_redacted():
 def test_json_formatter_includes_component_field():
     """
     Test that JsonFormatter always emits a 'component' field equal to the logger name.
-    This allows filtering by component (e.g. "LiteLLM Proxy") in Datadog / third-party log services.
+    This allows filtering by component (e.g. "HangarLLM Proxy") in Datadog / third-party log services.
     """
     formatter = JsonFormatter()
-    for logger_name in ("LiteLLM Proxy", "LiteLLM Router", "LiteLLM"):
+    for logger_name in ("HangarLLM Proxy", "HangarLLM Router", "HangarLLM"):
         record = logging.LogRecord(
             name=logger_name,
             level=logging.ERROR,
@@ -300,9 +300,9 @@ def test_json_formatter_includes_logger_field():
     """
     formatter = JsonFormatter()
     record = logging.LogRecord(
-        name="LiteLLM Proxy",
+        name="HangarLLM Proxy",
         level=logging.INFO,
-        pathname="/app/litellm/proxy/proxy_server.py",
+        pathname="/app/hangarllm/proxy/proxy_server.py",
         lineno=123,
         msg="request received",
         args=(),
@@ -319,7 +319,7 @@ def test_json_formatter_extra_component_not_overwritten():
     """
     formatter = JsonFormatter()
     record = logging.LogRecord(
-        name="LiteLLM Proxy",
+        name="HangarLLM Proxy",
         level=logging.INFO,
         pathname="proxy_server.py",
         lineno=1,
@@ -352,14 +352,14 @@ async def test_cache_hit_includes_custom_llm_provider():
     Test that when there's a cache hit, the standard logging payload includes the custom_llm_provider
     """
     # Set up caching and custom logger
-    litellm.cache = litellm.Cache()
+    hangarllm.cache = hangarllm.Cache()
     test_custom_logger = CacheHitCustomLogger()
-    original_callbacks = litellm.callbacks.copy() if litellm.callbacks else []
-    litellm.callbacks = [test_custom_logger]
+    original_callbacks = hangarllm.callbacks.copy() if hangarllm.callbacks else []
+    hangarllm.callbacks = [test_custom_logger]
 
     try:
         # First call - should be a cache miss
-        response1 = await litellm.acompletion(
+        response1 = await hangarllm.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "test cache hit message"}],
             mock_response="test response",
@@ -370,7 +370,7 @@ async def test_cache_hit_includes_custom_llm_provider():
         await asyncio.sleep(0.5)
 
         # Second identical call - should be a cache hit
-        response2 = await litellm.acompletion(
+        response2 = await hangarllm.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "test cache hit message"}],
             mock_response="test response",
@@ -413,15 +413,15 @@ async def test_cache_hit_includes_custom_llm_provider():
 
     finally:
         # Clean up
-        litellm.callbacks = original_callbacks
-        litellm.cache = None
+        hangarllm.callbacks = original_callbacks
+        hangarllm.cache = None
 
 
-LITELLM_LOGGER_NAMES = frozenset(
+HANGARLLM_LOGGER_NAMES = frozenset(
     {"verbose_logger", "verbose_proxy_logger", "verbose_router_logger", "logger", "logging"}
 )
 LOG_LEVEL_METHODS = frozenset({"debug", "info", "warning", "error", "exception", "critical"})
-LITELLM_PACKAGE_ROOT = Path(__file__).resolve().parents[2] / "litellm"
+HANGARLLM_PACKAGE_ROOT = Path(__file__).resolve().parents[2] / "hangarllm"
 
 
 def _receiver_name(node: ast.expr) -> str:
@@ -437,7 +437,7 @@ def _is_logging_call(node: ast.AST) -> bool:
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr in LOG_LEVEL_METHODS
-        and _receiver_name(node.func.value) in LITELLM_LOGGER_NAMES
+        and _receiver_name(node.func.value) in HANGARLLM_LOGGER_NAMES
     )
 
 
@@ -468,9 +468,9 @@ def test_logging_calls_do_not_build_their_message_eagerly():
     """
     offenders = tuple(
         offender
-        for path in sorted(LITELLM_PACKAGE_ROOT.rglob("*.py"))
+        for path in sorted(HANGARLLM_PACKAGE_ROOT.rglob("*.py"))
         for offender in _eager_logging_calls(
-            path.read_text(encoding="utf-8"), path.relative_to(LITELLM_PACKAGE_ROOT.parent)
+            path.read_text(encoding="utf-8"), path.relative_to(HANGARLLM_PACKAGE_ROOT.parent)
         )
     )
 
@@ -501,7 +501,7 @@ def _make_capture_logger(name: str) -> tuple[logging.Logger, _JsonCapture]:
 
 def test_trace_id_injected_into_json_record(monkeypatch):
     """trace_id set via set_trace_id() appears in every JSON record in that context."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", True)
     lg, cap = _make_capture_logger("test.trace_inject")
     set_trace_id("trace-abc-123")
     try:
@@ -514,7 +514,7 @@ def test_trace_id_injected_into_json_record(monkeypatch):
 
 def test_session_id_injected_when_set(monkeypatch):
     """session_id set via set_session_id() appears in JSON record."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", True)
     lg, cap = _make_capture_logger("test.session_inject")
     set_session_id("sess-xyz-456")
     try:
@@ -528,7 +528,7 @@ def test_trace_id_and_session_id_cannot_be_spoofed_by_message_content(monkeypatc
     """A log message that happens to parse as JSON/dict with "trace_id"/"session_id"
     keys (e.g. the proxy logging a raw request-header dict) must not override the
     real correlation ids set via set_trace_id()/set_session_id()."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", True)
     lg, cap = _make_capture_logger("test.spoof_attempt")
     set_trace_id("real-trace-id")
     set_session_id("real-session-id")
@@ -546,7 +546,7 @@ def test_trace_id_and_session_id_cannot_be_injected_with_no_active_context(monke
     must not surface those fields at all when CorrelationContextFilter hasn't stamped
     this record - e.g. a log line emitted before Logging.__init__() runs for a request
     (request_correlation_in_logs on, but no genuine trace/session id active yet)."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", True)
     lg, cap = _make_capture_logger("test.no_context_spoof_attempt")
     trace_id_var.set("")
     session_id_var.set("")
@@ -556,13 +556,13 @@ def test_trace_id_and_session_id_cannot_be_injected_with_no_active_context(monke
 
 
 def test_trace_id_and_session_id_are_redacted_when_credential_shaped(monkeypatch):
-    """A caller-controlled trace_id/session_id (e.g. from x-litellm-trace-id or a W3C
+    """A caller-controlled trace_id/session_id (e.g. from x-hangarllm-trace-id or a W3C
     baggage header) that happens to look like a real credential must not reach log
     records unredacted. CorrelationContextFilter stamps trace_id/session_id onto the
     record after SecretRedactionFilter has already run, so those two fields would
     otherwise bypass credential redaction entirely - the fix redacts at set_trace_id()/
     set_session_id() time instead, before the value ever reaches a log record."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", True)
     lg, cap = _make_capture_logger("test.credential_shaped_correlation_id")
     poisoned_trace_id = "sk-ant-api03-" + "A" * 40
     poisoned_session_id = "AKIA" + "B" * 16
@@ -616,7 +616,7 @@ async def test_contextvar_isolation_between_tasks():
 
 def test_trace_id_not_in_log_when_flag_disabled(monkeypatch):
     """When request_correlation_in_logs is False (default), trace_id must not appear in JSON records even when set."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", False)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", False)
     lg, cap = _make_capture_logger("test.no_trace_gated")
     set_trace_id("trace-should-not-appear")
     try:
@@ -628,7 +628,7 @@ def test_trace_id_not_in_log_when_flag_disabled(monkeypatch):
 
 def test_session_id_not_in_log_when_flag_disabled(monkeypatch):
     """When request_correlation_in_logs is False (default), session_id must not appear in JSON records even when set."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", False)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", False)
     lg, cap = _make_capture_logger("test.no_session_gated")
     set_session_id("sess-should-not-appear")
     try:
@@ -659,7 +659,7 @@ def _make_plain_capture_logger(name: str) -> tuple[logging.Logger, _PlainCapture
 
 def test_plain_formatter_appends_trace_id_and_session_id(monkeypatch):
     """CorrelationPlainFormatter must append trace_id/session_id to non-JSON log lines too."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", True)
     lg, cap = _make_plain_capture_logger("test.plain_trace_session")
     set_trace_id("plain-trace-1")
     set_session_id("plain-session-1")
@@ -673,7 +673,7 @@ def test_plain_formatter_appends_trace_id_and_session_id(monkeypatch):
 
 def test_plain_formatter_appends_only_trace_id_when_session_id_absent(monkeypatch):
     """Only trace_id is appended when session_id was never set."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", True)
     lg, cap = _make_plain_capture_logger("test.plain_trace_only")
     set_trace_id("plain-trace-2")
     session_id_var.set("")
@@ -686,7 +686,7 @@ def test_plain_formatter_appends_only_trace_id_when_session_id_absent(monkeypatc
 
 def test_plain_formatter_unchanged_when_flag_disabled(monkeypatch):
     """When request_correlation_in_logs is False, plain log lines are unmodified even if the contextvars are set."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", False)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", False)
     lg, cap = _make_plain_capture_logger("test.plain_flag_off")
     set_trace_id("should-not-appear")
     set_session_id("should-not-appear")
@@ -710,7 +710,7 @@ def test_set_trace_id_strips_control_characters():
         trace_id_var.reset(token)
 
 
-_MARKER_RE = re.compile(rf"\.\.\. \({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped (\d+) chars\..*?\) \.\.\.", re.S)
+_MARKER_RE = re.compile(rf"\.\.\. \({HANGARLLM_TRUNCATED_PAYLOAD_FIELD} skipped (\d+) chars\..*?\) \.\.\.", re.S)
 
 
 def _extract_marker(text: str) -> "re.Match[str] | None":
@@ -719,7 +719,7 @@ def _extract_marker(text: str) -> "re.Match[str] | None":
 
 def _make_record(level: int, msg: str, args=(), exc_info=None) -> logging.LogRecord:
     return logging.LogRecord(
-        name="LiteLLM Router",
+        name="HangarLLM Router",
         level=level,
         pathname="",
         lineno=0,
@@ -740,14 +740,14 @@ def test_oversized_info_record_is_truncated(monkeypatch):
     """An error string echoing a huge request payload must not reach stdout in full."""
     monkeypatch.setenv("MAX_STRING_LENGTH_STDOUT_LOG", "500")
     payload = _OVERSIZED_TEXT
-    record = _make_record(logging.INFO, "litellm.acompletion(model=%s) Exception %s", ("gpt-4", payload))
+    record = _make_record(logging.INFO, "hangarllm.acompletion(model=%s) Exception %s", ("gpt-4", payload))
 
     assert StdoutLogTruncationFilter().filter(record) is True
 
     message = record.getMessage()
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in message
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in message
     assert len(message) <= 500
-    assert message.startswith("litellm.acompletion(model=gpt-4) Exception payload payload")
+    assert message.startswith("hangarllm.acompletion(model=gpt-4) Exception payload payload")
     assert message.endswith("payload ")
 
     marker = _extract_marker(message)
@@ -828,7 +828,7 @@ def test_oversized_traceback_is_truncated(monkeypatch):
     assert StdoutLogTruncationFilter().filter(record) is True
 
     assert record.exc_text is not None
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in record.exc_text
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in record.exc_text
     assert len(record.exc_text) <= 500
     assert "Traceback (most recent call last)" in record.exc_text
 
@@ -841,7 +841,7 @@ def test_falsy_exc_info_is_not_formatted(monkeypatch):
     assert StdoutLogTruncationFilter().filter(record) is True
 
     assert record.exc_text is None
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in record.getMessage()
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in record.getMessage()
 
 
 def test_secret_filter_keeps_truncated_traceback(monkeypatch):
@@ -864,10 +864,10 @@ def test_secret_filter_keeps_truncated_traceback(monkeypatch):
 
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_diagnostic_redaction_precedes_a_credential_cut(monkeypatch, native):
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
+    monkeypatch.setenv("HANGARLLM_RUST", "1" if native else "0")
     monkeypatch.setenv("MAX_STRING_LENGTH_STDOUT_LOG", "500")
     monkeypatch.setenv("MAX_BASE64_LENGTH_STDOUT_LOG", "0")
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     secret = "sk-" + "q" * 48
     record = _make_record(logging.INFO, "%s", ("é" * 110 + secret + "界" * 1000,))
 
@@ -878,7 +878,7 @@ def test_diagnostic_redaction_precedes_a_credential_cut(monkeypatch, native):
 
 
 def test_correlation_id_redacts_before_its_length_bound(monkeypatch):
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     secret = "sk-" + "q" * 48
     token = set_trace_id("x" * 250 + secret)
     try:
@@ -890,8 +890,8 @@ def test_correlation_id_redacts_before_its_length_bound(monkeypatch):
 
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_malformed_interpolation_still_scrubs_a_record(monkeypatch, native):
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setenv("HANGARLLM_RUST", "1" if native else "0")
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "bad % api_key=secret123", ("value",))
     record.color_message = "bad % api_key=secret123"
 
@@ -903,8 +903,8 @@ def test_malformed_interpolation_still_scrubs_a_record(monkeypatch, native):
 
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_key_pattern_template_keeps_the_rendered_redacted_line(monkeypatch, native):
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setenv("HANGARLLM_RUST", "1" if native else "0")
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.INFO, "password=%s ok", ("hunter2",))
     record.color_message = "password=%s ok"
 
@@ -919,7 +919,7 @@ def test_disabled_diagnostic_call_does_not_render_arguments(caplog):
         def __str__(self):
             raise AssertionError("disabled call rendered its argument")
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM"):
         verbose_logger.debug("hidden %s", Unrenderable())
 
     assert not caplog.records
@@ -937,11 +937,11 @@ def test_oversized_error_is_truncated_end_to_end(monkeypatch, caplog):
     """The router's own exception log line must come out bounded, not just the filter in isolation."""
     monkeypatch.setenv("MAX_STRING_LENGTH_STDOUT_LOG", "500")
 
-    with caplog.at_level(logging.INFO, logger="LiteLLM Router"):
-        verbose_router_logger.info("litellm.acompletion(model=%s) Exception %s", "gpt-4", _OVERSIZED_TEXT)
+    with caplog.at_level(logging.INFO, logger="HangarLLM Router"):
+        verbose_router_logger.info("hangarllm.acompletion(model=%s) Exception %s", "gpt-4", _OVERSIZED_TEXT)
 
     emitted = "".join(record.getMessage() for record in caplog.records)
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in emitted
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in emitted
     assert len(emitted) <= 500
 
 
@@ -1057,7 +1057,7 @@ def test_debug_traceback_collapses_base64_runs():
 
 def test_base64_collapse_applies_end_to_end(caplog):
     """The proxy's own request dump must come out collapsed, not just the filter in isolation."""
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
         verbose_proxy_logger.debug("receiving data: %s", f"{{'document': 'data:application/pdf;base64,{_PDF_BASE64}'}}")
 
     emitted = "".join(record.getMessage() for record in caplog.records)
@@ -1087,9 +1087,9 @@ _REQUEST_DUMP = "{'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'he
 def test_scrubbed_record_scans_the_large_rendered_value_once(monkeypatch, formatter):
     """The raw format template gets its own check, while the large rendered value gets one scan."""
     counting = _CountingPattern(secret_redaction._SECRET_RE)
-    monkeypatch.setenv("LITELLM_RUST", "0")
+    monkeypatch.setenv("HANGARLLM_RUST", "0")
     monkeypatch.setattr(secret_redaction, "_SECRET_RE", counting)
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.DEBUG, "receiving data: %s", (_REQUEST_DUMP,))
 
     assert StdoutLogTruncationFilter().filter(record) is True
@@ -1097,7 +1097,7 @@ def test_scrubbed_record_scans_the_large_rendered_value_once(monkeypatch, format
     rendered = formatter.format(record)
 
     assert _REQUEST_DUMP in rendered
-    assert "litellm_redacted" not in rendered
+    assert "hangarllm_redacted" not in rendered
     assert counting.calls == 2
     assert counting.scanned_chars == len(f"receiving data: {_REQUEST_DUMP}") + len("receiving data: %s")
 
@@ -1106,9 +1106,9 @@ def test_stamped_record_is_not_scanned_again(monkeypatch):
     """JSON mode puts the filter on a third-party logger and again on the root handler its
     records propagate to, so the second filter must trust the stamp instead of rescanning."""
     counting = _CountingPattern(secret_redaction._SECRET_RE)
-    monkeypatch.setenv("LITELLM_RUST", "0")
+    monkeypatch.setenv("HANGARLLM_RUST", "0")
     monkeypatch.setattr(secret_redaction, "_SECRET_RE", counting)
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.DEBUG, "receiving data: %s", (_REQUEST_DUMP,))
 
     assert SecretRedactionFilter().filter(record) is True
@@ -1118,14 +1118,14 @@ def test_stamped_record_is_not_scanned_again(monkeypatch):
 
 
 def test_caller_supplied_stamp_never_skips_the_scrub(monkeypatch):
-    """The stamp is a private sentinel, so a caller passing extra={"litellm_redacted": True}
+    """The stamp is a private sentinel, so a caller passing extra={"hangarllm_redacted": True}
     still gets the full scrub, and only the filter's own stamp lets a later pass skip it."""
     counting = _CountingPattern(secret_redaction._SECRET_RE)
-    monkeypatch.setenv("LITELLM_RUST", "0")
+    monkeypatch.setenv("HANGARLLM_RUST", "0")
     monkeypatch.setattr(secret_redaction, "_SECRET_RE", counting)
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.DEBUG, "api_key=sk-9876567890abcdefghij")
-    record.litellm_redacted = True
+    record.hangarllm_redacted = True
 
     assert SecretRedactionFilter().filter(record) is True
     assert "sk-9876567890abcdefghij" not in record.getMessage()
@@ -1136,7 +1136,7 @@ def test_caller_supplied_stamp_never_skips_the_scrub(monkeypatch):
 
 
 def test_stack_info_is_scrubbed_before_the_plain_formatter(monkeypatch):
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.INFO, "call failed")
     record.stack_info = "Stack (most recent call last):\n  api_key=sk-9876567890abcdefghij"
 
@@ -1164,7 +1164,7 @@ class _BrokenModel(BaseModel):
 def test_unserializable_extra_never_breaks_the_filter(monkeypatch, extra):
     """A pydantic computed field that raises escapes model_dump() and str() alike, and a
     logging filter that lets it through raises into the caller's own log call."""
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "request sent")
     record.payload = extra
 
@@ -1198,9 +1198,9 @@ def _nest(value: object, levels: int) -> object:
     ids=("tuple", "list", "nested_tuple", "dict", "deep_list"),
 )
 def test_secret_free_extra_keeps_its_original_object(monkeypatch, extra):
-    """A host application's own handler on a litellm logger reads extras by type, so a
+    """A host application's own handler on a hangarllm logger reads extras by type, so a
     container that carried no secret must reach it untouched, not as its JSON shape."""
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "request sent")
     record.payload = extra
 
@@ -1220,7 +1220,7 @@ def test_secret_free_extra_keeps_its_original_object(monkeypatch, extra):
     ids=("tuple", "set", "dict"),
 )
 def test_extra_that_carried_a_secret_comes_back_scrubbed(monkeypatch, extra, scrubbed):
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "request sent")
     record.payload = extra
 
@@ -1249,7 +1249,7 @@ class _AmbiguousArray:
 def test_extra_whose_equality_raises_still_comes_back_scrubbed(monkeypatch, extra, scrubbed):
     """numpy arrays and torch tensors raise when compared for truth, so the keep-or-scrub
     decision must fall on the scrubbed copy instead of breaking the caller's log call."""
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "request sent")
     record.payload = extra
 
@@ -1273,7 +1273,7 @@ def test_extra_whose_equality_raises_still_comes_back_scrubbed(monkeypatch, extr
 def test_extra_the_filter_cannot_fully_inspect_never_keeps_its_secret(monkeypatch, extra):
     """Whatever safe_dumps would skip (non-string keys, anything past its depth limit,
     fields a repr hides) must not ride the original object past the redacted stamp."""
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "request sent")
     record.payload = extra
 
@@ -1286,7 +1286,7 @@ def test_extra_the_filter_cannot_fully_inspect_never_keeps_its_secret(monkeypatc
 
 
 def test_secret_free_set_comes_back_as_its_json_shape(monkeypatch):
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "request sent")
     record.payload = {"gpt-4o", "gpt-4o-mini"}
 
@@ -1299,7 +1299,7 @@ def test_secret_free_set_comes_back_as_its_json_shape(monkeypatch):
 def test_unscrubbed_record_is_still_redacted_by_the_formatter(monkeypatch):
     """Records that never met SecretRedactionFilter (uvicorn's, in JSON mode) keep
     their formatter-side redaction."""
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.INFO, "key sk-9876567890abcdefghij")
 
     assert "sk-9876567890abcdefghij" not in JsonFormatter().format(record)
@@ -1406,15 +1406,15 @@ def test_plain_log_format_survives_hostile_streams(stdout, stderr):
 
 def _router_success_record() -> logging.LogRecord:
     return logging.LogRecord(
-        "LiteLLM Router", logging.INFO, "router.py", 1, "litellm.acompletion(model=%s)\033[32m 200 OK\033[0m", ("gpt-5.6",), None
+        "HangarLLM Router", logging.INFO, "router.py", 1, "hangarllm.acompletion(model=%s)\033[32m 200 OK\033[0m", ("gpt-5.6",), None
     )
 
 
 @pytest.mark.parametrize(
     ("log_format", "want_suffix"),
     [
-        (_COLOR_LOG_FORMAT, "litellm.acompletion(model=gpt-5.6)\033[32m 200 OK\033[0m"),
-        (_PLAIN_LOG_FORMAT, "router.py:1 - litellm.acompletion(model=gpt-5.6) 200 OK"),
+        (_COLOR_LOG_FORMAT, "hangarllm.acompletion(model=gpt-5.6)\033[32m 200 OK\033[0m"),
+        (_PLAIN_LOG_FORMAT, "router.py:1 - hangarllm.acompletion(model=gpt-5.6) 200 OK"),
     ],
 )
 def test_plain_formatter_keeps_message_colors_only_with_the_color_format(log_format: str, want_suffix: str):
@@ -1426,7 +1426,7 @@ def test_plain_formatter_keeps_message_colors_only_with_the_color_format(log_for
 def test_json_formatter_drops_color_codes_from_the_message():
     """A JSON log line is read by a log pipeline, never a terminal, so a colored message arrives as plain text."""
     assert json.loads(JsonFormatter().format(_router_success_record()))["message"] == (
-        "litellm.acompletion(model=gpt-5.6) 200 OK"
+        "hangarllm.acompletion(model=gpt-5.6) 200 OK"
     )
 
 
@@ -1642,7 +1642,7 @@ def _emit_access_line(full_path: str) -> str:
     handler.setFormatter(AccessFormatter('%(client_addr)s - "%(request_line)s" %(status_code)s', use_colors=False))
     saved_level, saved_propagate = logger.level, logger.propagate
     saved_filters: Final = logger.filters[:]
-    logger.filters = [f for f in saved_filters if type(f).__module__.split(".")[0] == "litellm"]
+    logger.filters = [f for f in saved_filters if type(f).__module__.split(".")[0] == "hangarllm"]
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
     logger.propagate = False
@@ -1657,7 +1657,7 @@ def _emit_access_line(full_path: str) -> str:
 
 
 def test_uvicorn_access_logger_redacts_a_credential_it_is_handed():
-    """Registration happens at litellm import; without it the filter never runs."""
+    """Registration happens at hangarllm import; without it the filter never runs."""
     emitted = _emit_access_line(f"/key/info?key={_LEAKED_KEY}")
 
     assert _LEAKED_KEY not in emitted
@@ -1665,7 +1665,7 @@ def test_uvicorn_access_logger_redacts_a_credential_it_is_handed():
 
 
 def test_access_redaction_survives_the_uvicorn_json_log_config():
-    """litellm hands uvicorn a dictConfig when json_logs is on. dictConfig clears a
+    """hangarllm hands uvicorn a dictConfig when json_logs is on. dictConfig clears a
     logger's handlers but not its filters, so redaction has to still be attached."""
     import logging.config
 
@@ -1698,7 +1698,7 @@ _DISABLED_ACCESS_LOG_PATHS_RAW = " /health/liveliness , ,/metrics/"
     ],
 )
 def test_uvicorn_access_logger_drops_a_configured_path(monkeypatch, full_path):
-    monkeypatch.setenv("LITELLM_DISABLE_ACCESS_LOG_PATHS", _DISABLED_ACCESS_LOG_PATHS_RAW)
+    monkeypatch.setenv("HANGARLLM_DISABLE_ACCESS_LOG_PATHS", _DISABLED_ACCESS_LOG_PATHS_RAW)
     assert _emit_access_line(full_path) == ""
 
 
@@ -1707,23 +1707,23 @@ def test_uvicorn_access_logger_drops_a_configured_path(monkeypatch, full_path):
     ["/v1/chat/completions", "/health", "/health/liveliness/", "/metrics", "/v1/models?health=/health/liveliness"],
 )
 def test_uvicorn_access_logger_keeps_an_unconfigured_path(monkeypatch, full_path):
-    monkeypatch.setenv("LITELLM_DISABLE_ACCESS_LOG_PATHS", _DISABLED_ACCESS_LOG_PATHS_RAW)
+    monkeypatch.setenv("HANGARLLM_DISABLE_ACCESS_LOG_PATHS", _DISABLED_ACCESS_LOG_PATHS_RAW)
     assert f'"GET {full_path} HTTP/1.1" 200' in _emit_access_line(full_path)
 
 
 @pytest.mark.parametrize("raw", [None, "", " , ,"])
 def test_uvicorn_access_logger_keeps_every_line_when_no_path_is_configured(monkeypatch, raw):
     if raw is None:
-        monkeypatch.delenv("LITELLM_DISABLE_ACCESS_LOG_PATHS", raising=False)
+        monkeypatch.delenv("HANGARLLM_DISABLE_ACCESS_LOG_PATHS", raising=False)
     else:
-        monkeypatch.setenv("LITELLM_DISABLE_ACCESS_LOG_PATHS", raw)
+        monkeypatch.setenv("HANGARLLM_DISABLE_ACCESS_LOG_PATHS", raw)
     assert '"GET /health/liveliness HTTP/1.1" 200' in _emit_access_line("/health/liveliness")
 
 
 def test_access_log_path_filter_survives_the_uvicorn_json_log_config(monkeypatch):
     import logging.config
 
-    monkeypatch.setenv("LITELLM_DISABLE_ACCESS_LOG_PATHS", _DISABLED_ACCESS_LOG_PATHS_RAW)
+    monkeypatch.setenv("HANGARLLM_DISABLE_ACCESS_LOG_PATHS", _DISABLED_ACCESS_LOG_PATHS_RAW)
     names = ("uvicorn", "uvicorn.error", "uvicorn.access")
     saved = tuple((logging.getLogger(n), logging.getLogger(n).handlers[:], logging.getLogger(n).level) for n in names)
     try:
@@ -1740,7 +1740,7 @@ def test_access_log_path_filter_survives_the_uvicorn_json_log_config(monkeypatch
 
 @pytest.mark.parametrize("args", [None, ("127.0.0.1:1", "GET", 42)])
 def test_access_log_path_filter_keeps_a_record_without_a_string_path_arg(monkeypatch, args):
-    monkeypatch.setenv("LITELLM_DISABLE_ACCESS_LOG_PATHS", "/health/liveliness")
+    monkeypatch.setenv("HANGARLLM_DISABLE_ACCESS_LOG_PATHS", "/health/liveliness")
     record = logging.LogRecord(
         name="uvicorn.access",
         level=logging.INFO,
@@ -1755,8 +1755,8 @@ def test_access_log_path_filter_keeps_a_record_without_a_string_path_arg(monkeyp
 
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_diagnostic_filter_scrubs_exc_stack_and_nested_extras(monkeypatch, native):
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setenv("HANGARLLM_RUST", "1" if native else "0")
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     secret = "sk-" + "q" * 48
     try:
         raise ValueError(f"upstream rejected {secret}")
@@ -1781,8 +1781,8 @@ def test_diagnostic_filter_scrubs_exc_stack_and_nested_extras(monkeypatch, nativ
 
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_diagnostic_filter_stamps_records_so_a_second_pass_is_free(monkeypatch, native):
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setenv("HANGARLLM_RUST", "1" if native else "0")
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "api_key=secret123")
     diagnostic_filter = DiagnosticProcessingFilter()
 
@@ -1793,8 +1793,8 @@ def test_diagnostic_filter_stamps_records_so_a_second_pass_is_free(monkeypatch, 
 
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_json_formatter_scrubs_unfiltered_extras(monkeypatch, native):
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setenv("HANGARLLM_RUST", "1" if native else "0")
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     secret = "sk-" + "q" * 48
     record = _make_record(logging.INFO, "response complete")
     record.payload = {"api_key": secret, "nested": {"list": [secret]}}
@@ -1807,8 +1807,8 @@ def test_json_formatter_scrubs_unfiltered_extras(monkeypatch, native):
 
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_diagnostic_filter_redacts_a_non_string_message_object(monkeypatch, native):
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setenv("HANGARLLM_RUST", "1" if native else "0")
+    monkeypatch.setattr("hangarllm._logging._ENABLE_SECRET_REDACTION", True)
     secret = "sk-" + "q" * 48
     record = _make_record(logging.ERROR, {"api_key": secret})
 
@@ -1826,7 +1826,7 @@ class _StrCountingValue:
 
 
 def test_print_verbose_formats_args_only_when_set_verbose_is_on(monkeypatch, capsys):
-    import litellm._logging as logging_module
+    import hangarllm._logging as logging_module
 
     _StrCountingValue.str_calls = 0
 
@@ -1860,7 +1860,7 @@ def test_print_startup_message_keeps_colors_only_on_a_color_terminal(
     """Operators without JSON logs keep the colored, spaced output on a terminal. A container runtime reads
     stdout through a pipe and stores the escape codes as text, so there, and under NO_COLOR, the colors go.
     The rule is the plain log format's, so a `2>file` run drops the colors from prints and log lines alike."""
-    monkeypatch.setattr(litellm, "json_logs", False)
+    monkeypatch.setattr(hangarllm, "json_logs", False)
     if no_color is None:
         monkeypatch.delenv("NO_COLOR", raising=False)
     else:
@@ -1870,24 +1870,24 @@ def test_print_startup_message_keeps_colors_only_on_a_color_terminal(
     monkeypatch.setattr(sys, "stderr", _CapturedStream(stderr_tty))
     assert (_plain_log_format(sys.stdout, sys.stderr) == _COLOR_LOG_FORMAT) is want_color
 
-    print_startup_message("\n\033[1;32mLiteLLM: Proxy initialized with Config, Set models:\033[0m\n")
+    print_startup_message("\n\033[1;32mHangarLLM: Proxy initialized with Config, Set models:\033[0m\n")
 
     assert stdout.getvalue() == (
-        "\n\033[1;32mLiteLLM: Proxy initialized with Config, Set models:\033[0m\n\n"
+        "\n\033[1;32mHangarLLM: Proxy initialized with Config, Set models:\033[0m\n\n"
         if want_color
-        else "\nLiteLLM: Proxy initialized with Config, Set models:\n\n"
+        else "\nHangarLLM: Proxy initialized with Config, Set models:\n\n"
     )
 
 
 def test_print_startup_message_writes_the_banner_as_utf8_to_an_ascii_stdout(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "json_logs", False)
-    monkeypatch.setattr(litellm, "suppress_startup_output", False)
+    monkeypatch.setattr(hangarllm, "json_logs", False)
+    monkeypatch.setattr(hangarllm, "suppress_startup_output", False)
     raw: Final = BytesIO()
     monkeypatch.setattr(sys, "stdout", TextIOWrapper(raw, encoding="ascii"))
 
-    print_startup_message(f"\n{LITELLM_BANNER}\n")
+    print_startup_message(f"\n{HANGARLLM_BANNER}\n")
 
-    assert raw.getvalue().decode("utf-8") == f"\n{LITELLM_BANNER}\n\n"
+    assert raw.getvalue().decode("utf-8") == f"\n{HANGARLLM_BANNER}\n\n"
 
 
 @pytest.mark.parametrize("json_logs", [False, True])
@@ -1896,13 +1896,13 @@ def test_print_startup_message_writes_nothing_when_suppressed(
 ):
     """suppress_startup_output turns the startup messages off in plain and JSON mode alike, for operators
     whose log pipeline wants only the logger's own lines."""
-    monkeypatch.setattr(litellm, "json_logs", json_logs)
-    monkeypatch.setattr(litellm, "suppress_startup_output", True)
+    monkeypatch.setattr(hangarllm, "json_logs", json_logs)
+    monkeypatch.setattr(hangarllm, "suppress_startup_output", True)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     if json_logs:
         turn_on_json()
 
-    print_startup_message("\033[32mLiteLLM: Proxy initialized with Search Tools:\033[0m\n\033[32m    web-search (tavily)\033[0m")
+    print_startup_message("\033[32mHangarLLM: Proxy initialized with Search Tools:\033[0m\n\033[32m    web-search (tavily)\033[0m")
 
     assert capfd.readouterr() == ("", "")
 
@@ -1914,13 +1914,13 @@ def test_print_startup_warning_still_prints_when_suppressed(
     """A warning names something the operator has to fix, like an ignored flag or a failed migration diff,
     so suppress_startup_output leaves it in place. In JSON mode it is a WARNING record at the caller's
     location, on stdout where the print put it, so a collector's WARNING filter keeps it."""
-    monkeypatch.setattr(litellm, "json_logs", json_logs)
-    monkeypatch.setattr(litellm, "suppress_startup_output", True)
+    monkeypatch.setattr(hangarllm, "json_logs", json_logs)
+    monkeypatch.setattr(hangarllm, "suppress_startup_output", True)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     if json_logs:
         turn_on_json()
 
-    print_startup_warning("\033[1;33mLiteLLM: --ciphers is not applied when using --run_granian.\033[0m\n")
+    print_startup_warning("\033[1;33mHangarLLM: --ciphers is not applied when using --run_granian.\033[0m\n")
 
     out, err = capfd.readouterr()
     assert err == ""
@@ -1928,11 +1928,11 @@ def test_print_startup_warning_still_prints_when_suppressed(
     assert len(lines) == 1, lines
     if json_logs:
         record: Final = json.loads(lines[0])
-        assert record["message"] == "LiteLLM: --ciphers is not applied when using --run_granian."
+        assert record["message"] == "HangarLLM: --ciphers is not applied when using --run_granian."
         assert record["level"] == "WARNING"
         assert str(record["logger"]).startswith("test_logging.py:"), record["logger"]
     else:
-        assert lines[0] == "LiteLLM: --ciphers is not applied when using --run_granian."
+        assert lines[0] == "HangarLLM: --ciphers is not applied when using --run_granian."
 
 
 def test_print_startup_message_is_one_json_record_in_json_mode(
@@ -1941,13 +1941,13 @@ def test_print_startup_message_is_one_json_record_in_json_mode(
     """With JSON logs on, a multi-line colored startup message is one INFO record with the colors and the
     surrounding blank lines removed, so a log pipeline parses it like every other line. The logger sits
     at WARNING, as it does in the CLI process, and the record still goes out: a print has no level."""
-    monkeypatch.setattr(litellm, "json_logs", True)
+    monkeypatch.setattr(hangarllm, "json_logs", True)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     turn_on_json()
     verbose_proxy_logger.setLevel(logging.WARNING)
 
     print_startup_message(
-        "\n\033[1;32mLiteLLM: Proxy initialized with Config, Set models:\033[0m\n\033[32m    gpt-4o\033[0m\n\n"
+        "\n\033[1;32mHangarLLM: Proxy initialized with Config, Set models:\033[0m\n\033[32m    gpt-4o\033[0m\n\n"
     )
 
     out, err = capfd.readouterr()
@@ -1955,18 +1955,18 @@ def test_print_startup_message_is_one_json_record_in_json_mode(
     lines: Final = [raw for raw in out.splitlines() if raw.strip()]
     assert len(lines) == 1, lines
     record: Final = json.loads(lines[0])
-    assert record["message"] == "LiteLLM: Proxy initialized with Config, Set models:\n    gpt-4o"
+    assert record["message"] == "HangarLLM: Proxy initialized with Config, Set models:\n    gpt-4o"
     assert record["level"] == "INFO"
-    assert record["component"] == "LiteLLM Proxy"
+    assert record["component"] == "HangarLLM Proxy"
     assert str(record["logger"]).startswith("test_logging.py:"), record["logger"]
 
 
 def test_print_startup_message_shows_above_the_json_handler_level(
     monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
 ) -> None:
-    """`LITELLM_LOG=WARNING` sets the JSON handler to WARNING, which drops the INFO logger lines; the
+    """`HANGARLLM_LOG=WARNING` sets the JSON handler to WARNING, which drops the INFO logger lines; the
     startup notices still go out, as the prints they replace did at every level."""
-    monkeypatch.setattr(litellm, "json_logs", True)
+    monkeypatch.setattr(hangarllm, "json_logs", True)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     turn_on_json()
     verbose_proxy_logger.setLevel(logging.INFO)
@@ -1985,17 +1985,17 @@ def test_print_startup_message_emits_json_after_an_operator_log_config_removed_t
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
 ) -> None:
     """uvicorn applies an operator `--log_config` after proxy_cli's turn_on_json() and before initialize()
-    re-installs the JSON handler through load_config(); a config that names "LiteLLM Proxy" leaves the
+    re-installs the JSON handler through load_config(); a config that names "HangarLLM Proxy" leaves the
     logger without handlers in that window, where the banner and the feedback box are emitted, and they
     still go out as one JSON record each, on stdout."""
     import logging.config
 
-    monkeypatch.setattr(litellm, "json_logs", True)
+    monkeypatch.setattr(hangarllm, "json_logs", True)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     turn_on_json()
     request.addfinalizer(turn_on_json)
     logging.config.dictConfig(
-        {"version": 1, "disable_existing_loggers": False, "loggers": {"LiteLLM Proxy": {"level": "INFO"}}}
+        {"version": 1, "disable_existing_loggers": False, "loggers": {"HangarLLM Proxy": {"level": "INFO"}}}
     )
     assert verbose_proxy_logger.handlers == []
 
@@ -2008,7 +2008,7 @@ def test_print_startup_message_emits_json_after_an_operator_log_config_removed_t
     record: Final = json.loads(lines[0])
     assert record["message"] == "#      Give Feedback / Get Help      #"
     assert record["level"] == "INFO"
-    assert record["component"] == "LiteLLM Proxy"
+    assert record["component"] == "HangarLLM Proxy"
 
 
 OPERATOR_HANDLERS_ON_THE_PROXY_LOGGER: Final = {
@@ -2026,13 +2026,13 @@ OPERATOR_HANDLERS_ON_THE_PROXY_LOGGER: Final = {
 def test_print_startup_message_stays_on_stdout_under_an_operator_handler_on_the_proxy_logger(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str], handler: str
 ) -> None:
-    """An operator `--log_config` that gives "LiteLLM Proxy" a handler of its own, a NullHandler that silences
+    """An operator `--log_config` that gives "HangarLLM Proxy" a handler of its own, a NullHandler that silences
     it or a plain WARNING-level handler on stderr, is in force when the banner and the feedback box are
     emitted; the print they replace wrote to stdout whatever the logging config said, so the record still
     goes out as one JSON record on stdout and the operator's handler gets nothing."""
     import logging.config
 
-    monkeypatch.setattr(litellm, "json_logs", True)
+    monkeypatch.setattr(hangarllm, "json_logs", True)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     turn_on_json()
     request.addfinalizer(turn_on_json)
@@ -2042,7 +2042,7 @@ def test_print_startup_message_stays_on_stdout_under_an_operator_handler_on_the_
             "disable_existing_loggers": False,
             "formatters": {"plain": {"format": "%(levelname)s %(message)s"}},
             "handlers": {"proxy": OPERATOR_HANDLERS_ON_THE_PROXY_LOGGER[handler]},
-            "loggers": {"LiteLLM Proxy": {"level": "INFO", "handlers": ["proxy"], "propagate": False}},
+            "loggers": {"HangarLLM Proxy": {"level": "INFO", "handlers": ["proxy"], "propagate": False}},
         }
     )
     assert len(verbose_proxy_logger.handlers) == 1 and not isinstance(
@@ -2058,7 +2058,7 @@ def test_print_startup_message_stays_on_stdout_under_an_operator_handler_on_the_
     record: Final = json.loads(lines[0])
     assert record["message"] == "#      Give Feedback / Get Help      #"
     assert record["level"] == "INFO"
-    assert record["component"] == "LiteLLM Proxy"
+    assert record["component"] == "HangarLLM Proxy"
 
 
 def test_print_startup_message_keeps_a_listing_longer_than_the_stdout_cap_whole(
@@ -2068,10 +2068,10 @@ def test_print_startup_message_keeps_a_listing_longer_than_the_stdout_cap_whole(
     deployment. The prints they replace showed them whole, and that cap exists for echoed request payloads,
     so the JSON record carries the whole listing too."""
     monkeypatch.setenv("MAX_STRING_LENGTH_STDOUT_LOG", "500")
-    monkeypatch.setattr(litellm, "json_logs", True)
+    monkeypatch.setattr(hangarllm, "json_logs", True)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     turn_on_json()
-    commands: Final = tuple(f'ALTER TABLE "LiteLLM_Table{n}" ADD COLUMN "column_{n}" TEXT;' for n in range(40))
+    commands: Final = tuple(f'ALTER TABLE "HangarLLM_Table{n}" ADD COLUMN "column_{n}" TEXT;' for n in range(40))
     listing: Final = "\n".join(("Changes to DB Schema detected", "Required SQL commands:", *commands))
     assert len(listing) > 500
 
@@ -2082,7 +2082,7 @@ def test_print_startup_message_keeps_a_listing_longer_than_the_stdout_cap_whole(
     lines: Final = [raw for raw in out.splitlines() if raw.strip()]
     assert len(lines) == 1, lines
     record: Final = json.loads(lines[0])
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD not in record["message"]
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD not in record["message"]
     assert record["message"] == listing
 
 
@@ -2091,7 +2091,7 @@ def test_print_startup_message_keeps_a_model_name_the_secret_patterns_would_matc
 ) -> None:
     """The model list printed `risk-assessment-gpt4o` as configured; the sk- key pattern matches inside
     that name, so the JSON record has to carry the name as the print did, not `riREDACTED`."""
-    monkeypatch.setattr(litellm, "json_logs", True)
+    monkeypatch.setattr(hangarllm, "json_logs", True)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     turn_on_json()
     assert secret_redaction.redact_string("risk-assessment-gpt4o") != "risk-assessment-gpt4o"
@@ -2109,7 +2109,7 @@ def test_print_startup_message_blank_spacer_emits_no_json_record(
     monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
 ) -> None:
     """A spacer that only pads the terminal has nothing to say to a log pipeline."""
-    monkeypatch.setattr(litellm, "json_logs", True)
+    monkeypatch.setattr(hangarllm, "json_logs", True)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     turn_on_json()
     verbose_proxy_logger.setLevel(logging.INFO)

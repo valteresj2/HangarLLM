@@ -7,12 +7,12 @@ from typing import Final
 import httpx
 from httpx._types import RequestFiles
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.videos.transformation import BaseVideoConfig
-from litellm.llms.custom_llm import CustomLLM
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.main import VideoCreateOptionalRequestParams, VideoObject
-from litellm.types.videos.utils import encode_video_id_with_provider, extract_original_video_id
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms.base_llm.videos.transformation import BaseVideoConfig
+from hangarllm.llms.custom_llm import CustomLLM
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.videos.main import VideoCreateOptionalRequestParams, VideoObject
+from hangarllm.types.videos.utils import encode_video_id_with_provider, extract_original_video_id
 
 _STATUS_BY_STATE: Final = MappingProxyType({"queued": "queued", "running": "in_progress", "done": "completed"})
 
@@ -48,16 +48,16 @@ class QueueVideoConfig(BaseVideoConfig):
         headers: dict,  # mutable-ok: BaseVideoConfig contract
         model: str,
         api_key: str | None = None,
-        litellm_params: GenericLiteLLMParams | None = None,
+        hangarllm_params: GenericHangarLLMParams | None = None,
     ) -> dict:  # mutable-ok: BaseVideoConfig contract
-        key: Final = (litellm_params.api_key if litellm_params is not None else None) or api_key or ""
+        key: Final = (hangarllm_params.api_key if hangarllm_params is not None else None) or api_key or ""
         return {**headers, "X-Api-Key": key}
 
     def get_complete_url(
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,  # mutable-ok: BaseVideoConfig contract
+        hangarllm_params: dict,  # mutable-ok: BaseVideoConfig contract
     ) -> str:
         if api_base is None:
             raise ValueError("api_base is required")
@@ -69,7 +69,7 @@ class QueueVideoConfig(BaseVideoConfig):
         prompt: str,
         api_base: str,
         video_create_optional_request_params: dict,  # mutable-ok: BaseVideoConfig contract
-        litellm_params: GenericLiteLLMParams,
+        hangarllm_params: GenericHangarLLMParams,
         headers: dict,  # mutable-ok: BaseVideoConfig contract
     ) -> tuple[dict, RequestFiles, str]:  # mutable-ok: BaseVideoConfig contract
         seconds: Final = video_create_optional_request_params.get("seconds")
@@ -79,7 +79,7 @@ class QueueVideoConfig(BaseVideoConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: HangarLLMLoggingObj,
         custom_llm_provider: str | None = None,
         request_data: dict | None = None,
     ) -> VideoObject:
@@ -89,7 +89,7 @@ class QueueVideoConfig(BaseVideoConfig):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        hangarllm_params: GenericHangarLLMParams,
         headers: dict,  # mutable-ok: BaseVideoConfig contract
     ) -> tuple[str, dict]:  # mutable-ok: BaseVideoConfig contract
         return (f"{api_base}/{extract_original_video_id(video_id)}", {})
@@ -97,7 +97,7 @@ class QueueVideoConfig(BaseVideoConfig):
     def transform_video_status_retrieve_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: HangarLLMLoggingObj,
         custom_llm_provider: str | None = None,
         client: object = None,
     ) -> VideoObject:
@@ -107,7 +107,7 @@ class QueueVideoConfig(BaseVideoConfig):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        hangarllm_params: GenericHangarLLMParams,
         headers: dict,  # mutable-ok: BaseVideoConfig contract
         variant: str | None = None,
     ) -> tuple[str, dict]:  # mutable-ok: BaseVideoConfig contract
@@ -116,7 +116,7 @@ class QueueVideoConfig(BaseVideoConfig):
     def transform_video_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: HangarLLMLoggingObj,
         client: object = None,
     ) -> bytes:
         return raw_response.content
@@ -124,7 +124,7 @@ class QueueVideoConfig(BaseVideoConfig):
     def transform_video_list_request(
         self,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        hangarllm_params: GenericHangarLLMParams,
         headers: dict,  # mutable-ok: BaseVideoConfig contract
         after: str | None = None,
         limit: int | None = None,
@@ -136,7 +136,7 @@ class QueueVideoConfig(BaseVideoConfig):
     def transform_video_list_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: HangarLLMLoggingObj,
         custom_llm_provider: str | None = None,
     ) -> dict[str, str]:  # mutable-ok: BaseVideoConfig contract
         return raw_response.json()
@@ -146,7 +146,7 @@ class QueueVideoConfig(BaseVideoConfig):
         video_id: str,
         prompt: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        hangarllm_params: GenericHangarLLMParams,
         headers: dict,  # mutable-ok: BaseVideoConfig contract
         extra_body: dict[str, object] | None = None,
     ) -> tuple[str, dict]:  # mutable-ok: BaseVideoConfig contract
@@ -155,7 +155,7 @@ class QueueVideoConfig(BaseVideoConfig):
     def transform_video_remix_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: HangarLLMLoggingObj,
         custom_llm_provider: str | None = None,
     ) -> VideoObject:
         raise NotImplementedError("the queue backend has no remix")
@@ -164,7 +164,7 @@ class QueueVideoConfig(BaseVideoConfig):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        hangarllm_params: GenericHangarLLMParams,
         headers: dict,  # mutable-ok: BaseVideoConfig contract
     ) -> tuple[str, dict]:  # mutable-ok: BaseVideoConfig contract
         raise NotImplementedError("the queue backend has no delete")
@@ -172,7 +172,7 @@ class QueueVideoConfig(BaseVideoConfig):
     def transform_video_delete_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: HangarLLMLoggingObj,
     ) -> VideoObject:
         raise NotImplementedError("the queue backend has no delete")
 

@@ -33,13 +33,13 @@ CONTEXT_LENGTH_EXCEEDED_BODY: Final = {
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch, httpx_transport: None) -> TestClient:
-    from litellm.proxy.proxy_server import (
+    from hangarllm.proxy.proxy_server import (
         app,
         cleanup_router_config_variables,
         initialize,
     )
 
-    monkeypatch.setenv("LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
+    monkeypatch.setenv("HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
     cleanup_router_config_variables()
     asyncio.run(initialize(config=str(CONFIG_DIR / "test_bad_config.yaml")))
     return TestClient(app)
@@ -79,7 +79,7 @@ def test_chat_completion_exception(
 
     json_response: Final = response.json()
     assert json_response.keys() == {"error"}
-    assert "litellm.AuthenticationError: AuthenticationError" in json_response["error"]["message"]
+    assert "hangarllm.AuthenticationError: AuthenticationError" in json_response["error"]["message"]
     assert type(json_response["error"]["code"]) is str
     assert isinstance(_openai_exception(response), openai.AuthenticationError)
 
@@ -103,7 +103,7 @@ def test_chat_completion_exception_azure(
     assert response.status_code == 401, response.text
     json_response: Final = response.json()
     assert json_response.keys() == {"error"}
-    assert "litellm.AuthenticationError" in json_response["error"]["message"]
+    assert "hangarllm.AuthenticationError" in json_response["error"]["message"]
     assert upstream.call_count == 1
     outbound: Final = upstream.calls[0].request
     assert json.loads(outbound.content)["messages"] == [

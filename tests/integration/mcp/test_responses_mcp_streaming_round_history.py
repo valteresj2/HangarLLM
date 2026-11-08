@@ -140,8 +140,8 @@ def test_streaming_responses_mcp_follow_up_keeps_every_tool_round(gateway: Gatew
                 "tools": [
                     {
                         "type": "mcp",
-                        "server_url": "litellm_proxy",
-                        "server_label": "litellm",
+                        "server_url": "hangarllm_proxy",
+                        "server_label": "hangarllm",
                         "require_approval": "never",
                     }
                 ],

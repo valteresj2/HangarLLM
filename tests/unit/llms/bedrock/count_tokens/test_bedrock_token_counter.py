@@ -6,16 +6,16 @@ import httpx
 import pytest
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.llms.bedrock.count_tokens.bedrock_token_counter import BedrockTokenCounter
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.types.utils import CountContextManagement
+import hangarllm
+from hangarllm.llms.bedrock.count_tokens.bedrock_token_counter import BedrockTokenCounter
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.types.utils import CountContextManagement
 
 RUNTIME_HOST: Final = "bedrock-runtime.us-east-1.amazonaws.com"
 MANTLE_HOST: Final = "bedrock-mantle.us-east-1.api.aws"
 UNSUPPORTED: Final = {"message": "The provided model doesn't support counting tokens."}
 DEPLOYMENT: Final = {
-    "litellm_params": {
+    "hangarllm_params": {
         "aws_access_key_id": "AKIATESTACCESSKEY",
         "aws_secret_access_key": "test-secret",
         "aws_region_name": "us-east-1",
@@ -409,9 +409,9 @@ _CLAUDE_REPLY: Final = {
     ("bedrock/invoke/us.anthropic.claude-sonnet-5-5", "bedrock_mantle/us.anthropic.claude-sonnet-5-5"),
 )
 async def test_claude_count_sends_the_tool_search_tool_the_deployments_inference_sends(deployment_model: str) -> None:
-    credentials: Final = DEPLOYMENT["litellm_params"]
+    credentials: Final = DEPLOYMENT["hangarllm_params"]
     inference: Final = _Bedrock(runtime=(200, _CLAUDE_REPLY), mantle=(200, _CLAUDE_REPLY))
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=deployment_model,
         messages=MESSAGES,
         tools=[{"type": "tool_search"}],
@@ -425,7 +425,7 @@ async def test_claude_count_sends_the_tool_search_tool_the_deployments_inference
         model_to_use="bedrock_mantle/us.anthropic.claude-opus-5-5",
         messages=MESSAGES,
         contents=None,
-        deployment={"litellm_params": {**credentials, "model": deployment_model}},
+        deployment={"hangarllm_params": {**credentials, "model": deployment_model}},
         request_model="claude-sonnet-5-5",
         tools=[{"type": "tool_search"}],
         messages_format="openai",

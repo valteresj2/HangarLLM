@@ -1,12 +1,12 @@
-// Gollem agent with type-safe tools through LiteLLM.
+// Gollem agent with type-safe tools through HangarLLM.
 //
 // The tool parameters are Go structs — gollem generates the JSON schema
-// automatically at compile time. LiteLLM passes tool definitions through
+// automatically at compile time. HangarLLM passes tool definitions through
 // transparently to the underlying provider.
 //
 // Usage:
 //
-//	litellm --model gpt-4o
+//	hangarllm --model gpt-4o
 //	go run ./tools
 package main
 
@@ -29,11 +29,11 @@ type WeatherParams struct {
 
 func main() {
 	proxyURL := "http://localhost:4000"
-	if u := os.Getenv("LITELLM_PROXY_URL"); u != "" {
+	if u := os.Getenv("HANGARLLM_PROXY_URL"); u != "" {
 		proxyURL = u
 	}
 
-	model := openai.NewLiteLLM(proxyURL,
+	model := openai.NewHangarLLM(proxyURL,
 		openai.WithModel("gpt-4o"),
 	)
 

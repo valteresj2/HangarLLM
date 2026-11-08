@@ -147,7 +147,7 @@ def test_detect_only_decision_pipeline_respects_buffering(
                 "model_list": [
                     {
                         "model_name": chat_model,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-4o-mini",
                             "api_base": f"{upstream.api_base()}/v1",
                             "api_key": "synthetic-chat-key",
@@ -155,7 +155,7 @@ def test_detect_only_decision_pipeline_respects_buffering(
                     },
                     {
                         "model_name": judge_model,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-6-luna",
                             "api_base": f"{judge_server.url}/v1",
                             "api_key": "synthetic-judge-key",
@@ -165,7 +165,7 @@ def test_detect_only_decision_pipeline_respects_buffering(
                 "guardrails": [
                     {
                         "guardrail_name": identity,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "guardrail": "decision_model",
                             "mode": "post_call",
                             "default_on": False,

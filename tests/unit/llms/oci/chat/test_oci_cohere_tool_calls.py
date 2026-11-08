@@ -4,18 +4,18 @@ import pytest
 import json
 from unittest.mock import patch, MagicMock
 
-from litellm import ModelResponse
-from litellm.constants import DEFAULT_OCI_CHAT_MAX_TOKENS
-from litellm.llms.oci.chat.cohere import (
+from hangarllm import ModelResponse
+from hangarllm.constants import DEFAULT_OCI_CHAT_MAX_TOKENS
+from hangarllm.llms.oci.chat.cohere import (
     adapt_messages_to_cohere_standard,
     adapt_tool_definitions_to_cohere_standard,
 )
-from litellm.llms.oci.chat.transformation import (
+from hangarllm.llms.oci.chat.transformation import (
     OCIChatConfig,
     OCIStreamWrapper,
     get_vendor_from_model,
 )
-from litellm.types.llms.oci import OCIVendors
+from hangarllm.types.llms.oci import OCIVendors
 
 # Test constants
 TEST_COMPARTMENT_ID = "ocid1.compartment.oc1..xxxxxx"
@@ -150,7 +150,7 @@ class TestOCICohereToolCalls:
             model="cohere.command-latest",
             messages=messages,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -211,7 +211,7 @@ class TestOCICohereToolCalls:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding={},
         )
 
@@ -267,7 +267,7 @@ class TestOCICohereToolCalls:
             model="cohere.command-rplus",
             messages=messages,  # type: ignore[arg-type]
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -290,7 +290,7 @@ class TestOCICohereToolCalls:
             model="cohere.command-latest",
             messages=messages,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -537,7 +537,7 @@ class TestOCICohereToolCalls:
             model="cohere.command-latest",
             messages=messages,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -562,7 +562,7 @@ class TestOCICohereToolCalls:
             model="cohere.command-latest",
             messages=messages,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -613,7 +613,7 @@ class TestOCICohereToolCalls:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding={},
         )
 
@@ -660,7 +660,7 @@ class TestOCICohereToolCalls:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding={},
         )
 
@@ -731,7 +731,7 @@ class TestOCICohereToolCalls:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding={},
         )
 
@@ -761,7 +761,7 @@ class TestOCICoherePreambleOverride:
             model="cohere.command-latest",
             messages=messages,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -782,7 +782,7 @@ class TestOCICoherePreambleOverride:
             model="cohere.command-latest",
             messages=messages,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -810,7 +810,7 @@ class TestOCICoherePreambleOverride:
             model="cohere.command-latest",
             messages=messages,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -829,7 +829,7 @@ class TestOCICoherePreambleOverride:
             model="cohere.command-latest",
             messages=messages,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -851,7 +851,7 @@ class TestOCICoherePreambleOverride:
             model="cohere.command-latest",
             messages=messages,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -865,7 +865,7 @@ class TestCohereStreamChunkEdgeCases:
     """Additional coverage for handle_cohere_stream_chunk error/edge paths."""
 
     def _wrapper(self):
-        from litellm.llms.oci.chat.transformation import OCIStreamWrapper
+        from hangarllm.llms.oci.chat.transformation import OCIStreamWrapper
 
         return OCIStreamWrapper(
             completion_stream=MagicMock(),
@@ -896,7 +896,7 @@ class TestCohereStreamChunkEdgeCases:
         assert result.choices[0].finish_reason == "length"
 
     def test_stream_chunk_unknown_finish_reason_does_not_raise(self):
-        from litellm.llms.oci.chat.cohere import handle_cohere_stream_chunk
+        from hangarllm.llms.oci.chat.cohere import handle_cohere_stream_chunk
 
         chunk = {
             "apiFormat": "COHERE",
@@ -919,7 +919,7 @@ class TestCohereMessageAdaptationEdgeCases:
     """Coverage for adapt_messages_to_cohere_standard error paths."""
 
     def test_json_decode_error_in_tool_args_defaults_to_empty(self):
-        from litellm.llms.oci.chat.cohere import adapt_messages_to_cohere_standard
+        from hangarllm.llms.oci.chat.cohere import adapt_messages_to_cohere_standard
 
         messages = [
             {
@@ -940,14 +940,14 @@ class TestCohereMessageAdaptationEdgeCases:
         assert history[0].toolCalls[0].parameters == {}
 
     def test_extract_text_content_list_with_non_dict_items(self):
-        from litellm.llms.oci.chat.cohere import extract_text_content
+        from hangarllm.llms.oci.chat.cohere import extract_text_content
 
         # List with a non-dict item — should be silently skipped
         result = extract_text_content([{"type": "text", "text": "hello"}, "bad_item"])
         assert result == "hello"
 
     def test_extract_text_content_non_string_non_list(self):
-        from litellm.llms.oci.chat.cohere import extract_text_content
+        from hangarllm.llms.oci.chat.cohere import extract_text_content
 
         result = extract_text_content(12345)
         assert result == "12345"
@@ -989,7 +989,7 @@ class TestOCICohereStreaming:
 
     def test_cohere_streaming_non_json_chunk(self):
         """Test error handling for non-JSON chunk"""
-        from litellm.llms.oci.common_utils import OCIError
+        from hangarllm.llms.oci.common_utils import OCIError
 
         stream_wrapper = self._create_stream_wrapper()
 

@@ -12,8 +12,8 @@ from pydantic import JsonValue
 
 CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "bedrock/invoke/us.anthropic.claude-haiku-4-5-20251001-v1:0",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -47,7 +47,7 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": ANY,
         "error": None,
@@ -101,8 +101,8 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "bedrock/invoke/us.anthropic.claude-sonnet-4-6",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -136,7 +136,7 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": ANY,
         "error": None,
@@ -190,8 +190,8 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "bedrock/invoke/us.anthropic.claude-sonnet-5",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -226,7 +226,7 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": ANY,
         "error": None,
@@ -280,8 +280,8 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "bedrock/invoke/us.anthropic.claude-opus-4-8",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -316,7 +316,7 @@ CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": ANY,
         "error": None,
@@ -392,8 +392,8 @@ CLAUDE_HAIKU_5_5_THINKING_SIGNATURE_0: Final = (
 
 CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-haiku-5-5"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-haiku-5-5"},
     expected_provider_endpoint="/model/us.anthropic.claude-haiku-5-5/invoke",
     expected_provider_headers={"authorization": "Bearer synthetic-bedrock-key", "content-type": "application/json"},
     expected_provider_request={
@@ -427,7 +427,7 @@ CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_RESPONSE,
         "model": "bedrock/invoke/us.anthropic.claude-haiku-5-5",
         "output": [
@@ -535,8 +535,8 @@ CLAUDE_SONNET_5_5_THINKING_SIGNATURE_1: Final = (
 
 CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-sonnet-5-5"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-sonnet-5-5"},
     expected_provider_endpoint="/model/us.anthropic.claude-sonnet-5-5/invoke",
     expected_provider_headers={"authorization": "Bearer synthetic-bedrock-key", "content-type": "application/json"},
     expected_provider_request={
@@ -585,7 +585,7 @@ CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_RESPONSE,
         "model": "bedrock/invoke/us.anthropic.claude-sonnet-5-5",
         "output": [
@@ -698,8 +698,8 @@ CLAUDE_OPUS_5_5_THINKING_SIGNATURE_0: Final = (
 
 CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-opus-5-5"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-opus-5-5"},
     expected_provider_endpoint="/model/us.anthropic.claude-opus-5-5/invoke",
     expected_provider_headers={"authorization": "Bearer synthetic-bedrock-key", "content-type": "application/json"},
     expected_provider_request={
@@ -739,7 +739,7 @@ CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_RESPONSE,
         "model": "bedrock/invoke/us.anthropic.claude-opus-5-5",
         "output": [
@@ -842,8 +842,8 @@ CLAUDE_FABLE_5_1_THINKING_SIGNATURE_0: Final = (
 
 CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-fable-5-1"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-fable-5-1"},
     expected_provider_endpoint="/model/us.anthropic.claude-fable-5-1/invoke",
     expected_provider_headers={"authorization": "Bearer synthetic-bedrock-key", "content-type": "application/json"},
     expected_provider_request={
@@ -883,7 +883,7 @@ CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_RESPONSE,
         "model": "bedrock/invoke/us.anthropic.claude-fable-5-1",
         "output": [

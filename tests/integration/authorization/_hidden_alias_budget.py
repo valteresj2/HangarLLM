@@ -33,8 +33,8 @@ RESPONSES_REPLY: Final = "free reply"
 BUDGET_EXCEEDED: Final = 422
 GATEWAY_BURST: Final = 24
 PEER_BURST: Final = 4
-SPEND_MARKER_HEADER: Final = "x-litellm-spend-logs-metadata"
-PROXY_BUDGET_USER: Final = "litellm-proxy-budget"
+SPEND_MARKER_HEADER: Final = "x-hangarllm-spend-logs-metadata"
+PROXY_BUDGET_USER: Final = "hangarllm-proxy-budget"
 
 _RESPONSE: Final[JsonValue] = {
     "id": "resp_$UNIQUE_ID",
@@ -241,7 +241,7 @@ def spend_rows(key: str) -> tuple[Mapping[str, JsonValue], ...]:
         read_rows(
             "SELECT request_id, spend, model_group, status, call_type, "
             "metadata->'spend_logs_metadata'->>'marker' AS marker "
-            'FROM "LiteLLM_SpendLogs" WHERE api_key = %s',
+            'FROM "HangarLLM_SpendLogs" WHERE api_key = %s',
             (sha256(key.encode()).hexdigest(),),
         )
     )

@@ -9,7 +9,7 @@ Tests cover:
 - multimodal content: all-text rows merge into one part carrying the last
   cache_control breakpoint, rows holding a non-text part are left uncompressed
 - recovery: hash marker appended, compresr_retrieve tool injected, originals
-  stored per litellm_call_id, agentic loop returns the original content and
+  stored per hangarllm_call_id, agentic loop returns the original content and
   rejects hashes not issued for the current request
 - x-compresr-bypass header, response-type passthrough
 - fail_closed raises HTTPException; fail_open forwards uncompressed
@@ -26,10 +26,10 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.constants import PRE_CALL_EXECUTED_GUARDRAILS_KEY
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.proxy.guardrails.guardrail_hooks.compresr.compresr import (
+import hangarllm
+from hangarllm.constants import PRE_CALL_EXECUTED_GUARDRAILS_KEY
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.proxy.guardrails.guardrail_hooks.compresr.compresr import (
     COMPRESR_RETRIEVE_TOOL_NAME,
     CompresrGuardrail,
     _content_hash,
@@ -37,7 +37,7 @@ from litellm.proxy.guardrails.guardrail_hooks.compresr.compresr import (
     _scoped_store_key,
     has_compresr_retrieve_tool,
 )
-from litellm.types.utils import CallTypes, GenericGuardrailAPIInputs
+from hangarllm.types.utils import CallTypes, GenericGuardrailAPIInputs
 
 FAKE_API_BASE = "https://compresr.example.com"
 FAKE_API_KEY = "cmp_test-key"
@@ -183,12 +183,12 @@ def _logging_obj(call_id: str) -> SimpleNamespace:
     # Default fixture models a proxy with per-key auth enabled (the production
     # shape). Recovery requires a caller scope; tests that need the no-auth
     # path should build the object explicitly.
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     return SimpleNamespace(
-        litellm_call_id=call_id,
+        hangarllm_call_id=call_id,
         model_call_details={
-            "litellm_params": {"metadata": {"user_api_key_auth": UserAPIKeyAuth(api_key="hash-default")}}
+            "hangarllm_params": {"metadata": {"user_api_key_auth": UserAPIKeyAuth(api_key="hash-default")}}
         },
     )
 
@@ -197,11 +197,11 @@ def _logging_obj_with_key(call_id: str, user_api_key: str, meta_key: str = "meta
     """Logging object carrying the server-set UserAPIKeyAuth object, the way the
     proxy populates it for an authenticated request (the bare user_api_key
     string alone is never trusted — a client could forge that)."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     return SimpleNamespace(
-        litellm_call_id=call_id,
-        model_call_details={"litellm_params": {meta_key: {"user_api_key_auth": UserAPIKeyAuth(api_key=user_api_key)}}},
+        hangarllm_call_id=call_id,
+        model_call_details={"hangarllm_params": {meta_key: {"user_api_key_auth": UserAPIKeyAuth(api_key=user_api_key)}}},
     )
 
 
@@ -821,7 +821,7 @@ async def test_apply_guardrail_ignores_user_supplied_call_id(guardrail: Compresr
     with patch.object(guardrail.async_handler, "post", mock_post):
         await guardrail.apply_guardrail(
             inputs=_apply_inputs(AGENT_MESSAGES),
-            request_data={"model": "gpt-4o", "litellm_call_id": attacker_call_id},
+            request_data={"model": "gpt-4o", "hangarllm_call_id": attacker_call_id},
             input_type="request",
             logging_obj=_logging_obj("real-framework-call-id"),
         )
@@ -855,7 +855,7 @@ async def test_agentic_plan_ignores_user_supplied_call_id(guardrail: CompresrGua
         anthropic_messages_optional_request_params={},
         logging_obj=_logging_obj("attacker-call-id"),
         stream=False,
-        kwargs={"litellm_call_id": "victim-tenant-call-id"},
+        kwargs={"hangarllm_call_id": "victim-tenant-call-id"},
     )
 
     # Attacker's scope resolves nothing, so the loop is vetoed and the victim
@@ -866,7 +866,7 @@ async def test_agentic_plan_ignores_user_supplied_call_id(guardrail: CompresrGua
 
 @pytest.mark.asyncio
 async def test_recovery_store_partitioned_by_caller_identity(guardrail: CompresrGuardrail):
-    """Two tenants that set the SAME client-forgeable x-litellm-call-id must not
+    """Two tenants that set the SAME client-forgeable x-hangarllm-call-id must not
     read each other's stored originals, and each still reads its own."""
     shared_call_id = "shared-call-id"
     expected_hash = hashlib.sha256(TOOL_OUTPUT.encode()).hexdigest()[:24]
@@ -907,11 +907,11 @@ async def test_recovery_store_partitioned_by_caller_identity(guardrail: Compresr
 
 
 @pytest.mark.asyncio
-async def test_caller_scope_read_from_litellm_metadata(guardrail: CompresrGuardrail):
+async def test_caller_scope_read_from_hangarllm_metadata(guardrail: CompresrGuardrail):
     """/v1/messages and /v1/responses carry the auth object under
-    litellm_metadata rather than metadata; the store key must be scoped by it
+    hangarllm_metadata rather than metadata; the store key must be scoped by it
     there too, without relying on upstream's metadata backfill."""
-    logging_obj = _logging_obj_with_key("call-lm", "hash-tenant-lm", meta_key="litellm_metadata")
+    logging_obj = _logging_obj_with_key("call-lm", "hash-tenant-lm", meta_key="hangarllm_metadata")
     mock_post = AsyncMock(return_value=_make_single_compress_response())
 
     with patch.object(guardrail.async_handler, "post", mock_post):
@@ -932,8 +932,8 @@ async def test_caller_scope_rejects_forged_user_api_key_string(guardrail: Compre
     UserAPIKeyAuth object) must not be trusted as a tenant scope — otherwise a
     caller could forge another tenant's recovery bucket on /v1/messages."""
     logging_obj = SimpleNamespace(
-        litellm_call_id="call-forge",
-        model_call_details={"litellm_params": {"metadata": {"user_api_key": "victim-tenant-hash"}}},
+        hangarllm_call_id="call-forge",
+        model_call_details={"hangarllm_params": {"metadata": {"user_api_key": "victim-tenant-hash"}}},
     )
     mock_post = AsyncMock(return_value=_make_single_compress_response())
 
@@ -1087,7 +1087,7 @@ def test_extract_compresr_tool_calls_tolerates_missing_keys():
     # A retrieve call missing id/arguments must not KeyError in the post-call
     # hook; it extracts with safe defaults and resolves to a rejection later.
     with patch(
-        "litellm.proxy.guardrails.guardrail_hooks.compresr.compresr.get_tool_calls_from_response",
+        "hangarllm.proxy.guardrails.guardrail_hooks.compresr.compresr.get_tool_calls_from_response",
         return_value=[{"name": COMPRESR_RETRIEVE_TOOL_NAME}, {"id": "x"}],
     ):
         extracted = _extract_compresr_tool_calls(object())
@@ -1214,7 +1214,7 @@ async def test_agentic_plan_strips_other_guardrails_executed_markers(guardrail: 
             "user_api_key": "key-hash",
             PRE_CALL_EXECUTED_GUARDRAILS_KEY: [own_marker, "token:pii_guardrail"],
         },
-        "litellm_metadata": {PRE_CALL_EXECUTED_GUARDRAILS_KEY: ["token:other_guardrail"]},
+        "hangarllm_metadata": {PRE_CALL_EXECUTED_GUARDRAILS_KEY: ["token:other_guardrail"]},
     }
 
     plan = await guardrail.async_build_agentic_loop_plan(
@@ -1232,9 +1232,9 @@ async def test_agentic_plan_strips_other_guardrails_executed_markers(guardrail: 
     out = plan.request_patch.kwargs
     assert out["metadata"][PRE_CALL_EXECUTED_GUARDRAILS_KEY] == [own_marker]
     assert out["metadata"]["user_api_key"] == "key-hash"
-    assert PRE_CALL_EXECUTED_GUARDRAILS_KEY not in out["litellm_metadata"]
+    assert PRE_CALL_EXECUTED_GUARDRAILS_KEY not in out["hangarllm_metadata"]
     assert kwargs["metadata"][PRE_CALL_EXECUTED_GUARDRAILS_KEY] == [own_marker, "token:pii_guardrail"]
-    assert kwargs["litellm_metadata"][PRE_CALL_EXECUTED_GUARDRAILS_KEY] == ["token:other_guardrail"]
+    assert kwargs["hangarllm_metadata"][PRE_CALL_EXECUTED_GUARDRAILS_KEY] == ["token:other_guardrail"]
 
 
 @pytest.mark.asyncio
@@ -1346,7 +1346,7 @@ def test_display_hash_strips_control_characters():
     """The compresr_retrieve `hash` argument is model/tool-output-influenced, so
     control characters (newlines, ANSI escapes) must be stripped — not just
     length-capped — before it is echoed into logs or the fallback message."""
-    from litellm.proxy.guardrails.guardrail_hooks.compresr.compresr import _display_hash
+    from hangarllm.proxy.guardrails.guardrail_hooks.compresr.compresr import _display_hash
 
     assert _display_hash("a" * 24) == "a" * 24  # a real marker hash passes through
     assert "\n" not in _display_hash("abc\ndef\rFORGED LOG LINE")
@@ -1451,14 +1451,14 @@ async def test_responses_retrieval_followup_reuses_the_model_the_caller_requeste
         stream=False,
         call_type=CallTypes.responses.value,
         start_time=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-1",
+        hangarllm_call_id="call-1",
         function_id="fn-compresr-followup",
     )
-    litellm.responses(
+    hangarllm.responses(
         model=requested_model,
         input=USER_QUESTION,
         mock_response="retrieving",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
     guardrail._store_originals(_scoped_store_key(logging_obj), {hash_value: TOOL_OUTPUT})
     response: Final = MagicMock()
@@ -1626,7 +1626,7 @@ def test_originals_store_byte_cap_survives_lone_surrogates():
 def test_originals_store_caps_total_bytes_across_calls(monkeypatch: pytest.MonkeyPatch):
     # Global byte budget: many distinct call ids must not retain unbounded memory.
     monkeypatch.setattr(
-        "litellm.proxy.guardrails.guardrail_hooks.compresr.compresr._MAX_TOTAL_STORE_BYTES",
+        "hangarllm.proxy.guardrails.guardrail_hooks.compresr.compresr._MAX_TOTAL_STORE_BYTES",
         10_000,
     )
     guardrail = _make_guardrail(max_bytes_per_call=4_000)
@@ -1651,7 +1651,7 @@ def test_originals_store_global_cap_keeps_current_when_single_call_is_large(
     # One call over the global cap is still kept (only max_bytes_per_call trims it);
     # global eviction never empties the store.
     monkeypatch.setattr(
-        "litellm.proxy.guardrails.guardrail_hooks.compresr.compresr._MAX_TOTAL_STORE_BYTES",
+        "hangarllm.proxy.guardrails.guardrail_hooks.compresr.compresr._MAX_TOTAL_STORE_BYTES",
         1_000,
     )
     guardrail = _make_guardrail(max_bytes_per_call=5_000)
@@ -2063,7 +2063,7 @@ async def test_identical_compressed_text_treated_as_noop(guardrail: CompresrGuar
 
 @pytest.mark.asyncio
 async def test_recovery_disabled_without_call_id():
-    # enable_retrieval defaults True, but with no framework litellm_call_id we
+    # enable_retrieval defaults True, but with no framework hangarllm_call_id we
     # cannot scope stored originals to the request, so compression proceeds
     # without markers, the retrieve tool, or any stored originals.
     guardrail = _make_guardrail()
@@ -2081,7 +2081,7 @@ async def test_recovery_disabled_without_call_id():
 
 
 def test_config_model_exposes_unreachable_fallback():
-    from litellm.types.proxy.guardrails.guardrail_hooks.compresr import (
+    from hangarllm.types.proxy.guardrails.guardrail_hooks.compresr import (
         CompresrGuardrailConfigModel,
     )
 
@@ -2158,8 +2158,8 @@ async def test_recovery_disabled_when_no_caller_scope():
     # any caller retrieve any other caller's originals. Recovery must be off.
     guardrail = _make_guardrail()
     logging_obj = MagicMock()
-    logging_obj.litellm_call_id = "call-abc"
-    logging_obj.model_call_details = {"litellm_params": {"metadata": {}}}
+    logging_obj.hangarllm_call_id = "call-abc"
+    logging_obj.model_call_details = {"hangarllm_params": {"metadata": {}}}
     mock_post = AsyncMock(return_value=_make_single_compress_response())
     with patch.object(guardrail.async_handler, "post", mock_post):
         result = await guardrail.apply_guardrail(
@@ -2180,15 +2180,15 @@ async def test_warns_once_per_interval_when_recovery_skipped_without_scope():
     # stays visible.
     guardrail = _make_guardrail()
     logging_obj = MagicMock()
-    logging_obj.litellm_call_id = "call-abc"
-    logging_obj.model_call_details = {"litellm_params": {"metadata": {}}}
+    logging_obj.hangarllm_call_id = "call-abc"
+    logging_obj.model_call_details = {"hangarllm_params": {"metadata": {}}}
     mock_post = AsyncMock(return_value=_make_single_compress_response())
 
     def _no_scope_warnings(mock_log):
         return [c for c in mock_log.warning.call_args_list if "no per-key auth scope" in str(c)]
 
     with patch.object(guardrail.async_handler, "post", mock_post):
-        with patch("litellm.proxy.guardrails.guardrail_hooks.compresr.compresr.verbose_proxy_logger") as mock_log:
+        with patch("hangarllm.proxy.guardrails.guardrail_hooks.compresr.compresr.verbose_proxy_logger") as mock_log:
             for _ in range(3):
                 await guardrail.apply_guardrail(
                     inputs=_apply_inputs(AGENT_MESSAGES),

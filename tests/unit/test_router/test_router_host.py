@@ -3,17 +3,17 @@ import sys
 
 import pytest
 
-import litellm.router_host as router_host_module
-from litellm.router_host import RouterHost, router_host
+import hangarllm.router_host as router_host_module
+from hangarllm.router_host import RouterHost, router_host
 
 
 def test_router_uses_the_proxy_host_without_importing_the_proxy_first():
-    # A fresh interpreter, so no earlier test has imported litellm.proxy.
+    # A fresh interpreter, so no earlier test has imported hangarllm.proxy.
     script = (
         "import sys\n"
-        "from litellm.router import Router\n"
-        "from litellm.router_host import router_host\n"
-        "assert 'litellm.proxy' not in sys.modules, 'importing the router imported the proxy'\n"
+        "from hangarllm.router import Router\n"
+        "from hangarllm.router_host import router_host\n"
+        "assert 'hangarllm.proxy' not in sys.modules, 'importing the router imported the proxy'\n"
         "print(type(router_host()).__name__)\n"
     )
     result = subprocess.run([sys.executable, "-P", "-c", script], capture_output=True, text=True, check=True)
@@ -29,13 +29,13 @@ def nothing_installed():
 
 
 def test_router_falls_back_to_the_default_host_when_the_proxy_cannot_be_imported(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setitem(sys.modules, "litellm.proxy._router_host", None)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy._router_host", None)
 
     assert type(router_host()) is RouterHost
 
 
 def test_router_uses_the_proxy_host_when_the_proxy_was_imported_before():
-    from litellm.proxy._router_host import ProxyRouterHost
+    from hangarllm.proxy._router_host import ProxyRouterHost
 
     assert type(router_host()) is ProxyRouterHost
 
@@ -50,7 +50,7 @@ def test_an_installed_host_is_kept():
 def test_default_host_refuses_member_auto_routers():
     import asyncio
 
-    from litellm.exceptions import PermissionDeniedError
+    from hangarllm.exceptions import PermissionDeniedError
 
     host = RouterHost()
     member = {"model_name": "team-auto", "model_info": {"member_auto_router": True}}

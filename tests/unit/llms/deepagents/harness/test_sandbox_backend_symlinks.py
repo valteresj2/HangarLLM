@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from litellm.harness.sandbox.local import LocalSandbox
+from hangarllm.harness.sandbox.local import LocalSandbox
 
-backend = pytest.importorskip("litellm.llms.deepagents.harness.sandbox_backend")
+backend = pytest.importorskip("hangarllm.llms.deepagents.harness.sandbox_backend")
 
 SECRET = "AWS_SECRET_ACCESS_KEY=leaked-from-host"
 

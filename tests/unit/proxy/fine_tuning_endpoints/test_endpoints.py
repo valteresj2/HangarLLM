@@ -1,7 +1,7 @@
 """
-require_managed_files enforcement for litellm/proxy/fine_tuning_endpoints/endpoints.py
+require_managed_files enforcement for hangarllm/proxy/fine_tuning_endpoints/endpoints.py
 
-Ownership rows only exist for LiteLLM managed ids. A raw provider id sent to these
+Ownership rows only exist for HangarLLM managed ids. A raw provider id sent to these
 routes is forwarded to the provider under the shared proxy credentials with no tenant
 check, so any caller who learns another tenant's file id can train on it, and any
 caller who learns another tenant's job id can read or cancel it.
@@ -23,29 +23,29 @@ import respx
 
 from fastapi import Response
 
-import litellm
-import litellm.proxy.fine_tuning_endpoints.endpoints as endpoints
-import litellm.proxy.proxy_server as proxy_server
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.utils import ProxyLogging
-from litellm.router import Router
-from litellm.types.llms.openai import LiteLLMFineTuningJobCreate
-from litellm.types.utils import LiteLLMFineTuningJob, SpecialEnums
+import hangarllm
+import hangarllm.proxy.fine_tuning_endpoints.endpoints as endpoints
+import hangarllm.proxy.proxy_server as proxy_server
+from hangarllm.proxy._types import ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.router import Router
+from hangarllm.types.llms.openai import HangarLLMFineTuningJobCreate
+from hangarllm.types.utils import HangarLLMFineTuningJob, SpecialEnums
 
 RAW_FILE_ID = "file-victim-abc123"
 RAW_JOB_ID = "ftjob-victim-abc123"
 
 
 def _unified_file_id(unified_id: str = "victim-unified-id", provider_file_id: str = RAW_FILE_ID) -> str:
-    unified = SpecialEnums.LITELLM_MANAGED_FILE_COMPLETE_STR.value.format(
+    unified = SpecialEnums.HANGARLLM_MANAGED_FILE_COMPLETE_STR.value.format(
         "application/json", unified_id, "gpt-4o-mini", provider_file_id, "gpt-4o-mini-id"
     )
     return base64.urlsafe_b64encode(unified.encode()).decode().rstrip("=")
 
 
 def _unified_job_id() -> str:
-    unified = SpecialEnums.LITELLM_MANAGED_GENERIC_RESPONSE_COMPLETE_STR.value.format("gpt-4o-mini-id", RAW_JOB_ID)
+    unified = SpecialEnums.HANGARLLM_MANAGED_GENERIC_RESPONSE_COMPLETE_STR.value.format("gpt-4o-mini-id", RAW_JOB_ID)
     return base64.urlsafe_b64encode(unified.encode()).decode().rstrip("=")
 
 
@@ -54,8 +54,8 @@ def _decode_unified_id(encoded_id: str) -> str:
     return base64.urlsafe_b64decode(f"{encoded_id}{padding}").decode()
 
 
-def _job(validation_file: str | None = None) -> LiteLLMFineTuningJob:
-    job = LiteLLMFineTuningJob(
+def _job(validation_file: str | None = None) -> HangarLLMFineTuningJob:
+    job = HangarLLMFineTuningJob(
         id=RAW_JOB_ID,
         created_at=1234567890,
         fine_tuned_model=None,
@@ -105,14 +105,14 @@ class ManagedResourceAccessCheckerStub:
 
 
 class Seams:
-    def __init__(self, router: MagicMock, litellm_calls: dict[str, AsyncMock], logging: MagicMock):
+    def __init__(self, router: MagicMock, hangarllm_calls: dict[str, AsyncMock], logging: MagicMock):
         self.router = router
-        self.litellm_calls = litellm_calls
+        self.hangarllm_calls = hangarllm_calls
         self.logging = logging
 
     def assert_no_provider_call(self) -> None:
-        for name, mock in self.litellm_calls.items():
-            assert mock.call_count == 0, f"litellm.{name} was called"
+        for name, mock in self.hangarllm_calls.items():
+            assert mock.call_count == 0, f"hangarllm.{name} was called"
         for name in ("acreate_fine_tuning_job", "aretrieve_fine_tuning_job", "acancel_fine_tuning_job"):
             assert getattr(self.router, name).call_count == 0, f"router.{name} was called"
 
@@ -130,7 +130,7 @@ def seams():
     router.aretrieve_fine_tuning_job = AsyncMock(return_value=_job())
     router.acancel_fine_tuning_job = AsyncMock(return_value=_job())
 
-    litellm_calls = {
+    hangarllm_calls = {
         name: AsyncMock(return_value=_job())
         for name in ("acreate_fine_tuning_job", "aretrieve_fine_tuning_job", "acancel_fine_tuning_job")
     }
@@ -144,8 +144,8 @@ def seams():
             )
         )
         stack.enter_context(patch.object(ProxyBaseLLMRequestProcessing, "get_custom_headers", MagicMock(return_value={})))
-        for name, mock in litellm_calls.items():
-            stack.enter_context(patch.object(litellm, name, mock))
+        for name, mock in hangarllm_calls.items():
+            stack.enter_context(patch.object(hangarllm, name, mock))
         stack.enter_context(patch.object(proxy_server, "llm_router", router))
         stack.enter_context(patch.object(proxy_server, "proxy_logging_obj", logging))
         stack.enter_context(patch.object(proxy_server, "premium_user", True))
@@ -153,14 +153,14 @@ def seams():
         stack.enter_context(patch.object(proxy_server, "proxy_config", MagicMock()))
         stack.enter_context(patch.object(proxy_server, "version", "test-version"))
         stack.enter_context(patch.object(endpoints, "fine_tuning_config", [{"custom_llm_provider": "openai"}]))
-        yield Seams(router=router, litellm_calls=litellm_calls, logging=logging)
+        yield Seams(router=router, hangarllm_calls=hangarllm_calls, logging=logging)
 
 
 async def _create(training_file: str, validation_file: str | None = None):
     return await endpoints.create_fine_tuning_job(
         request=FakeRequest(),
         fastapi_response=Response(),
-        fine_tuning_request=LiteLLMFineTuningJobCreate(
+        fine_tuning_request=HangarLLMFineTuningJobCreate(
             model="gpt-4o-mini",
             training_file=training_file,
             validation_file=validation_file,
@@ -191,7 +191,7 @@ async def _cancel(job_id: str):
 
 @pytest.mark.asyncio
 async def test_create__raw_training_file_rejected_when_managed_files_required(seams):
-    with patch.object(litellm, "require_managed_files", True):
+    with patch.object(hangarllm, "require_managed_files", True):
         with pytest.raises(ProxyException) as exc:
             await _create(RAW_FILE_ID)
 
@@ -205,7 +205,7 @@ async def test_create__raw_validation_file_rejected_when_managed_files_required(
     so a managed training_file must not smuggle a raw validation_file past the guard."""
     seams.logging.get_proxy_hook.return_value = ManagedResourceAccessCheckerStub()
 
-    with patch.object(litellm, "require_managed_files", True):
+    with patch.object(hangarllm, "require_managed_files", True):
         with pytest.raises(ProxyException) as exc:
             await _create(_unified_file_id(), validation_file=RAW_FILE_ID)
 
@@ -218,7 +218,7 @@ async def test_create__unified_training_file_allowed_when_managed_files_required
     seams.logging.get_proxy_hook.return_value = ManagedResourceAccessCheckerStub()
     unified_file_id: Final = _unified_file_id()
 
-    with patch.object(litellm, "require_managed_files", True):
+    with patch.object(hangarllm, "require_managed_files", True):
         response: Final = await _create(unified_file_id)
 
     assert seams.router.acreate_fine_tuning_job.call_count == 1
@@ -254,7 +254,7 @@ async def test_create__managed_job_returns_the_callers_file_ids(
 async def test_create__other_teams_unified_training_file_rejected(seams):
     seams.logging.get_proxy_hook.return_value = ManagedResourceAccessCheckerStub(file_access=False)
 
-    with patch.object(litellm, "require_managed_files", True):
+    with patch.object(hangarllm, "require_managed_files", True):
         with pytest.raises(ProxyException) as exc:
             await _create(_unified_file_id())
 
@@ -264,15 +264,15 @@ async def test_create__other_teams_unified_training_file_rejected(seams):
 
 @pytest.mark.asyncio
 async def test_create__raw_training_file_allowed_when_managed_files_not_required(seams):
-    with patch.object(litellm, "require_managed_files", False):
+    with patch.object(hangarllm, "require_managed_files", False):
         await _create(RAW_FILE_ID)
 
-    assert seams.litellm_calls["acreate_fine_tuning_job"].call_count == 1
+    assert seams.hangarllm_calls["acreate_fine_tuning_job"].call_count == 1
 
 
 @pytest.mark.asyncio
 async def test_retrieve__raw_job_id_rejected_when_managed_files_required(seams):
-    with patch.object(litellm, "require_managed_files", True):
+    with patch.object(hangarllm, "require_managed_files", True):
         with pytest.raises(ProxyException) as exc:
             await _retrieve(RAW_JOB_ID)
 
@@ -285,7 +285,7 @@ async def test_retrieve__unified_job_id_allowed_when_managed_files_required(seam
     seams.logging.get_proxy_hook.return_value = ManagedResourceAccessCheckerStub()
     unified_job_id: Final = _unified_job_id()
 
-    with patch.object(litellm, "require_managed_files", True):
+    with patch.object(hangarllm, "require_managed_files", True):
         response: Final = await _retrieve(unified_job_id)
 
     assert seams.router.aretrieve_fine_tuning_job.call_count == 1
@@ -294,7 +294,7 @@ async def test_retrieve__unified_job_id_allowed_when_managed_files_required(seam
 
 @pytest.mark.asyncio
 async def test_cancel__raw_job_id_rejected_when_managed_files_required(seams):
-    with patch.object(litellm, "require_managed_files", True):
+    with patch.object(hangarllm, "require_managed_files", True):
         with pytest.raises(ProxyException) as exc:
             await _cancel(RAW_JOB_ID)
 
@@ -307,7 +307,7 @@ async def test_cancel__unified_job_id_allowed_when_managed_files_required(seams)
     seams.logging.get_proxy_hook.return_value = ManagedResourceAccessCheckerStub()
     unified_job_id: Final = _unified_job_id()
 
-    with patch.object(litellm, "require_managed_files", True):
+    with patch.object(hangarllm, "require_managed_files", True):
         response: Final = await _cancel(unified_job_id)
 
     assert seams.router.acancel_fine_tuning_job.call_count == 1
@@ -357,7 +357,7 @@ async def test_list__rejected_when_neither_a_provider_nor_a_target_model_is_name
         await _list(custom_llm_provider=None)
 
     assert exc.value.code == "400"
-    assert exc.value.message == "Invalid request, No litellm managed file id or custom_llm_provider provided."
+    assert exc.value.message == "Invalid request, No hangarllm managed file id or custom_llm_provider provided."
 
 
 @pytest.mark.asyncio

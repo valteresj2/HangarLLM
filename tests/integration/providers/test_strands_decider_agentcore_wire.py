@@ -25,8 +25,8 @@ from integration._support.tls import server_context, write_self_signed_cert
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.llms.strands_decider.decisions.transformation import StrandsDeciderDecisionsConfig
+import hangarllm
+from hangarllm.llms.strands_decider.decisions.transformation import StrandsDeciderDecisionsConfig
 
 _ACCOUNT: Final = "123456789012"
 _ACCESS_KEY: Final = "AKIAAGENTCOREAUDIT01"
@@ -122,7 +122,7 @@ _ROUTE_CALL_TYPES: Final[Mapping[str, str]] = {
 }
 _SPEND_QUERY: Final = (
     "SELECT status, call_type, custom_llm_provider, model_group, api_base, prompt_tokens, completion_tokens "
-    'FROM "LiteLLM_SpendLogs" WHERE request_id = %s'
+    'FROM "HangarLLM_SpendLogs" WHERE request_id = %s'
 )
 _RUNTIME_TARGET: Final = re.compile(
     r"\A/runtimes/arn:aws:bedrock-agentcore:[a-z0-9-]+:[0-9]{12}:runtime/(?P<runtime>[A-Za-z0-9_-]+)/invocations\Z"
@@ -184,7 +184,7 @@ def _invocations_url(runtime: str, region: str = _US_EAST) -> str:
 
 
 def _default_session(runtime: str, region: str = _US_EAST) -> str:
-    return f"litellm-decider-{hashlib.sha256(_arn(runtime, region).encode()).hexdigest()}"
+    return f"hangarllm-decider-{hashlib.sha256(_arn(runtime, region).encode()).hexdigest()}"
 
 
 def _runtime_of(request: Request) -> str | None:
@@ -233,10 +233,10 @@ def _calls_to(calls: Sequence[Request], runtime: str) -> tuple[Request, ...]:
     return tuple(call for call in calls if _runtime_of(call) == runtime)
 
 
-def _deployment(name: str, **litellm_params: JsonValue) -> dict[str, JsonValue]:
+def _deployment(name: str, **hangarllm_params: JsonValue) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {"model": _MODEL, **litellm_params},
+        "hangarllm_params": {"model": _MODEL, **hangarllm_params},
         "model_info": {"id": name, "mode": "evaluation"},
     }
 
@@ -369,7 +369,7 @@ def _assert_signed(request: Request, region: str = _US_EAST) -> None:
 def _assert_answered(response: httpx.Response, model: str, route: _Route = _SYSTEMONE) -> None:
     assert response.status_code == 200, response.text
     assert response.json() == route.answer, response.text
-    assert response.headers["x-litellm-model-group"] == model, dict(response.headers)
+    assert response.headers["x-hangarllm-model-group"] == model, dict(response.headers)
 
 
 def _assert_runtime_target(request: Request, runtime: str, region: str = _US_EAST) -> None:
@@ -394,7 +394,7 @@ def _spend_row(call_id: str) -> dict[str, JsonValue]:
 
 def _spend_rows(call_ids: Sequence[str]) -> list[dict[str, JsonValue]]:
     query: Final = (
-        "SELECT request_id, status FROM \"LiteLLM_SpendLogs\" WHERE request_id = ANY(string_to_array(%s, ','))"
+        "SELECT request_id, status FROM \"HangarLLM_SpendLogs\" WHERE request_id = ANY(string_to_array(%s, ','))"
     )
     return eventually(
         lambda: read_rows(query, (",".join(call_ids),)), lambda found: len(found) >= len(call_ids), seconds=70
@@ -420,7 +420,7 @@ def test_an_arn_deployment_answers_on_every_decisions_route_signed_for_bedrock_a
         assert call.headers[_SESSION_HEADER] == _default_session("audit_signed"), dict(call.headers)
         _assert_signed(call)
     for response, route in zip(responses, _ROUTES, strict=True):
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert row == {
             "status": "success",
             "call_type": _ROUTE_CALL_TYPES[route.path],
@@ -510,7 +510,7 @@ def test_an_arn_deployment_without_api_base_takes_the_runtime_from_the_environme
     (call,) = runtime.calls()
     _assert_runtime_call(call, "audit_env")
     _assert_signed(call)
-    assert _spend_row(response.headers["x-litellm-call-id"])["api_base"] == _invocations_url("audit_env")
+    assert _spend_row(response.headers["x-hangarllm-call-id"])["api_base"] == _invocations_url("audit_env")
 
 
 def test_an_arn_deployment_added_through_the_management_api_answers_signed(
@@ -544,7 +544,7 @@ def test_health_and_test_connection_probe_the_runtime_signed(agentcore: Gateway,
         "POST",
         "/health/test_connection",
         {
-            "litellm_params": {"model": _MODEL, "api_base": _arn("audit_test_connection"), **_SIGNING},
+            "hangarllm_params": {"model": _MODEL, "api_base": _arn("audit_test_connection"), **_SIGNING},
             "mode": "evaluation",
         },
     )
@@ -565,7 +565,7 @@ def test_a_runtime_error_reply_maps_to_its_status_with_the_runtime_message(
     assert response.status_code == status, response.text
     assert f"Strands Decider runtime error '{code}': runtime refused with {code}" in response.text, response.text
     assert len(_calls_to(runtime.calls(), f"audit_error_{code}")) == 1
-    row: Final = _spend_row(response.headers["x-litellm-call-id"])
+    row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
     assert (row["status"], row["model_group"]) == ("failure", model), row
 
 
@@ -577,7 +577,7 @@ def test_a_runtime_http_error_keeps_its_status_and_message(agentcore: Gateway, r
     assert response.status_code == status, response.text
     assert f"scripted {_HTTP_ERRORS[status]}" in response.text, response.text
     assert len(_calls_to(runtime.calls(), f"audit_status_{status}")) == 1
-    assert _spend_row(response.headers["x-litellm-call-id"])["status"] == "failure"
+    assert _spend_row(response.headers["x-hangarllm-call-id"])["status"] == "failure"
 
 
 @pytest.mark.parametrize("label", tuple(_MALFORMED_SESSIONS))
@@ -616,7 +616,7 @@ def test_a_near_miss_arn_keeps_the_plain_api_base_path(agentcore: Gateway, runti
     runtime.reset()
     response: Final = _decide(agentcore, f"agentcore-audit-near-miss-{label}")
     assert 500 <= response.status_code < 600, response.text
-    assert "litellm.APIConnectionError" in response.text, response.text
+    assert "hangarllm.APIConnectionError" in response.text, response.text
     assert _connect_targets(runtime) == frozenset()
     assert runtime.calls() == ()
 
@@ -625,9 +625,9 @@ def test_a_dropped_connection_is_a_connection_error_after_one_attempt(agentcore:
     runtime.reset()
     response: Final = _decide(agentcore, _DROPPED)
     assert response.status_code == 500, response.text
-    assert "litellm.APIConnectionError" in response.text, response.text
+    assert "hangarllm.APIConnectionError" in response.text, response.text
     assert len(_calls_to(runtime.calls(), "audit_dropped")) == 1
-    assert _spend_row(response.headers["x-litellm-call-id"])["status"] == "failure"
+    assert _spend_row(response.headers["x-hangarllm-call-id"])["status"] == "failure"
 
 
 def _burst_routes(size: int) -> tuple[_Route, ...]:
@@ -671,8 +671,8 @@ def test_a_runtime_outage_mid_burst_fails_each_call_once_and_recovers_signed(
     )
     assert _health_counts(agentcore, _OUTAGE) == (200, 1, 0)
     expected: Final = {
-        **{response.headers["x-litellm-call-id"]: "failure" for response in failed},
-        **{response.headers["x-litellm-call-id"]: "success" for response in served},
+        **{response.headers["x-hangarllm-call-id"]: "failure" for response in failed},
+        **{response.headers["x-hangarllm-call-id"]: "success" for response in served},
     }
     assert len(expected) == 30, expected
     rows: Final = _spend_rows(tuple(expected))
@@ -692,9 +692,9 @@ async def test_sdk_sync_and_async_calls_reach_the_runtime_signed(
         **_isolated_aws(tmp_path),
     }.items():
         monkeypatch.setenv(name, value)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     try:
-        synchronous: Final = litellm.decisions(
+        synchronous: Final = hangarllm.decisions(
             model=_MODEL,
             state=_STATE,
             questions=_SDK_QUESTIONS,
@@ -702,7 +702,7 @@ async def test_sdk_sync_and_async_calls_reach_the_runtime_signed(
             aws_access_key_id=_ACCESS_KEY,
             aws_secret_access_key=_SECRET_KEY,
         )
-        asynchronous: Final = await litellm.asystemone(
+        asynchronous: Final = await hangarllm.asystemone(
             model=_MODEL,
             state=_STATE,
             questions=_SDK_QUESTIONS,
@@ -711,11 +711,11 @@ async def test_sdk_sync_and_async_calls_reach_the_runtime_signed(
             aws_secret_access_key=_SECRET_KEY,
         )
         monkeypatch.setenv("STRANDS_DECIDER_API_KEY", _ENV_JWT)
-        bearer: Final = await litellm.asystemone(
+        bearer: Final = await hangarllm.asystemone(
             model=_MODEL, state=_STATE, questions=_SDK_QUESTIONS, api_base=_arn("audit_sdk_env_key")
         )
     finally:
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for response in (synchronous, asynchronous, bearer):
         assert response.model_dump(mode="json") == {"model": _BODY_MODEL, "answers": _ANSWERS, "usage": _USAGE}
     calls: Final = runtime.calls()
@@ -830,7 +830,7 @@ def test_a_worst_case_runtime_arn_pattern_input_is_classified_in_linear_time(
         record_property("liveliness_seconds", f"{liveliness.seconds:.6f}")
         assert liveliness.value.status_code == 200, liveliness.value.text
         assert 500 <= decided.value.status_code < 600, decided.value.text
-        assert "litellm.APIConnectionError" in decided.value.text, decided.value.text[:2000]
+        assert "hangarllm.APIConnectionError" in decided.value.text, decided.value.text[:2000]
         assert_within_factor_of_control(decided.seconds, control=answered.seconds, factor=_LINEAR_FACTOR)
         assert_within_factor_of_control(liveliness.seconds, control=answered.seconds, factor=_LINEAR_FACTOR)
         assert wire.drain() == ()

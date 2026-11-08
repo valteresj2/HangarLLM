@@ -2,7 +2,7 @@ from collections.abc import Mapping
 
 import pytest
 
-from litellm.llms.empiriolabs.decisions.transformation import EmpirioLabsDecisionsConfig
+from hangarllm.llms.empiriolabs.decisions.transformation import EmpirioLabsDecisionsConfig
 
 
 @pytest.mark.parametrize(

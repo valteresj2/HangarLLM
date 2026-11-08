@@ -110,7 +110,7 @@ def poll_cost_row(key: str) -> CostRow:
     def read() -> CostRow | None:
         rows: Final = read_rows(
             "SELECT spend, status, metadata, prompt_tokens, completion_tokens, model_id, call_type "
-            'FROM "LiteLLM_SpendLogs" WHERE api_key=%s',
+            'FROM "HangarLLM_SpendLogs" WHERE api_key=%s',
             (digest,),
         )
         return next((parsed for row in rows if (parsed := _row(row)) is not None), None)
@@ -124,7 +124,7 @@ def read_rows_now(key: str) -> tuple[CostRow, ...]:
     digest: Final = sha256(key.encode()).hexdigest()
     rows: Final = read_rows(
         "SELECT spend, status, metadata, prompt_tokens, completion_tokens, model_id, call_type "
-        'FROM "LiteLLM_SpendLogs" WHERE api_key=%s ORDER BY "startTime"',
+        'FROM "HangarLLM_SpendLogs" WHERE api_key=%s ORDER BY "startTime"',
         (digest,),
     )
     return tuple(parsed for row in rows if (parsed := _row(row)) is not None)
@@ -159,29 +159,29 @@ def poll_rollups(
 
     def read() -> Rollups | None:
         key_rows: Final = read_rows(
-            'SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s',
+            'SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s',
             (digest,),
         )
         team_rows: Final = read_rows(
-            'SELECT spend FROM "LiteLLM_TeamTable" WHERE team_id=%s',
+            'SELECT spend FROM "HangarLLM_TeamTable" WHERE team_id=%s',
             (team_id,),
         )
         user_rows: Final = read_rows(
-            'SELECT spend FROM "LiteLLM_UserTable" WHERE user_id=%s',
+            'SELECT spend FROM "HangarLLM_UserTable" WHERE user_id=%s',
             (user_id,),
         )
         end_user_rows: Final = read_rows(
-            'SELECT spend FROM "LiteLLM_EndUserTable" WHERE user_id=%s',
+            'SELECT spend FROM "HangarLLM_EndUserTable" WHERE user_id=%s',
             (end_user_id,),
         )
         daily_user_rows: Final = read_rows(
             "SELECT spend, prompt_tokens, completion_tokens, api_requests "
-            'FROM "LiteLLM_DailyUserSpend" WHERE user_id=%s AND api_key=%s AND date=CURRENT_DATE::text',
+            'FROM "HangarLLM_DailyUserSpend" WHERE user_id=%s AND api_key=%s AND date=CURRENT_DATE::text',
             (user_id, digest),
         )
         daily_team_rows: Final = read_rows(
             "SELECT spend, prompt_tokens, completion_tokens, api_requests "
-            'FROM "LiteLLM_DailyTeamSpend" WHERE team_id=%s AND api_key=%s AND date=CURRENT_DATE::text',
+            'FROM "HangarLLM_DailyTeamSpend" WHERE team_id=%s AND api_key=%s AND date=CURRENT_DATE::text',
             (team_id, digest),
         )
         if not all((key_rows, team_rows, user_rows, end_user_rows, daily_user_rows, daily_team_rows)):
@@ -225,7 +225,7 @@ def poll_failure_row(key: str) -> FailureRow:
 
     def read() -> FailureRow | None:
         rows: Final = read_rows(
-            'SELECT spend, status, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE api_key=%s',
+            'SELECT spend, status, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE api_key=%s',
             (digest,),
         )
         return next(
@@ -294,10 +294,10 @@ def register_scenario_deployment(
         case.alias.replace(ALIAS_MARKER, unique_marker) if case.alias is not None else f"cost-{unique_marker}"
     )
     parameters: Final = {
-        "model": case.litellm_model,
+        "model": case.hangarllm_model,
         "api_key": case.api_key,
         "api_base": handle.api_base(),
-        **case.litellm_params,
+        **case.hangarllm_params,
         **(
             {
                 key: value
@@ -323,7 +323,7 @@ def register_scenario_deployment(
         ),
         **(
             {"vertex_credentials": _vertex_service_account_json(control_url)}
-            if case.rates.litellm_provider.startswith("vertex_ai")
+            if case.rates.hangarllm_provider.startswith("vertex_ai")
             else {}
         ),
     }
@@ -332,7 +332,7 @@ def register_scenario_deployment(
         JSON_OBJECT.validate_python(
             {
                 "model_name": registered_model_name,
-                "litellm_params": parameters,
+                "hangarllm_params": parameters,
                 "model_info": {
                     **({"base_model": case.base_model} if case.base_model is not None else {}),
                     **(

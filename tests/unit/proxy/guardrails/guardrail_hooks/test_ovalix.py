@@ -13,15 +13,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from litellm.exceptions import GuardrailRaisedException
-from litellm.proxy.guardrails.guardrail_hooks.ovalix.ovalix import (
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.proxy.guardrails.guardrail_hooks.ovalix.ovalix import (
     OvalixGuardrail,
     OvalixGuardrailBlockedException,
     OvalixGuardrailMissingSecrets,
 )
-from litellm.proxy.guardrails.guardrail_hooks.ovalix.ovalix_extraction import FilePart
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import GenericGuardrailAPIInputs
+from hangarllm.proxy.guardrails.guardrail_hooks.ovalix.ovalix_extraction import FilePart
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import GenericGuardrailAPIInputs
 
 
 @pytest.fixture(autouse=True)
@@ -233,7 +233,7 @@ class TestOvalixGuardrail:
             assert body["session_id"] == "session-1"
             assert body["data_type"] == "TEXT"
             assert body["data"] == {"content": "hello"}
-            assert body["tool"] == "LiteLLM"
+            assert body["tool"] == "HangarLLM"
         finally:
             for k in _ovalix_env():
                 if k in os.environ:
@@ -572,7 +572,7 @@ class TestOvalixGuardrail:
             guardrail = OvalixGuardrail(**_guardrail_kwargs())
             assert guardrail._get_actor({"metadata": {"user_api_key_user_email": "a@b.com"}}) == "a@b.com"
             assert guardrail._get_actor({"metadata": {"user_api_key_user_id": "uid-1"}}) == "uid-1"
-            assert guardrail._get_actor({"litellm_metadata": {"user_api_key_user_id": "uid-2"}}) == "uid-2"
+            assert guardrail._get_actor({"hangarllm_metadata": {"user_api_key_user_id": "uid-2"}}) == "uid-2"
             assert guardrail._get_actor({}) == "unknown"
             assert (
                 guardrail._get_actor({"metadata": {"user_api_key_user_email": "", "user_api_key_user_id": ""}})
@@ -772,7 +772,7 @@ async def test_response_side_file_uses_file_checkpoint():
 
 
 @pytest.mark.asyncio
-async def test_file_checkpoint_call_routes_to_litellm_file_endpoint():
+async def test_file_checkpoint_call_routes_to_hangarllm_file_endpoint():
     g = _static_guardrail()
     seen = {}
 
@@ -938,7 +938,7 @@ async def test_actor_sent_to_tracker_is_raw_identifier_not_hash():
     "request_data",
     [
         {},
-        {"metadata": {"user_id": "client-chosen"}, "litellm_metadata": {"user_api_key_user_id": "uid-1"}},
+        {"metadata": {"user_id": "client-chosen"}, "hangarllm_metadata": {"user_api_key_user_id": "uid-1"}},
     ],
 )
 async def test_request_with_no_user_field_sends_unknown_actor(request_data):
@@ -1212,7 +1212,7 @@ async def test_one_sided_config_inspects_configured_direction_only(input_type, i
 
 @pytest.mark.asyncio
 async def test_every_tracker_call_carries_the_configured_timeout():
-    """litellm_params.timeout bounds the checkpoint call."""
+    """hangarllm_params.timeout bounds the checkpoint call."""
     g: Final = _pinned_guardrail(pre_checkpoint_id="pre-1", timeout=2.5)
     mock_get, mock_post = _mock_tracker(g)
 
@@ -1246,10 +1246,10 @@ async def test_file_only_checkpoint_inspects_files_and_skips_text():
 
 
 def test_initialize_guardrail_wires_new_params(monkeypatch):
-    import litellm
-    from litellm.proxy.guardrails.guardrail_hooks.ovalix import initialize_guardrail
+    import hangarllm
+    from hangarllm.proxy.guardrails.guardrail_hooks.ovalix import initialize_guardrail
 
-    monkeypatch.setattr(litellm.logging_callback_manager, "add_litellm_callback", lambda callback: None)
+    monkeypatch.setattr(hangarllm.logging_callback_manager, "add_hangarllm_callback", lambda callback: None)
 
     class _Params:
         tracker_api_base = "https://t"

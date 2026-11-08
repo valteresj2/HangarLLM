@@ -11,16 +11,16 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from litellm.constants import ANTHROPIC_SKILLS_API_BETA_VERSION
-from litellm.llms.anthropic.skills.transformation import AnthropicSkillsConfig
-from litellm.types.llms.anthropic_skills import (
+from hangarllm.constants import ANTHROPIC_SKILLS_API_BETA_VERSION
+from hangarllm.llms.anthropic.skills.transformation import AnthropicSkillsConfig
+from hangarllm.types.llms.anthropic_skills import (
     CreateSkillRequest,
     DeleteSkillResponse,
     ListSkillsParams,
     ListSkillsResponse,
     Skill,
 )
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.types.router import GenericHangarLLMParams
 
 
 FAKE_API_KEY = "sk-ant-test-key-1234"
@@ -79,7 +79,7 @@ class TestAnthropicSkillsConfigURLConstruction:
 
     def test_url_falls_back_to_anthropic_default(self):
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
+            "hangarllm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
             return_value="https://api.anthropic.com",
         ):
             url = self.config.get_complete_url(
@@ -101,43 +101,43 @@ class TestAnthropicSkillsConfigHeaderValidation:
     def setup_method(self):
         self.config = AnthropicSkillsConfig()
 
-    def _make_litellm_params(self, api_key=FAKE_API_KEY):
-        return GenericLiteLLMParams(api_key=api_key)
+    def _make_hangarllm_params(self, api_key=FAKE_API_KEY):
+        return GenericHangarLLMParams(api_key=api_key)
 
     def test_sets_api_key_header(self):
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+            "hangarllm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
             return_value=FAKE_API_KEY,
         ):
-            headers = self.config.validate_environment(headers={}, litellm_params=self._make_litellm_params())
+            headers = self.config.validate_environment(headers={}, hangarllm_params=self._make_hangarllm_params())
         assert headers["x-api-key"] == FAKE_API_KEY
 
     def test_sets_anthropic_version_header(self):
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+            "hangarllm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
             return_value=FAKE_API_KEY,
         ):
-            headers = self.config.validate_environment(headers={}, litellm_params=self._make_litellm_params())
+            headers = self.config.validate_environment(headers={}, hangarllm_params=self._make_hangarllm_params())
         assert headers["anthropic-version"] == "2023-06-01"
 
     def test_sets_skills_beta_header(self):
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+            "hangarllm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
             return_value=FAKE_API_KEY,
         ):
-            headers = self.config.validate_environment(headers={}, litellm_params=self._make_litellm_params())
+            headers = self.config.validate_environment(headers={}, hangarllm_params=self._make_hangarllm_params())
         assert headers["anthropic-beta"] == ANTHROPIC_SKILLS_API_BETA_VERSION
 
     def test_merges_existing_beta_header_into_string(self):
         """The merged value must stay a comma-separated string: a list value makes
         httpx.Headers raise TypeError when the request is built."""
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+            "hangarllm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
             return_value=FAKE_API_KEY,
         ):
             headers = self.config.validate_environment(
                 headers={"anthropic-beta": "other-beta-2024-01-01"},
-                litellm_params=self._make_litellm_params(),
+                hangarllm_params=self._make_hangarllm_params(),
             )
         assert isinstance(headers["anthropic-beta"], str)
         betas = set(headers["anthropic-beta"].split(","))
@@ -148,11 +148,11 @@ class TestAnthropicSkillsConfigHeaderValidation:
         """Regression: an sk-ant-oat/WIF auth header carries its own anthropic-beta;
         the old list-building merge produced a Python list that crashed httpx."""
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+            "hangarllm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
             return_value="sk-ant-oat01-fake-skills-token",
         ):
             headers = self.config.validate_environment(
-                headers={}, litellm_params=self._make_litellm_params(api_key=None)
+                headers={}, hangarllm_params=self._make_hangarllm_params(api_key=None)
             )
         assert headers["authorization"] == "Bearer sk-ant-oat01-fake-skills-token"
         assert isinstance(headers["anthropic-beta"], str)
@@ -162,34 +162,34 @@ class TestAnthropicSkillsConfigHeaderValidation:
 
     def test_does_not_duplicate_beta_header(self):
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+            "hangarllm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
             return_value=FAKE_API_KEY,
         ):
             headers = self.config.validate_environment(
                 headers={"anthropic-beta": ANTHROPIC_SKILLS_API_BETA_VERSION},
-                litellm_params=self._make_litellm_params(),
+                hangarllm_params=self._make_hangarllm_params(),
             )
         assert headers["anthropic-beta"] == ANTHROPIC_SKILLS_API_BETA_VERSION
 
     def test_raises_without_api_key(self):
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+            "hangarllm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
             return_value=None,
         ):
             with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
-                self.config.validate_environment(headers={}, litellm_params=self._make_litellm_params(api_key=None))
+                self.config.validate_environment(headers={}, hangarllm_params=self._make_hangarllm_params(api_key=None))
 
 
 class TestAnthropicSkillsConfigCreateRequestTransformation:
     def setup_method(self):
         self.config = AnthropicSkillsConfig()
-        self.litellm_params = GenericLiteLLMParams(api_key=FAKE_API_KEY)
+        self.hangarllm_params = GenericHangarLLMParams(api_key=FAKE_API_KEY)
 
     def test_display_title_included(self):
         create_request: CreateSkillRequest = {"display_title": "My Skill"}
         body = self.config.transform_create_skill_request(
             create_request=create_request,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers={},
         )
         assert body["display_title"] == "My Skill"
@@ -198,7 +198,7 @@ class TestAnthropicSkillsConfigCreateRequestTransformation:
         create_request: CreateSkillRequest = {"display_title": None, "files": None}
         body = self.config.transform_create_skill_request(
             create_request=create_request,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers={},
         )
         assert "display_title" not in body
@@ -208,7 +208,7 @@ class TestAnthropicSkillsConfigCreateRequestTransformation:
         create_request: CreateSkillRequest = {}
         body = self.config.transform_create_skill_request(
             create_request=create_request,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers={},
         )
         assert body == {}
@@ -217,17 +217,17 @@ class TestAnthropicSkillsConfigCreateRequestTransformation:
 class TestAnthropicSkillsConfigListRequestTransformation:
     def setup_method(self):
         self.config = AnthropicSkillsConfig()
-        self.litellm_params = GenericLiteLLMParams(api_key=FAKE_API_KEY)
+        self.hangarllm_params = GenericHangarLLMParams(api_key=FAKE_API_KEY)
 
     def test_limit_included_in_query_params(self):
         list_params: ListSkillsParams = {"limit": 25}
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
+            "hangarllm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
             return_value=FAKE_API_BASE,
         ):
             url, query_params = self.config.transform_list_skills_request(
                 list_params=list_params,
-                litellm_params=self.litellm_params,
+                hangarllm_params=self.hangarllm_params,
                 headers={},
             )
         assert query_params["limit"] == 25
@@ -236,12 +236,12 @@ class TestAnthropicSkillsConfigListRequestTransformation:
     def test_source_filter_included(self):
         list_params: ListSkillsParams = {"source": "custom"}
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
+            "hangarllm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
             return_value=FAKE_API_BASE,
         ):
             _, query_params = self.config.transform_list_skills_request(
                 list_params=list_params,
-                litellm_params=self.litellm_params,
+                hangarllm_params=self.hangarllm_params,
                 headers={},
             )
         assert query_params["source"] == "custom"
@@ -249,12 +249,12 @@ class TestAnthropicSkillsConfigListRequestTransformation:
     def test_empty_params_produce_empty_query(self):
         list_params: ListSkillsParams = {}
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
+            "hangarllm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
             return_value=FAKE_API_BASE,
         ):
             _, query_params = self.config.transform_list_skills_request(
                 list_params=list_params,
-                litellm_params=self.litellm_params,
+                hangarllm_params=self.hangarllm_params,
                 headers={},
             )
         assert query_params == {}

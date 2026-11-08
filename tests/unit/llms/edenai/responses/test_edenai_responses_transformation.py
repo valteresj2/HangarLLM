@@ -6,13 +6,13 @@ import json
 import httpx
 import pytest
 
-import litellm
-from litellm.cost_calculator import get_response_cost_from_hidden_params
-from litellm.llms.edenai.responses.transformation import EdenAIResponsesAPIConfig
-from litellm.types.llms.openai import ResponsesAPIResponse, ResponsesAPIStreamEvents
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.cost_calculator import get_response_cost_from_hidden_params
+from hangarllm.llms.edenai.responses.transformation import EdenAIResponsesAPIConfig
+from hangarllm.types.llms.openai import ResponsesAPIResponse, ResponsesAPIStreamEvents
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 EDEN_BASE = "https://api.edenai.run/v3"
 EDEN_EU_BASE = "https://api.eu.edenai.run/v3"
@@ -125,19 +125,19 @@ class TestRegistration:
 
 class TestEndpointResolution:
     def test_defaults_to_the_global_endpoint(self, eden_key):
-        assert EdenAIResponsesAPIConfig().get_complete_url(api_base=None, litellm_params={}) == EDEN_RESPONSES_URL
+        assert EdenAIResponsesAPIConfig().get_complete_url(api_base=None, hangarllm_params={}) == EDEN_RESPONSES_URL
 
     def test_env_api_base_moves_to_the_eu_endpoint(self, eden_key, monkeypatch):
         monkeypatch.setenv("EDENAI_API_BASE", EDEN_EU_BASE)
 
         assert (
-            EdenAIResponsesAPIConfig().get_complete_url(api_base=None, litellm_params={}) == f"{EDEN_EU_BASE}/responses"
+            EdenAIResponsesAPIConfig().get_complete_url(api_base=None, hangarllm_params={}) == f"{EDEN_EU_BASE}/responses"
         )
 
     def test_explicit_api_base_wins_and_loses_its_trailing_slash(self, eden_key, monkeypatch):
         monkeypatch.setenv("EDENAI_API_BASE", EDEN_EU_BASE)
 
-        url = EdenAIResponsesAPIConfig().get_complete_url(api_base="https://eden.internal/v3/", litellm_params={})
+        url = EdenAIResponsesAPIConfig().get_complete_url(api_base="https://eden.internal/v3/", hangarllm_params={})
 
         assert url == "https://eden.internal/v3/responses"
 
@@ -145,28 +145,28 @@ class TestEndpointResolution:
 class TestAuthentication:
     def test_env_key_becomes_the_bearer_header(self, eden_key):
         headers = EdenAIResponsesAPIConfig().validate_environment(
-            headers={"x-trace": "1"}, model=SELLER_MODEL, litellm_params=None
+            headers={"x-trace": "1"}, model=SELLER_MODEL, hangarllm_params=None
         )
 
         assert headers == {"x-trace": "1", "Authorization": f"Bearer {eden_key}"}
 
     def test_explicit_key_wins_over_env(self, eden_key):
         headers = EdenAIResponsesAPIConfig().validate_environment(
-            headers={}, model=SELLER_MODEL, litellm_params=GenericLiteLLMParams(api_key="explicit-key")
+            headers={}, model=SELLER_MODEL, hangarllm_params=GenericHangarLLMParams(api_key="explicit-key")
         )
 
         assert headers["Authorization"] == "Bearer explicit-key"
 
     def test_missing_key_is_an_authentication_error(self, no_eden_key):
-        with pytest.raises(litellm.AuthenticationError, match="EDENAI_API_KEY"):
-            EdenAIResponsesAPIConfig().validate_environment(headers={}, model=SELLER_MODEL, litellm_params=None)
+        with pytest.raises(hangarllm.AuthenticationError, match="EDENAI_API_KEY"):
+            EdenAIResponsesAPIConfig().validate_environment(headers={}, model=SELLER_MODEL, hangarllm_params=None)
 
 
 class TestResponses:
     def test_posts_to_eden_with_the_bearer_key_and_the_seller_model_id(self, eden_key, respx_mock):
         respx_mock.post(EDEN_RESPONSES_URL).mock(return_value=httpx.Response(200, json=_eden_response()))
 
-        response = litellm.responses(model=MODEL, input="Say OK", max_output_tokens=16)
+        response = hangarllm.responses(model=MODEL, input="Say OK", max_output_tokens=16)
 
         assert isinstance(response, ResponsesAPIResponse)
         assert response.output[0].content[0].text == "OK"
@@ -177,7 +177,7 @@ class TestResponses:
     def test_eden_reported_cost_beats_the_price_map(self, eden_key, respx_mock):
         respx_mock.post(EDEN_RESPONSES_URL).mock(return_value=httpx.Response(200, json=_eden_response()))
 
-        response = litellm.responses(model=MODEL, input="Say OK", max_output_tokens=16)
+        response = hangarllm.responses(model=MODEL, input="Say OK", max_output_tokens=16)
 
         assert get_response_cost_from_hidden_params(response._hidden_params) == EDEN_REPORTED_COST
         assert response._hidden_params["response_cost"] == EDEN_REPORTED_COST
@@ -185,7 +185,7 @@ class TestResponses:
     def test_a_body_without_cost_leaves_pricing_to_the_price_map(self, eden_key, respx_mock):
         respx_mock.post(EDEN_RESPONSES_URL).mock(return_value=httpx.Response(200, json=_eden_response(cost=None)))
 
-        response = litellm.responses(model=MODEL, input="Say OK", max_output_tokens=16)
+        response = hangarllm.responses(model=MODEL, input="Say OK", max_output_tokens=16)
 
         assert response.output[0].content[0].text == "OK"
         assert get_response_cost_from_hidden_params(response._hidden_params) is None
@@ -193,7 +193,7 @@ class TestResponses:
     def test_stateful_params_pass_through_to_eden(self, eden_key, respx_mock):
         respx_mock.post(EDEN_RESPONSES_URL).mock(return_value=httpx.Response(200, json=_eden_response()))
 
-        litellm.responses(
+        hangarllm.responses(
             model=MODEL,
             input="Say OK",
             previous_response_id="resp_previous",
@@ -211,7 +211,7 @@ class TestResponses:
     def test_extra_body_forwards_eden_only_fields(self, eden_key, respx_mock):
         respx_mock.post(EDEN_RESPONSES_URL).mock(return_value=httpx.Response(200, json=_eden_response()))
 
-        litellm.responses(
+        hangarllm.responses(
             model=MODEL,
             input="Say OK",
             extra_body={"fallbacks": ["anthropic/claude-sonnet-latest"], "routing": {"sort": "latency"}},
@@ -227,7 +227,7 @@ class TestStreaming:
     def test_stream_forwards_eden_events_and_bills_the_usage_cost(self, eden_key, respx_mock):
         respx_mock.post(EDEN_RESPONSES_URL).mock(return_value=_sse(_eden_stream_events()))
 
-        stream = litellm.responses(model=MODEL, input="Say OK", stream=True)
+        stream = hangarllm.responses(model=MODEL, input="Say OK", stream=True)
         events = list(stream)
 
         assert _request_body(respx_mock)["stream"] is True
@@ -246,8 +246,8 @@ class TestErrors:
     def test_401_detail_body_is_an_authentication_error(self, eden_key, respx_mock):
         respx_mock.post(EDEN_RESPONSES_URL).mock(return_value=httpx.Response(401, json={"detail": "Invalid token"}))
 
-        with pytest.raises(litellm.AuthenticationError, match="Invalid token"):
-            litellm.responses(model=MODEL, input="Say OK")
+        with pytest.raises(hangarllm.AuthenticationError, match="Invalid token"):
+            hangarllm.responses(model=MODEL, input="Say OK")
 
     def test_400_envelope_is_a_bad_request_error(self, eden_key, respx_mock):
         respx_mock.post(EDEN_RESPONSES_URL).mock(
@@ -264,5 +264,5 @@ class TestErrors:
             )
         )
 
-        with pytest.raises(litellm.BadRequestError, match="not found or inactive"):
-            litellm.responses(model="edenai/openai/does-not-exist", input="Say OK")
+        with pytest.raises(hangarllm.BadRequestError, match="not found or inactive"):
+            hangarllm.responses(model="edenai/openai/does-not-exist", input="Say OK")

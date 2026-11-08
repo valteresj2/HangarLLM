@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "litellm.ui.fullname" . }}
+  name: {{ include "hangarllm.ui.fullname" . }}
   labels:
-    {{- include "litellm.commonLabels" . | nindent 4 }}
+    {{- include "hangarllm.commonLabels" . | nindent 4 }}
     app.kubernetes.io/component: ui
 spec:
   type: {{ .Values.ui.service.type }}
@@ -14,5 +14,5 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "litellm.ui.selectorLabels" . | nindent 4 }}
+    {{- include "hangarllm.ui.selectorLabels" . | nindent 4 }}
 {{- end }}

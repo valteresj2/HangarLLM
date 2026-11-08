@@ -10,10 +10,10 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.main import responses_api_bridge_check
-from litellm.types.llms.openai import OpenAIWebSearchOptions
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.main import responses_api_bridge_check
+from hangarllm.types.llms.openai import OpenAIWebSearchOptions
 
 
 class _RecordingResponsesHandler:
@@ -152,7 +152,7 @@ class TestXAIResponsesAutoRouting:
         assert model_info.get("mode") == "responses"
         assert updated_model == "grok-not-in-cost-map"
 
-    @patch("litellm.completion_extras.responses_api_bridge.completion")
+    @patch("hangarllm.completion_extras.responses_api_bridge.completion")
     def test_completion_with_tools_routes_to_responses_api(self, mock_responses_completion):
         """Test that completion() with tools routes to Responses API"""
         # Mock the responses_api_bridge.completion to avoid actual API calls
@@ -175,7 +175,7 @@ class TestXAIResponsesAutoRouting:
         ]
 
         try:
-            litellm.completion(
+            hangarllm.completion(
                 model=model,
                 messages=messages,
                 tools=tools,
@@ -211,11 +211,11 @@ class TestXAIResponsesAutoRouting:
             }
         )
 
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="xai/grok-4.6",
             messages=[
                 {"role": "system", "content": "Answer briefly."},
-                {"role": "user", "content": "newest litellm version?"},
+                {"role": "user", "content": "newest hangarllm version?"},
             ],
             web_search_options={"search_context_size": "medium"},
             api_key="fake-key",

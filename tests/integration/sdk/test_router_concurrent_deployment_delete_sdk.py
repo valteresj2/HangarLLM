@@ -17,8 +17,8 @@ from integration._support.openai_wire import chat_reply, openai_error, responses
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue
 
-import litellm
-from litellm import Router
+import hangarllm
+from hangarllm import Router
 
 _DEPLOYMENTS: Final = 4
 _TARGET: Final = _DEPLOYMENTS - 1
@@ -73,7 +73,7 @@ def _deployment(
     )
     return {
         "model_name": f"model-{index if model is None else model}",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-4o-mini",
             "api_base": api_base,
             "api_key": f"key-{index}",
@@ -304,7 +304,7 @@ def test_team_completion_reaches_the_remaining_deployment_of_a_shared_public_nam
 def test_completion_for_the_deployment_being_deleted_fails_cleanly_and_sends_nothing() -> None:
     with wire_server(_peer) as wire:
         router: Final = _router(wire)
-        with pytest.raises(litellm.BadRequestError):
+        with pytest.raises(hangarllm.BadRequestError):
             _read_during_held_delete(
                 router,
                 "deployment-0",
@@ -320,12 +320,12 @@ def test_provider_error_during_a_concurrent_delete_comes_from_the_requested_depl
     with wire_server(_peer) as wire:
         api_base: Final = f"{wire.url}/v1"
         rate_limited: Final = _deployment(_TARGET, api_base, team=False)
-        rate_limited["litellm_params"] = {**object_value(rate_limited["litellm_params"]), "api_key": _RATE_LIMITED_KEY}
+        rate_limited["hangarllm_params"] = {**object_value(rate_limited["hangarllm_params"]), "api_key": _RATE_LIMITED_KEY}
         router: Final = Router(
             model_list=[*(_deployment(index, api_base, team=False) for index in range(_TARGET)), rate_limited],
             num_retries=0,
         )
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(hangarllm.RateLimitError):
             _read_during_held_delete(
                 router,
                 "deployment-0",
@@ -356,7 +356,7 @@ def test_two_threads_deleting_the_same_deployment_remove_it_once() -> None:
 def test_completion_reaches_its_deployment_while_another_thread_upserts_an_earlier_one() -> None:
     with wire_server(_peer) as wire:
         router: Final = _router(wire)
-        changed: Final = litellm.Deployment(**_deployment(0, f"{wire.url}/v1", team=False, timeout=11))
+        changed: Final = hangarllm.Deployment(**_deployment(0, f"{wire.url}/v1", team=False, timeout=11))
         served_by: Final = _read_during_held_write(
             lambda: _completion(router, f"model-{_TARGET}", team=False), lambda: router.upsert_deployment(changed)
         )
@@ -370,7 +370,7 @@ def test_completion_reaches_its_deployment_while_another_thread_upserts_an_earli
 def test_deployment_added_during_a_concurrent_delete_serves_its_own_requests() -> None:
     with wire_server(_peer) as wire:
         router: Final = _router(wire)
-        added: Final = litellm.Deployment(**_deployment(9, f"{wire.url}/v1", team=False))
+        added: Final = hangarllm.Deployment(**_deployment(9, f"{wire.url}/v1", team=False))
         _read_during_held_delete(router, "deployment-0", lambda: router.add_deployment(added))
         served: Final = tuple(_completion(router, f"model-{index}", team=False) for index in (9, _TARGET))
         keys: Final = _keys(wire)
@@ -407,7 +407,7 @@ def _churn(router: Router, api_base: str, stop: threading.Event) -> int:
     while upserts < _CHURN_UPSERTS and not stop.is_set():
         index, round_number = upserts % (2 * _DEPLOYMENTS), upserts // (2 * _DEPLOYMENTS)
         router.upsert_deployment(
-            litellm.Deployment(
+            hangarllm.Deployment(
                 **_deployment(index, api_base, team=False, model=index % _DEPLOYMENTS, timeout=11 + round_number % 2)
             )
         )

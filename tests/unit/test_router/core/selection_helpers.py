@@ -2,7 +2,7 @@
 Helpers for the selection characterization tests.
 
 ``TrafficHost`` is a ``ScriptedHost`` whose async inference calls also feed the routing strategy
-loggers the core registered on the host, the way litellm's logging does around a real call: input
+loggers the core registered on the host, the way hangarllm's logging does around a real call: input
 callbacks see the call start (``log_pre_api_call``), and the ``CustomLogger`` instances in the
 ``callbacks`` list see it succeed or fail with real start and end times. A call can be held open
 on a gate (an ``asyncio.Event``) or delayed for real, so in-flight counts and latencies are real
@@ -14,8 +14,8 @@ import datetime
 from collections.abc import Callable, Mapping
 from typing import Final
 
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router_core import RouterCore
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.router_core import RouterCore
 from tests.unit.test_router.core.scripted_host import Call, ScriptedHost
 
 MakeCore = Callable[..., RouterCore]
@@ -24,7 +24,7 @@ MESSAGES: Final = [{"role": "user", "content": "hi"}]
 
 
 class TrafficHost(ScriptedHost):
-    """``ScriptedHost`` plus the strategy-logger traffic litellm's logging produces around a call."""
+    """``ScriptedHost`` plus the strategy-logger traffic hangarllm's logging produces around a call."""
 
     def __init__(self) -> None:
         super().__init__()

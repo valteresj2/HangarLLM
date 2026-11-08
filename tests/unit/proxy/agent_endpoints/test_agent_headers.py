@@ -19,7 +19,7 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 
 # ---------------------------------------------------------------------------
 # Helper: build a minimal mock agent
@@ -34,7 +34,7 @@ def _make_mock_agent(
     mock_agent = MagicMock()
     mock_agent.agent_id = "agent-123"
     mock_agent.agent_card_params = {"url": url, "name": "Test Agent"}
-    mock_agent.litellm_params = {}
+    mock_agent.hangarllm_params = {}
     mock_agent.static_headers = static_headers or {}
     mock_agent.extra_headers = extra_headers or []
     return mock_agent
@@ -107,7 +107,7 @@ def _make_a2a_types_module():
 
 async def _invoke(mock_agent, mock_request, mock_asend_message):
     """Run invoke_agent_a2a with standard patches applied."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     mock_user_api_key_dict = UserAPIKeyAuth(api_key="sk-test", user_id="u1")
     mock_fastapi_response = MagicMock()
@@ -122,37 +122,37 @@ async def _invoke(mock_agent, mock_request, mock_asend_message):
 
     with (
         patch(
-            "litellm.proxy.agent_endpoints.a2a_endpoints._get_agent",
+            "hangarllm.proxy.agent_endpoints.a2a_endpoints._get_agent",
             return_value=mock_agent,
         ),
         patch(
-            "litellm.proxy.agent_endpoints.auth.agent_permission_handler.AgentRequestHandler.is_agent_allowed",
+            "hangarllm.proxy.agent_endpoints.auth.agent_permission_handler.AgentRequestHandler.is_agent_allowed",
             new_callable=AsyncMock,
             return_value=True,
         ),
         patch(
-            "litellm.proxy.common_request_processing.add_litellm_data_to_request",
+            "hangarllm.proxy.common_request_processing.add_hangarllm_data_to_request",
             side_effect=lambda data, **kw: data,
         ),
         patch(
-            "litellm.a2a_protocol.asend_message",
+            "hangarllm.a2a_protocol.asend_message",
             new_callable=AsyncMock,
             return_value=mock_response,
         ) as mock_asend,
         patch(
-            "litellm.a2a_protocol.create_a2a_client",
+            "hangarllm.a2a_protocol.create_a2a_client",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {},
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_config",
+            "hangarllm.proxy.proxy_server.proxy_config",
             MagicMock(),
         ),
         patch(
-            "litellm.proxy.proxy_server.version",
+            "hangarllm.proxy.proxy_server.version",
             "1.0.0",
         ),
         patch.dict(
@@ -160,11 +160,11 @@ async def _invoke(mock_agent, mock_request, mock_asend_message):
             {"a2a": MagicMock(), "a2a.types": mock_a2a_types},
         ),
         patch(
-            "litellm.a2a_protocol.main.A2A_SDK_AVAILABLE",
+            "hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE",
             True,
         ),
     ):
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         await invoke_agent_a2a(
             agent_id="test-agent",
@@ -238,7 +238,7 @@ async def test_no_headers():
 
     call_kwargs = mock_asend.call_args.kwargs
     headers = call_kwargs.get("agent_extra_headers")
-    assert headers == {"X-LiteLLM-User-Id": "u1"}
+    assert headers == {"X-HangarLLM-User-Id": "u1"}
 
 
 # ---------------------------------------------------------------------------
@@ -310,7 +310,7 @@ async def test_convention_unrelated_prefix_not_forwarded():
     mock_asend = await _invoke(mock_agent, mock_request, None)
 
     headers = mock_asend.call_args.kwargs.get("agent_extra_headers")
-    assert headers == {"X-LiteLLM-User-Id": "u1"}
+    assert headers == {"X-HangarLLM-User-Id": "u1"}
 
 
 # ---------------------------------------------------------------------------
@@ -332,12 +332,12 @@ def _mock_databricks_token_client(access_token="dbx-oauth-token"):
 @pytest.mark.asyncio
 async def test_databricks_oauth_header_injected():
     """A databricks_oauth block mints an outbound Bearer Authorization header."""
-    from litellm.proxy.agent_endpoints import databricks_oauth
+    from hangarllm.proxy.agent_endpoints import databricks_oauth
 
     databricks_oauth.databricks_app_oauth_token_cache.flush_cache()
 
     mock_agent = _make_mock_agent()
-    mock_agent.litellm_params = {
+    mock_agent.hangarllm_params = {
         "databricks_oauth": {
             "client_id": "cid",
             "client_secret": "secret",
@@ -347,7 +347,7 @@ async def test_databricks_oauth_header_injected():
     mock_request = _make_mock_request()
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         return_value=_mock_databricks_token_client("minted-token"),
     ):
         mock_asend = await _invoke(mock_agent, mock_request, None)
@@ -360,12 +360,12 @@ async def test_databricks_oauth_header_injected():
 @pytest.mark.asyncio
 async def test_databricks_oauth_overrides_static_authorization():
     """The minted OAuth token wins over a statically configured Authorization."""
-    from litellm.proxy.agent_endpoints import databricks_oauth
+    from hangarllm.proxy.agent_endpoints import databricks_oauth
 
     databricks_oauth.databricks_app_oauth_token_cache.flush_cache()
 
     mock_agent = _make_mock_agent(static_headers={"Authorization": "Bearer static-pat"})
-    mock_agent.litellm_params = {
+    mock_agent.hangarllm_params = {
         "databricks_oauth": {
             "client_id": "cid",
             "client_secret": "secret",
@@ -375,7 +375,7 @@ async def test_databricks_oauth_overrides_static_authorization():
     mock_request = _make_mock_request()
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         return_value=_mock_databricks_token_client("oauth-wins"),
     ):
         mock_asend = await _invoke(mock_agent, mock_request, None)
@@ -390,14 +390,14 @@ async def test_databricks_oauth_overrides_static_authorization():
 async def test_databricks_agent_flat_oauth_send_reaches_the_endpoint_with_the_minted_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
-    from litellm.proxy.agent_endpoints.agent_registry import AgentRegistry
-    from litellm.proxy.agent_endpoints.databricks_oauth import databricks_app_oauth_token_cache
-    from litellm.types.agents import AgentResponse
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+    from hangarllm.proxy.agent_endpoints.agent_registry import AgentRegistry
+    from hangarllm.proxy.agent_endpoints.databricks_oauth import databricks_app_oauth_token_cache
+    from hangarllm.types.agents import AgentResponse
 
     workspace: Final = "https://adb-1.azuredatabricks.net"
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     databricks_app_oauth_token_cache.flush_cache()
     registry: Final = AgentRegistry()
     registry.register_agent(
@@ -405,7 +405,7 @@ async def test_databricks_agent_flat_oauth_send_reaches_the_endpoint_with_the_mi
             agent_id="dbx-agent-id",
             agent_name="dbx-agent",
             agent_card_params={"url": workspace},
-            litellm_params={
+            hangarllm_params={
                 "custom_llm_provider": "databricks_agent",
                 "model": "my-agent",
                 "api_base": workspace,
@@ -434,7 +434,7 @@ async def test_databricks_agent_flat_oauth_send_reaches_the_endpoint_with_the_mi
     )
 
     with (
-        patch("litellm.proxy.agent_endpoints.agent_registry.global_agent_registry", registry),
+        patch("hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry", registry),
     ):
         response = await invoke_agent_a2a(
             agent_id="dbx-agent",
@@ -455,15 +455,15 @@ async def test_databricks_agent_flat_oauth_send_reaches_the_endpoint_with_the_mi
 async def test_non_databricks_agent_skips_oauth_resolution():
     """Agents without a databricks_oauth block never enter the OAuth path."""
     mock_agent = _make_mock_agent(static_headers={"x-custom": "v"})
-    mock_agent.litellm_params = {"require_trace_id_on_calls_to_agent": False}
+    mock_agent.hangarllm_params = {"require_trace_id_on_calls_to_agent": False}
     mock_request = _make_mock_request()
 
-    with patch("litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client") as mock_token_client:
+    with patch("hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client") as mock_token_client:
         mock_asend = await _invoke(mock_agent, mock_request, None)
 
     mock_token_client.assert_not_called()
     headers = mock_asend.call_args.kwargs.get("agent_extra_headers")
-    assert headers == {"x-custom": "v", "X-LiteLLM-User-Id": "u1"}
+    assert headers == {"x-custom": "v", "X-HangarLLM-User-Id": "u1"}
     assert "Authorization" not in headers
 
 
@@ -473,21 +473,21 @@ async def test_non_databricks_agent_skips_oauth_resolution():
 
 
 def test_merge_agent_headers_util_dynamic_only():
-    from litellm.proxy.agent_endpoints.utils import merge_agent_headers
+    from hangarllm.proxy.agent_endpoints.utils import merge_agent_headers
 
     result = merge_agent_headers(dynamic_headers={"x-key": "val"})
     assert result == {"x-key": "val"}
 
 
 def test_merge_agent_headers_util_static_only():
-    from litellm.proxy.agent_endpoints.utils import merge_agent_headers
+    from hangarllm.proxy.agent_endpoints.utils import merge_agent_headers
 
     result = merge_agent_headers(static_headers={"Authorization": "Bearer tok"})
     assert result == {"Authorization": "Bearer tok"}
 
 
 def test_merge_agent_headers_util_static_wins():
-    from litellm.proxy.agent_endpoints.utils import merge_agent_headers
+    from hangarllm.proxy.agent_endpoints.utils import merge_agent_headers
 
     result = merge_agent_headers(
         dynamic_headers={"Authorization": "dynamic", "x-extra": "d"},
@@ -497,14 +497,14 @@ def test_merge_agent_headers_util_static_wins():
 
 
 def test_merge_agent_headers_util_none_returns_none():
-    from litellm.proxy.agent_endpoints.utils import merge_agent_headers
+    from hangarllm.proxy.agent_endpoints.utils import merge_agent_headers
 
     result = merge_agent_headers()
     assert result is None
 
 
 def test_merge_agent_headers_util_empty_dicts_returns_none():
-    from litellm.proxy.agent_endpoints.utils import merge_agent_headers
+    from hangarllm.proxy.agent_endpoints.utils import merge_agent_headers
 
     result = merge_agent_headers(dynamic_headers={}, static_headers={})
     assert result is None
@@ -512,7 +512,7 @@ def test_merge_agent_headers_util_empty_dicts_returns_none():
 
 def test_merge_agent_headers_util_case_insensitive_static_wins():
     """Static ``Authorization`` strips dynamic ``authorization`` (HTTP headers are case-insensitive)."""
-    from litellm.proxy.agent_endpoints.utils import merge_agent_headers
+    from hangarllm.proxy.agent_endpoints.utils import merge_agent_headers
 
     result = merge_agent_headers(
         dynamic_headers={"authorization": "Bearer caller-token", "x-extra": "d"},
@@ -523,7 +523,7 @@ def test_merge_agent_headers_util_case_insensitive_static_wins():
 
 def test_merge_agent_headers_util_case_insensitive_no_dynamic_leak():
     """No case-variant of a static header can leak through from dynamic headers."""
-    from litellm.proxy.agent_endpoints.utils import merge_agent_headers
+    from hangarllm.proxy.agent_endpoints.utils import merge_agent_headers
 
     result = merge_agent_headers(
         dynamic_headers={"AUTHORIZATION": "Bearer caller", "authorization": "x"},
@@ -547,12 +547,12 @@ async def test_convention_header_blocked_by_case_variant_static():
 
     headers = mock_asend.call_args.kwargs.get("agent_extra_headers")
     assert headers is not None
-    assert headers == {"Authorization": "Bearer admin-token", "X-LiteLLM-User-Id": "u1"}
+    assert headers == {"Authorization": "Bearer admin-token", "X-HangarLLM-User-Id": "u1"}
     assert "authorization" not in headers
 
 
 # ---------------------------------------------------------------------------
-# Completion bridge: configured litellm_params.extra_headers win
+# Completion bridge: configured hangarllm_params.extra_headers win
 # case-insensitively over caller-rewritten headers
 # ---------------------------------------------------------------------------
 
@@ -569,8 +569,8 @@ _BRIDGE_MESSAGE_PARAMS = {
 @pytest.mark.asyncio
 async def test_bridge_caller_header_cannot_shadow_configured_header():
     """A caller-rewritten lowercase ``authorization`` must not ride alongside the
-    admin-configured ``Authorization`` from ``litellm_params.extra_headers``."""
-    from litellm.a2a_protocol.litellm_completion_bridge.handler import (
+    admin-configured ``Authorization`` from ``hangarllm_params.extra_headers``."""
+    from hangarllm.a2a_protocol.hangarllm_completion_bridge.handler import (
         A2ACompletionBridgeHandler,
     )
 
@@ -580,13 +580,13 @@ async def test_bridge_caller_header_cannot_shadow_configured_header():
     mock_response.choices[0].message.content = "Hello!"
     mock_response.id = "resp-123"
 
-    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+    with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
         mock_acompletion.return_value = mock_response
 
         await A2ACompletionBridgeHandler.handle_non_streaming(
             request_id="req-456",
             params=_BRIDGE_MESSAGE_PARAMS,
-            litellm_params={
+            hangarllm_params={
                 "custom_llm_provider": "langgraph",
                 "model": "agent",
                 "extra_headers": {"Authorization": "Bearer admin-token"},
@@ -608,7 +608,7 @@ async def test_bridge_caller_header_cannot_shadow_configured_header():
 @pytest.mark.asyncio
 async def test_bridge_streaming_caller_header_cannot_shadow_configured_header():
     """Streaming path applies the same case-insensitive precedence."""
-    from litellm.a2a_protocol.litellm_completion_bridge.handler import (
+    from hangarllm.a2a_protocol.hangarllm_completion_bridge.handler import (
         A2ACompletionBridgeHandler,
     )
 
@@ -620,13 +620,13 @@ async def test_bridge_streaming_caller_header_cannot_shadow_configured_header():
     async def mock_streaming_response():
         yield mock_chunk
 
-    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+    with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
         mock_acompletion.return_value = mock_streaming_response()
 
         async for _ in A2ACompletionBridgeHandler.handle_streaming(
             request_id="req-456",
             params=_BRIDGE_MESSAGE_PARAMS,
-            litellm_params={
+            hangarllm_params={
                 "custom_llm_provider": "langgraph",
                 "model": "agent",
                 "extra_headers": {"Authorization": "Bearer admin-token"},

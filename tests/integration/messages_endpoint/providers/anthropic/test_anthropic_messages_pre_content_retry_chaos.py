@@ -177,7 +177,7 @@ def _config(wire: Wire, directory: Path, models: _Models, *, retries: int = 1) -
     config["model_list"] = [
         {
             "model_name": models.messages,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"anthropic/{_ANTHROPIC_BACKEND}",
                 "api_base": wire.url,
                 "api_key": _ANTHROPIC_KEY,
@@ -186,7 +186,7 @@ def _config(wire: Wire, directory: Path, models: _Models, *, retries: int = 1) -
         },
         {
             "model_name": models.openai,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{_OPENAI_BACKEND}",
                 "api_base": wire.url + "/v1",
                 "api_key": _OPENAI_KEY,
@@ -289,7 +289,7 @@ def _routing_decoded_upstream_id(request_id: str) -> str | None:
     if encoded is None:
         return None
     decoded: Final = base64.b64decode(encoded.group(1)).decode(errors="replace")
-    if not decoded.startswith("litellm:"):
+    if not decoded.startswith("hangarllm:"):
         return None
     return decoded.rpartition("response_id:")[2]
 
@@ -304,7 +304,7 @@ def _names_of_served(served: _Served) -> frozenset[str]:
 
 def _spend_ids(model: str, expected: int) -> tuple[str, ...]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= expected,
         seconds=90,
     )
@@ -421,7 +421,7 @@ def _messages_rows(model: str, expected: int) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
             "SELECT request_id, status, metadata->'error_information'->>'error_code' AS code "
-            'FROM "LiteLLM_SpendLogs" WHERE model_group=%s',
+            'FROM "HangarLLM_SpendLogs" WHERE model_group=%s',
             (model,),
         ),
         lambda found: len(found) >= expected,

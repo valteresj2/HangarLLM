@@ -17,7 +17,7 @@ from integration._support.prometheus_series import Sample, scrape, series_cap_co
 from integration._support.vertex import service_account_json
 from integration._support.wire import Reply, Request, Wire, wire_server
 from integration._support.worker_readiness import wait_for_worker_readiness
-from litellm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
+from hangarllm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
 
 Endpoint: TypeAlias = Literal["chat", "responses", "messages"]
@@ -28,8 +28,8 @@ _PROJECT: Final = "scripted-project"
 _REPLY_TEXT: Final = "header probe reply"
 _USAGE: Final[JsonValue] = {"prompt_tokens": 13, "completion_tokens": 4, "total_tokens": 17}
 _UPSTREAM_COST: Final = "0.0421"
-_SPEND_SELECT: Final = 'SELECT spend FROM "LiteLLM_SpendLogs" WHERE api_key=%s'
-_KEY_SPEND_SELECT: Final = 'SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s'
+_SPEND_SELECT: Final = 'SELECT spend FROM "HangarLLM_SpendLogs" WHERE api_key=%s'
+_KEY_SPEND_SELECT: Final = 'SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s'
 _PATHS: Final[Mapping[Endpoint, str]] = MappingProxyType(
     {"chat": "/v1/chat/completions", "responses": "/v1/responses", "messages": "/v1/messages"}
 )
@@ -215,7 +215,7 @@ def _text(endpoint: Endpoint, response: httpx.Response) -> str:
 
 
 def _header_cost(response: httpx.Response) -> float:
-    values: Final = response.headers.get_list("x-litellm-response-cost")
+    values: Final = response.headers.get_list("x-hangarllm-response-cost")
     return float(values[0]) if values else math.nan
 
 
@@ -243,9 +243,9 @@ def _deployment_metrics(
 ) -> dict[str, tuple[float, tuple[float, ...], tuple[float, ...]]]:
     return {
         call: (
-            sum(_model_values(samples, "litellm_deployment_success_responses_total", model)),
-            _model_values(samples, "litellm_remaining_requests_metric", model),
-            _model_values(samples, "litellm_remaining_tokens_metric", model),
+            sum(_model_values(samples, "hangarllm_deployment_success_responses_total", model)),
+            _model_values(samples, "hangarllm_remaining_requests_metric", model),
+            _model_values(samples, "hangarllm_remaining_tokens_metric", model),
         )
         for call, model in models.items()
     }
@@ -296,19 +296,19 @@ def test_stream_chat_returns_the_provider_request_id(gateway: Gateway) -> None:
         assert len(wire.drain()) == 1
 
 
-def test_upstream_cannot_overwrite_litellm_owned_headers(gateway: Gateway) -> None:
+def test_upstream_cannot_overwrite_hangarllm_owned_headers(gateway: Gateway) -> None:
     spoofed: Final = {
-        "x-litellm-call-id": "spoofed-call-id",
-        "x-litellm-model-id": "spoofed-model-id",
-        "x-litellm-attempted-fallbacks": "7",
+        "x-hangarllm-call-id": "spoofed-call-id",
+        "x-hangarllm-model-id": "spoofed-model-id",
+        "x-hangarllm-attempted-fallbacks": "7",
     }
     with wire_server(_peer(spoofed)) as wire, gateway.scenario() as scenario:
         model: Final = _MEMBERS["groq"](gateway, scenario, wire)
         response: Final = _send(gateway, "chat", model, scenario.key(models=[model]))
         assert response.status_code == 200, response.text
-        assert response.headers["x-litellm-call-id"] != spoofed["x-litellm-call-id"], dict(response.headers)
-        assert response.headers["x-litellm-model-id"] != spoofed["x-litellm-model-id"], dict(response.headers)
-        assert response.headers["x-litellm-attempted-fallbacks"] == "0", dict(response.headers)
+        assert response.headers["x-hangarllm-call-id"] != spoofed["x-hangarllm-call-id"], dict(response.headers)
+        assert response.headers["x-hangarllm-model-id"] != spoofed["x-hangarllm-model-id"], dict(response.headers)
+        assert response.headers["x-hangarllm-attempted-fallbacks"] == "0", dict(response.headers)
         assert len(wire.drain()) == 1
 
 
@@ -316,7 +316,7 @@ def test_upstream_cannot_overwrite_litellm_owned_headers(gateway: Gateway) -> No
 def test_non_stream_spend_matches_stream_spend_under_an_upstream_cost_header(
     gateway: Gateway, endpoint: Endpoint, member: str
 ) -> None:
-    with wire_server(_peer({"x-litellm-response-cost": _UPSTREAM_COST})) as wire, gateway.scenario() as scenario:
+    with wire_server(_peer({"x-hangarllm-response-cost": _UPSTREAM_COST})) as wire, gateway.scenario() as scenario:
         model: Final = _MEMBERS[member](gateway, scenario, wire)
         stream_key: Final = scenario.key(models=[model])
         non_stream_key: Final = scenario.key(models=[model])
@@ -337,7 +337,7 @@ def test_non_stream_spend_matches_stream_spend_under_an_upstream_cost_header(
 @pytest.mark.parametrize("upstream_cost", ["-5", "abc", "nan", "inf"], ids=["negative", "garbage", "nan", "infinite"])
 def test_an_invalid_upstream_cost_header_bills_the_price_map(gateway: Gateway, member: str, upstream_cost: str) -> None:
     with (
-        wire_server(_peer({"x-litellm-response-cost": upstream_cost})) as invalid_wire,
+        wire_server(_peer({"x-hangarllm-response-cost": upstream_cost})) as invalid_wire,
         wire_server(_peer({})) as plain_wire,
         gateway.scenario() as scenario,
     ):

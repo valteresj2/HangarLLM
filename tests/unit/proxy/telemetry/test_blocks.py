@@ -2,8 +2,8 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.telemetry.blocks import count_blocks
-from litellm.telemetry.records import BlockCounts, BlockType
+from hangarllm.proxy.telemetry.blocks import count_blocks
+from hangarllm.telemetry.records import BlockCounts, BlockType
 
 
 def test_counts_string_content_part_lists_tool_calls_and_tool_messages() -> None:

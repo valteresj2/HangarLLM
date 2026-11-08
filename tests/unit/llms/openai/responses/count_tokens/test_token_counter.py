@@ -10,25 +10,25 @@ import pytest
 import respx
 from pydantic import JsonValue, ValidationError
 
-import litellm
-from litellm.litellm_core_utils.tool_fields import DropPolicy
-from litellm.llms.anthropic.messages.context_management.constants import CLEARED_TOOL_RESULT_PLACEHOLDER
-from litellm.llms.openai.responses.count_tokens.token_counter import OpenAITokenCounter
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.utils import CountContextManagement, TokenCountMessagesFormat, TokenCountResponse
+import hangarllm
+from hangarllm.hangarllm_core_utils.tool_fields import DropPolicy
+from hangarllm.llms.anthropic.messages.context_management.constants import CLEARED_TOOL_RESULT_PLACEHOLDER
+from hangarllm.llms.openai.responses.count_tokens.token_counter import OpenAITokenCounter
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.types.utils import CountContextManagement, TokenCountMessagesFormat, TokenCountResponse
 
 COUNT_URL: Final = "https://api.openai.com/v1/responses/input_tokens"
 
 
 async def _count(monkeypatch: pytest.MonkeyPatch, response: httpx.Response) -> TokenCountResponse | None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock:
         respx.post(COUNT_URL).mock(return_value=response)
         return await OpenAITokenCounter().count_tokens(
             model_to_use="gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
             contents=None,
-            deployment={"litellm_params": {"api_key": "sk-test"}},
+            deployment={"hangarllm_params": {"api_key": "sk-test"}},
             request_model="openai/gpt-4o",
         )
 
@@ -180,14 +180,14 @@ async def _sent_count_body(
     messages_format: TokenCountMessagesFormat,
     output_format: JsonValue = None,
 ) -> object:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock:
         route: Final = respx.post(COUNT_URL).mock(return_value=httpx.Response(200, json={"input_tokens": 1}))
         await OpenAITokenCounter().count_tokens(
             model_to_use="gpt-4o",
             messages=messages,
             contents=None,
-            deployment={"litellm_params": {"api_key": "sk-test"}},
+            deployment={"hangarllm_params": {"api_key": "sk-test"}},
             request_model="openai/gpt-4o",
             system=system,
             messages_format=messages_format,
@@ -266,7 +266,7 @@ async def test_anthropic_format_sends_affinity_wrapped_reasoning_unwrapped_as_in
         {
             "role": "assistant",
             "content": [
-                {"type": "redacted_thinking", "data": f"litellm_encrypted_reasoning:{wrapped}"},
+                {"type": "redacted_thinking", "data": f"hangarllm_encrypted_reasoning:{wrapped}"},
                 {"type": "text", "text": "OK"},
             ],
         },
@@ -307,7 +307,7 @@ async def test_anthropic_format_counts_the_structured_output_schema(monkeypatch:
 
 @pytest.mark.asyncio
 async def test_anthropic_format_sends_a_replayed_web_search_result_as_its_text(monkeypatch: pytest.MonkeyPatch) -> None:
-    snippet: Final = "LiteLLM ships a weekly release candidate and a stable line."
+    snippet: Final = "HangarLLM ships a weekly release candidate and a stable line."
     messages: Final[list[dict[str, object]]] = [
         {"role": "user", "content": "What is new?"},
         {
@@ -320,7 +320,7 @@ async def test_anthropic_format_sends_a_replayed_web_search_result_as_its_text(m
                     "content": [
                         {
                             "type": "web_search_result",
-                            "url": "https://docs.litellm.ai/release_notes",
+                            "url": "https://github.com/valteresj2/HangarLLM#readme",
                             "title": "Release notes",
                             "encrypted_content": "",
                             "snippet": snippet,
@@ -335,21 +335,21 @@ async def test_anthropic_format_sends_a_replayed_web_search_result_as_its_text(m
     sent: Final = json.dumps(await _sent_count_body(monkeypatch, messages, system=None, messages_format="anthropic"))
 
     assert snippet in sent
-    assert "https://docs.litellm.ai/release_notes" in sent
+    assert "https://github.com/valteresj2/HangarLLM#readme" in sent
 
 
 @pytest.mark.asyncio
 async def test_anthropic_format_message_without_a_role_answers_400_without_calling_openai(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock:
         route: Final = respx.post(COUNT_URL).mock(return_value=httpx.Response(200, json={"input_tokens": 1}))
         result: Final = await OpenAITokenCounter().count_tokens(
             model_to_use="gpt-4o",
             messages=[{"role": "user", "content": "hi"}, {"content": "no role"}],
             contents=None,
-            deployment={"litellm_params": {"api_key": "sk-test"}},
+            deployment={"hangarllm_params": {"api_key": "sk-test"}},
             request_model="openai/gpt-4o",
             messages_format="anthropic",
         )
@@ -427,16 +427,16 @@ def _tool_result_turns_with(text_block: Mapping[str, object]) -> list[dict[str, 
 
 
 async def _count_tool_result_turns(
-    monkeypatch: pytest.MonkeyPatch, text_block: Mapping[str, object], litellm_params: dict[str, object]
+    monkeypatch: pytest.MonkeyPatch, text_block: Mapping[str, object], hangarllm_params: dict[str, object]
 ) -> tuple[TokenCountResponse | None, respx.Route]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock:
         route: Final = respx.post(COUNT_URL).mock(return_value=httpx.Response(200, json={"input_tokens": 9}))
         result: Final = await OpenAITokenCounter().count_tokens(
             model_to_use="gpt-4o",
             messages=_tool_result_turns_with(text_block),
             contents=None,
-            deployment={"litellm_params": litellm_params},
+            deployment={"hangarllm_params": hangarllm_params},
             request_model="openai/gpt-4o",
             messages_format="anthropic",
         )
@@ -505,14 +505,14 @@ TOOL_PAIRS: Final[list[dict[str, object]]] = [
 async def _count_with_edit(
     monkeypatch: pytest.MonkeyPatch, edit: dict[str, JsonValue], drop_invalid_edits: bool, system: object = None
 ) -> tuple[TokenCountResponse | None, respx.Route]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock:
         route: Final = respx.post(COUNT_URL).mock(return_value=httpx.Response(200, json={"input_tokens": 9}))
         result: Final = await OpenAITokenCounter().count_tokens(
             model_to_use="gpt-4o",
             messages=copy.deepcopy(TOOL_PAIRS),
             contents=None,
-            deployment={"litellm_params": {"api_key": "sk-test"}},
+            deployment={"hangarllm_params": {"api_key": "sk-test"}},
             request_model="openai/gpt-4o",
             system=system,
             messages_format="anthropic",
@@ -561,7 +561,7 @@ async def test_anthropic_format_counts_the_history_the_clear_edit_leaves_for_inf
 async def test_anthropic_format_input_tokens_trigger_counts_the_system_prompt_like_inference(
     monkeypatch: pytest.MonkeyPatch, system: object
 ) -> None:
-    message_tokens: Final = litellm.token_counter(model="gpt-4o", messages=TOOL_PAIRS)
+    message_tokens: Final = hangarllm.token_counter(model="gpt-4o", messages=TOOL_PAIRS)
     trigger_between_messages_and_system: Final = message_tokens + 1000
     edit: Final[dict[str, JsonValue]] = {
         **CLEAR_EDIT,
@@ -604,8 +604,8 @@ async def test_anthropic_format_drop_params_counts_the_clear_without_its_malform
 
 @pytest.mark.asyncio
 async def test_count_uses_the_global_openai_key_chat_would_use(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "openai_key", "sk-from-litellm-settings")
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "openai_key", "sk-from-hangarllm-settings")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     with respx.mock:
         route: Final = respx.post(COUNT_URL).mock(return_value=httpx.Response(200, json={"input_tokens": 9}))
@@ -613,19 +613,19 @@ async def test_count_uses_the_global_openai_key_chat_would_use(monkeypatch: pyte
             model_to_use="gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
             contents=None,
-            deployment={"litellm_params": {}},
+            deployment={"hangarllm_params": {}},
             request_model="openai/gpt-4o",
         )
     assert result is not None
     assert result.total_tokens == 9
-    assert route.calls.last.request.headers["authorization"] == "Bearer sk-from-litellm-settings"
+    assert route.calls.last.request.headers["authorization"] == "Bearer sk-from-hangarllm-settings"
 
 
 @pytest.mark.asyncio
 async def test_count_sends_the_global_key_only_to_the_global_api_base(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "openai_key", "sk-private-gateway")
-    monkeypatch.setattr(litellm, "api_base", "https://gateway.internal.example/v1")
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "openai_key", "sk-private-gateway")
+    monkeypatch.setattr(hangarllm, "api_base", "https://gateway.internal.example/v1")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     with respx.mock:
         route: Final = respx.post("https://gateway.internal.example/v1/responses/input_tokens").mock(
@@ -635,7 +635,7 @@ async def test_count_sends_the_global_key_only_to_the_global_api_base(monkeypatc
             model_to_use="gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
             contents=None,
-            deployment={"litellm_params": {}},
+            deployment={"hangarllm_params": {}},
             request_model="openai/gpt-4o",
         )
     assert result is not None
@@ -668,14 +668,14 @@ _CALLER_BODY: Final[dict[str, object]] = {
 async def _native_count(
     monkeypatch: pytest.MonkeyPatch, request: Mapping[str, object], policy: DropPolicy, response: httpx.Response
 ) -> tuple[TokenCountResponse | None, object]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock:
         route: Final = respx.post(COUNT_URL).mock(return_value=response)
         result: Final = await OpenAITokenCounter().count_responses_request(
             model_to_use="gpt-4o",
             request=request,
             policy=policy,
-            deployment={"litellm_params": {"api_key": "sk-test"}},
+            deployment={"hangarllm_params": {"api_key": "sk-test"}},
             request_model="my-gpt",
         )
         return result, json.loads(route.calls.last.request.content)
@@ -708,7 +708,7 @@ async def _native_count(
         ),
     ],
 )
-async def test_native_count_sends_the_callers_body_without_litellm_fields(
+async def test_native_count_sends_the_callers_body_without_hangarllm_fields(
     monkeypatch: pytest.MonkeyPatch, policy: DropPolicy, expected_sent: dict[str, object]
 ) -> None:
     result, sent = await _native_count(

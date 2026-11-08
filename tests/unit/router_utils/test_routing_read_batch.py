@@ -10,12 +10,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.caching.redis_batch import request_redis_batch_scope
-from litellm.redis.stores.router_cooldowns import CooldownCacheValue, RouterCooldownStore
-from litellm.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2
-from litellm.router_utils import routing_prefetch
+import hangarllm
+from hangarllm import Router
+from hangarllm.caching.redis_batch import request_redis_batch_scope
+from hangarllm.redis.stores.router_cooldowns import CooldownCacheValue, RouterCooldownStore
+from hangarllm.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2
+from hangarllm.router_utils import routing_prefetch
 from tests.unit.caching.test_redis_batch import FakeNativePending, FakeNatives, ReadyPending, fake_pending, fake_send
 from tests.unit.conftest import redis_cache_double
 from tests.unit.redis.stores.test_router_cooldowns import FakeCooldowns
@@ -27,7 +27,7 @@ _MESSAGES = [{"role": "user", "content": "ping"}]
 def _deployment(deployment_id: str) -> dict:
     return {
         "model_name": _MODEL_GROUP,
-        "litellm_params": {"model": "anthropic/claude-x", "api_key": "test", "mock_response": "pong"},
+        "hangarllm_params": {"model": "anthropic/claude-x", "api_key": "test", "mock_response": "pong"},
         "model_info": {"id": deployment_id},
     }
 
@@ -181,9 +181,9 @@ async def test_a_failed_batched_read_degrades_like_the_two_failed_reads_did():
     routed = _router(redis, "usage-based-routing-v2")
     alone = _router(redis, "usage-based-routing-v2")
 
-    with pytest.raises(litellm.RateLimitError, match="No deployments available") as routed_error:
+    with pytest.raises(hangarllm.RateLimitError, match="No deployments available") as routed_error:
         await routed.async_get_available_deployment(model=_MODEL_GROUP, request_kwargs={}, messages=_MESSAGES)
-    with pytest.raises(litellm.RateLimitError, match="No deployments available") as alone_error:
+    with pytest.raises(hangarllm.RateLimitError, match="No deployments available") as alone_error:
         await alone.lowesttpm_logger_v2.async_get_available_deployments(
             model_group=_MODEL_GROUP, healthy_deployments=alone.model_list, messages=_MESSAGES
         )

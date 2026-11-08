@@ -6,10 +6,10 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.litellm_core_utils.model_retirement import is_past_deprecation_date
-from litellm.llms.baseten.chat import BasetenConfig
-from litellm.utils import _model_cache, get_valid_models
+import hangarllm
+from hangarllm.hangarllm_core_utils.model_retirement import is_past_deprecation_date
+from hangarllm.llms.baseten.chat import BasetenConfig
+from hangarllm.utils import _model_cache, get_valid_models
 
 
 class TestBasetenRouting:
@@ -62,11 +62,11 @@ class TestBasetenModelDiscovery:
 
     def test_models_by_provider_comes_from_registry(self):
         """Static listing uses the model cost map, not the retired 2023 deployment IDs."""
-        baseten_models: Final = litellm.models_by_provider["baseten"]
+        baseten_models: Final = hangarllm.models_by_provider["baseten"]
         servable_registry_models: Final = {
             key
-            for key, value in litellm.model_cost.items()
-            if value.get("litellm_provider") == "baseten" and not is_past_deprecation_date(value)
+            for key, value in hangarllm.model_cost.items()
+            if value.get("hangarllm_provider") == "baseten" and not is_past_deprecation_date(value)
         }
 
         assert servable_registry_models
@@ -76,36 +76,36 @@ class TestBasetenModelDiscovery:
 
     def test_models_by_provider_skips_deprecated_models(self):
         """Retired Model APIs stay in the cost map for spend tracking but are not listed."""
-        assert litellm.model_cost["baseten/zai-org/GLM-5"]["deprecation_date"]
-        assert "baseten/zai-org/GLM-5" not in litellm.models_by_provider["baseten"]
+        assert hangarllm.model_cost["baseten/zai-org/GLM-5"]["deprecation_date"]
+        assert "baseten/zai-org/GLM-5" not in hangarllm.models_by_provider["baseten"]
 
     def test_cost_map_reload_drops_a_newly_retired_model(self):
         """A refreshed cost map that marks a listed model retired removes it without a restart."""
         model: Final = "baseten/acme/reload-probe"
         try:
-            litellm.add_known_models({model: {"litellm_provider": "baseten"}})
-            assert model in litellm.models_by_provider["baseten"]
+            hangarllm.add_known_models({model: {"hangarllm_provider": "baseten"}})
+            assert model in hangarllm.models_by_provider["baseten"]
 
-            litellm.add_known_models({model: {"litellm_provider": "baseten", "deprecation_date": "2000-01-01"}})
+            hangarllm.add_known_models({model: {"hangarllm_provider": "baseten", "deprecation_date": "2000-01-01"}})
 
-            assert model not in litellm.models_by_provider["baseten"]
+            assert model not in hangarllm.models_by_provider["baseten"]
         finally:
-            litellm.baseten_models.discard(model)
-            litellm.add_known_models({})
+            hangarllm.baseten_models.discard(model)
+            hangarllm.add_known_models({})
 
     def test_wildcard_drops_a_model_whose_retirement_date_passes_while_running(self, monkeypatch: pytest.MonkeyPatch):
         model: Final = "baseten/acme/retires-while-running"
-        monkeypatch.setitem(litellm.model_cost, model, {"litellm_provider": "baseten", "deprecation_date": "2999-01-01"})
+        monkeypatch.setitem(hangarllm.model_cost, model, {"hangarllm_provider": "baseten", "deprecation_date": "2999-01-01"})
         try:
-            litellm.add_known_models({model: litellm.model_cost[model]})
+            hangarllm.add_known_models({model: hangarllm.model_cost[model]})
             assert model in get_valid_models(custom_llm_provider="baseten")
 
-            monkeypatch.setitem(litellm.model_cost, model, {"litellm_provider": "baseten", "deprecation_date": "2000-01-01"})
+            monkeypatch.setitem(hangarllm.model_cost, model, {"hangarllm_provider": "baseten", "deprecation_date": "2000-01-01"})
 
             assert model not in get_valid_models(custom_llm_provider="baseten")
         finally:
-            litellm.baseten_models.discard(model)
-            litellm.add_known_models({})
+            hangarllm.baseten_models.discard(model)
+            hangarllm.add_known_models({})
 
     @pytest.mark.parametrize(
         "value, expected",
@@ -173,7 +173,7 @@ class TestBasetenModelDiscovery:
 
     @patch.dict(os.environ, {"BASETEN_API_KEY": "test-key"})
     def test_live_catalog_keeps_a_model_the_cost_map_dates_as_retired(self, respx_mock: respx.MockRouter) -> None:
-        assert is_past_deprecation_date(litellm.model_cost["baseten/zai-org/GLM-5"])
+        assert is_past_deprecation_date(hangarllm.model_cost["baseten/zai-org/GLM-5"])
         _model_cache.flush_cache()
         respx_mock.get("https://inference.baseten.co/v1/models").mock(
             return_value=httpx.Response(200, json={"data": [{"id": "zai-org/GLM-5"}]})

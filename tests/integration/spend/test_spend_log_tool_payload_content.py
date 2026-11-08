@@ -19,8 +19,8 @@ from integration._support.process import graceful_stop_seconds, owned_proxy
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.constants import LITELLM_TRUNCATED_PAYLOAD_FIELD, LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE
-from litellm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.constants import HANGARLLM_TRUNCATED_PAYLOAD_FIELD, HANGARLLM_TRUNCATION_DB_SAFEGUARD_NOTE
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
@@ -44,7 +44,7 @@ def _prompt_storage_config(
             {
                 "model_list": list(model_list),
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "disable_responses_id_security": True,
                     "store_model_in_db": True,
@@ -52,7 +52,7 @@ def _prompt_storage_config(
                     "proxy_batch_write_at": 1,
                     "proxy_batch_polling_interval": 1,
                 },
-                "litellm_settings": settings,
+                "hangarllm_settings": settings,
             }
         )
     )
@@ -102,7 +102,7 @@ def _stored_row(response_id: str, *, responses_api: bool = False) -> dict[str, J
     request_id: Final = _spend_request_id(response_id, responses_api=responses_api)
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, proxy_server_request, response, status FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+            'SELECT request_id, proxy_server_request, response, status FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
             (request_id,),
         ),
         lambda values: len(values) == 1,
@@ -116,7 +116,7 @@ def _stored_cache_hit_row(response_id: str) -> dict[str, JsonValue]:
     request_id_prefix: Final = f"{response_id}_cache_hit"
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, proxy_server_request, response, status, cache_hit FROM "LiteLLM_SpendLogs" '
+            'SELECT request_id, proxy_server_request, response, status, cache_hit FROM "HangarLLM_SpendLogs" '
             "WHERE LEFT(request_id, LENGTH(%s)) = %s",
             (request_id_prefix, request_id_prefix),
         ),
@@ -138,7 +138,7 @@ def _stored_rows(response_ids: tuple[str, ...], *, responses_api: bool = False) 
     placeholders: Final = ", ".join("%s" for _ in request_ids)
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, proxy_server_request, response, status FROM "LiteLLM_SpendLogs" '
+            'SELECT request_id, proxy_server_request, response, status FROM "HangarLLM_SpendLogs" '
             f"WHERE request_id IN ({placeholders})",
             request_ids,
         ),
@@ -745,7 +745,7 @@ def test_chat_stream_usage_the_proxy_adds_keeps_its_marker_out_of_the_stored_req
         assert {string_value(event["id"]) for event in _sse_events(response.text)} == {response_id}, response.text
         stored_request: Final = object_value(_stored_row(response_id)["proxy_server_request"])
         assert stored_request["messages"] == [{"role": "user", "content": "stream marker"}], stored_request
-        assert "_litellm_stream_usage_injected" not in stored_request, stored_request
+        assert "_hangarllm_stream_usage_injected" not in stored_request, stored_request
         observed: Final = _provider_calls(wire.drain())
         assert [_json_object(request.body)["stream_options"] for request in observed] == [{"include_usage": True}]
 
@@ -1158,8 +1158,8 @@ def test_messages_tool_input_handles_mixed_values_and_truncation(gateway: Gatewa
         assert stored_tool_input_object["sort_key_copy"] == "dup"
         partition_key: Final = string_value(stored_tool_input_object["partition_key"])
         assert REDACTED not in partition_key
-        assert LITELLM_TRUNCATED_PAYLOAD_FIELD in partition_key
-        assert LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE in partition_key
+        assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in partition_key
+        assert HANGARLLM_TRUNCATION_DB_SAFEGUARD_NOTE in partition_key
         observed: Final = _provider_calls(wire.drain())
         assert len(observed) == 1
 
@@ -1185,7 +1185,7 @@ def test_messages_without_auth_create_no_spend_row(gateway: Gateway, tmp_path: P
         assert response.status_code == 401, response.text
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE proxy_server_request::text LIKE %s',
+                'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE proxy_server_request::text LIKE %s',
                 (f"%{marker}%",),
             ),
             lambda values: bool(values),
@@ -1235,7 +1235,7 @@ def test_messages_upstream_error_keeps_tool_input(gateway: Gateway, tmp_path: Pa
         assert "synthetic upstream error" in response.text
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT proxy_server_request, status FROM "LiteLLM_SpendLogs" WHERE proxy_server_request::text LIKE %s',
+                'SELECT proxy_server_request, status FROM "HangarLLM_SpendLogs" WHERE proxy_server_request::text LIKE %s',
                 (f"%{marker}%",),
             ),
             lambda values: len(values) == 1,
@@ -1528,7 +1528,7 @@ def _burst_model_list(chat_model: str, messages_model: str, api_base: str) -> tu
     return (
         {
             "model_name": chat_model,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_base": api_base,
                 "api_key": "synthetic-openai-key",
@@ -1536,7 +1536,7 @@ def _burst_model_list(chat_model: str, messages_model: str, api_base: str) -> tu
         },
         {
             "model_name": messages_model,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": ANTHROPIC_MODEL,
                 "api_base": api_base,
                 "api_key": "synthetic-anthropic-key",

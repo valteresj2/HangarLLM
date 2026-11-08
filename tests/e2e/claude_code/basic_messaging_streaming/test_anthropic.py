@@ -1,7 +1,7 @@
 """basic_messaging_streaming x Anthropic.
 
 Drive the real `claude` CLI in headless `--output-format stream-json
---include-partial-messages` mode against a running LiteLLM proxy that
+--include-partial-messages` mode against a running HangarLLM proxy that
 routes to Anthropic, and report the outcome via `compat_result`.
 
 The cell goes green only when every Claude tier (a) returns a non-empty
@@ -47,7 +47,7 @@ ANTHROPIC_MODELS = [
     )
 )
 def test_basic_messaging_streaming_anthropic(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a
     non-empty streamed reply (one row per Claude tier).
     """
     run_basic_messaging_cell(

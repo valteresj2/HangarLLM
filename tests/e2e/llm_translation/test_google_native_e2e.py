@@ -15,7 +15,7 @@ from e2e_config import unique_marker
 from e2e_http import StreamingResponse, require_successful_call
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from pydantic import BaseModel
 
@@ -57,7 +57,7 @@ def _managed_deployment(proxy: ProxyClient, resources: ResourceManager) -> str:
     model = f"e2e-google-native-{unique_marker()}"
     model_id = proxy.create_model(
         model,
-        LiteLLMParamsBody(model=UPSTREAM_MODEL, api_key="os.environ/GEMINI_API_KEY"),
+        HangarLLMParamsBody(model=UPSTREAM_MODEL, api_key="os.environ/GEMINI_API_KEY"),
     )
     resources.defer(lambda: proxy.delete_model(model_id))
     return model
@@ -106,12 +106,12 @@ class TestGoogleNativeGenerateContent:
         result = _generate_content(proxy, scoped_key, model, f"Reply with the single word ok. {unique_marker()}")
 
         require_successful_call(result)
-        assert result.call_id, "generateContent must stamp x-litellm-call-id"
+        assert result.call_id, "generateContent must stamp x-hangarllm-call-id"
         assert result.response_cost is not None, (
-            "generateContent returned no x-litellm-response-cost header; "
+            "generateContent returned no x-hangarllm-response-cost header; "
             "google-native traffic cannot be reconciled against spend without it"
         )
-        assert result.response_cost > 0, f"x-litellm-response-cost must be a real cost, got {result.response_cost}"
+        assert result.response_cost > 0, f"x-hangarllm-response-cost must be a real cost, got {result.response_cost}"
 
     @pytest.mark.covers("llm.google_native.gemini.basic.stream.works")
     @meta(

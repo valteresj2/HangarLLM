@@ -13,17 +13,17 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pydantic import TypeAdapter
 
-import litellm
-from litellm import Router
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
-from litellm.router_utils.pre_call_checks.model_rate_limit_check import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.redis_cache import RedisCircuitBreakerOpenError
+from hangarllm.router_utils.pre_call_checks.model_rate_limit_check import (
     ModelRateLimitingCheck,
 )
 
 TPM_DEPLOYMENT = {
     "tpm": 1000,
-    "litellm_params": {"model": "gpt-4"},
+    "hangarllm_params": {"model": "gpt-4"},
     "model_info": {"id": "replica-test-id"},
     "model_name": "test-model",
 }
@@ -32,7 +32,7 @@ TPM_DEPLOYMENT = {
 def _dual_cache_with_local_tpm(local_tpm: int, redis_cache: MagicMock | None) -> DualCache:
     dual_cache = DualCache(redis_cache=redis_cache)
     check = ModelRateLimitingCheck(dual_cache=dual_cache)
-    now = litellm.utils.get_utc_datetime()
+    now = hangarllm.utils.get_utc_datetime()
     for minute in (now, now + timedelta(minutes=1)):
         tpm_key, _ = check._get_cache_keys(TPM_DEPLOYMENT, minute.strftime("%H-%M"))
         dual_cache.set_cache(key=tpm_key, value=local_tpm, local_only=True)
@@ -49,7 +49,7 @@ class TestModelRateLimitingCheck:
         deployment = {
             "tpm": 1000,
             "rpm": 10,
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
         }
 
@@ -57,12 +57,12 @@ class TestModelRateLimitingCheck:
         assert tpm == 1000
         assert rpm == 10
 
-    def test_get_deployment_limits_from_litellm_params(self):
-        """Test extracting limits from litellm_params."""
+    def test_get_deployment_limits_from_hangarllm_params(self):
+        """Test extracting limits from hangarllm_params."""
         check = ModelRateLimitingCheck(dual_cache=MagicMock())
 
         deployment = {
-            "litellm_params": {"model": "gpt-4", "tpm": 2000, "rpm": 20},
+            "hangarllm_params": {"model": "gpt-4", "tpm": 2000, "rpm": 20},
             "model_info": {"id": "test-id"},
         }
 
@@ -75,7 +75,7 @@ class TestModelRateLimitingCheck:
         check = ModelRateLimitingCheck(dual_cache=MagicMock())
 
         deployment = {
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id", "tpm": 3000, "rpm": 30},
         }
 
@@ -88,7 +88,7 @@ class TestModelRateLimitingCheck:
         check = ModelRateLimitingCheck(dual_cache=MagicMock())
 
         deployment = {
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
         }
 
@@ -101,7 +101,7 @@ class TestModelRateLimitingCheck:
         check = ModelRateLimitingCheck(dual_cache=MagicMock())
 
         deployment = {
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
         }
 
@@ -117,12 +117,12 @@ class TestModelRateLimitingCheck:
 
         deployment = {
             "rpm": 10,
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
             "model_name": "test-model",
         }
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             check.pre_call_check(deployment)
 
         assert "RPM limit=10" in str(exc_info.value)
@@ -137,7 +137,7 @@ class TestModelRateLimitingCheck:
 
         deployment = {
             "rpm": 10,
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
             "model_name": "test-model",
         }
@@ -154,12 +154,12 @@ class TestModelRateLimitingCheck:
 
         deployment = {
             "tpm": 1000,
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
             "model_name": "test-model",
         }
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             check.pre_call_check(deployment)
 
         assert "TPM limit=1000" in str(exc_info.value)
@@ -170,7 +170,7 @@ class TestModelRateLimitingCheck:
         redis_cache.get_cache.return_value = 1000
         check = ModelRateLimitingCheck(dual_cache=_dual_cache_with_local_tpm(5, redis_cache))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             check.pre_call_check(TPM_DEPLOYMENT)
 
         assert "current usage=1000" in str(exc_info.value)
@@ -183,7 +183,7 @@ class TestModelRateLimitingCheck:
         redis_cache.get_cache = redis_get
         check = ModelRateLimitingCheck(dual_cache=_dual_cache_with_local_tpm(1000, redis_cache))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             check.pre_call_check(TPM_DEPLOYMENT)
 
         assert "current usage=1000" in str(exc_info.value)
@@ -194,7 +194,7 @@ class TestModelRateLimitingCheck:
         redis_cache.increment_cache.return_value = 2
         check = ModelRateLimitingCheck(dual_cache=_dual_cache_with_local_tpm(5, redis_cache))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             check.pre_call_check({**TPM_DEPLOYMENT, "rpm": 1})
 
         assert "RPM limit=1" in str(exc_info.value)
@@ -204,7 +204,7 @@ class TestModelRateLimitingCheck:
         deployment = {**TPM_DEPLOYMENT, "rpm": 1}
 
         assert check.pre_call_check(deployment) == deployment
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             check.pre_call_check(deployment)
 
         assert "RPM limit=1" in str(exc_info.value)
@@ -218,7 +218,7 @@ class TestModelRateLimitingCheck:
             "standard_logging_object": {
                 "model_id": "test-id",
                 "total_tokens": 50,
-                "hidden_params": {"litellm_model_name": "gpt-4"},
+                "hidden_params": {"hangarllm_model_name": "gpt-4"},
             }
         }
 
@@ -241,7 +241,7 @@ class TestModelRateLimitingCheckAsync:
         check = ModelRateLimitingCheck(dual_cache=mock_cache)
 
         deployment = {
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
         }
 
@@ -259,12 +259,12 @@ class TestModelRateLimitingCheckAsync:
 
         deployment = {
             "rpm": 10,
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
             "model_name": "test-model",
         }
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             await check.async_pre_call_check(deployment)
 
         assert "RPM limit=10" in str(exc_info.value)
@@ -280,7 +280,7 @@ class TestModelRateLimitingCheckAsync:
 
         deployment = {
             "rpm": 10,
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
             "model_name": "test-model",
         }
@@ -298,12 +298,12 @@ class TestModelRateLimitingCheckAsync:
 
         deployment = {
             "tpm": 1000,
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
             "model_name": "test-model",
         }
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             await check.async_pre_call_check(deployment)
 
         assert "TPM limit=1000" in str(exc_info.value)
@@ -314,7 +314,7 @@ class TestModelRateLimitingCheckAsync:
         redis_cache.async_get_cache = AsyncMock(return_value=1000)
         check = ModelRateLimitingCheck(dual_cache=_dual_cache_with_local_tpm(5, redis_cache))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             await check.async_pre_call_check(TPM_DEPLOYMENT)
 
         assert "current usage=1000" in str(exc_info.value)
@@ -328,7 +328,7 @@ class TestModelRateLimitingCheckAsync:
         redis_cache.async_get_cache = redis_get
         check = ModelRateLimitingCheck(dual_cache=_dual_cache_with_local_tpm(1000, redis_cache))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             await check.async_pre_call_check(TPM_DEPLOYMENT)
 
         assert "current usage=1000" in str(exc_info.value)
@@ -342,7 +342,7 @@ class TestModelRateLimitingCheckAsync:
         redis_cache.async_increment_pipeline = AsyncMock(return_value=[2.0])
         check = ModelRateLimitingCheck(dual_cache=_dual_cache_with_local_tpm(5, redis_cache))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             await check.async_pre_call_check({**TPM_DEPLOYMENT, "rpm": 1})
 
         assert "RPM limit=1" in str(exc_info.value)
@@ -353,7 +353,7 @@ class TestModelRateLimitingCheckAsync:
         deployment = {**TPM_DEPLOYMENT, "rpm": 1}
 
         assert await check.async_pre_call_check(deployment) == deployment
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             await check.async_pre_call_check(deployment)
 
         assert "RPM limit=1" in str(exc_info.value)
@@ -369,7 +369,7 @@ class TestModelRateLimitingCheckAsync:
             "standard_logging_object": {
                 "model_id": "test-id",
                 "total_tokens": 50,
-                "hidden_params": {"litellm_model_name": "gpt-4"},
+                "hidden_params": {"hangarllm_model_name": "gpt-4"},
             }
         }
 
@@ -388,7 +388,7 @@ class TestRouterWithEnforceModelRateLimits:
         model_list = [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "test"},
+                "hangarllm_params": {"model": "gpt-4", "api_key": "test"},
                 "rpm": 10,
             }
         ]
@@ -408,7 +408,7 @@ class TestRouterWithEnforceModelRateLimits:
         model_list = [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "test"},
+                "hangarllm_params": {"model": "gpt-4", "api_key": "test"},
                 "rpm": 10,
             }
         ]
@@ -418,14 +418,14 @@ class TestRouterWithEnforceModelRateLimits:
             optional_pre_call_checks=["enforce_model_rate_limits"],
         )
 
-        # Find the ModelRateLimitingCheck in litellm.callbacks
+        # Find the ModelRateLimitingCheck in hangarllm.callbacks
         found = False
-        for callback in litellm.callbacks:
+        for callback in hangarllm.callbacks:
             if isinstance(callback, ModelRateLimitingCheck):
                 found = True
                 break
 
-        assert found, "ModelRateLimitingCheck should be in litellm.callbacks"
+        assert found, "ModelRateLimitingCheck should be in hangarllm.callbacks"
 
 
 class TestModelRateLimitConcurrency:
@@ -446,7 +446,7 @@ class TestModelRateLimitConcurrency:
 
         deployment = {
             "rpm": 2,
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "concurrent-test-id"},
             "model_name": "test-model",
         }
@@ -460,7 +460,7 @@ class TestModelRateLimitConcurrency:
         )
 
         successes = [r for r in results if not isinstance(r, Exception)]
-        failures = [r for r in results if isinstance(r, litellm.RateLimitError)]
+        failures = [r for r in results if isinstance(r, hangarllm.RateLimitError)]
 
         assert len(successes) == 2, f"Expected 2 successes, got {len(successes)}"
         assert len(failures) == 2, f"Expected 2 rate limit errors, got {len(failures)}"
@@ -468,11 +468,11 @@ class TestModelRateLimitConcurrency:
 
 DAY_ONE = datetime(2026, 10, 28, 23, 59, 30, tzinfo=timezone.utc)
 RPD_DEPLOYMENT = {
-    "litellm_params": {"model": "gpt-4.1-mini", "rpd": 2},
+    "hangarllm_params": {"model": "gpt-4.1-mini", "rpd": 2},
     "model_info": {"id": "daily-test-id"},
     "model_name": "daily-model",
 }
-RPM_AND_RPD_DEPLOYMENT = {**RPD_DEPLOYMENT, "litellm_params": {"model": "gpt-4.1-mini", "rpm": 1, "rpd": 2}}
+RPM_AND_RPD_DEPLOYMENT = {**RPD_DEPLOYMENT, "hangarllm_params": {"model": "gpt-4.1-mini", "rpm": 1, "rpd": 2}}
 
 
 class Clock:
@@ -501,7 +501,7 @@ class TestDailyLimits:
 
         assert _pre_call(check, RPD_DEPLOYMENT) == RPD_DEPLOYMENT
         assert _pre_call(check, RPD_DEPLOYMENT) == RPD_DEPLOYMENT
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             _pre_call(check, RPD_DEPLOYMENT)
 
         assert "RPD limit=2, current usage=3" in str(exc_info.value)
@@ -513,7 +513,7 @@ class TestDailyLimits:
 
         assert await _async_pre_call(check, RPD_DEPLOYMENT) == RPD_DEPLOYMENT
         assert await _async_pre_call(check, RPD_DEPLOYMENT) == RPD_DEPLOYMENT
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             await _async_pre_call(check, RPD_DEPLOYMENT)
 
         assert "RPD limit=2" in str(exc_info.value)
@@ -521,20 +521,20 @@ class TestDailyLimits:
 
     @pytest.mark.asyncio
     async def test_async_pre_call_check_rejects_once_the_day_tokens_reach_tpd(self):
-        deployment = {**RPD_DEPLOYMENT, "litellm_params": {"model": "gpt-4.1-mini", "tpd": 100}}
+        deployment = {**RPD_DEPLOYMENT, "hangarllm_params": {"model": "gpt-4.1-mini", "tpd": 100}}
         check = ModelRateLimitingCheck(dual_cache=DualCache(), clock=Clock(DAY_ONE))
         kwargs = {
             "standard_logging_object": {
                 "model_id": "daily-test-id",
                 "total_tokens": 60,
-                "hidden_params": {"litellm_model_name": "gpt-4.1-mini"},
+                "hidden_params": {"hangarllm_model_name": "gpt-4.1-mini"},
             }
         }
 
         await _async_log_success(check, kwargs)
         assert await _async_pre_call(check, deployment) == deployment
         await _async_log_success(check, kwargs)
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             await _async_pre_call(check, deployment)
 
         assert "TPD limit=100, current usage=120" in str(exc_info.value)
@@ -544,13 +544,13 @@ class TestDailyLimits:
         check = ModelRateLimitingCheck(dual_cache=DualCache(), clock=clock)
 
         assert _pre_call(check, RPM_AND_RPD_DEPLOYMENT) == RPM_AND_RPD_DEPLOYMENT
-        with pytest.raises(litellm.RateLimitError, match="RPM limit=1"):
+        with pytest.raises(hangarllm.RateLimitError, match="RPM limit=1"):
             _pre_call(check, RPM_AND_RPD_DEPLOYMENT)
         clock.now = DAY_ONE - timedelta(minutes=1)
 
         assert _pre_call(check, RPM_AND_RPD_DEPLOYMENT) == RPM_AND_RPD_DEPLOYMENT
         clock.now = DAY_ONE - timedelta(minutes=2)
-        with pytest.raises(litellm.RateLimitError, match="RPD limit=2, current usage=3"):
+        with pytest.raises(hangarllm.RateLimitError, match="RPD limit=2, current usage=3"):
             _pre_call(check, RPM_AND_RPD_DEPLOYMENT)
 
     @pytest.mark.asyncio
@@ -559,13 +559,13 @@ class TestDailyLimits:
         check = ModelRateLimitingCheck(dual_cache=DualCache(), clock=clock)
 
         assert await _async_pre_call(check, RPM_AND_RPD_DEPLOYMENT) == RPM_AND_RPD_DEPLOYMENT
-        with pytest.raises(litellm.RateLimitError, match="RPM limit=1"):
+        with pytest.raises(hangarllm.RateLimitError, match="RPM limit=1"):
             await _async_pre_call(check, RPM_AND_RPD_DEPLOYMENT)
         clock.now = DAY_ONE - timedelta(minutes=1)
 
         assert await _async_pre_call(check, RPM_AND_RPD_DEPLOYMENT) == RPM_AND_RPD_DEPLOYMENT
         clock.now = DAY_ONE - timedelta(minutes=2)
-        with pytest.raises(litellm.RateLimitError, match="RPD limit=2, current usage=3"):
+        with pytest.raises(hangarllm.RateLimitError, match="RPD limit=2, current usage=3"):
             await _async_pre_call(check, RPM_AND_RPD_DEPLOYMENT)
 
     def test_pre_call_check_rejected_requests_hand_back_rpm_and_rpd(self):
@@ -573,17 +573,17 @@ class TestDailyLimits:
         check = ModelRateLimitingCheck(dual_cache=DualCache(), clock=clock)
 
         assert _pre_call(check, RPM_AND_RPD_DEPLOYMENT) == RPM_AND_RPD_DEPLOYMENT
-        with pytest.raises(litellm.RateLimitError, match="RPM limit=1, current usage=2"):
+        with pytest.raises(hangarllm.RateLimitError, match="RPM limit=1, current usage=2"):
             _pre_call(check, RPM_AND_RPD_DEPLOYMENT)
-        with pytest.raises(litellm.RateLimitError, match="RPM limit=1, current usage=2"):
+        with pytest.raises(hangarllm.RateLimitError, match="RPM limit=1, current usage=2"):
             _pre_call(check, RPM_AND_RPD_DEPLOYMENT)
         clock.now = DAY_ONE - timedelta(minutes=1)
         assert _pre_call(check, RPM_AND_RPD_DEPLOYMENT) == RPM_AND_RPD_DEPLOYMENT
 
         clock.now = DAY_ONE - timedelta(minutes=2)
-        with pytest.raises(litellm.RateLimitError, match="RPD limit=2, current usage=3"):
+        with pytest.raises(hangarllm.RateLimitError, match="RPD limit=2, current usage=3"):
             _pre_call(check, RPM_AND_RPD_DEPLOYMENT)
-        with pytest.raises(litellm.RateLimitError, match="RPD limit=2, current usage=3"):
+        with pytest.raises(hangarllm.RateLimitError, match="RPD limit=2, current usage=3"):
             _pre_call(check, RPM_AND_RPD_DEPLOYMENT)
 
     @pytest.mark.asyncio
@@ -592,17 +592,17 @@ class TestDailyLimits:
         check = ModelRateLimitingCheck(dual_cache=DualCache(), clock=clock)
 
         assert await _async_pre_call(check, RPM_AND_RPD_DEPLOYMENT) == RPM_AND_RPD_DEPLOYMENT
-        with pytest.raises(litellm.RateLimitError, match="RPM limit=1, current usage=2"):
+        with pytest.raises(hangarllm.RateLimitError, match="RPM limit=1, current usage=2"):
             await _async_pre_call(check, RPM_AND_RPD_DEPLOYMENT)
-        with pytest.raises(litellm.RateLimitError, match="RPM limit=1, current usage=2"):
+        with pytest.raises(hangarllm.RateLimitError, match="RPM limit=1, current usage=2"):
             await _async_pre_call(check, RPM_AND_RPD_DEPLOYMENT)
         clock.now = DAY_ONE - timedelta(minutes=1)
         assert await _async_pre_call(check, RPM_AND_RPD_DEPLOYMENT) == RPM_AND_RPD_DEPLOYMENT
 
         clock.now = DAY_ONE - timedelta(minutes=2)
-        with pytest.raises(litellm.RateLimitError, match="RPD limit=2, current usage=3"):
+        with pytest.raises(hangarllm.RateLimitError, match="RPD limit=2, current usage=3"):
             await _async_pre_call(check, RPM_AND_RPD_DEPLOYMENT)
-        with pytest.raises(litellm.RateLimitError, match="RPD limit=2, current usage=3"):
+        with pytest.raises(hangarllm.RateLimitError, match="RPD limit=2, current usage=3"):
             await _async_pre_call(check, RPM_AND_RPD_DEPLOYMENT)
 
     @pytest.mark.asyncio
@@ -612,7 +612,7 @@ class TestDailyLimits:
         mock_cache.async_increment_cache_pipeline = AsyncMock(side_effect=[[1.0, 3.0], [0.0, 2.0]])
         check = ModelRateLimitingCheck(dual_cache=mock_cache, clock=Clock(DAY_ONE))
 
-        with pytest.raises(litellm.RateLimitError, match="RPD limit=2, current usage=3"):
+        with pytest.raises(hangarllm.RateLimitError, match="RPD limit=2, current usage=3"):
             await _async_pre_call(check, RPM_AND_RPD_DEPLOYMENT)
 
         assert mock_cache.async_increment_cache_pipeline.await_count == 2
@@ -642,10 +642,10 @@ class TestDailyLimits:
     def test_pre_call_check_reads_the_shared_tpd_count_from_redis(self):
         redis_cache = MagicMock()
         redis_cache.get_cache.return_value = 100
-        deployment = {**RPD_DEPLOYMENT, "litellm_params": {"model": "gpt-4.1-mini", "tpd": 100}}
+        deployment = {**RPD_DEPLOYMENT, "hangarllm_params": {"model": "gpt-4.1-mini", "tpd": 100}}
         check = ModelRateLimitingCheck(dual_cache=DualCache(redis_cache=redis_cache), clock=Clock(DAY_ONE))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             _pre_call(check, deployment)
 
         assert "TPD limit=100, current usage=100" in str(exc_info.value)
@@ -656,14 +656,14 @@ class TestDailyLimits:
         check = ModelRateLimitingCheck(dual_cache=DualCache(), clock=clock)
         _pre_call(check, RPD_DEPLOYMENT)
         _pre_call(check, RPD_DEPLOYMENT)
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(hangarllm.RateLimitError):
             _pre_call(check, RPD_DEPLOYMENT)
 
         clock.now = DAY_ONE + timedelta(seconds=30)
 
         assert _pre_call(check, RPD_DEPLOYMENT) == RPD_DEPLOYMENT
         assert _pre_call(check, RPD_DEPLOYMENT) == RPD_DEPLOYMENT
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             _pre_call(check, RPD_DEPLOYMENT)
         assert "current usage=3" in str(exc_info.value)
 
@@ -676,10 +676,10 @@ class TestDailyLimits:
         ],
     )
     def test_daily_429_retry_after_is_seconds_until_utc_midnight(self, now: datetime, seconds_to_midnight: int):
-        deployment = {**RPD_DEPLOYMENT, "litellm_params": {"model": "gpt-4.1-mini", "rpd": 0}}
+        deployment = {**RPD_DEPLOYMENT, "hangarllm_params": {"model": "gpt-4.1-mini", "rpd": 0}}
         check = ModelRateLimitingCheck(dual_cache=DualCache(), clock=Clock(now))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             _pre_call(check, deployment)
 
         assert exc_info.value.response.headers["retry-after"] == str(seconds_to_midnight)
@@ -690,7 +690,7 @@ class TestDailyLimits:
             model_list=[
                 {
                     "model_name": "daily-group",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4.1-mini",
                         "api_key": "k",
                         "mock_response": "a",
@@ -701,7 +701,7 @@ class TestDailyLimits:
                 },
                 {
                     "model_name": "daily-group",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4.1-mini",
                         "api_key": "k",
                         "mock_response": "b",
@@ -714,7 +714,7 @@ class TestDailyLimits:
         )
         check = ModelRateLimitingCheck(dual_cache=router.cache, clock=Clock(DAY_ONE))
         router.optional_callbacks = [check]
-        litellm.logging_callback_manager.add_litellm_callback(check)
+        hangarllm.logging_callback_manager.add_hangarllm_callback(check)
         try:
             served = [
                 (await router.acompletion(model="daily-group", messages=[{"role": "user", "content": "hi"}]))
@@ -745,7 +745,7 @@ async def _tpd_tokens_once_logged(cache: DualCache, key: str) -> int:
 RESET_AT_EIGHT = datetime(2026, 10, 28, 8, 0, 0, tzinfo=timezone.utc)
 DAILY_RESET_DEPLOYMENT = {
     **RPD_DEPLOYMENT,
-    "litellm_params": {"model": "gpt-4.1-mini", "rpd": 2, "daily_reset_time": "08:00"},
+    "hangarllm_params": {"model": "gpt-4.1-mini", "rpd": 2, "daily_reset_time": "08:00"},
 }
 
 
@@ -758,7 +758,7 @@ class TestDailyResetTime:
         clock.now = RESET_AT_EIGHT - timedelta(hours=7)
         assert _pre_call(check, DAILY_RESET_DEPLOYMENT) == DAILY_RESET_DEPLOYMENT
         clock.now = RESET_AT_EIGHT - timedelta(minutes=1)
-        with pytest.raises(litellm.RateLimitError, match="RPD limit=2, current usage=3") as exc_info:
+        with pytest.raises(hangarllm.RateLimitError, match="RPD limit=2, current usage=3") as exc_info:
             _pre_call(check, DAILY_RESET_DEPLOYMENT)
         assert exc_info.value.response.headers["retry-after"] == "60"
 
@@ -774,7 +774,7 @@ class TestDailyResetTime:
         clock.now = RESET_AT_EIGHT - timedelta(hours=7)
         assert await _async_pre_call(check, DAILY_RESET_DEPLOYMENT) == DAILY_RESET_DEPLOYMENT
         clock.now = RESET_AT_EIGHT - timedelta(minutes=1)
-        with pytest.raises(litellm.RateLimitError, match="RPD limit=2, current usage=3") as exc_info:
+        with pytest.raises(hangarllm.RateLimitError, match="RPD limit=2, current usage=3") as exc_info:
             await _async_pre_call(check, DAILY_RESET_DEPLOYMENT)
         assert exc_info.value.response.headers["retry-after"] == "60"
 
@@ -792,11 +792,11 @@ class TestDailyResetTime:
     def test_daily_429_retry_after_is_seconds_until_daily_reset_time(self, now: datetime, seconds_to_reset: int):
         deployment = {
             **RPD_DEPLOYMENT,
-            "litellm_params": {"model": "gpt-4.1-mini", "rpd": 0, "daily_reset_time": "08:00"},
+            "hangarllm_params": {"model": "gpt-4.1-mini", "rpd": 0, "daily_reset_time": "08:00"},
         }
         check = ModelRateLimitingCheck(dual_cache=DualCache(), clock=Clock(now))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             _pre_call(check, deployment)
 
         assert exc_info.value.response.headers["retry-after"] == str(seconds_to_reset)
@@ -805,22 +805,22 @@ class TestDailyResetTime:
     async def test_tokens_logged_before_daily_reset_time_do_not_count_after_it(self):
         deployment = {
             **RPD_DEPLOYMENT,
-            "litellm_params": {"model": "gpt-4.1-mini", "tpd": 100, "daily_reset_time": "08:00"},
+            "hangarllm_params": {"model": "gpt-4.1-mini", "tpd": 100, "daily_reset_time": "08:00"},
         }
         clock = Clock(RESET_AT_EIGHT - timedelta(minutes=1))
         check = ModelRateLimitingCheck(dual_cache=DualCache(), clock=clock)
         await _async_log_success(
             check,
             {
-                "litellm_params": {"daily_reset_time": "08:00", "metadata": {}},
+                "hangarllm_params": {"daily_reset_time": "08:00", "metadata": {}},
                 "standard_logging_object": {
                     "model_id": "daily-test-id",
                     "total_tokens": 120,
-                    "hidden_params": {"litellm_model_name": "gpt-4.1-mini"},
+                    "hidden_params": {"hangarllm_model_name": "gpt-4.1-mini"},
                 },
             },
         )
-        with pytest.raises(litellm.RateLimitError, match="TPD limit=100, current usage=120"):
+        with pytest.raises(hangarllm.RateLimitError, match="TPD limit=100, current usage=120"):
             await _async_pre_call(check, deployment)
 
         clock.now = RESET_AT_EIGHT
@@ -829,11 +829,11 @@ class TestDailyResetTime:
     @pytest.mark.parametrize(
         "deployment",
         [
-            {"litellm_params": {"model": "gpt-4.1-mini"}, "model_info": {"id": "x", "rpd": 0}, "model_name": "m"},
-            {"litellm_params": {"model": "gpt-4.1-mini"}, "model_info": {"id": "x"}, "model_name": "m", "rpd": 0},
+            {"hangarllm_params": {"model": "gpt-4.1-mini"}, "model_info": {"id": "x", "rpd": 0}, "model_name": "m"},
+            {"hangarllm_params": {"model": "gpt-4.1-mini"}, "model_info": {"id": "x"}, "model_name": "m", "rpd": 0},
         ],
     )
-    def test_rpd_outside_litellm_params_is_not_a_limit(self, deployment: dict[str, object]):
+    def test_rpd_outside_hangarllm_params_is_not_a_limit(self, deployment: dict[str, object]):
         check = ModelRateLimitingCheck(dual_cache=DualCache(), clock=Clock(DAY_ONE))
 
         assert _pre_call(check, deployment) == deployment
@@ -845,7 +845,7 @@ class TestDailyResetTime:
                 model_list=[
                     {
                         "model_name": "daily-group",
-                        "litellm_params": {"model": "gpt-4.1-mini", "rpd": 2, "daily_reset_time": daily_reset_time},
+                        "hangarllm_params": {"model": "gpt-4.1-mini", "rpd": 2, "daily_reset_time": daily_reset_time},
                     }
                 ]
             )
@@ -856,7 +856,7 @@ class TestDailyResetTime:
             model_list=[
                 {
                     "model_name": "daily-group",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4.1-mini",
                         "api_key": "k",
                         "mock_response": "a",
@@ -868,7 +868,7 @@ class TestDailyResetTime:
         )
         check = ModelRateLimitingCheck(dual_cache=router.cache, clock=Clock(RESET_AT_EIGHT - timedelta(minutes=1)))
         router.optional_callbacks = [check]
-        litellm.logging_callback_manager.add_litellm_callback(check)
+        hangarllm.logging_callback_manager.add_hangarllm_callback(check)
         try:
             await router.acompletion(  # pyright: ignore[reportUnknownMemberType]  # Router.acompletion kwargs are untyped
                 model="daily-group", messages=[{"role": "user", "content": "hi"}], daily_reset_time="08:00"

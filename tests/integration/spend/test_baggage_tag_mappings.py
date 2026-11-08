@@ -39,13 +39,13 @@ VLLM_UPSTREAM_MODEL: Final = "baggage-model"
 PINNED_CONNECTION: Final = httpx.Limits(max_connections=1)
 JSON_LIST: Final = TypeAdapter(list[JsonValue])
 GUARDRAIL_VERDICT: Final = b'{"action":"GUARDRAIL_INTERVENED","texts":["masked baggage prompt"]}'
-GUARDRAIL_PATH: Final = "/beta/litellm_basic_guardrail_api"
+GUARDRAIL_PATH: Final = "/beta/hangarllm_basic_guardrail_api"
 NO_FIELDS: Final[Mapping[str, JsonValue]] = MappingProxyType({})
 
-Route = Literal["chat", "chat_litellm_metadata", "messages", "responses"]
-CallerTag = Literal["none", "header", "metadata_json_with_header", "litellm_metadata"]
+Route = Literal["chat", "chat_hangarllm_metadata", "messages", "responses"]
+CallerTag = Literal["none", "header", "metadata_json_with_header", "hangarllm_metadata"]
 PassThrough = Literal["custom", "anthropic", "vllm"]
-RejectedClientTag = Literal["none", "header", "body", "metadata_json", "litellm_metadata"]
+RejectedClientTag = Literal["none", "header", "body", "metadata_json", "hangarllm_metadata"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,7 +156,7 @@ def _provider(request: Request) -> Reply:
 def _deployment(model_name: str, provider: Wire, **parameters: JsonValue) -> dict[str, JsonValue]:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-4o-mini",
             "api_base": f"{provider.url}/v1",
             "api_key": "synthetic-baggage-key",
@@ -170,7 +170,7 @@ def _write_config(
     directory: Path,
     model_list: list[JsonValue],
     general_settings: Mapping[str, JsonValue],
-    litellm_settings: Mapping[str, JsonValue],
+    hangarllm_settings: Mapping[str, JsonValue],
     guardrails: Sequence[JsonValue] = (),
 ) -> Path:
     base: Final = JSON_OBJECT.validate_python(yaml.safe_load(PROXY_CONFIG.read_text()))
@@ -178,7 +178,7 @@ def _write_config(
         **base,
         "model_list": model_list,
         "general_settings": {**object_value(base["general_settings"]), **general_settings},
-        "litellm_settings": {**object_value(base["litellm_settings"]), **litellm_settings},
+        "hangarllm_settings": {**object_value(base["hangarllm_settings"]), **hangarllm_settings},
         **({"guardrails": list(guardrails)} if guardrails else {}),
     }
     path: Final = directory / "baggage-tag-mappings.yaml"
@@ -200,7 +200,7 @@ def _mapped_models(marker: str, provider: Wire, upstream_url: str) -> list[JsonV
     )
     realtime: Final[dict[str, JsonValue]] = {
         "model_name": f"realtime-{marker}",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-realtime-2.1",
             "api_base": f"{upstream_url}/v1",
             "api_key": f"realtime-{marker}",
@@ -210,7 +210,7 @@ def _mapped_models(marker: str, provider: Wire, upstream_url: str) -> list[JsonV
     pre_guarded: Final = _deployment(f"guarded-pre-{marker}", provider, tags=[f"guarded-{marker}:pre"])
     vllm: Final[dict[str, JsonValue]] = {
         "model_name": f"vllm-{marker}",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"hosted_vllm/{VLLM_UPSTREAM_MODEL}",
             "api_base": provider.url,
             "api_key": "synthetic-vllm",
@@ -233,7 +233,7 @@ def _mapped_rules(marker: str, *, tenant_required: bool) -> list[JsonValue]:
 def _deployment_tag_mode_guardrail(marker: str, provider: Wire) -> dict[str, JsonValue]:
     return {
         "guardrail_name": f"deployment-tag-mode-{marker}",
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "generic_guardrail_api",
             "mode": {
                 "tags": {
@@ -310,7 +310,7 @@ def _caller_tags(raw: JsonValue) -> frozenset[str]:
 
 def _spend_tags(proxy: Gateway, key: str) -> frozenset[str]:
     rows: Final = eventually(
-        lambda: proxy.rows('SELECT request_tags FROM "LiteLLM_SpendLogs" WHERE api_key=%s', (_digest(key),)),
+        lambda: proxy.rows('SELECT request_tags FROM "HangarLLM_SpendLogs" WHERE api_key=%s', (_digest(key),)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -324,7 +324,7 @@ def _batch_events(batch: Request) -> Iterator[dict[str, JsonValue]]:
 def _logged_event(callbacks: Wire, call_id: str) -> dict[str, JsonValue]:
     def delivered() -> tuple[dict[str, JsonValue], ...]:
         events: Final = itertools.chain.from_iterable(_batch_events(batch) for batch in callbacks.drain())
-        return tuple(event for event in events if event.get("litellm_call_id") == call_id)
+        return tuple(event for event in events if event.get("hangarllm_call_id") == call_id)
 
     events: Final = eventually(delivered, lambda values: len(values) == 1, seconds=30)
     return events[0]
@@ -334,26 +334,26 @@ def _inference_body(route: Route, model: str, text: str, caller_tag: str) -> dic
     match route:
         case "chat":
             return {"model": model, "messages": [{"role": "user", "content": text}], "metadata": {"tags": [caller_tag]}}
-        case "chat_litellm_metadata":
+        case "chat_hangarllm_metadata":
             return {
                 "model": model,
                 "messages": [{"role": "user", "content": text}],
-                "litellm_metadata": {"tags": [caller_tag]},
+                "hangarllm_metadata": {"tags": [caller_tag]},
             }
         case "messages":
             return {
                 "model": model,
                 "max_tokens": 16,
                 "messages": [{"role": "user", "content": text}],
-                "litellm_metadata": {"tags": [caller_tag]},
+                "hangarllm_metadata": {"tags": [caller_tag]},
             }
         case "responses":
-            return {"model": model, "input": text, "litellm_metadata": {"tags": [caller_tag]}}
+            return {"model": model, "input": text, "hangarllm_metadata": {"tags": [caller_tag]}}
 
 
 ROUTE_PATHS: Final[Mapping[Route, str]] = {
     "chat": "/v1/chat/completions",
-    "chat_litellm_metadata": "/v1/chat/completions",
+    "chat_hangarllm_metadata": "/v1/chat/completions",
     "messages": "/v1/messages",
     "responses": "/v1/responses",
 }
@@ -390,7 +390,7 @@ def _chat(
     )
 
 
-@pytest.mark.parametrize("route", ["chat", "chat_litellm_metadata", "messages", "responses"])
+@pytest.mark.parametrize("route", ["chat", "chat_hangarllm_metadata", "messages", "responses"])
 def test_mapped_baggage_tags_reach_spend_and_callbacks_but_not_requester_metadata(mapped: Rig, route: Route) -> None:
     tenant: Final = uuid.uuid4().hex
     caller_tag: Final = f"caller-{tenant}"
@@ -408,7 +408,7 @@ def test_mapped_baggage_tags_reach_spend_and_callbacks_but_not_requester_metadat
         assert response.status_code == 200, response.text
         assert len(mapped.provider.drain()) == 1
         assert _spend_tags(mapped.proxy, key) == mapped_tags | {caller_tag}
-        event: Final = _logged_event(mapped.callbacks, response.headers["x-litellm-call-id"])
+        event: Final = _logged_event(mapped.callbacks, response.headers["x-hangarllm-call-id"])
         assert mapped_tags <= _caller_tags(event["request_tags"]), event["request_tags"]
         requester: Final = object_value(object_value(event["metadata"]).get("requester_metadata") or {})
         assert not mapped_tags & _caller_tags(requester.get("tags") or []), requester
@@ -427,7 +427,7 @@ def test_json_string_metadata_gains_exactly_the_mapped_tags(optional: Rig) -> No
         assert (plain.status_code, response.status_code) == (200, 200), (plain.text, response.text)
         assert len(optional.provider.drain()) == 2
         assert _spend_tags(optional.proxy, key) == _spend_tags(optional.proxy, plain_key) | mapped_tags
-        event: Final = _logged_event(optional.callbacks, response.headers["x-litellm-call-id"])
+        event: Final = _logged_event(optional.callbacks, response.headers["x-hangarllm-call-id"])
         assert mapped_tags <= _caller_tags(event["request_tags"]), event["request_tags"]
         requester: Final = object_value(object_value(event["metadata"]).get("requester_metadata") or {})
         assert not mapped_tags & _caller_tags(requester.get("tags") or []), requester
@@ -472,7 +472,7 @@ def test_a2a_spend_row_carries_the_mapped_tags(mapped: Rig) -> None:
     with wire_server(peer) as wire, mapped.proxy.scenario() as scenario:
         created: Final = mapped.proxy.post(
             "/v1/agents",
-            {"agent_name": marker, "agent_card_params": card(wire.url), "litellm_params": {"cost_per_query": 0.25}},
+            {"agent_name": marker, "agent_card_params": card(wire.url), "hangarllm_params": {"cost_per_query": 0.25}},
         )
         agent: Final = str(created["agent_id"])
         scenario.cleanups.callback(lambda: mapped.proxy.request("DELETE", f"/v1/agents/{agent}"))
@@ -504,7 +504,7 @@ def test_a2a_spend_row_carries_the_mapped_tags(mapped: Rig) -> None:
     ("key_fields", "fields", "headers"),
     [
         ({}, NO_FIELDS, {}),
-        ({}, {"metadata": {"tags": "run-123"}}, {"x-litellm-tags": "caller-tag"}),
+        ({}, {"metadata": {"tags": "run-123"}}, {"x-hangarllm-tags": "caller-tag"}),
         ({"metadata": {"tags": ["key-tag"]}}, {"metadata": {"tags": "run-123"}}, {}),
         ({}, {"metadata": {"tags": ""}}, {}),
     ],
@@ -569,17 +569,17 @@ def _routing_caller_tag(rig: Rig, caller_tag: CallerTag) -> tuple[Mapping[str, J
         case "none":
             return NO_FIELDS, {}
         case "header":
-            return NO_FIELDS, {"x-litellm-tags": rig.exact_tag}
+            return NO_FIELDS, {"x-hangarllm-tags": rig.exact_tag}
         case "metadata_json_with_header":
-            return json_metadata, {"x-litellm-tags": f"other-{rig.marker}"}
-        case "litellm_metadata":
-            return {"litellm_metadata": {"tags": [rig.exact_tag]}}, {}
+            return json_metadata, {"x-hangarllm-tags": f"other-{rig.marker}"}
+        case "hangarllm_metadata":
+            return {"hangarllm_metadata": {"tags": [rig.exact_tag]}}, {}
 
 
 @pytest.mark.parametrize(
     "caller_tag",
-    ["none", "header", "metadata_json_with_header", "litellm_metadata"],
-    ids=["baggage_only", "caller_tag", "metadata_json_tag_with_header", "litellm_metadata_tag"],
+    ["none", "header", "metadata_json_with_header", "hangarllm_metadata"],
+    ids=["baggage_only", "caller_tag", "metadata_json_tag_with_header", "hangarllm_metadata_tag"],
 )
 def test_mapped_tags_never_select_a_tag_routed_deployment(mapped: Rig, caller_tag: CallerTag) -> None:
     tenant: Final = uuid.uuid4().hex
@@ -599,7 +599,7 @@ def test_mapped_tags_never_select_a_tag_routed_deployment(mapped: Rig, caller_ta
             for _ in range(3)
         )
         assert [response.status_code for response in responses] == [200] * 3, [r.text for r in responses]
-        assert [response.headers.get("x-litellm-model-id") for response in responses] == [expected] * 3
+        assert [response.headers.get("x-hangarllm-model-id") for response in responses] == [expected] * 3
 
 
 def test_mapped_tags_never_trigger_a_tag_scoped_policy_attachment(mapped: Rig) -> None:
@@ -614,11 +614,11 @@ def test_mapped_tags_never_trigger_a_tag_scoped_policy_attachment(mapped: Rig) -
             {
                 "guardrail": {
                     "guardrail_name": f"guardrail-{entry}",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "generic_guardrail_api",
                         "mode": "pre_call",
                         "default_on": False,
-                        "api_base": f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+                        "api_base": f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
                         "api_key": "synthetic-guardrail-key",
                     },
                 }
@@ -633,13 +633,13 @@ def test_mapped_tags_never_trigger_a_tag_scoped_policy_attachment(mapped: Rig) -
         scenario.cleanups.callback(
             lambda: proxy.request("DELETE", f"/policies/attachments/{attachment['attachment_id']}")
         )
-        caller_tagged: Final = _chat(mapped, key, baggage, **{"x-litellm-tags": tag})
+        caller_tagged: Final = _chat(mapped, key, baggage, **{"x-hangarllm-tags": tag})
         assert caller_tagged.status_code == 200, caller_tagged.text
-        assert caller_tagged.headers.get("x-litellm-applied-policies") == f"policy-{entry}", caller_tagged.text
+        assert caller_tagged.headers.get("x-hangarllm-applied-policies") == f"policy-{entry}", caller_tagged.text
         assert len(guardrail.drain()) == 1
         baggage_only: Final = _chat(mapped, key, baggage)
         assert baggage_only.status_code == 200, baggage_only.text
-        assert baggage_only.headers.get("x-litellm-applied-policies") is None, baggage_only.text
+        assert baggage_only.headers.get("x-hangarllm-applied-policies") is None, baggage_only.text
         assert guardrail.drain() == ()
 
 
@@ -788,7 +788,7 @@ def test_passthrough_forwards_the_client_body_unchanged_while_its_spend_row_carr
 
 def _general_settings_mappings(database_url: str) -> JsonValue:
     rows: Final = read_rows(
-        'SELECT param_value FROM "LiteLLM_Config" WHERE param_name = %s',
+        'SELECT param_value FROM "HangarLLM_Config" WHERE param_name = %s',
         ("general_settings",),
         database_url=database_url,
     )
@@ -882,7 +882,7 @@ def test_mappings_saved_through_the_settings_endpoint_apply_on_every_worker_and_
         assert _spend_tags(proxy, tagged_key) == {f"tenant-{marker}:{marker}"}
 
         write_rows(
-            'UPDATE "LiteLLM_Config" SET param_value = jsonb_set(param_value::jsonb, %s, %s::jsonb) '
+            'UPDATE "HangarLLM_Config" SET param_value = jsonb_set(param_value::jsonb, %s, %s::jsonb) '
             "WHERE param_name = %s",
             ("{request_tag_mappings}", json.dumps([{"key": "tenant", "required": True}]), "general_settings"),
             database_url=database_url,
@@ -896,13 +896,13 @@ def _rejected_client_tag(client_tag: RejectedClientTag, tag: str) -> tuple[Mappi
         case "none":
             return NO_FIELDS, {}
         case "header":
-            return NO_FIELDS, {"x-litellm-tags": tag}
+            return NO_FIELDS, {"x-hangarllm-tags": tag}
         case "body":
             return {"metadata": {"tags": [tag]}}, {}
         case "metadata_json":
             return {"metadata": json.dumps({"tags": [tag]})}, {}
-        case "litellm_metadata":
-            return {"litellm_metadata": {"tags": [tag]}}, {}
+        case "hangarllm_metadata":
+            return {"hangarllm_metadata": {"tags": [tag]}}, {}
 
 
 @pytest.mark.parametrize(
@@ -913,7 +913,7 @@ def _rejected_client_tag(client_tag: RejectedClientTag, tag: str) -> tuple[Mappi
         ("body", True, (400,)),
         ("metadata_json", True, (200, 400)),
         ("metadata_json", False, (200, 400)),
-        ("litellm_metadata", True, (200,)),
+        ("hangarllm_metadata", True, (200,)),
     ],
     ids=[
         "baggage_only",
@@ -921,7 +921,7 @@ def _rejected_client_tag(client_tag: RejectedClientTag, tag: str) -> tuple[Mappi
         "body_tag",
         "metadata_json_tag",
         "metadata_json_tag_unmapped_baggage",
-        "litellm_metadata_tag",
+        "hangarllm_metadata_tag",
     ],
 )
 def test_reject_clientside_metadata_tags_with_baggage(
@@ -997,7 +997,7 @@ def test_baggage_mapping_a_deployment_tag_keeps_the_team_tag_guardrail_mode_firs
 def test_malformed_metadata_keeps_its_status_under_baggage(
     optional: Rig, header_tag: bool, baggage: str, metadata: JsonValue
 ) -> None:
-    headers: Final = {"x-litellm-tags": f"caller-{uuid.uuid4().hex}"} if header_tag else {}
+    headers: Final = {"x-hangarllm-tags": f"caller-{uuid.uuid4().hex}"} if header_tag else {}
     fields: Final[Mapping[str, JsonValue]] = {"metadata": metadata}
     with optional.proxy.scenario() as scenario:
         key: Final = scenario.key()
@@ -1058,5 +1058,5 @@ def test_budgeted_mapping_on_a_failed_tag_read(gateway: Gateway, tmp_path: Path,
             assert provider.drain() == ()
             return
         assert response.status_code == 200, response.text
-        assert response.headers.get("x-litellm-key-max-budget") == "50.0", dict(response.headers)
+        assert response.headers.get("x-hangarllm-key-max-budget") == "50.0", dict(response.headers)
         assert len(provider.drain()) == 1

@@ -28,8 +28,8 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, get_async_httpx_client
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, get_async_httpx_client
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -42,7 +42,7 @@ async def test_langgraph_acompletion_non_streaming():
     api_base = os.environ.get("LANGGRAPH_API_BASE", "http://localhost:2024")
 
     try:
-        response = await litellm.acompletion(
+        response = await hangarllm.acompletion(
             model="langgraph/agent",
             messages=[{"role": "user", "content": "What is 25 * 4?"}],
             api_base=api_base,
@@ -69,7 +69,7 @@ async def test_langgraph_acompletion_streaming():
     api_base = os.environ.get("LANGGRAPH_API_BASE", "http://localhost:2024")
 
     try:
-        response = await litellm.acompletion(
+        response = await hangarllm.acompletion(
             model="langgraph/agent",
             messages=[{"role": "user", "content": "What is the weather in Tokyo?"}],
             api_base=api_base,
@@ -94,7 +94,7 @@ def test_langgraph_config_get_complete_url():
     """
     Test that LangGraphConfig correctly generates URLs for streaming and non-streaming.
     """
-    from litellm.llms.langgraph.chat.transformation import LangGraphConfig
+    from hangarllm.llms.langgraph.chat.transformation import LangGraphConfig
 
     config = LangGraphConfig()
 
@@ -103,7 +103,7 @@ def test_langgraph_config_get_complete_url():
         api_key=None,
         model="agent",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         stream=False,
     )
     assert non_streaming_url == "http://localhost:2024/runs/wait"
@@ -113,7 +113,7 @@ def test_langgraph_config_get_complete_url():
         api_key=None,
         model="agent",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         stream=True,
     )
     assert streaming_url == "http://localhost:2024/runs/stream"
@@ -123,7 +123,7 @@ def test_langgraph_config_transform_request():
     """
     Test that LangGraphConfig correctly transforms requests.
     """
-    from litellm.llms.langgraph.chat.transformation import LangGraphConfig
+    from hangarllm.llms.langgraph.chat.transformation import LangGraphConfig
 
     config = LangGraphConfig()
 
@@ -136,7 +136,7 @@ def test_langgraph_config_transform_request():
         model="langgraph/agent",
         messages=messages,
         optional_params={},
-        litellm_params={"stream": False},
+        hangarllm_params={"stream": False},
         headers={},
     )
 
@@ -151,7 +151,7 @@ def test_langgraph_config_transform_request():
         model="langgraph/agent",
         messages=messages,
         optional_params={},
-        litellm_params={"stream": True},
+        hangarllm_params={"stream": True},
         headers={},
     )
 
@@ -162,7 +162,7 @@ def test_langgraph_provider_detection():
     """
     Test that the langgraph provider is correctly detected from model name.
     """
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     model, provider, api_key, api_base = get_llm_provider(
         model="langgraph/agent",
@@ -192,7 +192,7 @@ def event_loop():
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown(event_loop):
-    import litellm
+    import hangarllm
 
     original_state = {}
     for attr in (
@@ -202,21 +202,21 @@ def setup_and_teardown(event_loop):
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     asyncio.set_event_loop(event_loop)
     yield
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     pending = asyncio.all_tasks(event_loop)
     for task in pending:
         task.cancel()
@@ -225,17 +225,17 @@ def setup_and_teardown(event_loop):
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
-    "cohere_key": getattr(litellm, "cohere_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
+    "cohere_key": getattr(hangarllm, "cohere_key", None),
 }
 
 
@@ -254,7 +254,7 @@ async def test_langgraph_streaming_acompletion_without_a_client_posts_through_th
     cached_client = get_async_httpx_client(llm_provider="langgraph", params={})
     monkeypatch.setattr(cached_client, "client", httpx.AsyncClient(transport=httpx.MockTransport(respond)))
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="langgraph/agent",
         messages=[{"role": "user", "content": "What is 25 * 4?"}],
         api_base="http://langgraph.test",
@@ -285,7 +285,7 @@ async def test_langgraph_async_stream_delivers_every_step_of_the_run_before_its_
         transport=httpx.MockTransport(lambda request: httpx.Response(200, content=events()))
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="langgraph/agent",
         messages=[{"role": "user", "content": "What is 25 * 4?"}],
         api_base="http://langgraph.test",

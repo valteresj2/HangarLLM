@@ -84,7 +84,7 @@ def environment(wire_url: str) -> Mapping[str, str]:
         "DATABRICKS_API_BASE": f"{wire_url}/dbxenv/serving-endpoints",
         "DATABRICKS_API_KEY": ENVIRONMENT_KEY,
         "DATABRICKS_USER_AGENT": PARTNER_USER_AGENT,
-        "LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS": "True",
+        "HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS": "True",
     }
 
 
@@ -94,14 +94,14 @@ def sdk_environment(wire_url: str) -> Mapping[str, str]:
         "DATABRICKS_TOKEN": SDK_TOKEN,
         "DATABRICKS_AUTH_TYPE": "pat",
         "DATABRICKS_CONFIG_FILE": "/dev/null",
-        "LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS": "True",
+        "HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS": "True",
     }
 
 
 def databricks(name: str, model: str, api_base: str, **extra: JsonValue) -> Mapping[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {"model": f"databricks/{model}", "api_base": api_base, "api_key": DATABRICKS_KEY, **extra},
+        "hangarllm_params": {"model": f"databricks/{model}", "api_base": api_base, "api_key": DATABRICKS_KEY, **extra},
     }
 
 
@@ -117,7 +117,7 @@ def extra_models(wire_url: str) -> Sequence[Mapping[str, JsonValue]]:
         databricks(
             DROP_PARAMS_MODEL, "databricks-claude-opus-4-6", f"{wire_url}/dbx/serving-endpoints", drop_params=True
         ),
-        {"model_name": ENVIRONMENT_MODEL, "litellm_params": {"model": "databricks/databricks-claude-haiku-4-5"}},
+        {"model_name": ENVIRONMENT_MODEL, "hangarllm_params": {"model": "databricks/databricks-claude-haiku-4-5"}},
         databricks(GPT_MODEL, "databricks-gpt-oss-120b", f"{wire_url}/dbx/serving-endpoints"),
         databricks(CUSTOM_CLAUDE_MODEL, "my-claude-endpoint", f"{wire_url}/dbx/serving-endpoints"),
         databricks(GATEWAY_MODEL, "databricks-claude-sonnet-4-6", f"{wire_url}/gw/dbx"),
@@ -133,7 +133,7 @@ def sdk_models(wire_url: str) -> Sequence[Mapping[str, JsonValue]]:
     return (
         {
             "model_name": SDK_MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "databricks/databricks-claude-haiku-4-5",
                 "api_base": f"{wire_url}/dbxsdk/serving-endpoints",
             },
@@ -166,7 +166,7 @@ def sdk_rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
 
 
 def beta_map_without_the_databricks_safeguards_beta() -> bytes:
-    beta_map: Final = object_value(json.loads(Path("litellm/anthropic_beta_headers_config.json").read_text()))
+    beta_map: Final = object_value(json.loads(Path("hangarllm/anthropic_beta_headers_config.json").read_text()))
     databricks_column: Final = {**object_value(beta_map["databricks"]), DANGEROUS_TOOL_USE_BETA: None}
     return json.dumps({**beta_map, "databricks": databricks_column}).encode()
 
@@ -182,8 +182,8 @@ def remote_beta_map_rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tu
         wire_server(lambda _: Reply(body=served_map)) as beta_map,
         safeguards_rig(
             tmp_path_factory.mktemp("databricks-remote-beta-map"),
-            environment=lambda _: {"LITELLM_ANTHROPIC_BETA_HEADERS_URL": f"{beta_map.url}/beta.json"},
-            remove_environment=("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS",),
+            environment=lambda _: {"HANGARLLM_ANTHROPIC_BETA_HEADERS_URL": f"{beta_map.url}/beta.json"},
+            remove_environment=("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS",),
             classifier_model=OMITTED,
             extra_models=serving_endpoint_model,
         ) as rig,
@@ -313,7 +313,7 @@ def test_environment_only_deployment_reaches_the_native_route_with_the_environme
     sent: Final = only_backend_call(databricks_rig, request_nonce)
     assert sent.target == ENVIRONMENT_TARGET, sent.target
     assert sent.headers.get("authorization") == f"Bearer {ENVIRONMENT_KEY}", sent.headers
-    assert sent.headers.get("user-agent", "").startswith("partnerapp_litellm/"), sent.headers
+    assert sent.headers.get("user-agent", "").startswith("partnerapp_hangarllm/"), sent.headers
 
 
 def test_client_anthropic_headers_leave_sdk_auth_in_charge_of_the_native_route(sdk_rig: Rig) -> None:

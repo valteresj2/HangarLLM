@@ -6,8 +6,8 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from litellm.proxy.roi_calculator.github import GitHub, SourceError
-from litellm.types.roi_calculator import ROISettings
+from hangarllm.proxy.roi_calculator.github import GitHub, SourceError
+from hangarllm.types.roi_calculator import ROISettings
 
 _NEXT_PAGE_HEADERS: Final = MappingProxyType({"link": '<https://api.github.com/next>; rel="next"'})
 _PULLS_PAGE_ONE_JSON: Final = """[

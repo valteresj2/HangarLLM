@@ -5,7 +5,7 @@ import pytest
 import respx
 from fastapi import HTTPException
 
-from litellm.proxy.guardrails.guardrail_hooks.aporia_ai.aporia_ai import AporiaGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.aporia_ai.aporia_ai import AporiaGuardrail
 
 pytestmark = pytest.mark.usefixtures("httpx_transport")
 

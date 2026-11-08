@@ -2,7 +2,7 @@ import random
 
 import pytest
 
-from litellm.router_strategy.adaptive_router.bandit import (
+from hangarllm.router_strategy.adaptive_router.bandit import (
     BanditCell,
     apply_delta,
     initial_cell,
@@ -11,13 +11,13 @@ from litellm.router_strategy.adaptive_router.bandit import (
     score,
     thompson_sample,
 )
-from litellm.router_strategy.adaptive_router.config import (
+from hangarllm.router_strategy.adaptive_router.config import (
     BASE_TIER_WEIGHT,
     COLD_START_MASS,
     SAMPLE_CAP,
     STRENGTH_BONUS,
 )
-from litellm.types.router import AdaptiveRouterPreferences, RequestType
+from hangarllm.types.router import AdaptiveRouterPreferences, RequestType
 
 
 def test_initial_cell_tier_only():

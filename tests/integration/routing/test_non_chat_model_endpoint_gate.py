@@ -122,12 +122,12 @@ class _Upstream:
 
 @dataclass(frozen=True, slots=True)
 class _Deployment:
-    litellm_model: str
+    hangarllm_model: str
     declarations: tuple[Mapping[str, JsonValue], ...]
 
 
-def _single(declaration: Mapping[str, JsonValue], litellm_model: str = f"openai/{_CHAT_MODEL}") -> _Deployment:
-    return _Deployment(litellm_model, (declaration,))
+def _single(declaration: Mapping[str, JsonValue], hangarllm_model: str = f"openai/{_CHAT_MODEL}") -> _Deployment:
+    return _Deployment(hangarllm_model, (declaration,))
 
 
 _SHARED: Final[Mapping[str, _Deployment]] = MappingProxyType(
@@ -154,12 +154,12 @@ class _Rig:
     api_base: str
 
 
-def _create(gateway: Gateway, name: str, litellm_params: Mapping[str, JsonValue], info: Mapping[str, JsonValue]) -> str:
+def _create(gateway: Gateway, name: str, hangarllm_params: Mapping[str, JsonValue], info: Mapping[str, JsonValue]) -> str:
     created: Final = gateway.post(
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {"api_key": _PROVIDER_KEY, **litellm_params},
+            "hangarllm_params": {"api_key": _PROVIDER_KEY, **hangarllm_params},
             "model_info": dict(info),
         },
     )
@@ -169,7 +169,7 @@ def _create(gateway: Gateway, name: str, litellm_params: Mapping[str, JsonValue]
 def _deploy(scenario: Scenario, api_base: str, label: str, deployment: _Deployment) -> tuple[str, tuple[str, ...]]:
     name: Final = f"gate-{label}-{uuid.uuid4().hex[:12]}"
     identities: Final = tuple(
-        _create(scenario.gateway, name, {"model": deployment.litellm_model, "api_base": api_base}, declaration)
+        _create(scenario.gateway, name, {"model": deployment.hangarllm_model, "api_base": api_base}, declaration)
         for declaration in deployment.declarations
     )
     tuple(scenario.cleanups.callback(scenario.delete_model, identity) for identity in identities)
@@ -245,7 +245,7 @@ def _chat_body(model: str, marker: str, *, stream: bool = False) -> dict[str, Js
 
 def _failure_row(call_id: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (call_id,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (call_id,)),
         lambda found: len(found) >= 1,
         seconds=70,
     )
@@ -266,7 +266,7 @@ def _assert_rejected_before(
 ) -> None:
     _assert_error(response, expected)
     assert upstream.calls(marker) == (), upstream.targets(marker)
-    assert _failure_row(response.headers["x-litellm-call-id"])["status"] == "failure"
+    assert _failure_row(response.headers["x-hangarllm-call-id"])["status"] == "failure"
 
 
 def _assert_rejected(rig: _Rig, response: httpx.Response, marker: str, expected: dict[str, JsonValue]) -> None:
@@ -352,7 +352,7 @@ def _sdk_embedding(rig: _Rig, model: str, marker: str) -> tuple[tuple[float, ...
                 model=model, input=marker, encoding_format="float"
             )
             parsed: Final = raw.parse()
-            return tuple(parsed.data[0].embedding), raw.headers["x-litellm-call-id"]
+            return tuple(parsed.data[0].embedding), raw.headers["x-hangarllm-call-id"]
 
     return asyncio.run(call())
 
@@ -364,7 +364,7 @@ def _httpx_embedding(rig: _Rig, model: str, marker: str) -> tuple[tuple[float, .
     assert response.status_code == 200, response.text
     data: Final = list_value(JSON_OBJECT.validate_json(response.content)["data"])
     vector: Final = list_value(object_value(data[0])["embedding"])
-    return tuple(float(str(value)) for value in vector), response.headers["x-litellm-call-id"]
+    return tuple(float(str(value)) for value in vector), response.headers["x-hangarllm-call-id"]
 
 
 @pytest.mark.parametrize("client", ("httpx_sync", "openai_async_sdk"))
@@ -378,7 +378,7 @@ def test_embeddings_still_reach_the_embedding_only_model(rig: _Rig, client: str)
     assert rig.upstream.targets(marker) == ("/v1/embeddings",)
     row: Final = eventually(
         lambda: read_rows(
-            'SELECT status, call_type FROM "LiteLLM_SpendLogs" WHERE request_id = %s OR litellm_call_id = %s',
+            'SELECT status, call_type FROM "HangarLLM_SpendLogs" WHERE request_id = %s OR hangarllm_call_id = %s',
             (call_id, call_id),
         ),
         lambda found: len(found) >= 1,
@@ -708,10 +708,10 @@ def test_local_rate_limit_fallback_skips_an_embedding_only_hop(rig: _Rig) -> Non
         )
         served_first: Final = _chat(rig, limited, first, key=key)
         served_second: Final = _chat(rig, limited, second, key=key)
-    assert (served_first.status_code, served_first.headers.get("x-litellm-model-group")) == (200, limited), (
+    assert (served_first.status_code, served_first.headers.get("x-hangarllm-model-group")) == (200, limited), (
         served_first.text
     )
-    assert (served_second.status_code, served_second.headers.get("x-litellm-model-group")) == (200, chat), (
+    assert (served_second.status_code, served_second.headers.get("x-hangarllm-model-group")) == (200, chat), (
         served_second.text
     )
     assert (rig.upstream.targets(first), rig.upstream.targets(second)) == (
@@ -783,7 +783,7 @@ def test_repeated_rejections_log_one_failure_row_per_call(rig: _Rig) -> None:
     expected: Final = _openai_error("/v1/chat/completions", model, "/v1/embeddings")
     for response in responses:
         _assert_error(response, expected)
-    call_ids: Final = tuple(item.headers["x-litellm-call-id"] for item in responses)
+    call_ids: Final = tuple(item.headers["x-hangarllm-call-id"] for item in responses)
     assert len(set(call_ids)) == 3, call_ids
     assert [_failure_row(call_id)["status"] for call_id in call_ids] == ["failure"] * 3
     assert rig.upstream.calls(marker) == ()
@@ -840,10 +840,10 @@ class _Routed:
     names: Mapping[str, str]
 
 
-def _routed_entry(name: str, api_base: str, litellm_model: str, info: Mapping[str, JsonValue]) -> dict[str, JsonValue]:
+def _routed_entry(name: str, api_base: str, hangarllm_model: str, info: Mapping[str, JsonValue]) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {"model": litellm_model, "api_base": api_base, "api_key": _PROVIDER_KEY},
+        "hangarllm_params": {"model": hangarllm_model, "api_base": api_base, "api_key": _PROVIDER_KEY},
         "model_info": dict(info),
     }
 
@@ -978,7 +978,7 @@ def test_model_group_alias_to_an_embedding_only_group_keeps_serving_embeddings(r
     assert routed.upstream.targets(marker) == ("/v1/embeddings",)
 
 
-_REWRITER: Final = """from litellm.integrations.custom_logger import CustomLogger
+_REWRITER: Final = """from hangarllm.integrations.custom_logger import CustomLogger
 
 
 class WebSocketModelRewriter(CustomLogger):
@@ -1009,7 +1009,7 @@ def _rewritten_config(directory: Path, api_base: str, source: str, target: str, 
             _routed_entry(target, api_base, f"openai/{_EMBEDDING_MODEL}", _EMBED_ONLY),
         ],
         "router_settings": {**object_value(shared["router_settings"]), "num_retries": 0},
-        "litellm_settings": {**object_value(shared["litellm_settings"]), "callbacks": [f"{module}.rewriter"]},
+        "hangarllm_settings": {**object_value(shared["hangarllm_settings"]), "callbacks": [f"{module}.rewriter"]},
     }
     path: Final = directory / "gate-rewritten-config.yaml"
     path.write_text(yaml.safe_dump(config, sort_keys=False))
@@ -1079,7 +1079,7 @@ class _Addressed:
 
 def _wildcard_backend_entry(name: str, api_base: str, backend: str) -> dict[str, JsonValue]:
     entry: Final = _routed_entry(name, api_base, backend, _EMBED_ONLY)
-    return {**entry, "litellm_params": {**object_value(entry["litellm_params"]), "custom_llm_provider": "openai"}}
+    return {**entry, "hangarllm_params": {**object_value(entry["hangarllm_params"]), "custom_llm_provider": "openai"}}
 
 
 def _addressed_config(

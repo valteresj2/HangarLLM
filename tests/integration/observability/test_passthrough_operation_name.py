@@ -16,7 +16,7 @@ pytestmark: Final = pytest.mark.timeout(180)
 
 _EXPORTERS: Final = {
     "otel-v1-semconv": {"OTEL_SEMCONV_STABILITY_OPT_IN": "gen_ai_latest_experimental"},
-    "otel-v2": {"LITELLM_OTEL_V2": "1"},
+    "otel-v2": {"HANGARLLM_OTEL_V2": "1"},
 }
 _ANTHROPIC_MESSAGE: Final = {
     "id": "msg_passthrough_operation",
@@ -41,7 +41,7 @@ def _upstream(request: Request) -> Reply:
     if request.target.endswith("/v1/messages"):
         return Reply(body=json.dumps(_ANTHROPIC_MESSAGE).encode())
     _, _, reported = request.target.partition("/report/")
-    headers: Final = {"x-litellm-operation-name": reported} if reported else {}
+    headers: Final = {"x-hangarllm-operation-name": reported} if reported else {}
     if request.target.startswith("/app/stream/cut"):
         return Reply(
             content_type="text/event-stream",
@@ -63,7 +63,7 @@ def rig(
         shared: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
         config: Final = {
             **shared,
-            "litellm_settings": {**shared["litellm_settings"], "callbacks": ["otel"]},
+            "hangarllm_settings": {**shared["hangarllm_settings"], "callbacks": ["otel"]},
             "callback_settings": {
                 "otel": {"exporter": "http/json", "endpoint": audit_sinks.operator, "use_simple_processor": True}
             },
@@ -83,7 +83,7 @@ def rig(
         path.write_text(yaml.safe_dump(config))
         overrides: Final = {"OTEL_EXPORTER": "http/json", "OTEL_ENDPOINT": audit_sinks.operator, **exporter}
         unset: Final = tuple(
-            name for name in ("LITELLM_OTEL_V2", "OTEL_SEMCONV_STABILITY_OPT_IN") if name not in exporter
+            name for name in ("HANGARLLM_OTEL_V2", "OTEL_SEMCONV_STABILITY_OPT_IN") if name not in exporter
         )
         with owned_proxy(base, directory, overrides, config=path, remove_environment=unset) as proxy:
             yield _Rig(proxy, audit_sinks.operator)
@@ -94,7 +94,7 @@ def _span_of(rig: _Rig, since: int, call_id: str) -> Span:
         lambda: tuple(
             span
             for span in recorded_spans(rig.sink, since)[1]
-            if span["attributes"].get("litellm.call_id") == call_id and "gen_ai.operation.name" in span["attributes"]
+            if span["attributes"].get("hangarllm.call_id") == call_id and "gen_ai.operation.name" in span["attributes"]
         ),
         lambda found: len(found) == 1,
         seconds=60,
@@ -108,7 +108,7 @@ def _operation_span(rig: _Rig, method: str, path: str, body: dict[str, object] |
     since, _ = recorded_spans(rig.sink)
     response: Final = rig.proxy.request(method, path, body)
     assert response.status_code == 200, response.text
-    return _span_of(rig, since, response.headers["x-litellm-call-id"])
+    return _span_of(rig, since, response.headers["x-hangarllm-call-id"])
 
 
 def _cut_stream_span(rig: _Rig, path: str) -> Span:
@@ -118,7 +118,7 @@ def _cut_stream_span(rig: _Rig, path: str) -> Span:
         assert response.status_code == 200
         with pytest.raises(httpx.RemoteProtocolError):
             response.read()
-    return _span_of(rig, since, response.headers["x-litellm-call-id"])
+    return _span_of(rig, since, response.headers["x-hangarllm-call-id"])
 
 
 def _assert_operation(span: Span, operation: str) -> None:
@@ -127,7 +127,7 @@ def _assert_operation(span: Span, operation: str) -> None:
 
 
 def test_configured_route_without_the_header_is_labelled_passthrough(rig: _Rig) -> None:
-    _assert_operation(_operation_span(rig, "POST", "/doc-app/search", {"query": "q"}), "litellm.passthrough")
+    _assert_operation(_operation_span(rig, "POST", "/doc-app/search", {"query": "q"}), "hangarllm.passthrough")
 
 
 def test_operation_reported_by_the_target_labels_the_span(rig: _Rig) -> None:
@@ -135,14 +135,14 @@ def test_operation_reported_by_the_target_labels_the_span(rig: _Rig) -> None:
 
 
 def test_unknown_operation_reported_by_the_target_is_ignored(rig: _Rig) -> None:
-    _assert_operation(_operation_span(rig, "POST", "/doc-app/report/summarize", {"query": "q"}), "litellm.passthrough")
+    _assert_operation(_operation_span(rig, "POST", "/doc-app/report/summarize", {"query": "q"}), "hangarllm.passthrough")
 
 
 @pytest.mark.parametrize("body", _STREAM_REQUESTS.values(), ids=_STREAM_REQUESTS.keys())
 def test_streamed_configured_route_without_the_header_is_labelled_passthrough(
     rig: _Rig, body: dict[str, object]
 ) -> None:
-    _assert_operation(_operation_span(rig, "POST", "/doc-app/stream", body), "litellm.passthrough")
+    _assert_operation(_operation_span(rig, "POST", "/doc-app/stream", body), "hangarllm.passthrough")
 
 
 @pytest.mark.parametrize("body", _STREAM_REQUESTS.values(), ids=_STREAM_REQUESTS.keys())
@@ -151,7 +151,7 @@ def test_operation_reported_by_a_streamed_target_labels_the_span(rig: _Rig, body
 
 
 def test_configured_route_stream_cut_by_the_target_is_labelled_passthrough(rig: _Rig) -> None:
-    _assert_operation(_cut_stream_span(rig, "/doc-app/stream/cut"), "litellm.passthrough")
+    _assert_operation(_cut_stream_span(rig, "/doc-app/stream/cut"), "hangarllm.passthrough")
 
 
 def test_provider_route_stays_chat(rig: _Rig) -> None:
@@ -159,5 +159,5 @@ def test_provider_route_stays_chat(rig: _Rig) -> None:
     _assert_operation(_operation_span(rig, "POST", "/anthropic/v1/messages", body), "chat")
 
 
-def test_provider_route_litellm_does_not_parse_stays_chat(rig: _Rig) -> None:
+def test_provider_route_hangarllm_does_not_parse_stays_chat(rig: _Rig) -> None:
     _assert_operation(_operation_span(rig, "GET", "/anthropic/v1/models"), "chat")

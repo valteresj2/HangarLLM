@@ -41,7 +41,7 @@ from lint_base_counts import (
 
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent
 CHECKER: Final = REPO_ROOT / "scripts" / "check_openapi_docs.py"
-TARGET: Final = "litellm"
+TARGET: Final = "hangarllm"
 TERMINATION_SIGNALS: Final = (signal.SIGTERM, signal.SIGHUP)
 
 _LINE: Final = re.compile(r"^(?P<method>[A-Z]+) (?P<path>\S+) (?P<code>OA\d+)$")
@@ -105,7 +105,7 @@ def _install_base_native(worktree: Path, repo_root: Path) -> None:
     env: Final = {
         **os.environ,
         "CARGO_TARGET_DIR": str(
-            Path(os.environ.get("CARGO_TARGET_DIR", repo_root / "litellm-rust" / "target")).resolve()
+            Path(os.environ.get("CARGO_TARGET_DIR", repo_root / "hangarllm-rust" / "target")).resolve()
         ),
     }
     _run(

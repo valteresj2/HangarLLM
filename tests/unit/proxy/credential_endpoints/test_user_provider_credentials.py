@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.caching.redis_cache import RedisCache
-from litellm.constants import GITHUB_COPILOT_DEFAULT_HOST
-from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.credential_endpoints.user_provider_credentials import (
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.constants import GITHUB_COPILOT_DEFAULT_HOST
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.credential_endpoints.user_provider_credentials import (
     GithubCopilotUserConnectionPayload,
     aget_user_provider_credentials,
     decode_user_provider_credential,
@@ -33,7 +33,7 @@ def _auth_cache(redis: RedisCache) -> UserApiKeyCache:
 
 def _prisma(table=None):
     prisma_client = MagicMock()
-    prisma_client.db.litellm_userprovidercredentials = table or MagicMock()
+    prisma_client.db.hangarllm_userprovidercredentials = table or MagicMock()
     prisma_client.writer_db = prisma_client.db
     return prisma_client
 
@@ -51,7 +51,7 @@ def _fake_redis(monkeypatch):
     """A RedisCache backed by a fakeredis client; two DualCaches can share it."""
     import fakeredis
 
-    from litellm.caching.redis_cache import RedisCache
+    from hangarllm.caching.redis_cache import RedisCache
 
     fake = fakeredis.FakeAsyncRedis()
     redis = RedisCache(host="localhost", port=6379)
@@ -61,7 +61,7 @@ def _fake_redis(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _master_key(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-test-master")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", "sk-test-master")
 
 
 @pytest.mark.asyncio
@@ -122,7 +122,7 @@ async def test_delete_for_credential_returns_affected_user_ids():
 @pytest.mark.asyncio
 async def test_aget_credentials_returns_plaintext_and_caches_ciphertext(monkeypatch):
     payload = GithubCopilotUserConnectionPayload(access_token="gho_secret", github_login="octo")
-    from litellm.proxy.credential_endpoints import user_provider_credentials as upc
+    from hangarllm.proxy.credential_endpoints import user_provider_credentials as upc
 
     ciphertext = upc._encode(payload)
     table = MagicMock()
@@ -151,7 +151,7 @@ async def test_aget_connections_preserves_github_host(monkeypatch):
         github_login="octo",
         github_host="octo.ghe.com",
     )
-    from litellm.proxy.credential_endpoints import user_provider_credentials as upc
+    from hangarllm.proxy.credential_endpoints import user_provider_credentials as upc
 
     table: Final = MagicMock()
     table.find_many = AsyncMock(return_value=[_row(credential_b64=upc._encode(payload))])
@@ -204,7 +204,7 @@ async def test_aget_credentials_negative_caches_missing_connection(monkeypatch):
 @pytest.mark.asyncio
 async def test_invalidate_cache_forces_db_refetch(monkeypatch):
     payload = GithubCopilotUserConnectionPayload(access_token="gho_new", github_login="octo")
-    from litellm.proxy.credential_endpoints import user_provider_credentials as upc
+    from hangarllm.proxy.credential_endpoints import user_provider_credentials as upc
 
     table = MagicMock()
     table.find_many = AsyncMock(return_value=[_row(credential_b64=upc._encode(payload))])
@@ -226,7 +226,7 @@ def test_decode_rejects_garbage():
 async def test_disconnect_on_one_worker_invalidates_other_workers_via_redis(monkeypatch):
     """Two DualCache instances (two workers) sharing one Redis: a disconnect on A must
     be visible on B, not just in A's in-memory layer."""
-    from litellm.proxy.credential_endpoints import user_provider_credentials as upc
+    from hangarllm.proxy.credential_endpoints import user_provider_credentials as upc
 
     redis = _fake_redis(monkeypatch)
     cache_a = _auth_cache(redis)
@@ -259,7 +259,7 @@ async def test_disconnect_on_one_worker_invalidates_other_workers_via_redis(monk
 async def test_stale_fill_cannot_overwrite_a_disconnect_tombstone(monkeypatch):
     """A token read racing a disconnect: the read's fill uses set-if-absent, so it
     must lose to the tombstone the disconnect wrote."""
-    from litellm.proxy.credential_endpoints import user_provider_credentials as upc
+    from hangarllm.proxy.credential_endpoints import user_provider_credentials as upc
 
     redis = _fake_redis(monkeypatch)
     cache = _auth_cache(redis)
@@ -284,7 +284,7 @@ async def test_stale_fill_cannot_overwrite_a_disconnect_tombstone(monkeypatch):
 @pytest.mark.asyncio
 async def test_redis_read_failure_falls_back_to_the_database(monkeypatch):
     """A broken Redis must not 401 a connected user: reads degrade to a cache miss."""
-    from litellm.proxy.credential_endpoints import user_provider_credentials as upc
+    from hangarllm.proxy.credential_endpoints import user_provider_credentials as upc
 
     redis = _fake_redis(monkeypatch)
     monkeypatch.setattr(redis, "async_get_cache", AsyncMock(side_effect=RuntimeError("redis down")))
@@ -308,7 +308,7 @@ async def test_redis_write_and_delete_failures_do_not_fail_the_request(monkeypat
     cache = _auth_cache(redis)
 
     payload = GithubCopilotUserConnectionPayload(access_token="gho_secret", github_login="octo")
-    from litellm.proxy.credential_endpoints import user_provider_credentials as upc
+    from hangarllm.proxy.credential_endpoints import user_provider_credentials as upc
 
     table = MagicMock()
     table.find_many = AsyncMock(return_value=[_row(credential_b64=upc._encode(payload))])
@@ -324,7 +324,7 @@ async def test_redis_write_and_delete_failures_do_not_fail_the_request(monkeypat
 async def test_without_redis_no_worker_local_entries_are_kept():
     """No Redis -> no cache at all: a disconnect on another worker cannot leave a
     stale local entry, because none was ever written."""
-    from litellm.proxy.credential_endpoints import user_provider_credentials as upc
+    from hangarllm.proxy.credential_endpoints import user_provider_credentials as upc
 
     payload = GithubCopilotUserConnectionPayload(access_token="gho_secret", github_login="octo")
     ciphertext = upc._encode(payload)
@@ -349,7 +349,7 @@ async def test_without_redis_no_worker_local_entries_are_kept():
 async def test_connect_overwrites_a_not_connected_tombstone(monkeypatch):
     """Connect writes the new connection over any cached tombstone so the next
     read sees the token immediately, no TTL wait."""
-    from litellm.proxy.credential_endpoints import user_provider_credentials as upc
+    from hangarllm.proxy.credential_endpoints import user_provider_credentials as upc
 
     redis = _fake_redis(monkeypatch)
     cache = _auth_cache(redis)
@@ -372,7 +372,7 @@ async def test_stale_not_connected_fill_cannot_overwrite_a_connect_write(monkeyp
     """A read that fetched "not connected" before the poll saved the row fills
     with set-if-absent; the connect's plain overwrite must win so the marker
     never lingers for the TTL."""
-    from litellm.proxy.credential_endpoints import user_provider_credentials as upc
+    from hangarllm.proxy.credential_endpoints import user_provider_credentials as upc
 
     redis = _fake_redis(monkeypatch)
     cache = _auth_cache(redis)
@@ -443,8 +443,8 @@ async def test_reads_hit_the_writer_engine_not_a_stale_replica():
     writer_table: Final = MagicMock()
     writer_table.find_many = AsyncMock(return_value=[])
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_userprovidercredentials = reader_table
-    prisma_client.writer_db.litellm_userprovidercredentials = writer_table
+    prisma_client.db.hangarllm_userprovidercredentials = reader_table
+    prisma_client.writer_db.hangarllm_userprovidercredentials = writer_table
 
     await aget_user_provider_credentials(prisma_client, UserApiKeyCache(), "user-a", ["copilot-cred"])
 

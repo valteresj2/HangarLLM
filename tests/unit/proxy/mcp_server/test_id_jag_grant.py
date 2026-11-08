@@ -9,23 +9,23 @@ import jwt
 import pytest
 from fastapi import HTTPException
 
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import IdJagRequestingApp, LiteLLM_JWTAuth, LiteLLMRoutes
-from litellm.proxy.auth.handle_jwt import (
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy._types import IdJagRequestingApp, HangarLLM_JWTAuth, HangarLLMRoutes
+from hangarllm.proxy.auth.handle_jwt import (
     ID_JAG_TYP,
     AssertionRejection,
     JWKSUnreachableError,
     JWTHandler,
     jwks_unavailable_exception,
 )
-from litellm.proxy.mcp_server.gateway_dcr_flow import (
+from hangarllm.proxy.mcp_server.gateway_dcr_flow import (
     AssertionIdentity,
     ConsentTeam,
     ReloadUserFailure,
     SubjectIdentity,
     SubjectTokenRefusal,
 )
-from litellm.proxy.mcp_server.id_jag_grant import (
+from hangarllm.proxy.mcp_server.id_jag_grant import (
     ID_JAG_REQUIRED_CLAIMS,
     REJECTED_ASSERTION,
     TEAM_HEADER,
@@ -74,7 +74,7 @@ def _claims(**overrides: object) -> dict[str, object]:
         "iat": NOW - 5,
         "jti": "jti-1",
         "client_id": PUBLIC_APP.client_id,
-        "scope": "litellm:mcp",
+        "scope": "hangarllm:mcp",
         **overrides,
     }
 
@@ -202,7 +202,7 @@ async def test_a_valid_id_jag_names_the_user_its_single_use_key_and_its_scope():
     assert verifier.calls == ((assertion, AUDIENCES, ID_JAG_REQUIRED_CLAIMS),)
     assert {"iss", "sub", "aud", "exp", "iat", "jti", "client_id"} <= set(ID_JAG_REQUIRED_CLAIMS)
     assert resolver.calls == ((_claims(), "team-b"),)
-    assert (identity.user_id, identity.team_id, identity.scope) == ("u1", "team-b", "litellm:mcp")
+    assert (identity.user_id, identity.team_id, identity.scope) == ("u1", "team-b", "hangarllm:mcp")
     assert identity.allowed_routes == ("mcp_inference_routes",)
     assert identity.replay_key == "mcp_gateway_dcr:id_jag:" + hashlib.sha256(f"{ISSUER}\njti-1".encode()).hexdigest()
     assert identity.replay_ttl_seconds == math.ceil(300)
@@ -320,7 +320,7 @@ async def test_a_bearer_or_id_token_is_not_an_id_jag(assertion, description):
 )
 async def test_an_assertion_the_verifier_rejects_is_refused_with_the_reason_kept_in_the_log(verifier, reason, caplog):
     resolver = _Resolver()
-    with caplog.at_level(logging.WARNING, logger="litellm.proxy"):
+    with caplog.at_level(logging.WARNING, logger="hangarllm.proxy"):
         refused = await _identity(_redemption(_assertion()), verifier, resolver)
     assert refused == SubjectTokenRefusal(error="invalid_grant", description=REJECTED_ASSERTION)
     assert reason not in refused.description
@@ -343,7 +343,7 @@ async def test_an_assertion_the_verifier_rejects_is_refused_with_the_reason_kept
 )
 async def test_verified_claims_that_do_not_fit_the_profile_are_refused(claims, reason, caplog):
     resolver = _Resolver()
-    with caplog.at_level(logging.WARNING, logger="litellm.proxy"):
+    with caplog.at_level(logging.WARNING, logger="hangarllm.proxy"):
         refused = await _identity(_redemption(_assertion()), _Verifier(result=_claims(**claims)), resolver)
     assert refused == SubjectTokenRefusal(error="invalid_grant", description=REJECTED_ASSERTION)
     assert reason in caplog.text
@@ -352,7 +352,7 @@ async def test_verified_claims_that_do_not_fit_the_profile_are_refused(claims, r
 
 @pytest.mark.asyncio
 async def test_an_assertion_that_names_no_user_the_gateway_knows_cannot_be_redeemed(caplog):
-    with caplog.at_level(logging.WARNING, logger="litellm.proxy"):
+    with caplog.at_level(logging.WARNING, logger="hangarllm.proxy"):
         refused = await _identity(_redemption(_assertion()), resolver=_Resolver(user_id=None))
     assert refused == SubjectTokenRefusal(error="invalid_grant", description=REJECTED_ASSERTION)
     assert "names no user" in caplog.text
@@ -403,55 +403,55 @@ async def test_the_deployment_gates_refuse_before_any_verification(unmet, descri
     assert IdJagPrerequisites(**EVERY_GATE_HOLDS).available is True
 
 
-def _running_jwt_handler(litellm_jwtauth: LiteLLM_JWTAuth | None) -> JWTHandler:
+def _running_jwt_handler(hangarllm_jwtauth: HangarLLM_JWTAuth | None) -> JWTHandler:
     handler: Final = JWTHandler()
-    if litellm_jwtauth is not None:
-        handler.update_environment(prisma_client=None, user_api_key_cache=DualCache(), litellm_jwtauth=litellm_jwtauth)
+    if hangarllm_jwtauth is not None:
+        handler.update_environment(prisma_client=None, user_api_key_cache=DualCache(), hangarllm_jwtauth=hangarllm_jwtauth)
     return handler
 
 
 @pytest.mark.parametrize(
-    "general_settings, prisma_client, premium_user, litellm_jwtauth, expected",
+    "general_settings, prisma_client, premium_user, hangarllm_jwtauth, expected",
     [
-        ({"enable_jwt_auth": True}, object(), True, LiteLLM_JWTAuth(id_jag_requesting_apps=[PUBLIC_APP]), True),
+        ({"enable_jwt_auth": True}, object(), True, HangarLLM_JWTAuth(id_jag_requesting_apps=[PUBLIC_APP]), True),
         (
             {"enable_jwt_auth": True, "redis": None},
             object(),
             True,
-            LiteLLM_JWTAuth(id_jag_requesting_apps=[PUBLIC_APP]),
+            HangarLLM_JWTAuth(id_jag_requesting_apps=[PUBLIC_APP]),
             False,
         ),
         (
             {"enable_jwt_auth": True, "base_url": ""},
             object(),
             True,
-            LiteLLM_JWTAuth(id_jag_requesting_apps=[PUBLIC_APP]),
+            HangarLLM_JWTAuth(id_jag_requesting_apps=[PUBLIC_APP]),
             False,
         ),
-        ({"enable_jwt_auth": True}, object(), True, LiteLLM_JWTAuth(id_jag_requesting_apps=[]), False),
+        ({"enable_jwt_auth": True}, object(), True, HangarLLM_JWTAuth(id_jag_requesting_apps=[]), False),
         (
             {"enable_jwt_auth": True},
             object(),
             True,
-            LiteLLM_JWTAuth(id_jag_requesting_apps=[PUBLIC_APP], virtual_key_claim_field="vkey"),
+            HangarLLM_JWTAuth(id_jag_requesting_apps=[PUBLIC_APP], virtual_key_claim_field="vkey"),
             False,
         ),
-        ({"enable_jwt_auth": True}, object(), True, LiteLLM_JWTAuth(), False),
+        ({"enable_jwt_auth": True}, object(), True, HangarLLM_JWTAuth(), False),
         ({"enable_jwt_auth": True}, object(), True, None, False),
-        ({}, object(), True, LiteLLM_JWTAuth(id_jag_requesting_apps=[PUBLIC_APP]), False),
-        ({"enable_jwt_auth": True}, None, True, LiteLLM_JWTAuth(id_jag_requesting_apps=[PUBLIC_APP]), False),
-        ({"enable_jwt_auth": True}, object(), False, LiteLLM_JWTAuth(id_jag_requesting_apps=[PUBLIC_APP]), False),
+        ({}, object(), True, HangarLLM_JWTAuth(id_jag_requesting_apps=[PUBLIC_APP]), False),
+        ({"enable_jwt_auth": True}, None, True, HangarLLM_JWTAuth(id_jag_requesting_apps=[PUBLIC_APP]), False),
+        ({"enable_jwt_auth": True}, object(), False, HangarLLM_JWTAuth(id_jag_requesting_apps=[PUBLIC_APP]), False),
     ],
 )
 def test_availability_is_read_from_the_running_proxy(
-    monkeypatch, general_settings, prisma_client, premium_user, litellm_jwtauth, expected
+    monkeypatch, general_settings, prisma_client, premium_user, hangarllm_jwtauth, expected
 ):
     monkeypatch.setenv("PROXY_BASE_URL", general_settings.get("base_url", "https://gateway.example.com"))
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", premium_user)
-    monkeypatch.setattr("litellm.proxy.proxy_server.redis_usage_cache", general_settings.get("redis", object()))
-    monkeypatch.setattr("litellm.proxy.proxy_server.jwt_handler", _running_jwt_handler(litellm_jwtauth))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", general_settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", premium_user)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.redis_usage_cache", general_settings.get("redis", object()))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.jwt_handler", _running_jwt_handler(hangarllm_jwtauth))
     assert jwt_bearer_available() is expected
 
 
@@ -575,7 +575,7 @@ def test_the_assertion_team_claims_ignore_team_id_default():
     """``team_id_default`` is how bearer JWT auth picks a team for a request, not a claim the
     assertion made, so a user outside that team must still get their only team or no team."""
     handler = JWTHandler()
-    handler.litellm_jwtauth = LiteLLM_JWTAuth(team_id_default="default-team")
+    handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_id_default="default-team")
     claim_teams = tuple(_claim_reader(handler).get_all_jwt_team_ids(token={"iss": ISSUER, "sub": "u1"}))
     assert claim_teams == ()
     assert select_team(None, claim_teams, (ENG,)) == "team-eng"
@@ -626,34 +626,34 @@ LLM_ROUTE_GROUPS = ("llm_api_routes_without_mcp",)
     [
         (None, None, None),
         ("", None, None),
-        ("litellm:mcp", "litellm:mcp", MCP_ROUTE_GROUPS),
-        ("litellm:llm", "litellm:llm", LLM_ROUTE_GROUPS),
-        ("litellm:mcp litellm:llm", "litellm:mcp litellm:llm", MCP_ROUTE_GROUPS + LLM_ROUTE_GROUPS),
-        ("litellm:llm  litellm:mcp litellm:llm", "litellm:mcp litellm:llm", MCP_ROUTE_GROUPS + LLM_ROUTE_GROUPS),
+        ("hangarllm:mcp", "hangarllm:mcp", MCP_ROUTE_GROUPS),
+        ("hangarllm:llm", "hangarllm:llm", LLM_ROUTE_GROUPS),
+        ("hangarllm:mcp hangarllm:llm", "hangarllm:mcp hangarllm:llm", MCP_ROUTE_GROUPS + LLM_ROUTE_GROUPS),
+        ("hangarllm:llm  hangarllm:mcp hangarllm:llm", "hangarllm:mcp hangarllm:llm", MCP_ROUTE_GROUPS + LLM_ROUTE_GROUPS),
     ],
 )
 def test_the_scope_claim_buys_exactly_the_route_groups_it_names(claim, scope, allowed_routes):
-    """``litellm:mcp`` is the MCP gateway's data-plane routes, ``litellm:llm`` the LLM API routes
+    """``hangarllm:mcp`` is the MCP gateway's data-plane routes, ``hangarllm:llm`` the LLM API routes
     without their MCP members, both together are both, and no claim is the full credential. The
     scope echoed back is canonical: deduplicated, in vocabulary order, so it is exactly what is
     enforced. Every group named must be one the route check resolves."""
     granted = granted_scope(claim, mcp_resource=False)
     assert (granted.scope, granted.allowed_routes) == (scope, allowed_routes)
     if allowed_routes is not None:
-        assert set(allowed_routes) <= set(LiteLLMRoutes._member_names_)
-        mcp_members = set(LiteLLMRoutes.mcp_inference_routes.value)
-        llm_members = set().union(*(LiteLLMRoutes[group].value for group in LLM_ROUTE_GROUPS))
+        assert set(allowed_routes) <= set(HangarLLMRoutes._member_names_)
+        mcp_members = set(HangarLLMRoutes.mcp_inference_routes.value)
+        llm_members = set().union(*(HangarLLMRoutes[group].value for group in LLM_ROUTE_GROUPS))
         assert "/chat/completions" in llm_members and "/mcp" not in llm_members
         assert "/mcp" in mcp_members and "/chat/completions" not in mcp_members
 
 
-@pytest.mark.parametrize("claim", ["openid", "litellm:mcp openid", "litellm:admin", 7, ["litellm:mcp"]])
+@pytest.mark.parametrize("claim", ["openid", "hangarllm:mcp openid", "hangarllm:admin", 7, ["hangarllm:mcp"]])
 @pytest.mark.asyncio
 async def test_a_scope_the_gateway_does_not_know_is_refused_as_invalid_scope_before_any_lookup(claim):
     refusal = granted_scope(claim, mcp_resource=False)
     assert isinstance(refusal, SubjectTokenRefusal)
     assert refusal.error == "invalid_scope"
-    assert "litellm:mcp" in refusal.description and "litellm:llm" in refusal.description
+    assert "hangarllm:mcp" in refusal.description and "hangarllm:llm" in refusal.description
     resolver = _Resolver()
     refused = await _identity(_redemption(_assertion()), _Verifier(result=_claims(scope=claim)), resolver)
     assert refused == refusal
@@ -664,11 +664,11 @@ async def test_a_scope_the_gateway_does_not_know_is_refused_as_invalid_scope_bef
 async def test_a_linked_sso_account_resolves_by_its_provider_subject_without_an_email_claim():
     """An SSO login stores the provider subject as ``sso_user_id`` on a user whose ``user_id`` is
     something else, so the lookup must offer the subject as both, with no email to fall back on."""
-    from litellm.models.user import LiteLLM_UserTable
+    from hangarllm.models.user import HangarLLM_UserTable
 
     async def get_user(*, user_id, user_email, sso_user_id):
         if sso_user_id == "00u-okta-subject" and user_email is None:
-            return LiteLLM_UserTable(user_id="local-user-7", user_email=None)
+            return HangarLLM_UserTable(user_id="local-user-7", user_email=None)
         return None
 
     lookup = proxy_user_lookup(get_user)
@@ -693,15 +693,15 @@ async def test_the_allowed_email_domain_gates_the_assertions_subject_like_bearer
     assert await allowed(_claims(), "team-eng") == SubjectIdentity(user_id="okta-user-1", team_id="team-eng")
 
 
-@pytest.mark.parametrize("claim", [None, "", "litellm:mcp", "litellm:mcp litellm:mcp"])
+@pytest.mark.parametrize("claim", [None, "", "hangarllm:mcp", "hangarllm:mcp hangarllm:mcp"])
 def test_an_assertion_for_the_mcp_resource_is_ceilinged_to_the_mcp_routes(claim):
     """``aud = {base}/mcp`` means the identity provider named the MCP resource, so no scope or
-    ``litellm:mcp`` both mint an MCP-only credential and echo ``litellm:mcp``."""
+    ``hangarllm:mcp`` both mint an MCP-only credential and echo ``hangarllm:mcp``."""
     granted = granted_scope(claim, mcp_resource=True)
-    assert granted == GrantedScope(scope="litellm:mcp", allowed_routes=("mcp_inference_routes",))
+    assert granted == GrantedScope(scope="hangarllm:mcp", allowed_routes=("mcp_inference_routes",))
 
 
-@pytest.mark.parametrize("claim", ["litellm:llm", "litellm:mcp litellm:llm"])
+@pytest.mark.parametrize("claim", ["hangarllm:llm", "hangarllm:mcp hangarllm:llm"])
 def test_llm_routes_cannot_be_granted_under_the_mcp_resource_audience(claim):
     refusal = granted_scope(claim, mcp_resource=True)
     assert isinstance(refusal, SubjectTokenRefusal)
@@ -765,8 +765,8 @@ async def test_redeeming_for_the_mcp_resource_narrows_the_identity_and_refuses_l
     resource, come out ceilinged, and asking for LLM routes under that audience is a scope error."""
     narrowed = await _identity(_redemption(_assertion(aud=AUDIENCES[0])), _Verifier(), _Resolver())
     assert isinstance(narrowed, AssertionIdentity)
-    assert (narrowed.scope, narrowed.allowed_routes) == ("litellm:mcp", ("mcp_inference_routes",))
-    refused = await _identity(_redemption(_assertion(aud=AUDIENCES[0], scope="litellm:llm")), _Verifier(), _Resolver())
+    assert (narrowed.scope, narrowed.allowed_routes) == ("hangarllm:mcp", ("mcp_inference_routes",))
+    refused = await _identity(_redemption(_assertion(aud=AUDIENCES[0], scope="hangarllm:llm")), _Verifier(), _Resolver())
     assert isinstance(refused, SubjectTokenRefusal)
     assert refused.error == "invalid_scope"
     unscoped = jwt.encode(
@@ -778,9 +778,9 @@ async def test_redeeming_for_the_mcp_resource_narrows_the_identity_and_refuses_l
     full = await _identity(_redemption(unscoped), _Verifier(), _Resolver())
     assert isinstance(full, AssertionIdentity)
     assert (full.scope, full.allowed_routes) == (None, None)
-    scoped = await _identity(_redemption(_assertion(aud=AUDIENCES[1], scope="litellm:llm")), _Verifier(), _Resolver())
+    scoped = await _identity(_redemption(_assertion(aud=AUDIENCES[1], scope="hangarllm:llm")), _Verifier(), _Resolver())
     assert isinstance(scoped, AssertionIdentity)
-    assert scoped.scope == "litellm:llm"
+    assert scoped.scope == "hangarllm:llm"
 
 
 @pytest.mark.asyncio
@@ -788,9 +788,9 @@ async def test_redeeming_for_the_signed_resource_caps_the_identity_before_subjec
     mcp_claim: Final = _unscoped_assertion(aud=GATEWAY, resource=f"{GATEWAY}/mcp")
     narrowed: Final = await _identity(_redemption(mcp_claim), _Verifier(), _Resolver())
     assert isinstance(narrowed, AssertionIdentity)
-    assert (narrowed.scope, narrowed.allowed_routes) == ("litellm:mcp", ("mcp_inference_routes",))
+    assert (narrowed.scope, narrowed.allowed_routes) == ("hangarllm:mcp", ("mcp_inference_routes",))
 
-    llm_claim: Final = _assertion(aud=GATEWAY, resource=f"{GATEWAY}/mcp", scope="litellm:llm")
+    llm_claim: Final = _assertion(aud=GATEWAY, resource=f"{GATEWAY}/mcp", scope="hangarllm:llm")
     refused_scope: Final = await _identity(_redemption(llm_claim), _Verifier(), _Resolver())
     assert isinstance(refused_scope, SubjectTokenRefusal)
     assert refused_scope.error == "invalid_scope"

@@ -8,15 +8,15 @@ import struct
 from typing import Final
 
 import httpx
-import litellm
+import hangarllm
 import pytest
 import respx
 
-from litellm.llms.sagemaker.common_utils import AWSEventStreamDecoder
-from litellm.llms.sagemaker.nova.transformation import SagemakerNovaConfig
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse
-from litellm.utils import convert_to_model_response_object
+from hangarllm.llms.sagemaker.common_utils import AWSEventStreamDecoder
+from hangarllm.llms.sagemaker.nova.transformation import SagemakerNovaConfig
+from hangarllm.types.llms.openai import AllMessageValues
+from hangarllm.types.utils import ModelResponse
+from hangarllm.utils import convert_to_model_response_object
 
 
 def _event_frame(payload: bytes) -> bytes:
@@ -103,7 +103,7 @@ class TestSagemakerNovaConfig:
             api_key=None,
             model="my-nova-endpoint",
             optional_params={"aws_region_name": "us-east-1"},
-            litellm_params={},
+            hangarllm_params={},
             stream=False,
         )
         assert (
@@ -118,7 +118,7 @@ class TestSagemakerNovaConfig:
             api_key=None,
             model="my-nova-endpoint",
             optional_params={"aws_region_name": "us-east-1"},
-            litellm_params={},
+            hangarllm_params={},
             stream=True,
         )
         assert (
@@ -277,7 +277,7 @@ class TestSagemakerChatBackwardsCompatibility:
     """Verify that changes to SagemakerChatConfig don't break existing sagemaker_chat callers."""
 
     def setup_method(self):
-        from litellm.llms.sagemaker.chat.transformation import SagemakerChatConfig
+        from hangarllm.llms.sagemaker.chat.transformation import SagemakerChatConfig
 
         self.config = SagemakerChatConfig()
 
@@ -292,7 +292,7 @@ class TestSagemakerChatBackwardsCompatibility:
             api_key=None,
             model="my-hf-endpoint",
             optional_params={"aws_region_name": "us-west-2"},
-            litellm_params={},
+            hangarllm_params={},
             stream=False,
         )
         assert (
@@ -305,7 +305,7 @@ class TestSagemakerChatBackwardsCompatibility:
             api_key=None,
             model="my-hf-endpoint",
             optional_params={"aws_region_name": "us-west-2"},
-            litellm_params={},
+            hangarllm_params={},
             stream=True,
         )
         assert (
@@ -348,11 +348,11 @@ class TestSagemakerChatBackwardsCompatibility:
         mock_client.post.return_value = mock_response
 
         with patch(
-            "litellm.llms.sagemaker.chat.transformation.CustomStreamWrapper"
+            "hangarllm.llms.sagemaker.chat.transformation.CustomStreamWrapper"
         ) as mock_csw:
             mock_csw.return_value = MagicMock()
             self.config.get_sync_custom_stream_wrapper(
-                litellm_params={},
+                hangarllm_params={},
                 model="my-hf-endpoint",
                 custom_llm_provider="sagemaker_chat",
                 logging_obj=MagicMock(),
@@ -387,12 +387,12 @@ class TestSagemakerChatBackwardsCompatibility:
         mock_client.post.return_value = mock_response
 
         with patch(
-            "litellm.llms.sagemaker.chat.transformation.CustomStreamWrapper"
+            "hangarllm.llms.sagemaker.chat.transformation.CustomStreamWrapper"
         ) as mock_csw:
             mock_csw.return_value = MagicMock()
             asyncio.run(
                 self.config.get_async_custom_stream_wrapper(
-                    litellm_params={},
+                    hangarllm_params={},
                     model="my-hf-endpoint",
                     custom_llm_provider="sagemaker_chat",
                     logging_obj=MagicMock(),
@@ -412,7 +412,7 @@ class TestSagemakerChatBackwardsCompatibility:
         Verify LlmProviders(custom_llm_provider) resolves correctly for
         "sagemaker_chat" and doesn't fall through to the ValueError fallback.
         """
-        from litellm.types.utils import LlmProviders
+        from hangarllm.types.utils import LlmProviders
 
         provider = LlmProviders("sagemaker_chat")
         assert provider == LlmProviders.SAGEMAKER_CHAT
@@ -430,7 +430,7 @@ class TestSagemakerNovaTransformRequest:
             model="my-nova-endpoint",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={"temperature": 0.7},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert "model" not in request
@@ -448,7 +448,7 @@ class TestSagemakerNovaTransformRequest:
             model="my-nova-endpoint",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -464,7 +464,7 @@ class TestSagemakerNovaTransformRequest:
                 "max_tokens": 512,
                 "reasoning_effort": "low",
             },
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert "model" not in request
@@ -497,7 +497,7 @@ def test_nova_completion_parses_content_finish_reason_and_usage(respx_mock: resp
             },
         )
     )
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="sagemaker_nova/nova-endpoint",
         messages=[{"role": "user", "content": "What is 2+2? Reply in one word."}],
         max_tokens=32,
@@ -527,7 +527,7 @@ def test_nova_streaming_sends_stream_flag_and_parses_chunks_and_usage(respx_mock
             content=_nova_stream_frame("Nova ", None) + _nova_stream_frame("stream", "stop"),
         )
     )
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="sagemaker_nova/nova-endpoint",
         messages=[{"role": "user", "content": "Count from 1 to 5."}],
         max_tokens=64,

@@ -51,13 +51,13 @@ def _owned_config(path: Path) -> Path:
         yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     )
     general_settings: Final = _JSON_OBJECT.validate_python(config.get("general_settings", {}))
-    litellm_settings: Final = _JSON_OBJECT.validate_python(config.get("litellm_settings", {}))
+    hangarllm_settings: Final = _JSON_OBJECT.validate_python(config.get("hangarllm_settings", {}))
     path.write_text(
         yaml.safe_dump(
             {
                 **config,
                 "general_settings": {**general_settings, "enable_claude_code_gateway": True},
-                "litellm_settings": {**litellm_settings, "cache": False},
+                "hangarllm_settings": {**hangarllm_settings, "cache": False},
             }
         )
     )
@@ -250,7 +250,7 @@ def test_enabled_gateway_count_tokens_alias_matches_native_count_tokens_route(en
         assert gateway_response.status_code == 200, gateway_response.text
         assert _JSON_OBJECT.validate_json(gateway_response.content) == {
             "input_tokens": 41,
-            "litellm_count_source": "provider",
+            "hangarllm_count_source": "provider",
         }, gateway_response.text
         native_response: Final = enabled_gateway.client.post(
             "/v1/messages/count_tokens?beta=true", json=body, headers=headers
@@ -276,7 +276,7 @@ def test_enabled_gateway_count_tokens_alias_matches_native_count_tokens_route(en
                     f"The requested model '{restricted_model}' is not available for this API key, or the model name "
                     "is invalid. Check the models available to you and try again."
                 ),
-                "litellm_error_type": "key_model_access_denied",
+                "hangarllm_error_type": "key_model_access_denied",
             },
         }, restricted_response.text
         assert wire.drain() == ()
@@ -293,7 +293,7 @@ def test_enabled_gateway_refuses_model_outside_virtual_key(enabled_gateway: Gate
                 f"The requested model '{result[4]}' is not available for this API key, or the model name is invalid. "
                 "Check the models available to you and try again."
             ),
-            "litellm_error_type": "key_model_access_denied",
+            "hangarllm_error_type": "key_model_access_denied",
         },
     }
     assert result[0] == result[2] == 403, (result[1], result[3])
@@ -347,11 +347,11 @@ def test_enabled_gateway_attributes_spend_to_virtual_key(enabled_gateway: Gatewa
         spend_rows: Final = eventually(
             lambda: (
                 read_rows(
-                    'SELECT api_key, model_group FROM "LiteLLM_SpendLogs" WHERE api_key=%s',
+                    'SELECT api_key, model_group FROM "HangarLLM_SpendLogs" WHERE api_key=%s',
                     (gateway_key_hash,),
                 ),
                 read_rows(
-                    'SELECT api_key, model_group FROM "LiteLLM_SpendLogs" WHERE api_key=%s',
+                    'SELECT api_key, model_group FROM "HangarLLM_SpendLogs" WHERE api_key=%s',
                     (native_key_hash,),
                 ),
             ),

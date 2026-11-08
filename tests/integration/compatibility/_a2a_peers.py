@@ -1,4 +1,4 @@
-"""Scripted A2A agents shaped like the servers litellm proxies to, for the a2a_protocol_version cells.
+"""Scripted A2A agents shaped like the servers hangarllm proxies to, for the a2a_protocol_version cells.
 
 The ``langgraph`` dialect reproduces langgraph-api 0.15.4 byte for byte where it matters: its card declares
 ``protocolBinding: "JSONRPC"`` with ``protocolVersion: "1.0"``, and every reply, whether the caller used the
@@ -27,7 +27,7 @@ LEGACY_METHODS: Final = frozenset({"message/send", "message/stream"})
 V1_METHODS: Final = frozenset({"SendMessage", "SendStreamingMessage"})
 HINT: Final = (
     "(the agent replied in the A2A 0.3 dialect while its card declares 1.0; "
-    'set litellm_params.a2a_protocol_version: "0.3" on this agent)'
+    'set hangarllm_params.a2a_protocol_version: "0.3" on this agent)'
 )
 KIND_ERROR: Final = 'has no field named "kind"'
 
@@ -218,7 +218,7 @@ def register(
     cleanups: Callable[..., object],
     name: str,
     url: str,
-    litellm_params: Mapping[str, JsonValue] | None,
+    hangarllm_params: Mapping[str, JsonValue] | None,
 ) -> str:
     body: dict[str, JsonValue] = {
         "agent_name": name,
@@ -234,8 +234,8 @@ def register(
             "skills": [],
         },
     }
-    if litellm_params is not None:
-        body["litellm_params"] = dict(litellm_params)
+    if hangarllm_params is not None:
+        body["hangarllm_params"] = dict(hangarllm_params)
     created: Final = gateway.request("POST", "/v1/agents", body)
     assert created.status_code == 200, created.text
     identity: Final = str(created.json()["agent_id"])
@@ -243,7 +243,7 @@ def register(
     def delete() -> None:
         deleted: Final = gateway.request("DELETE", f"/v1/agents/{identity}")
         assert deleted.status_code == 200, deleted.text
-        assert read_rows('SELECT agent_id FROM "LiteLLM_AgentsTable" WHERE agent_id=%s', (identity,)) == []
+        assert read_rows('SELECT agent_id FROM "HangarLLM_AgentsTable" WHERE agent_id=%s', (identity,)) == []
 
     cleanups(delete)
     return identity
@@ -279,5 +279,5 @@ def sse_frames(text: str) -> tuple[dict[str, JsonValue], ...]:
 
 def spend_rows(request_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT request_id, model, call_type, status FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (request_id,)
+        'SELECT request_id, model, call_type, status FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (request_id,)
     )

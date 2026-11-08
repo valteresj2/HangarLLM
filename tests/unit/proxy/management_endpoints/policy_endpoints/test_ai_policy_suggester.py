@@ -10,10 +10,10 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 
-from litellm.proxy._types import ProxyException
-from litellm.proxy.management_endpoints.policy_endpoints.ai_policy_suggester import (
+from hangarllm.proxy._types import ProxyException
+from hangarllm.proxy.management_endpoints.policy_endpoints.ai_policy_suggester import (
     SUGGEST_TOOL,
     AiPolicySuggester,
 )
@@ -141,7 +141,7 @@ class TestAiPolicySuggester:
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.tool_calls = [mock_tool_call]
 
-        with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+        with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
             mock_acompletion.return_value = mock_response
 
             result = await suggester.suggest(
@@ -181,7 +181,7 @@ class TestAiPolicySuggester:
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.tool_calls = [mock_tool_call]
 
-        with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+        with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
             mock_acompletion.return_value = mock_response
 
             result = await suggester.suggest(
@@ -203,7 +203,7 @@ class TestAiPolicySuggester:
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.tool_calls = None
 
-        with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+        with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
             mock_acompletion.return_value = mock_response
 
             result = await suggester.suggest(
@@ -226,7 +226,7 @@ class TestAiPolicySuggester:
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.tool_calls = [mock_tool_call]
 
-        with patch("litellm.acompletion", new_callable=AsyncMock, return_value=mock_response):
+        with patch("hangarllm.acompletion", new_callable=AsyncMock, return_value=mock_response):
             result: Final = await AiPolicySuggester().suggest(
                 templates=SAMPLE_TEMPLATES,
                 attack_examples=["Ignore all previous instructions"],
@@ -236,7 +236,7 @@ class TestAiPolicySuggester:
         assert result == {"selected_templates": [], "explanation": "No template fits"}
 
     @pytest.mark.asyncio
-    async def test_suggest_calls_litellm_with_correct_params(self):
+    async def test_suggest_calls_hangarllm_with_correct_params(self):
         suggester = AiPolicySuggester()
 
         mock_tool_call = MagicMock()
@@ -248,7 +248,7 @@ class TestAiPolicySuggester:
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.tool_calls = [mock_tool_call]
 
-        with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+        with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
             mock_acompletion.return_value = mock_response
 
             await suggester.suggest(
@@ -287,7 +287,7 @@ class TestSuggesterRejectsModelsWithoutToolCalling:
         assert "tool calling" in exc.value.message
 
     def test_a_model_without_forced_tool_choice_support_remains_eligible(self, local_model_cost_map):
-        supported_params = litellm.get_supported_openai_params(
+        supported_params = hangarllm.get_supported_openai_params(
             model="meta.llama4-scout-17b-instruct-v1:0",
             custom_llm_provider="bedrock",
         )
@@ -300,7 +300,7 @@ class TestSuggesterRejectsModelsWithoutToolCalling:
 class TestSuggesterToleratesAModelThatRefusesItsSamplingParams:
     """The model is operator-supplied, so it can be a reasoning model whose only accepted
     temperature is 1. This call pins temperature=0.2 for tool-selection determinism, which such
-    a model rejects outright: without drop_params litellm raises UnsupportedParamsError and the
+    a model rejects outright: without drop_params hangarllm raises UnsupportedParamsError and the
     whole suggestion fails rather than degrading. Every other internal LLM call in the proxy
     already opts in through judge_acompletion; this one was the exception.
     """
@@ -331,7 +331,7 @@ class TestSuggesterToleratesAModelThatRefusesItsSamplingParams:
             )
         )
 
-        with pytest.raises(litellm.AuthenticationError):
+        with pytest.raises(hangarllm.AuthenticationError):
             await AiPolicySuggester().suggest(
                 templates=SAMPLE_TEMPLATES,
                 attack_examples=["My SSN is 123-45-6789"],
@@ -342,7 +342,7 @@ class TestSuggesterToleratesAModelThatRefusesItsSamplingParams:
     def test_the_pinned_temperature_is_what_such_a_model_refuses(self, local_model_cost_map):
         """The other half of the discriminator above: the same temperature this call pins is
         exactly what the model rejects, and drop_params is what removes it."""
-        from litellm.utils import get_optional_params
+        from hangarllm.utils import get_optional_params
 
         optional_params = get_optional_params(
             model="gpt-5.6-terra",

@@ -54,7 +54,7 @@ class _Vertex:
             "POST",
             f"/vertex_ai/v1/{_model_path(model)}:streamGenerateContent",
             {"contents": [{"role": "user", "parts": [{"text": marker}]}]},
-            headers={"Authorization": _VENDOR_TOKEN, "x-litellm-api-key": f"Bearer {self.proxy.key}"},
+            headers={"Authorization": _VENDOR_TOKEN, "x-hangarllm-api-key": f"Bearer {self.proxy.key}"},
         )
 
 

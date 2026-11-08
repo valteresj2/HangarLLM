@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.integrations.focus.destinations.base import FocusTimeWindow
-from litellm.integrations.focus.destinations.mavvrik_destination import (
+from hangarllm.integrations.focus.destinations.base import FocusTimeWindow
+from hangarllm.integrations.focus.destinations.mavvrik_destination import (
     FocusMavvrikDestination,
     _validate_api_endpoint,
 )
@@ -121,7 +121,7 @@ async def test_large_content_uploads_in_multiple_chunks():
     GCS assembles intermediate chunks (308) + final chunk (200) into one object.
     The destination must send Content-Range headers for each chunk correctly.
     """
-    from litellm.integrations.focus.destinations.mavvrik_destination import (
+    from hangarllm.integrations.focus.destinations.mavvrik_destination import (
         FocusMavvrikDestination,
         _GCS_CHUNK_SIZE,
     )
@@ -362,7 +362,7 @@ async def test_deliver_raises_on_missing_signed_url():
 @pytest.mark.asyncio
 async def test_deliver_raises_on_non_gcs_signed_url():
     """Signed URL pointing to a non-GCS host must be rejected before any upload."""
-    from litellm.integrations.focus.destinations.mavvrik_destination import (
+    from hangarllm.integrations.focus.destinations.mavvrik_destination import (
         _validate_gcs_url,
     )
 
@@ -407,7 +407,7 @@ def test_factory_creates_mavvrik_destination(monkeypatch):
     monkeypatch.setenv("MAVVRIK_API_ENDPOINT", VALID_ENDPOINT)
     monkeypatch.setenv("MAVVRIK_CONNECTION_ID", "c")
 
-    from litellm.integrations.focus.destinations.factory import FocusDestinationFactory
+    from hangarllm.integrations.focus.destinations.factory import FocusDestinationFactory
 
     dest = FocusDestinationFactory.create(provider="mavvrik", prefix="p")
 
@@ -428,7 +428,7 @@ def test_only_daily_frequency_is_supported():
             old = os.environ.get("MAVVRIK_FOCUS_FREQUENCY")
             os.environ["MAVVRIK_FOCUS_FREQUENCY"] = f
             try:
-                from litellm.integrations.mavvrik_focus import mavvrik_focus_logger
+                from hangarllm.integrations.mavvrik_focus import mavvrik_focus_logger
 
                 importlib.reload(mavvrik_focus_logger)
                 with pytest.raises(ValueError, match="Only 'daily' is allowed"):
@@ -444,7 +444,7 @@ def test_only_daily_frequency_is_supported():
 
 def test_max_rows_defaults_to_500k():
     """MAVVRIK_FOCUS_MAX_ROWS defaults to 500_000 when not set."""
-    from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (
+    from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import (
         MavvrikFocusLogger,
     )
 
@@ -456,7 +456,7 @@ def test_max_rows_reads_from_env(monkeypatch):
     """MAVVRIK_FOCUS_MAX_ROWS env var is respected."""
     monkeypatch.setenv("MAVVRIK_FOCUS_MAX_ROWS", "100000")
 
-    from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (
+    from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import (
         MavvrikFocusLogger,
     )
 
@@ -470,10 +470,10 @@ async def test_export_window_passes_max_rows_as_limit(monkeypatch):
     monkeypatch.setenv("MAVVRIK_FOCUS_MAX_ROWS", "1000")
 
     import polars as pl
-    from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (
+    from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import (
         MavvrikFocusLogger,
     )
-    from litellm.integrations.focus.destinations.base import FocusTimeWindow
+    from hangarllm.integrations.focus.destinations.base import FocusTimeWindow
     from datetime import datetime, timezone
 
     logger = MavvrikFocusLogger()
@@ -506,10 +506,10 @@ async def test_export_window_passes_max_rows_as_limit(monkeypatch):
 async def test_run_scheduled_export_catches_up_missed_dates():
     """If metricsMarker is 2 days behind, _run_scheduled_export exports missed dates first."""
     import polars as pl
-    from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (
+    from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import (
         MavvrikFocusLogger,
     )
-    from litellm.integrations.focus.destinations.mavvrik_destination import (
+    from hangarllm.integrations.focus.destinations.mavvrik_destination import (
         FocusMavvrikDestination,
     )
 
@@ -552,10 +552,10 @@ async def test_run_scheduled_export_catches_up_missed_dates():
 async def test_run_scheduled_export_no_catchup_when_marker_is_current():
     """If metricsMarker = yesterday, no catch-up needed — just export yesterday."""
     import polars as pl
-    from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (
+    from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import (
         MavvrikFocusLogger,
     )
-    from litellm.integrations.focus.destinations.mavvrik_destination import (
+    from hangarllm.integrations.focus.destinations.mavvrik_destination import (
         FocusMavvrikDestination,
     )
 
@@ -585,10 +585,10 @@ async def test_run_scheduled_export_no_catchup_when_marker_is_current():
 @pytest.mark.asyncio
 async def test_run_scheduled_export_skips_catchup_when_marker_is_unparseable():
     import polars as pl
-    from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (
+    from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import (
         MavvrikFocusLogger,
     )
-    from litellm.integrations.focus.destinations.mavvrik_destination import (
+    from hangarllm.integrations.focus.destinations.mavvrik_destination import (
         FocusMavvrikDestination,
     )
 
@@ -627,7 +627,7 @@ async def test_metrics_marker_always_calls_api():
     register_resp = MagicMock()
     register_resp.status_code = 200
     register_resp.json.return_value = {
-        "id": "litellm-conn-123",
+        "id": "hangarllm-conn-123",
         "metricsMarker": 1749340800,
     }
 
@@ -648,7 +648,7 @@ async def test_metrics_marker_always_calls_api():
 
 
 def test_parse_metrics_marker_handles_unix_timestamp():
-    from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (
+    from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import (
         _parse_metrics_marker,
     )
     from datetime import datetime, timezone
@@ -664,7 +664,7 @@ def test_parse_metrics_marker_handles_unix_timestamp():
 
 
 def test_parse_metrics_marker_handles_iso_date_string():
-    from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (
+    from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import (
         _parse_metrics_marker,
     )
 
@@ -674,7 +674,7 @@ def test_parse_metrics_marker_handles_iso_date_string():
 
 
 def test_parse_metrics_marker_handles_iso_datetime_string():
-    from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (
+    from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import (
         _parse_metrics_marker,
     )
 
@@ -684,7 +684,7 @@ def test_parse_metrics_marker_handles_iso_datetime_string():
 
 
 def test_parse_metrics_marker_returns_none_for_zero():
-    from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (
+    from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import (
         _parse_metrics_marker,
     )
 
@@ -694,7 +694,7 @@ def test_parse_metrics_marker_returns_none_for_zero():
 
 
 def test_parse_metrics_marker_returns_none_for_garbage():
-    from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (
+    from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import (
         _parse_metrics_marker,
     )
 
@@ -706,10 +706,10 @@ def test_parse_metrics_marker_returns_none_for_garbage():
 async def test_catchup_capped_at_max_catchup_days():
     """Catch-up must not go further back than _MAX_CATCHUP_DAYS."""
     import polars as pl
-    from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (
+    from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import (
         MavvrikFocusLogger,
     )
-    from litellm.integrations.focus.destinations.mavvrik_destination import (
+    from hangarllm.integrations.focus.destinations.mavvrik_destination import (
         FocusMavvrikDestination,
     )
 
@@ -747,10 +747,10 @@ async def test_catchup_capped_at_max_catchup_days():
 @pytest.mark.asyncio
 async def test_run_scheduled_export_uses_one_clock_read_across_midnight():
     import polars as pl
-    from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (
+    from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import (
         MavvrikFocusLogger,
     )
-    from litellm.integrations.focus.destinations.mavvrik_destination import (
+    from hangarllm.integrations.focus.destinations.mavvrik_destination import (
         FocusMavvrikDestination,
     )
 

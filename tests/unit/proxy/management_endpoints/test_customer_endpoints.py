@@ -9,17 +9,17 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
-from litellm.proxy._types import (
-    LiteLLM_EndUserTable,
-    LitellmUserRoles,
+from hangarllm.proxy._types import (
+    HangarLLM_EndUserTable,
+    HangarllmUserRoles,
     ProxyException,
 )
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
-from litellm.proxy.management_endpoints.customer_endpoints import _should_update_field, router
-from litellm.types.proxy.management_endpoints.common_daily_activity import (
+from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
+from hangarllm.proxy.management_endpoints.customer_endpoints import _should_update_field, router
+from hangarllm.types.proxy.management_endpoints.common_daily_activity import (
     SpendAnalyticsPaginatedResponse,
 )
-from litellm.types.proxy.management_endpoints.customer_endpoints import (
+from hangarllm.types.proxy.management_endpoints.customer_endpoints import (
     BlockUsersResponse,
     CustomerResponse,
     DeleteCustomersResponse,
@@ -88,7 +88,7 @@ def test_should_update_field(
 
 @pytest.fixture
 def mock_prisma_client():
-    with patch("litellm.proxy.proxy_server.prisma_client") as mock:
+    with patch("hangarllm.proxy.proxy_server.prisma_client") as mock:
         yield mock
 
 
@@ -96,7 +96,7 @@ def mock_prisma_client():
 def mock_user_api_key_auth():
     original_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_id="test-user", user_role=LitellmUserRoles.PROXY_ADMIN
+        user_id="test-user", user_role=HangarllmUserRoles.PROXY_ADMIN
     )
     try:
         yield
@@ -106,14 +106,14 @@ def mock_user_api_key_auth():
 
 def test_update_customer_success(mock_prisma_client, mock_user_api_key_auth):
     # Mock the database responses
-    mock_end_user = LiteLLM_EndUserTable(user_id="test-user-1", alias="Test User", blocked=False)
-    updated_mock_end_user = LiteLLM_EndUserTable(user_id="test-user-1", alias="Updated Test User", blocked=False)
+    mock_end_user = HangarLLM_EndUserTable(user_id="test-user-1", alias="Test User", blocked=False)
+    updated_mock_end_user = HangarLLM_EndUserTable(user_id="test-user-1", alias="Updated Test User", blocked=False)
 
     # Mock the find_first response
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(return_value=mock_end_user)
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(return_value=mock_end_user)
 
     # Mock the update response
-    mock_prisma_client.db.litellm_endusertable.update = AsyncMock(return_value=updated_mock_end_user)
+    mock_prisma_client.db.hangarllm_endusertable.update = AsyncMock(return_value=updated_mock_end_user)
 
     # Test data
     test_data = {"user_id": "test-user-1", "alias": "Updated Test User"}
@@ -128,11 +128,11 @@ def test_update_customer_success(mock_prisma_client, mock_user_api_key_auth):
 
 
 def test_update_customer_unblock(mock_prisma_client, mock_user_api_key_auth):
-    mock_end_user = LiteLLM_EndUserTable(user_id="test-user-1", blocked=True)
-    updated_mock_end_user = LiteLLM_EndUserTable(user_id="test-user-1", blocked=False)
+    mock_end_user = HangarLLM_EndUserTable(user_id="test-user-1", blocked=True)
+    updated_mock_end_user = HangarLLM_EndUserTable(user_id="test-user-1", blocked=False)
 
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(return_value=mock_end_user)
-    mock_prisma_client.db.litellm_endusertable.update = AsyncMock(return_value=updated_mock_end_user)
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(return_value=mock_end_user)
+    mock_prisma_client.db.hangarllm_endusertable.update = AsyncMock(return_value=updated_mock_end_user)
 
     response = client.post(
         "/customer/update",
@@ -142,7 +142,7 @@ def test_update_customer_unblock(mock_prisma_client, mock_user_api_key_auth):
 
     assert response.status_code == 200
     assert response.json()["blocked"] is False
-    update_mock = mock_prisma_client.db.litellm_endusertable.update
+    update_mock = mock_prisma_client.db.hangarllm_endusertable.update
     update_mock.assert_called_once()
     assert update_mock.call_args.kwargs["data"]["blocked"] is False
 
@@ -153,11 +153,11 @@ def test_update_customer_keeps_blocked_when_omitted(mock_prisma_client, mock_use
     must NOT reset it to unblocked. `blocked=False` is the model default and
     should only be applied when explicitly provided by the caller.
     """
-    mock_end_user = LiteLLM_EndUserTable(user_id="test-user-1", blocked=True)
-    updated_mock_end_user = LiteLLM_EndUserTable(user_id="test-user-1", blocked=True)
+    mock_end_user = HangarLLM_EndUserTable(user_id="test-user-1", blocked=True)
+    updated_mock_end_user = HangarLLM_EndUserTable(user_id="test-user-1", blocked=True)
 
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(return_value=mock_end_user)
-    mock_prisma_client.db.litellm_endusertable.update = AsyncMock(return_value=updated_mock_end_user)
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(return_value=mock_end_user)
+    mock_prisma_client.db.hangarllm_endusertable.update = AsyncMock(return_value=updated_mock_end_user)
 
     response = client.post(
         "/customer/update",
@@ -166,7 +166,7 @@ def test_update_customer_keeps_blocked_when_omitted(mock_prisma_client, mock_use
     )
 
     assert response.status_code == 200
-    update_mock = mock_prisma_client.db.litellm_endusertable.update
+    update_mock = mock_prisma_client.db.hangarllm_endusertable.update
     update_mock.assert_called_once()
     assert "blocked" not in update_mock.call_args.kwargs["data"]
 
@@ -176,7 +176,7 @@ def test_update_customer_not_found(mock_prisma_client, mock_user_api_key_auth):
     Test that update_end_user raises a 404 ProxyException when user_id does not exist.
     """
     # Mock the database response to return None (user not found)
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(return_value=None)
 
     # Test data
     test_data = {"user_id": "non-existent-user", "alias": "Test User"}
@@ -203,7 +203,7 @@ def test_info_customer_not_found(mock_prisma_client, mock_user_api_key_auth):
     Test that end_user_info raises a 404 ProxyException when end_user_id does not exist.
     """
     # Mock the database response to return None (user not found)
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(return_value=None)
 
     # Make the request
     response = client.get(
@@ -226,7 +226,7 @@ def test_delete_customer_not_found(mock_prisma_client, mock_user_api_key_auth):
     Test that delete_end_user raises a 404 ProxyException when user_ids do not exist.
     """
     # Mock the database response to return empty list (no users found)
-    mock_prisma_client.db.litellm_endusertable.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_endusertable.find_many = AsyncMock(return_value=[])
 
     # Test data
     test_data = {"user_ids": ["non-existent-user-1", "non-existent-user-2"]}
@@ -268,7 +268,7 @@ def test_error_schema_consistency(mock_prisma_client, mock_user_api_key_auth):
         return error
 
     # Test /customer/info - not found error
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(return_value=None)
     response = client.get(
         "/customer/info?end_user_id=non-existent",
         headers={"Authorization": "Bearer test-key"},
@@ -278,7 +278,7 @@ def test_error_schema_consistency(mock_prisma_client, mock_user_api_key_auth):
     assert error["code"] == "404"
 
     # Test /customer/update - not found error
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(return_value=None)
     response = client.post(
         "/customer/update",
         json={"user_id": "non-existent", "alias": "Test"},
@@ -289,7 +289,7 @@ def test_error_schema_consistency(mock_prisma_client, mock_user_api_key_auth):
     assert error["code"] == "404"
 
     # Test /customer/delete - not found error
-    mock_prisma_client.db.litellm_endusertable.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_endusertable.find_many = AsyncMock(return_value=[])
     response = client.post(
         "/customer/delete",
         json={"user_ids": ["non-existent"]},
@@ -300,7 +300,7 @@ def test_error_schema_consistency(mock_prisma_client, mock_user_api_key_auth):
     assert error["code"] == "404"
 
     # Test /customer/new - duplicate user error
-    mock_prisma_client.db.litellm_endusertable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_endusertable.create = AsyncMock(
         side_effect=Exception("Unique constraint failed on the fields: (`user_id`)")
     )
     response = client.post(
@@ -329,7 +329,7 @@ def test_customer_endpoints_error_schema_consistency(mock_prisma_client, mock_us
 
     # Scenario 1: GET /end_user/info with non-existent user
     # Should return 404 with proper error schema
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(return_value=None)
 
     response1 = client.get(
         "/end_user/info?end_user_id=fake-test-end-user-michaels-local-testng",
@@ -352,7 +352,7 @@ def test_customer_endpoints_error_schema_consistency(mock_prisma_client, mock_us
 
     # Scenario 2: POST /end_user/new with existing user
     # Should return 400 with proper error schema
-    mock_prisma_client.db.litellm_endusertable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_endusertable.create = AsyncMock(
         side_effect=Exception("Unique constraint failed on the fields: (`user_id`)")
     )
 
@@ -425,12 +425,12 @@ def test_update_customer_response_preserves_budget_id(mock_prisma_client, mock_u
     """
     Regression for the response_model field-stripping concern: budget_id is a real
     column on the end-user table that /customer/update echoes. response_model=
-    LiteLLM_EndUserTable must NOT drop it, so budget_id stays in LiteLLM_EndUserTable.
+    HangarLLM_EndUserTable must NOT drop it, so budget_id stays in HangarLLM_EndUserTable.
     """
-    existing = LiteLLM_EndUserTable(user_id="cust-1", blocked=False)
-    updated = LiteLLM_EndUserTable(user_id="cust-1", blocked=False, budget_id="budget-123")
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(return_value=existing)
-    mock_prisma_client.db.litellm_endusertable.update = AsyncMock(return_value=updated)
+    existing = HangarLLM_EndUserTable(user_id="cust-1", blocked=False)
+    updated = HangarLLM_EndUserTable(user_id="cust-1", blocked=False, budget_id="budget-123")
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(return_value=existing)
+    mock_prisma_client.db.hangarllm_endusertable.update = AsyncMock(return_value=updated)
 
     response = client.post(
         "/customer/update",
@@ -450,7 +450,7 @@ def test_update_customer_response_preserves_budget_id(mock_prisma_client, mock_u
 def test_update_customer_budget_omission_and_null_preserve_existing_budget(
     mock_prisma_client, mock_user_api_key_auth, budget_payload
 ):
-    from litellm.proxy._types import LiteLLM_BudgetTable
+    from hangarllm.proxy._types import HangarLLM_BudgetTable
 
     class BudgetState:
         def __init__(self) -> None:
@@ -462,11 +462,11 @@ def test_update_customer_budget_omission_and_null_preserve_existing_budget(
     budget_state = BudgetState()
 
     def end_user_row():
-        return LiteLLM_EndUserTable(
+        return HangarLLM_EndUserTable(
             user_id="cust-1",
             blocked=False,
             budget_id="budget-1",
-            litellm_budget_table=LiteLLM_BudgetTable(budget_id="budget-1", max_budget=budget_state.max_budget),
+            hangarllm_budget_table=HangarLLM_BudgetTable(budget_id="budget-1", max_budget=budget_state.max_budget),
         )
 
     def response_row():
@@ -475,7 +475,7 @@ def test_update_customer_budget_omission_and_null_preserve_existing_budget(
             "user_id": "cust-1",
             "blocked": False,
             "budget_id": "budget-1",
-            "litellm_budget_table": {
+            "hangarllm_budget_table": {
                 "budget_id": "budget-1",
                 "max_budget": budget_state.max_budget,
                 "created_at": "2024-01-01T00:00:00",
@@ -485,11 +485,11 @@ def test_update_customer_budget_omission_and_null_preserve_existing_budget(
 
     async def update_budget(*, where, data):
         budget_state.store(data)
-        return LiteLLM_BudgetTable(budget_id="budget-1", max_budget=budget_state.max_budget)
+        return HangarLLM_BudgetTable(budget_id="budget-1", max_budget=budget_state.max_budget)
 
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(return_value=end_user_row())
-    mock_prisma_client.db.litellm_budgettable.update = AsyncMock(side_effect=update_budget)
-    mock_prisma_client.db.litellm_endusertable.update = AsyncMock(side_effect=lambda **_: response_row())
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(return_value=end_user_row())
+    mock_prisma_client.db.hangarllm_budgettable.update = AsyncMock(side_effect=update_budget)
+    mock_prisma_client.db.hangarllm_endusertable.update = AsyncMock(side_effect=lambda **_: response_row())
 
     response = client.post(
         "/customer/update",
@@ -498,7 +498,7 @@ def test_update_customer_budget_omission_and_null_preserve_existing_budget(
     )
 
     assert response.status_code == 200, response.text
-    assert response.json()["litellm_budget_table"]["max_budget"] == 100.0
+    assert response.json()["hangarllm_budget_table"]["max_budget"] == 100.0
 
 
 def test_update_customer_response_keeps_nested_budget_server_fields(mock_prisma_client, mock_user_api_key_auth):
@@ -508,7 +508,7 @@ def test_update_customer_response_keeps_nested_budget_server_fields(mock_prisma_
     to return (budget_reset_at, created_at) instead of the narrow write-allowlist
     shape. The intentionally-internal audit fields (created_by/updated_by) stay out.
     """
-    existing = LiteLLM_EndUserTable(user_id="cust-1", blocked=False)
+    existing = HangarLLM_EndUserTable(user_id="cust-1", blocked=False)
     raw_row = MagicMock()
     raw_row.model_dump.return_value = {
         "user_id": "cust-1",
@@ -520,7 +520,7 @@ def test_update_customer_response_keeps_nested_budget_server_fields(mock_prisma_
         "budget_id": "b-1",
         "object_permission_id": None,
         "object_permission": None,
-        "litellm_budget_table": {
+        "hangarllm_budget_table": {
             "budget_id": "b-1",
             "max_budget": 10.0,
             "budget_duration": "30d",
@@ -531,8 +531,8 @@ def test_update_customer_response_keeps_nested_budget_server_fields(mock_prisma_
             "updated_by": "admin",
         },
     }
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(return_value=existing)
-    mock_prisma_client.db.litellm_endusertable.update = AsyncMock(return_value=raw_row)
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(return_value=existing)
+    mock_prisma_client.db.hangarllm_endusertable.update = AsyncMock(return_value=raw_row)
 
     response = client.post(
         "/customer/update",
@@ -541,7 +541,7 @@ def test_update_customer_response_keeps_nested_budget_server_fields(mock_prisma_
     )
 
     assert response.status_code == 200
-    budget = response.json()["litellm_budget_table"]
+    budget = response.json()["hangarllm_budget_table"]
     assert budget["budget_reset_at"] == "2024-02-01T00:00:00"
     assert budget["created_at"] == "2024-01-01T00:00:00"
     assert "created_by" not in budget
@@ -554,8 +554,8 @@ def test_block_customer_success_serializes_through_response_model(mock_prisma_cl
     response_model=BlockUsersResponse, a shape mismatch would raise a 500
     ResponseValidationError, so a clean 200 proves the model matches runtime output.
     """
-    blocked_row = LiteLLM_EndUserTable(user_id="blocked-1", blocked=True)
-    mock_prisma_client.db.litellm_endusertable.upsert = AsyncMock(return_value=blocked_row)
+    blocked_row = HangarLLM_EndUserTable(user_id="blocked-1", blocked=True)
+    mock_prisma_client.db.hangarllm_endusertable.upsert = AsyncMock(return_value=blocked_row)
 
     response = client.post(
         "/customer/block",
@@ -575,11 +575,11 @@ def test_delete_customer_success_serializes_through_response_model(mock_prisma_c
     response_model=DeleteCustomersResponse enforces that exact shape.
     """
     existing = [
-        LiteLLM_EndUserTable(user_id="u1", blocked=False),
-        LiteLLM_EndUserTable(user_id="u2", blocked=False),
+        HangarLLM_EndUserTable(user_id="u1", blocked=False),
+        HangarLLM_EndUserTable(user_id="u2", blocked=False),
     ]
-    mock_prisma_client.db.litellm_endusertable.find_many = AsyncMock(return_value=existing)
-    mock_prisma_client.db.litellm_endusertable.delete_many = AsyncMock(return_value=2)
+    mock_prisma_client.db.hangarllm_endusertable.find_many = AsyncMock(return_value=existing)
+    mock_prisma_client.db.hangarllm_endusertable.delete_many = AsyncMock(return_value=2)
 
     response = client.post(
         "/customer/delete",
@@ -596,21 +596,21 @@ def test_delete_customer_success_serializes_through_response_model(mock_prisma_c
 
 @pytest.mark.asyncio
 async def test_get_customer_daily_activity_admin_param_passing(monkeypatch):
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints import customer_endpoints
-    from litellm.proxy.management_endpoints.customer_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints import customer_endpoints
+    from hangarllm.proxy.management_endpoints.customer_endpoints import (
         get_customer_daily_activity,
     )
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_endusertable.find_many = AsyncMock(return_value=[])
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    mock_prisma_client.db.hangarllm_endusertable.find_many = AsyncMock(return_value=[])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     mocked_response = MagicMock(name="SpendAnalyticsPaginatedResponse")
     get_daily_activity_mock = AsyncMock(return_value=mocked_response)
     monkeypatch.setattr(customer_endpoints, "get_daily_activity", get_daily_activity_mock)
 
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin1")
+    auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin1")
     result = await get_customer_daily_activity(
         end_user_ids="end-user-1,end-user-2",
         start_date="2024-01-01",
@@ -625,7 +625,7 @@ async def test_get_customer_daily_activity_admin_param_passing(monkeypatch):
 
     get_daily_activity_mock.assert_awaited_once()
     kwargs = get_daily_activity_mock.call_args.kwargs
-    assert kwargs["table_name"] == "litellm_dailyenduserspend"
+    assert kwargs["table_name"] == "hangarllm_dailyenduserspend"
     assert kwargs["entity_id_field"] == "end_user_id"
     assert kwargs["entity_id"] == ["end-user-1", "end-user-2"]
     assert kwargs["exclude_entity_ids"] == ["end-user-3"]
@@ -641,9 +641,9 @@ async def test_get_customer_daily_activity_admin_param_passing(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_customer_daily_activity_with_end_user_aliases(monkeypatch):
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints import customer_endpoints
-    from litellm.proxy.management_endpoints.customer_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints import customer_endpoints
+    from hangarllm.proxy.management_endpoints.customer_endpoints import (
         get_customer_daily_activity,
     )
 
@@ -655,14 +655,14 @@ async def test_get_customer_daily_activity_with_end_user_aliases(monkeypatch):
     mock_end_user2.user_id = "end-user-2"
     mock_end_user2.alias = "Customer Two"
 
-    mock_prisma_client.db.litellm_endusertable.find_many = AsyncMock(return_value=[mock_end_user1, mock_end_user2])
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    mock_prisma_client.db.hangarllm_endusertable.find_many = AsyncMock(return_value=[mock_end_user1, mock_end_user2])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     mocked_response = MagicMock(name="SpendAnalyticsPaginatedResponse")
     get_daily_activity_mock = AsyncMock(return_value=mocked_response)
     monkeypatch.setattr(customer_endpoints, "get_daily_activity", get_daily_activity_mock)
 
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin1")
+    auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin1")
     await get_customer_daily_activity(
         end_user_ids="end-user-1,end-user-2",
         start_date="2024-01-01",
@@ -692,26 +692,26 @@ async def test_get_customer_daily_activity_non_admin_is_rejected(monkeypatch):
     user_role=INTERNAL_USER could omit end_user_ids, causing entity_id=None
     to flow into get_daily_activity where the SQL builder treats it as no
     filter — returning every tenant's spend across the full
-    LiteLLM_DailyEndUserSpend table.
+    HangarLLM_DailyEndUserSpend table.
 
-    LiteLLM_EndUserTable has no per-tenant ownership column, so non-admin
+    HangarLLM_EndUserTable has no per-tenant ownership column, so non-admin
     scoping is not possible. The correct fix is admin-only, matching the
     existing /customer/list gate.
     """
-    from litellm.proxy.management_endpoints import customer_endpoints
-    from litellm.proxy.management_endpoints.customer_endpoints import (
+    from hangarllm.proxy.management_endpoints import customer_endpoints
+    from hangarllm.proxy.management_endpoints.customer_endpoints import (
         get_customer_daily_activity,
     )
 
     mock_prisma_client = MagicMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     get_daily_activity_mock = AsyncMock()
     monkeypatch.setattr(customer_endpoints, "get_daily_activity", get_daily_activity_mock)
 
     non_admin_key = UserAPIKeyAuth(
         user_id="regular-user-abc",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
 
     with pytest.raises(HTTPException) as exc_info:
@@ -740,22 +740,22 @@ async def test_get_customer_daily_activity_service_account_key_is_rejected(monke
 
     A service-account key with end_user_ids omitted is the worst-case caller:
     entity_id=None and no user identity to scope by — the SQL builder would
-    return the full LiteLLM_DailyEndUserSpend table with no WHERE clause.
+    return the full HangarLLM_DailyEndUserSpend table with no WHERE clause.
     """
-    from litellm.proxy.management_endpoints import customer_endpoints
-    from litellm.proxy.management_endpoints.customer_endpoints import (
+    from hangarllm.proxy.management_endpoints import customer_endpoints
+    from hangarllm.proxy.management_endpoints.customer_endpoints import (
         get_customer_daily_activity,
     )
 
     mock_prisma_client = MagicMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     get_daily_activity_mock = AsyncMock()
     monkeypatch.setattr(customer_endpoints, "get_daily_activity", get_daily_activity_mock)
 
     service_account_key = UserAPIKeyAuth(
         user_id=None,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
 
     with pytest.raises(HTTPException) as exc_info:
@@ -796,7 +796,7 @@ _FULL_DB_ROW = {
     "models": ["allowed-model"],
     "budget_id": "b1",
     "object_permission_id": "p1",
-    "litellm_budget_table": {
+    "hangarllm_budget_table": {
         "budget_id": "b1",
         "max_budget": 10.0,
         "soft_budget": None,
@@ -841,7 +841,7 @@ _EXPECTED_CUSTOMER = {
     "default_model": None,
     "models": ["allowed-model"],
     "budget_id": "b1",
-    "litellm_budget_table": {
+    "hangarllm_budget_table": {
         "budget_id": "b1",
         "soft_budget": None,
         "max_budget": 10.0,
@@ -883,7 +883,7 @@ def _row(dump: dict) -> MagicMock:
 
 
 def test_char_info_body(mock_prisma_client, mock_user_api_key_auth):
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(return_value=_row(_FULL_DB_ROW))
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(return_value=_row(_FULL_DB_ROW))
     response = client.get("/customer/info?end_user_id=c1", headers={"Authorization": "Bearer k"})
     assert response.status_code == 200
     assert response.json() == _EXPECTED_CUSTOMER
@@ -893,7 +893,7 @@ def test_char_info_body(mock_prisma_client, mock_user_api_key_auth):
 def test_char_list_body(
     mock_prisma_client: MagicMock, mock_user_api_key_auth: None, path: str,
 ) -> None:
-    mock_prisma_client.db.litellm_endusertable.find_many = AsyncMock(return_value=[_row(_FULL_DB_ROW)])
+    mock_prisma_client.db.hangarllm_endusertable.find_many = AsyncMock(return_value=[_row(_FULL_DB_ROW)])
     response: Final = client.get(path, headers={"Authorization": "Bearer k"})
     assert response.status_code == 200
     assert response.json() == [_EXPECTED_CUSTOMER]
@@ -902,7 +902,7 @@ def test_char_list_body(
 class _CustomerListTable:
     def __init__(self) -> None:
         self.rows: Final = tuple(
-            LiteLLM_EndUserTable(user_id=f"customer-{i:04d}", alias=f"Title {i}", blocked=False)
+            HangarLLM_EndUserTable(user_id=f"customer-{i:04d}", alias=f"Title {i}", blocked=False)
             for i in reversed(range(251))
         )
         self.materialized_rows: tuple[int, ...] = ()
@@ -915,8 +915,8 @@ class _CustomerListTable:
         order: Mapping[str, str] | None = None,
         skip: int = 0,
         take: int | None = None,
-    ) -> tuple[LiteLLM_EndUserTable, ...]:
-        def customer_id(row: LiteLLM_EndUserTable) -> str:
+    ) -> tuple[HangarLLM_EndUserTable, ...]:
+        def customer_id(row: HangarLLM_EndUserTable) -> str:
             return row.user_id
 
         filtered: Final = tuple(row for row in self.rows if self._matches(row, where))
@@ -930,7 +930,7 @@ class _CustomerListTable:
 
     @staticmethod
     def _matches(
-        row: LiteLLM_EndUserTable,
+        row: HangarLLM_EndUserTable,
         where: Mapping[str, Sequence[Mapping[str, Mapping[str, str]]]] | None,
     ) -> bool:
         if not where:
@@ -950,16 +950,16 @@ class _CustomerListTable:
 
 @pytest.mark.parametrize("path", ["/customer/list", "/end_user/list"])
 @pytest.mark.parametrize(
-    "role", [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY]
+    "role", [HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY]
 )
 def test_customer_list_defaults_bound_database_reads(
     mock_prisma_client: MagicMock,
     mock_user_api_key_auth: None,
     path: str,
-    role: LitellmUserRoles,
+    role: HangarllmUserRoles,
 ) -> None:
     table: Final = _CustomerListTable()
-    mock_prisma_client.db.litellm_endusertable = table
+    mock_prisma_client.db.hangarllm_endusertable = table
 
     def authenticated_user() -> UserAPIKeyAuth:
         return UserAPIKeyAuth(user_id="admin", user_role=role)
@@ -977,7 +977,7 @@ def test_customer_list_pages_cover_the_directory_once(
     mock_prisma_client: MagicMock, mock_user_api_key_auth: None, path: str,
 ) -> None:
     table: Final = _CustomerListTable()
-    mock_prisma_client.db.litellm_endusertable = table
+    mock_prisma_client.db.hangarllm_endusertable = table
     responses: Final = tuple(client.get(path, params={"page": page, "page_size": 100}) for page in range(1, 5))
 
     for response in responses:
@@ -1002,7 +1002,7 @@ def test_customer_list_search_filters_before_pagination(
     path: str, search: str, page: int, expected: list[int],
 ) -> None:
     table: Final = _CustomerListTable()
-    mock_prisma_client.db.litellm_endusertable = table
+    mock_prisma_client.db.hangarllm_endusertable = table
     response: Final = client.get(path, params={"search": search, "page": page, "page_size": 3})
 
     assert response.status_code == 200, response.text
@@ -1016,7 +1016,7 @@ def test_customer_list_invalid_pagination_never_reads_database(
     mock_prisma_client: MagicMock, mock_user_api_key_auth: None, path: str, query: str,
 ) -> None:
     table: Final = _CustomerListTable()
-    mock_prisma_client.db.litellm_endusertable = table
+    mock_prisma_client.db.hangarllm_endusertable = table
     response: Final = client.get(f"{path}?{query}")
 
     assert table.materialized_rows == ()
@@ -1028,10 +1028,10 @@ def test_customer_list_non_admin_never_reads_database(
     mock_prisma_client: MagicMock, mock_user_api_key_auth: None, path: str,
 ) -> None:
     table: Final = _CustomerListTable()
-    mock_prisma_client.db.litellm_endusertable = table
+    mock_prisma_client.db.hangarllm_endusertable = table
 
     def authenticated_user() -> UserAPIKeyAuth:
-        return UserAPIKeyAuth(user_id="user", user_role=LitellmUserRoles.INTERNAL_USER)
+        return UserAPIKeyAuth(user_id="user", user_role=HangarllmUserRoles.INTERNAL_USER)
 
     app.dependency_overrides[user_api_key_auth] = authenticated_user
     response: Final = client.get(path)
@@ -1041,14 +1041,14 @@ def test_customer_list_non_admin_never_reads_database(
 
 
 def test_char_new_body(mock_prisma_client, mock_user_api_key_auth):
-    mock_prisma_client.db.litellm_endusertable.create = AsyncMock(return_value=_row(_FULL_DB_ROW))
+    mock_prisma_client.db.hangarllm_endusertable.create = AsyncMock(return_value=_row(_FULL_DB_ROW))
     response = client.post("/customer/new", json={"user_id": "c1"}, headers={"Authorization": "Bearer k"})
     assert response.status_code == 200
     assert response.json() == _EXPECTED_CUSTOMER
 
 
 def test_customer_new_forwards_models_to_db(mock_prisma_client, mock_user_api_key_auth):
-    mock_prisma_client.db.litellm_endusertable.create = AsyncMock(return_value=_row(_FULL_DB_ROW))
+    mock_prisma_client.db.hangarllm_endusertable.create = AsyncMock(return_value=_row(_FULL_DB_ROW))
 
     response = client.post(
         "/customer/new",
@@ -1057,7 +1057,7 @@ def test_customer_new_forwards_models_to_db(mock_prisma_client, mock_user_api_ke
     )
 
     assert response.status_code == 200, response.text
-    assert mock_prisma_client.db.litellm_endusertable.create.call_args.kwargs["data"]["models"] == ["allowed-model"]
+    assert mock_prisma_client.db.hangarllm_endusertable.create.call_args.kwargs["data"]["models"] == ["allowed-model"]
 
 
 @pytest.mark.parametrize("bad_duration", ["0s", "-5m"])
@@ -1066,7 +1066,7 @@ def test_customer_new_rejects_a_duration_that_never_advances(
 ):
     """A zero-length window resets to "now", leaving the customer's budget row
     permanently due for the reset job to re-read every tick."""
-    mock_prisma_client.db.litellm_endusertable.create = AsyncMock(return_value=_row(_FULL_DB_ROW))
+    mock_prisma_client.db.hangarllm_endusertable.create = AsyncMock(return_value=_row(_FULL_DB_ROW))
 
     response = client.post(
         "/customer/new",
@@ -1076,12 +1076,12 @@ def test_customer_new_rejects_a_duration_that_never_advances(
 
     assert response.status_code == 400, response.text
     assert "Invalid budget_duration" in response.text
-    mock_prisma_client.db.litellm_endusertable.create.assert_not_awaited()
+    mock_prisma_client.db.hangarllm_endusertable.create.assert_not_awaited()
 
 
 def test_customer_new_accepts_a_normal_duration(mock_prisma_client, mock_user_api_key_auth):
-    mock_prisma_client.db.litellm_endusertable.create = AsyncMock(return_value=_row(_FULL_DB_ROW))
-    mock_prisma_client.db.litellm_budgettable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_endusertable.create = AsyncMock(return_value=_row(_FULL_DB_ROW))
+    mock_prisma_client.db.hangarllm_budgettable.create = AsyncMock(
         return_value=_row({"budget_id": "b1", "max_budget": 10.0})
     )
 
@@ -1095,10 +1095,10 @@ def test_customer_new_accepts_a_normal_duration(mock_prisma_client, mock_user_ap
 
 
 def test_char_update_body(mock_prisma_client, mock_user_api_key_auth):
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(
         return_value=_row({"user_id": "c1", "blocked": False})
     )
-    mock_prisma_client.db.litellm_endusertable.update = AsyncMock(return_value=_row(_FULL_DB_ROW))
+    mock_prisma_client.db.hangarllm_endusertable.update = AsyncMock(return_value=_row(_FULL_DB_ROW))
     response = client.post(
         "/customer/update",
         json={"user_id": "c1", "alias": "Acme"},
@@ -1106,14 +1106,14 @@ def test_char_update_body(mock_prisma_client, mock_user_api_key_auth):
     )
     assert response.status_code == 200
     assert response.json() == _EXPECTED_CUSTOMER
-    assert "models" not in mock_prisma_client.db.litellm_endusertable.update.call_args.kwargs["data"]
+    assert "models" not in mock_prisma_client.db.hangarllm_endusertable.update.call_args.kwargs["data"]
 
 
 def test_customer_update_clears_models_allowlist(mock_prisma_client, mock_user_api_key_auth):
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(
         return_value=_row({"user_id": "c1", "blocked": False})
     )
-    mock_prisma_client.db.litellm_endusertable.update = AsyncMock(return_value=_row(_FULL_DB_ROW))
+    mock_prisma_client.db.hangarllm_endusertable.update = AsyncMock(return_value=_row(_FULL_DB_ROW))
 
     response = client.post(
         "/customer/update",
@@ -1122,19 +1122,19 @@ def test_customer_update_clears_models_allowlist(mock_prisma_client, mock_user_a
     )
 
     assert response.status_code == 200, response.text
-    assert mock_prisma_client.db.litellm_endusertable.update.call_args.kwargs["data"]["models"] == []
+    assert mock_prisma_client.db.hangarllm_endusertable.update.call_args.kwargs["data"]["models"] == []
 
 
 def test_customer_update_applies_nonempty_object_permission(mock_prisma_client, mock_user_api_key_auth):
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(
         return_value=_row({"user_id": "c1", "blocked": False, "object_permission_id": None})
     )
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(return_value=None)
     updated_permission = MagicMock()
     updated_permission.object_permission_id = "permission-1"
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert = AsyncMock(return_value=updated_permission)
-    mock_prisma_client.db.litellm_endusertable.update = AsyncMock(
-        return_value=LiteLLM_EndUserTable(user_id="c1", blocked=False, object_permission_id="permission-1")
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert = AsyncMock(return_value=updated_permission)
+    mock_prisma_client.db.hangarllm_endusertable.update = AsyncMock(
+        return_value=HangarLLM_EndUserTable(user_id="c1", blocked=False, object_permission_id="permission-1")
     )
 
     response = client.post(
@@ -1144,22 +1144,22 @@ def test_customer_update_applies_nonempty_object_permission(mock_prisma_client, 
     )
 
     assert response.status_code == 200, response.text
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert.assert_awaited_once()
-    permission_upsert = mock_prisma_client.db.litellm_objectpermissiontable.upsert.call_args.kwargs
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert.assert_awaited_once()
+    permission_upsert = mock_prisma_client.db.hangarllm_objectpermissiontable.upsert.call_args.kwargs
     assert permission_upsert["data"]["create"]["mcp_servers"] == ["s1"]
-    assert mock_prisma_client.db.litellm_endusertable.update.call_args.kwargs["data"]["object_permission_id"] == (
+    assert mock_prisma_client.db.hangarllm_endusertable.update.call_args.kwargs["data"]["object_permission_id"] == (
         "permission-1"
     )
 
 
 def test_char_delete_body(mock_prisma_client, mock_user_api_key_auth):
-    mock_prisma_client.db.litellm_endusertable.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_endusertable.find_many = AsyncMock(
         return_value=[
-            LiteLLM_EndUserTable(user_id="c1", blocked=False),
-            LiteLLM_EndUserTable(user_id="c2", blocked=False),
+            HangarLLM_EndUserTable(user_id="c1", blocked=False),
+            HangarLLM_EndUserTable(user_id="c2", blocked=False),
         ]
     )
-    mock_prisma_client.db.litellm_endusertable.delete_many = AsyncMock(return_value=2)
+    mock_prisma_client.db.hangarllm_endusertable.delete_many = AsyncMock(return_value=2)
     response = client.post(
         "/customer/delete",
         json={"user_ids": ["c1", "c2"]},
@@ -1188,9 +1188,9 @@ def _end_user_cache_doubles():
     recording_cache = _RecordingAuthCache()
     mock_publish = AsyncMock()
     with (
-        patch("litellm.proxy.proxy_server.user_api_key_cache", recording_cache),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", recording_cache),
         patch(
-            "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
+            "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
             mock_publish,
         ),
     ):
@@ -1209,7 +1209,7 @@ def test_customer_new_invalidates_end_user_and_registry_caches(mock_prisma_clien
     the row is read at all, so a create that leaves both entries stale means the new customer's
     budget or block goes unenforced until the TTL expires.
     """
-    mock_prisma_client.db.litellm_endusertable.create = AsyncMock(return_value=_row(_FULL_DB_ROW))
+    mock_prisma_client.db.hangarllm_endusertable.create = AsyncMock(return_value=_row(_FULL_DB_ROW))
 
     with _end_user_cache_doubles() as (recording_cache, mock_publish):
         response = client.post(
@@ -1225,10 +1225,10 @@ def test_customer_new_invalidates_end_user_and_registry_caches(mock_prisma_clien
 
 def test_customer_update_invalidates_end_user_and_registry_caches(mock_prisma_client, mock_user_api_key_auth):
     """An update can add or drop a budget, block, region or permission, moving the id in the registry."""
-    mock_prisma_client.db.litellm_endusertable.find_first = AsyncMock(
+    mock_prisma_client.db.hangarllm_endusertable.find_first = AsyncMock(
         return_value=_row({"user_id": "c1", "blocked": False})
     )
-    mock_prisma_client.db.litellm_endusertable.update = AsyncMock(return_value=_row(_FULL_DB_ROW))
+    mock_prisma_client.db.hangarllm_endusertable.update = AsyncMock(return_value=_row(_FULL_DB_ROW))
 
     with _end_user_cache_doubles() as (recording_cache, mock_publish):
         response = client.post(
@@ -1244,8 +1244,8 @@ def test_customer_update_invalidates_end_user_and_registry_caches(mock_prisma_cl
 
 def test_customer_block_invalidates_end_user_and_registry_caches(mock_prisma_client, mock_user_api_key_auth):
     """Blocking is the one mutation that must take effect instantly; a stale registry keeps serving it."""
-    mock_prisma_client.db.litellm_endusertable.upsert = AsyncMock(
-        return_value=LiteLLM_EndUserTable(user_id="c1", blocked=True)
+    mock_prisma_client.db.hangarllm_endusertable.upsert = AsyncMock(
+        return_value=HangarLLM_EndUserTable(user_id="c1", blocked=True)
     )
 
     with _end_user_cache_doubles() as (recording_cache, mock_publish):
@@ -1274,7 +1274,7 @@ def test_customer_block_success_serializes_db_model_instance(mock_prisma_client,
         blocked: bool
         spend: float | None = None
 
-    mock_prisma_client.db.litellm_endusertable.upsert = AsyncMock(
+    mock_prisma_client.db.hangarllm_endusertable.upsert = AsyncMock(
         return_value=MockPrismaEndUser(user_id="c1", blocked=True, spend=None)
     )
 
@@ -1293,13 +1293,13 @@ def test_customer_block_success_serializes_db_model_instance(mock_prisma_client,
 
 def test_customer_delete_invalidates_end_user_and_registry_caches(mock_prisma_client, mock_user_api_key_auth):
     """Without this a deleted customer keeps its cached budget and block enforced until the TTL expires."""
-    mock_prisma_client.db.litellm_endusertable.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_endusertable.find_many = AsyncMock(
         return_value=[
-            LiteLLM_EndUserTable(user_id="c1", blocked=False),
-            LiteLLM_EndUserTable(user_id="c2", blocked=False),
+            HangarLLM_EndUserTable(user_id="c1", blocked=False),
+            HangarLLM_EndUserTable(user_id="c2", blocked=False),
         ]
     )
-    mock_prisma_client.db.litellm_endusertable.delete_many = AsyncMock(return_value=2)
+    mock_prisma_client.db.hangarllm_endusertable.delete_many = AsyncMock(return_value=2)
 
     with _end_user_cache_doubles() as (recording_cache, mock_publish):
         response = client.post(

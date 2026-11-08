@@ -4,7 +4,7 @@ A virtual key may only call models in its allow-list and route groups in its
 allowed_routes; both denials are a 403 raised before any provider is touched. A
 syntactically valid request naming a non-existent model is a 400 with a JSON body,
 never forwarded and never a 5xx. Migrated from
-litellm-regression-tests/tests/test_access_control.py: the source asserted 401 for
+hangarllm-regression-tests/tests/test_access_control.py: the source asserted 401 for
 the disallowed-model case against an older proxy, but the current contract
 (auth_checks.py) is a 403 key_model_access_denied, and the unknown-route check is
 replaced by a stronger route-permission check (an llm-only key rejected from a
@@ -24,7 +24,7 @@ from access_control_client import (
 from e2e_config import unique_marker
 from e2e_http import Success, UnauthorizedError, UnknownApiError, unwrap
 from lifecycle import ResourceManager
-from models import ChatBody, ChatMessage, ChatResponse, EmbedBody, LiteLLMParamsBody
+from models import ChatBody, ChatMessage, ChatResponse, EmbedBody, HangarLLMParamsBody
 from proxy_client import ProxyClient
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 
@@ -189,7 +189,7 @@ class TestVirtualKeyAuth:
         model = f"e2e-auth-chat-{unique_marker()}"
         model_id = proxy.create_model(
             model,
-            LiteLLMParamsBody(model=VIRTUAL_KEY_BACKEND, api_key="os.environ/ANTHROPIC_API_KEY"),
+            HangarLLMParamsBody(model=VIRTUAL_KEY_BACKEND, api_key="os.environ/ANTHROPIC_API_KEY"),
         )
         resources.defer(lambda: proxy.delete_model(model_id))
         key = resources.key()

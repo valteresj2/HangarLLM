@@ -5,8 +5,8 @@ from types import MappingProxyType
 
 import pytest
 
-from litellm.proxy.list_api.in_memory import Cells, InMemoryListExecutor
-from litellm.proxy.list_api.list_framework import (
+from hangarllm.proxy.list_api.in_memory import Cells, InMemoryListExecutor
+from hangarllm.proxy.list_api.list_framework import (
     AnyOf,
     Compare,
     IsNull,

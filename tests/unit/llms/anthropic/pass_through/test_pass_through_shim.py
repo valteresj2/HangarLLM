@@ -4,8 +4,8 @@ from typing import Final
 
 import pytest
 
-OLD_PACKAGE: Final = "litellm.llms.anthropic.pass_through"
-NEW_PACKAGE: Final = "litellm.llms.anthropic.messages"
+OLD_PACKAGE: Final = "hangarllm.llms.anthropic.pass_through"
+NEW_PACKAGE: Final = "hangarllm.llms.anthropic.messages"
 
 
 def _forget_old_package(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -18,7 +18,7 @@ def test_old_deep_import_is_the_new_module_object_and_warns(monkeypatch: pytest.
     _forget_old_package(monkeypatch)
     with pytest.warns(DeprecationWarning, match=NEW_PACKAGE):
         old_handler: Final = importlib.import_module(f"{OLD_PACKAGE}.messages.handler")
-    from litellm.llms.anthropic.messages.native import handler as new_handler
+    from hangarllm.llms.anthropic.messages.native import handler as new_handler
 
     assert old_handler is new_handler
     assert sys.modules[f"{OLD_PACKAGE}.messages.handler"] is new_handler

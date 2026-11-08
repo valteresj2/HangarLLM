@@ -55,7 +55,7 @@ def _execution(*, body: JsonValue = None, markdown: str = "same", user_agent: st
 
 def test_parity_rejects_request_difference() -> None:
     python: Final = _execution(user_agent=SENTINEL)
-    rust: Final = _execution(body={"model": "different"}, user_agent="litellm-rust")
+    rust: Final = _execution(body={"model": "different"}, user_agent="hangarllm-rust")
 
     with pytest.raises(AssertionError):
         assert_parity(python, rust, SENTINEL)
@@ -63,7 +63,7 @@ def test_parity_rejects_request_difference() -> None:
 
 def test_parity_rejects_response_difference() -> None:
     python: Final = _execution(user_agent=SENTINEL)
-    rust: Final = _execution(markdown="different", user_agent="litellm-rust")
+    rust: Final = _execution(markdown="different", user_agent="hangarllm-rust")
 
     with pytest.raises(AssertionError):
         assert_parity(python, rust, SENTINEL)
@@ -71,7 +71,7 @@ def test_parity_rejects_response_difference() -> None:
 
 def test_parity_distinguishes_unobserved_callbacks_from_zero_events() -> None:
     python: Final = _execution(user_agent=SENTINEL)
-    rust: Final = _execution(user_agent="litellm-rust").model_copy(update={"callbacks": ()})
+    rust: Final = _execution(user_agent="hangarllm-rust").model_copy(update={"callbacks": ()})
 
     with pytest.raises(AssertionError, match=r"\$\.callbacks"):
         assert_parity(python, rust, SENTINEL)
@@ -83,14 +83,14 @@ def test_parity_rejects_callback_payload_difference() -> None:
         phase="success",
         model="test-model",
         call_type="ocr",
-        litellm_call_id="test-call",
+        hangarllm_call_id="test-call",
         metadata={"profile": "success"},
         kwargs={"model": "test-model"},
         payload={"model": "test-model", "pages": []},
         error=None,
     )
     python: Final = _execution(user_agent=SENTINEL).model_copy(update={"callbacks": (observation,)})
-    rust: Final = _execution(user_agent="litellm-rust").model_copy(
+    rust: Final = _execution(user_agent="hangarllm-rust").model_copy(
         update={"callbacks": (observation.model_copy(update={"payload": {"model": "changed", "pages": []}}),)}
     )
 
@@ -104,14 +104,14 @@ def test_parity_rejects_callback_kwargs_difference() -> None:
         phase="success",
         model="test-model",
         call_type="ocr",
-        litellm_call_id="test-call",
+        hangarllm_call_id="test-call",
         metadata={"profile": "success"},
         kwargs={"model": "test-model"},
         payload={"model": "test-model", "pages": []},
         error=None,
     )
     python: Final = _execution(user_agent=SENTINEL).model_copy(update={"callbacks": (observation,)})
-    rust: Final = _execution(user_agent="litellm-rust").model_copy(
+    rust: Final = _execution(user_agent="hangarllm-rust").model_copy(
         update={"callbacks": (observation.model_copy(update={"kwargs": {"model": "changed"}}),)}
     )
 
@@ -123,7 +123,7 @@ def test_parity_rejects_error_difference() -> None:
     python: Final = Execution(
         requests=(),
         report=SDKError(
-            exception_type="litellm.exceptions.BadRequestError",
+            exception_type="hangarllm.exceptions.BadRequestError",
             message="bad request",
             status_code=400,
             code=None,
@@ -160,8 +160,8 @@ def test_parity_rejects_rust_fallback() -> None:
 def test_model_parity_compares_public_values_and_ignores_private_attrs() -> None:
     python: Final = _ComparableResponse(value="same")
     rust: Final = _ComparableResponse(value="same")
-    python.set_hidden_param("litellm_call_id", "python-id")
-    rust.set_hidden_param("litellm_call_id", "rust-id")
+    python.set_hidden_param("hangarllm_call_id", "python-id")
+    rust.set_hidden_param("hangarllm_call_id", "rust-id")
 
     assert_model_parity(python, rust)
 

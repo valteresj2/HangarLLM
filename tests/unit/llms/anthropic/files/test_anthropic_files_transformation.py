@@ -18,14 +18,14 @@ from openai.types.file_deleted import FileDeleted
 from pydantic import ValidationError
 from unittest.mock import Mock, patch
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.anthropic.files.transformation import (
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.anthropic.files.transformation import (
     AnthropicFilesConfig,
     ANTHROPIC_FILES_API_BASE,
     ANTHROPIC_FILES_BETA_HEADER,
 )
-from litellm.types.llms.openai import OpenAIFileObject
-from litellm.types.utils import LlmProviders
+from hangarllm.types.llms.openai import OpenAIFileObject
+from hangarllm.types.utils import LlmProviders
 
 
 class TestAnthropicFilesConfig:
@@ -43,7 +43,7 @@ class TestAnthropicFilesConfig:
             api_key="test-key",
             model="",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/files"
 
@@ -53,7 +53,7 @@ class TestAnthropicFilesConfig:
             api_key="test-key",
             model="",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://custom.api.com/v1/files"
 
@@ -63,7 +63,7 @@ class TestAnthropicFilesConfig:
             api_key="test-key",
             model="",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://custom.api.com/v1/files"
 
@@ -74,7 +74,7 @@ class TestAnthropicFilesConfig:
             model="",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="sk-ant-test-key",
         )
         assert result["x-api-key"] == "sk-ant-test-key"
@@ -83,7 +83,7 @@ class TestAnthropicFilesConfig:
 
     @patch.dict("os.environ", {}, clear=True)
     @patch(
-        "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+        "hangarllm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
         return_value=None,
     )
     def test_validate_environment_missing_api_key(self, mock_get_key):
@@ -93,7 +93,7 @@ class TestAnthropicFilesConfig:
                 model="",
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
             )
 
@@ -105,7 +105,7 @@ class TestAnthropicFilesConfig:
             model="",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="sk-ant-test-key",
         )
         assert result["x-api-key"] == "sk-ant-test-key"
@@ -115,7 +115,7 @@ class TestAnthropicFilesConfig:
     @pytest.mark.asyncio
     @patch.dict("os.environ", {}, clear=True)
     @patch(
-        "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+        "hangarllm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
         return_value=None,
     )
     async def test_avalidate_environment_missing_api_key(self, mock_get_key):
@@ -125,7 +125,7 @@ class TestAnthropicFilesConfig:
                 model="",
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
             )
 
@@ -144,7 +144,7 @@ class TestAnthropicFilesConfig:
                 "purpose": "messages",
             },
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert "file" in result
@@ -162,7 +162,7 @@ class TestAnthropicFilesConfig:
                 model="",
                 create_file_data={"purpose": "messages"},
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
             )
 
     def test_transform_create_file_request_default_purpose(self):
@@ -171,7 +171,7 @@ class TestAnthropicFilesConfig:
             model="",
             create_file_data={"file": file_tuple},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert result["purpose"] == (None, "messages")
 
@@ -190,7 +190,7 @@ class TestAnthropicFilesConfig:
             model=None,
             raw_response=mock_response,
             logging_obj=Mock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert isinstance(result, OpenAIFileObject)
@@ -216,7 +216,7 @@ class TestAnthropicFilesConfig:
                 },
             ),
             logging_obj=Mock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert result == OpenAIFileObject(
@@ -237,14 +237,14 @@ class TestAnthropicFilesConfig:
                 model=None,
                 raw_response=httpx.Response(200, content=body),
                 logging_obj=Mock(),
-                litellm_params={},
+                hangarllm_params={},
             )
 
     def test_transform_retrieve_file_request(self):
         url, params = self.config.transform_retrieve_file_request(
             file_id="file-abc123",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/files/file-abc123"
         assert params == {}
@@ -253,7 +253,7 @@ class TestAnthropicFilesConfig:
         url, params = self.config.transform_retrieve_file_request(
             file_id="file-abc123",
             optional_params={},
-            litellm_params={"api_base": "https://custom.api.com"},
+            hangarllm_params={"api_base": "https://custom.api.com"},
         )
         assert url == "https://custom.api.com/v1/files/file-abc123"
         assert params == {}
@@ -262,7 +262,7 @@ class TestAnthropicFilesConfig:
         url, params = self.config.transform_retrieve_file_request(
             file_id="../../v1/messages/batches?limit=1#frag",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/files/..%2F..%2Fv1%2Fmessages%2Fbatches%3Flimit%3D1%23frag"
@@ -282,7 +282,7 @@ class TestAnthropicFilesConfig:
         result = self.config.transform_retrieve_file_response(
             raw_response=mock_response,
             logging_obj=Mock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert isinstance(result, OpenAIFileObject)
@@ -303,7 +303,7 @@ class TestAnthropicFilesConfig:
                 },
             ),
             logging_obj=Mock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert result == OpenAIFileObject(
@@ -323,14 +323,14 @@ class TestAnthropicFilesConfig:
             self.config.transform_retrieve_file_response(
                 raw_response=httpx.Response(200, content=body),
                 logging_obj=Mock(),
-                litellm_params={},
+                hangarllm_params={},
             )
 
     def test_transform_delete_file_request(self):
         url, params = self.config.transform_delete_file_request(
             file_id="file-abc123",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/files/file-abc123"
         assert params == {}
@@ -345,7 +345,7 @@ class TestAnthropicFilesConfig:
         result = self.config.transform_delete_file_response(
             raw_response=mock_response,
             logging_obj=Mock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert result.id == "file-abc123"
@@ -365,7 +365,7 @@ class TestAnthropicFilesConfig:
         result = self.config.transform_delete_file_response(
             raw_response=httpx.Response(200, json=payload),
             logging_obj=Mock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert result == FileDeleted(id=expected_id, deleted=True, object="file")
@@ -378,14 +378,14 @@ class TestAnthropicFilesConfig:
             self.config.transform_delete_file_response(
                 raw_response=httpx.Response(200, content=body),
                 logging_obj=Mock(),
-                litellm_params={},
+                hangarllm_params={},
             )
 
     def test_transform_list_files_request(self):
         url, params = self.config.transform_list_files_request(
             purpose=None,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/files"
         assert params == {}
@@ -394,7 +394,7 @@ class TestAnthropicFilesConfig:
         url, params = self.config.transform_list_files_request(
             purpose="messages",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/files"
         assert params == {"purpose": "messages"}
@@ -422,7 +422,7 @@ class TestAnthropicFilesConfig:
         result = self.config.transform_list_files_response(
             raw_response=mock_response,
             logging_obj=Mock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert len(result) == 2
@@ -437,7 +437,7 @@ class TestAnthropicFilesConfig:
         result = self.config.transform_list_files_response(
             raw_response=mock_response,
             logging_obj=Mock(),
-            litellm_params={},
+            hangarllm_params={},
         )
         assert result == []
 
@@ -445,7 +445,7 @@ class TestAnthropicFilesConfig:
         url, params = self.config.transform_file_content_request(
             file_content_request={"file_id": "file-abc123"},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/files/file-abc123/content"
         assert params == {}
@@ -462,7 +462,7 @@ class TestAnthropicFilesConfig:
         url, params = self.config.transform_file_content_request(
             file_content_request={"file_id": "msgbatch_01WA5hdsa2Xx8w4zyPjV1frs"},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/messages/batches/msgbatch_01WA5hdsa2Xx8w4zyPjV1frs/results"
         assert params == {}
@@ -471,7 +471,7 @@ class TestAnthropicFilesConfig:
         url, _ = self.config.transform_file_content_request(
             file_content_request={"file_id": "msgbatch_abc"},
             optional_params={},
-            litellm_params={"api_base": "https://custom.example.com/"},
+            hangarllm_params={"api_base": "https://custom.example.com/"},
         )
         assert url == "https://custom.example.com/v1/messages/batches/msgbatch_abc/results"
 
@@ -480,7 +480,7 @@ class TestAnthropicFilesConfig:
             self.config.transform_file_content_request(
                 file_content_request={"file_id": ".."},
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
             )
 
     def test_transform_file_content_response(self):
@@ -488,7 +488,7 @@ class TestAnthropicFilesConfig:
         result = self.config.transform_file_content_response(
             raw_response=mock_response,
             logging_obj=Mock(),
-            litellm_params={},
+            hangarllm_params={},
         )
         assert result.response == mock_response
 
@@ -590,9 +590,9 @@ class TestAnthropicFilesConfigWifAsyncSeam:
 
     @pytest.mark.asyncio
     async def test_avalidate_environment_wif_exchange_does_not_block_event_loop(self, monkeypatch):
-        from litellm.llms.anthropic import common_utils as anthropic_common_utils
-        from litellm.llms.anthropic.wif import aget_anthropic_wif_token, get_anthropic_wif_token
-        from litellm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
+        from hangarllm.llms.anthropic import common_utils as anthropic_common_utils
+        from hangarllm.llms.anthropic.wif import aget_anthropic_wif_token, get_anthropic_wif_token
+        from hangarllm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
 
         for name in (
             "ANTHROPIC_API_KEY",
@@ -608,12 +608,12 @@ class TestAnthropicFilesConfigWifAsyncSeam:
         engine = JwtBearerTokenExchangeEngine(poster=poster)
         sync_calls = []
 
-        def sync_shim(litellm_params, api_base, model):
+        def sync_shim(hangarllm_params, api_base, model):
             sync_calls.append(model)
-            return get_anthropic_wif_token(litellm_params, api_base, model, engine)
+            return get_anthropic_wif_token(hangarllm_params, api_base, model, engine)
 
-        async def async_shim(litellm_params, api_base, model):
-            return await aget_anthropic_wif_token(litellm_params, api_base, model, engine)
+        async def async_shim(hangarllm_params, api_base, model):
+            return await aget_anthropic_wif_token(hangarllm_params, api_base, model, engine)
 
         monkeypatch.setattr(anthropic_common_utils, "get_anthropic_wif_token", sync_shim)
         monkeypatch.setattr(anthropic_common_utils, "aget_anthropic_wif_token", async_shim)
@@ -634,7 +634,7 @@ class TestAnthropicFilesConfigWifAsyncSeam:
                 model="",
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
             )
         )
@@ -658,7 +658,7 @@ class TestProviderConfigRegistration:
     """Test that AnthropicFilesConfig is properly registered."""
 
     def test_provider_config_returns_anthropic_files_config(self):
-        from litellm.utils import ProviderConfigManager
+        from hangarllm.utils import ProviderConfigManager
 
         config = ProviderConfigManager.get_provider_files_config(
             model="",
@@ -675,11 +675,11 @@ def _listed_files(body: bytes) -> list[OpenAIFileObject]:
         stream=False,
         call_type="file_list",
         start_time=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-id",
+        hangarllm_call_id="call-id",
         function_id="function-id",
     )
     return AnthropicFilesConfig().transform_list_files_response(
-        raw_response=httpx.Response(200, content=body), logging_obj=logging_obj, litellm_params={}
+        raw_response=httpx.Response(200, content=body), logging_obj=logging_obj, hangarllm_params={}
     )
 
 

@@ -11,10 +11,10 @@ reservations, but a reservation is only enforced once the model is saturated.
   is blocked with the priority-flavored 429 while a key of a different priority,
   still inside its own reservation, is served (priority_strict.picks_under_tpm)
 
-The proxy under test must run with this config (and LITELLM_LICENSE set, since
+The proxy under test must run with this config (and HANGARLLM_LICENSE set, since
 priority reservation is a premium feature):
 
-    litellm_settings:
+    hangarllm_settings:
       callbacks: ["dynamic_rate_limiter_v3"]
       priority_reservation:
         prod: 0.5
@@ -48,7 +48,7 @@ from e2e_config import unique_marker
 from e2e_http import StreamingResponse, require_successful_call
 from e2e_metadata import Domain, Mode, Provider, Subject, meta
 from lifecycle import ResourceManager
-from models import KeyGenerateBody, KeyMetadata, LiteLLMParamsBody
+from models import KeyGenerateBody, KeyMetadata, HangarLLMParamsBody
 from quota_client import QuotaClient
 
 pytestmark = pytest.mark.e2e
@@ -65,7 +65,7 @@ WINDOW_MARGIN_SECONDS = 10
 STRICT_POLL_SPEND_CEILING = int(MODEL_TPM * 0.7)
 
 REQUIRED_CONFIG_HINT = (
-    "the proxy must run litellm_settings.callbacks=['dynamic_rate_limiter_v3'] with "
+    "the proxy must run hangarllm_settings.callbacks=['dynamic_rate_limiter_v3'] with "
     "priority_reservation {prod: 0.5, dev: 0.25} and priority_reservation_settings "
     "{saturation_threshold: 0.5, saturation_check_cache_ttl: 1}; see this module's docstring"
 )
@@ -101,7 +101,7 @@ def _dynamic_limited_model(client: QuotaClient, resources: ResourceManager, labe
     model = f"e2e-dynpri-{label}-{unique_marker()}"
     model_id = client.proxy.create_model(
         model,
-        LiteLLMParamsBody(model=BACKEND, api_key="os.environ/ANTHROPIC_API_KEY", tpm=MODEL_TPM),
+        HangarLLMParamsBody(model=BACKEND, api_key="os.environ/ANTHROPIC_API_KEY", tpm=MODEL_TPM),
     )
     resources.defer(lambda: client.proxy.delete_model(model_id))
 
@@ -249,9 +249,9 @@ class TestDynamicRateLimitPriority:
                 assert "Priority-based rate limit exceeded" in outcome.body, (
                     f"the saturated dev key must get the priority-flavored 429, got: {outcome.body[:300]}"
                 )
-                assert outcome.headers.get("x-litellm-priority") == DEV_PRIORITY, (
+                assert outcome.headers.get("x-hangarllm-priority") == DEV_PRIORITY, (
                     f"the 429 must attribute the blocked priority, headers: "
-                    f"{ {k: v for k, v in outcome.headers.items() if 'litellm' in k} }"
+                    f"{ {k: v for k, v in outcome.headers.items() if 'hangarllm' in k} }"
                 )
                 break
             require_successful_call(outcome)

@@ -270,11 +270,11 @@ class FailureModeGateways:
 
 def _failure_mode_config(directory: Path, mode: str, upstream_url: str) -> Path:
     config: Final = yaml.safe_load(PROXY_CONFIG.read_text())
-    config["litellm_settings"]["vector_store_search_failure_mode"] = mode
+    config["hangarllm_settings"]["vector_store_search_failure_mode"] = mode
     config["vector_store_registry"] = [
         {
             "vector_store_name": "audit-fail-store",
-            "litellm_params": {
+            "hangarllm_params": {
                 "vector_store_id": FAIL_STORE_ID,
                 "custom_llm_provider": "openai",
                 "api_base": f"{upstream_url}/auditnostore",

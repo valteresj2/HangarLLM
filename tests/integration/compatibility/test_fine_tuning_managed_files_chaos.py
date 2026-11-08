@@ -127,7 +127,7 @@ def _respond(request: Request) -> Reply:
 def _deployment(wire: Wire, key: str, routing: Mapping[str, JsonValue], model: str = MODEL) -> dict[str, JsonValue]:
     return {
         "model_name": model,
-        "litellm_params": {"model": "openai/gpt-4.1", "api_key": key, "api_base": f"{wire.url}/v1", **routing},
+        "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": key, "api_base": f"{wire.url}/v1", **routing},
         "model_info": {"supported_endpoints": ["/chat/completions", "/fine_tuning"]},
     }
 
@@ -141,7 +141,7 @@ def _config(wire: Wire, late_preferred_deployment: bool = False) -> dict[str, Js
             _deployment(wire, OTHER_DEPLOYMENT_KEY, {}, OTHER_MODEL),
         ],
         "router_settings": {"num_retries": 0, "disable_cooldowns": True},
-        "general_settings": {"master_key": "os.environ/LITELLM_MASTER_KEY", "database_url": "os.environ/DATABASE_URL"},
+        "general_settings": {"master_key": "os.environ/HANGARLLM_MASTER_KEY", "database_url": "os.environ/DATABASE_URL"},
     }
 
 

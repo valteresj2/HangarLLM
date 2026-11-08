@@ -33,7 +33,7 @@ class _Args:
     command: str = ""
     no_child: bool = False
     expect: str = ""
-    litellm_bin: str | None = None
+    hangarllm_bin: str | None = None
     lite_bin: str | None = None
     diagnostics_dir: str = ""
     ready_deadline: float = 120.0
@@ -114,11 +114,11 @@ def _run_cli(argv: Sequence[str], label: str) -> CheckResult:
 
 def cmd_cli(args: _Args) -> int:
     venv_bin: Final = Path(sys.executable).parent
-    litellm_bin: Final = Path(args.litellm_bin) if args.litellm_bin else venv_bin / "litellm"
+    hangarllm_bin: Final = Path(args.hangarllm_bin) if args.hangarllm_bin else venv_bin / "hangarllm"
     lite_bin: Final = Path(args.lite_bin) if args.lite_bin else venv_bin / "lite"
     commands: Final = (
-        ("import litellm", [sys.executable, "-c", "import litellm"]),
-        ("litellm --version", [str(litellm_bin), "--version"]),
+        ("import hangarllm", [sys.executable, "-c", "import hangarllm"]),
+        ("hangarllm --version", [str(hangarllm_bin), "--version"]),
         ("lite version", [str(lite_bin), "version"]),
     )
     for label, argv in commands:
@@ -139,12 +139,12 @@ def _free_port() -> int:
 
 _CONFIG_TEMPLATE: Final = """model_list:
   - model_name: smoke-model
-    litellm_params:
+    hangarllm_params:
       model: openai/smoke-model
       api_base: http://127.0.0.1:9/v1
       api_key: synthetic-key
 general_settings:
-  master_key: os.environ/LITELLM_MASTER_KEY
+  master_key: os.environ/HANGARLLM_MASTER_KEY
 """
 
 
@@ -215,7 +215,7 @@ def cmd_proxy_startup(args: _Args) -> int:
     diagnostics: Final = Path(args.diagnostics_dir)
     diagnostics.mkdir(parents=True, exist_ok=True)
     venv_bin: Final = Path(sys.executable).parent
-    litellm_bin: Final = Path(args.litellm_bin) if args.litellm_bin else venv_bin / "litellm"
+    hangarllm_bin: Final = Path(args.hangarllm_bin) if args.hangarllm_bin else venv_bin / "hangarllm"
     port: Final = _free_port()
     master_key: Final = "sk-smoke-" + secrets.token_hex(16)
     config_path: Final = diagnostics / "config.yaml"
@@ -232,12 +232,12 @@ def cmd_proxy_startup(args: _Args) -> int:
     log_file: Final = log_path.open("w")
     env: Final = {
         **os.environ,
-        "LITELLM_MASTER_KEY": master_key,
-        "LITELLM_LOCAL_MODEL_COST_MAP": "True",
+        "HANGARLLM_MASTER_KEY": master_key,
+        "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
     }
     started: Final = time.monotonic()
     proc: Final = subprocess.Popen(
-        [str(litellm_bin), "--config", str(config_path), "--host", "127.0.0.1", "--port", str(port)],
+        [str(hangarllm_bin), "--config", str(config_path), "--host", "127.0.0.1", "--port", str(port)],
         stdout=log_file,
         stderr=subprocess.STDOUT,
         start_new_session=True,
@@ -333,11 +333,11 @@ def main() -> int:
     p_interp: Final = subs.add_parser("interpreter")
     p_interp.add_argument("--expect", required=True)
     p_cli: Final = subs.add_parser("cli")
-    p_cli.add_argument("--litellm-bin", default=None)
+    p_cli.add_argument("--hangarllm-bin", default=None)
     p_cli.add_argument("--lite-bin", default=None)
     p_proxy: Final = subs.add_parser("proxy-startup")
     p_proxy.add_argument("--diagnostics-dir", required=True)
-    p_proxy.add_argument("--litellm-bin", default=None)
+    p_proxy.add_argument("--hangarllm-bin", default=None)
     p_proxy.add_argument("--ready-deadline", type=float, default=120)
     p_proxy.add_argument("--shutdown-deadline", type=float, default=20)
     p_proxy.add_argument("--poll-interval", type=float, default=0.5)

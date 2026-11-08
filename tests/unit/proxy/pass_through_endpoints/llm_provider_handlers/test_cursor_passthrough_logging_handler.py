@@ -5,11 +5,11 @@ import httpx
 import pytest
 
 
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.cursor_passthrough_logging_handler import (
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.cursor_passthrough_logging_handler import (
     CursorPassthroughLoggingHandler,
     _classify_cursor_request,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from hangarllm.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
 
@@ -86,7 +86,7 @@ class TestCursorPassthroughHandler:
         mock_response.text = '{"id": "bc_abc123"}'
 
         mock_logging_obj = MagicMock()
-        mock_logging_obj.litellm_call_id = "test-call-id"
+        mock_logging_obj.hangarllm_call_id = "test-call-id"
         mock_logging_obj.model_call_details = {}
 
         response_body = {

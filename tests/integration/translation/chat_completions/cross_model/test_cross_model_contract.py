@@ -35,7 +35,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from pydantic import JsonValue, TypeAdapter
 
 MESSAGES: Final = TypeAdapter(list[ChatCompletionMessageParam])
-CASE_IDS: Final = tuple(str(case.litellm_request["model"]) for case, _, _ in CASES)
+CASE_IDS: Final = tuple(str(case.hangarllm_request["model"]) for case, _, _ in CASES)
 
 
 def assert_upstream(provider: SharedProvider, case: StreamingTranslationTestCase) -> None:
@@ -63,7 +63,7 @@ def test_returned_assistant_message_and_tool_ids_replay_into_a_final_answer(
 ) -> None:
     response: Final = assert_translation(case, gateway, provider)
     tool_shape(response)
-    replay: Final = replace(followup, litellm_request=followup_request(case.litellm_request, response))
+    replay: Final = replace(followup, hangarllm_request=followup_request(case.hangarllm_request, response))
     final: Final = assert_translation(replay, gateway, provider)
     assert_final_text(final)
     reference: Final = assert_translation(reference_for(followup), gateway, provider)
@@ -75,7 +75,7 @@ def test_raw_agent_stream_preserves_tool_indexes_finish_reason_and_usage(
     case: StreamingTranslationTestCase, gateway: Gateway, provider: SharedProvider
 ) -> None:
     provider.expect(streaming_reply(case))
-    response: Final = gateway.request("POST", case.litellm_endpoint, case.litellm_request)
+    response: Final = gateway.request("POST", case.hangarllm_endpoint, case.hangarllm_request)
     assert_upstream(provider, case)
     assert response.status_code == 200, response.text
     frames: Final = parse_sse_frames(response.text)
@@ -133,7 +133,7 @@ def _finish_reasons(chunk: dict[str, JsonValue]) -> tuple[JsonValue, ...]:
 def test_openai_sdk_stream_helper_assembles_the_agent_tool_calls(
     case: StreamingTranslationTestCase, gateway: Gateway, provider: SharedProvider
 ) -> None:
-    model: Final = case.litellm_request["model"]
+    model: Final = case.hangarllm_request["model"]
     assert isinstance(model, str)
     provider.expect(streaming_reply(case))
     with OpenAI(
@@ -141,11 +141,11 @@ def test_openai_sdk_stream_helper_assembles_the_agent_tool_calls(
     ) as client:
         with client.chat.completions.stream(
             model=model,
-            messages=MESSAGES.validate_python(case.litellm_request["messages"]),
+            messages=MESSAGES.validate_python(case.hangarllm_request["messages"]),
             extra_body={
                 **{
                     key: value
-                    for key, value in case.litellm_request.items()
+                    for key, value in case.hangarllm_request.items()
                     if key not in ("model", "messages", "stream")
                 },
             },

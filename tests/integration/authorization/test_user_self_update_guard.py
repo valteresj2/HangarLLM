@@ -7,8 +7,8 @@ from integration._support.client import Gateway, object_value
 from integration._support.database import read_rows
 from pydantic import BaseModel, JsonValue
 
-from litellm.models.user import LiteLLM_UserTable
-from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
+from hangarllm.models.user import HangarLLM_UserTable
+from hangarllm.proxy.auth.auth_checks import ExperimentalUIJWTToken
 
 _SELF_SERVICE_ROUTES: Final = ("/user/update", "/user/bulk_update", "/user/new", "/user/info")
 
@@ -23,7 +23,7 @@ class _UserInfo(BaseModel):
 def _user_row(user_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
         "SELECT user_id, user_alias, user_role, max_budget, model_max_budget, spend, object_permission_id, user_email"
-        ' FROM "LiteLLM_UserTable" WHERE user_id=%s',
+        ' FROM "HangarLLM_UserTable" WHERE user_id=%s',
         (user_id,),
     )
 
@@ -163,11 +163,11 @@ def test_ui_session_token_cannot_update_own_protected_fields(
     field: str,
     value: JsonValue,
 ) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", os.environ.get("LITELLM_SALT_KEY", "sk-integration-salt"))
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", os.environ.get("HANGARLLM_SALT_KEY", "sk-integration-salt"))
     with gateway.scenario() as scenario:
         user_id: Final = scenario.user(user_role="internal_user", max_budget=10.0)
         token: Final = ExperimentalUIJWTToken.get_experimental_ui_login_jwt_auth_token(
-            LiteLLM_UserTable(user_id=user_id, user_role="internal_user", models=[])
+            HangarLLM_UserTable(user_id=user_id, user_role="internal_user", models=[])
         )
         self_info: Final = gateway.request("GET", "/user/info", params={"user_id": user_id}, key=token)
         assert self_info.status_code == 200, self_info.text

@@ -14,12 +14,12 @@ import pytest
 from mcp import MCPError
 from mcp.types import CONNECTION_CLOSED, ErrorData
 
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.proxy.mcp_server.exceptions import (
+from hangarllm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from hangarllm.proxy.mcp_server.exceptions import (
     MCPServerListError,
     MCPUpstreamAuthError,
 )
-from litellm.proxy.mcp_server.faults.list_outcomes import (
+from hangarllm.proxy.mcp_server.faults.list_outcomes import (
     ServerListFault,
     ServerListOk,
     classify_list_exception,
@@ -202,7 +202,7 @@ async def test_cancelled_fetch_propagates_instead_of_masquerading_as_a_healthy_e
     import asyncio
     from unittest.mock import MagicMock
 
-    from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+    from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
 
     manager = MCPServerManager()
     client = MagicMock()
@@ -230,8 +230,8 @@ async def test_client_side_cancelled_error_is_a_classified_fault_not_a_cancellat
     import asyncio
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.mcp_client.client import SESSION_CLEANUP_TIMEOUT_MESSAGE
-    from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+    from hangarllm.mcp_client.client import SESSION_CLEANUP_TIMEOUT_MESSAGE
+    from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
 
     manager = MCPServerManager()
     client = MagicMock()
@@ -247,7 +247,7 @@ def test_auth_challenge_and_status_come_from_the_causal_response():
     """An incidental 403 raised while handling the causal 401 (context chain) must not shadow it:
     the carrier channel and the challenge both derive from the response on the explicit causal
     chain, so the caller is challenged to authenticate rather than told it is forbidden."""
-    from litellm.proxy.mcp_server.faults.list_outcomes import upstream_auth_challenge
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import upstream_auth_challenge
 
     causal = httpx.HTTPStatusError(
         "auth",
@@ -277,7 +277,7 @@ def test_auth_challenge_and_status_come_from_the_causal_response():
 def test_raise_classified_list_failure_routes_auth_to_upstream_auth_error():
     """The single choice-point sends 401/403 through MCPUpstreamAuthError with the upstream's own
     challenge and everything else through MCPServerListError, so fetch sites cannot drift."""
-    from litellm.proxy.mcp_server.faults.list_outcomes import raise_classified_list_failure
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import raise_classified_list_failure
 
     auth_exc = httpx.HTTPStatusError(
         "auth",
@@ -302,7 +302,7 @@ def test_causal_auth_behind_unrelated_response_is_still_found():
     """The auth scan must not end at the first response of any status: a causal 401 sitting deeper
     in the tree than an unrelated 5xx (retry attempts, multi-stream task groups) must still surface
     with its challenge, or the client is told upstream_error and never re-authenticates."""
-    from litellm.proxy.mcp_server.faults.list_outcomes import upstream_auth_challenge
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import upstream_auth_challenge
 
     deep_auth = httpx.HTTPStatusError(
         "auth",
@@ -381,7 +381,7 @@ def test_pure_non_auth_response_still_classifies_upstream_error():
 def test_managed_scope_step_up_only_accepts_unambiguous_bearer_challenges(status, challenge, expected, client):
     import httpx2
 
-    from litellm.proxy.mcp_server.faults.list_outcomes import upstream_insufficient_scope
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import upstream_insufficient_scope
 
     transport = httpx if client == "httpx" else httpx2
     response = transport.Response(status, headers={"www-authenticate": challenge}, request=transport.Request("POST", "https://peer.test/mcp"))
@@ -403,7 +403,7 @@ def _rate_limited_error(retry_after: str | None = None) -> httpx.HTTPStatusError
 
 @pytest.mark.asyncio
 async def test_retry_upstream_rate_limit_backs_off_then_reraises() -> None:
-    from litellm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
 
     sleeps: Final[list[float]] = []
     calls: Final[list[httpx.HTTPStatusError]] = []
@@ -435,7 +435,7 @@ async def test_retry_upstream_rate_limit_backs_off_then_reraises() -> None:
 
 @pytest.mark.asyncio
 async def test_retry_upstream_rate_limit_honors_retry_after_up_to_cap() -> None:
-    from litellm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
 
     sleeps: Final[list[float]] = []
 
@@ -464,7 +464,7 @@ async def test_retry_upstream_rate_limit_parses_http_date_retry_after() -> None:
     import email.utils
     import time
 
-    from litellm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
 
     sleeps: Final[list[float]] = []
     attempts: Final[list[None]] = []
@@ -495,7 +495,7 @@ async def test_retry_upstream_rate_limit_parses_http_date_retry_after() -> None:
 
 @pytest.mark.asyncio
 async def test_retry_upstream_rate_limit_passes_through_non_429() -> None:
-    from litellm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
 
     sleeps: Final[list[float]] = []
     calls = 0
@@ -522,7 +522,7 @@ async def test_retry_upstream_rate_limit_passes_through_non_429() -> None:
 
 @pytest.mark.asyncio
 async def test_retry_upstream_rate_limit_negative_max_retries_is_a_single_attempt() -> None:
-    from litellm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
 
     sleeps: Final[list[float]] = []
     calls = 0
@@ -555,7 +555,7 @@ async def test_retry_upstream_rate_limit_negative_max_retries_is_a_single_attemp
 
 @pytest.mark.asyncio
 async def test_retry_deadline_skips_sleep_that_would_pass_deadline() -> None:
-    from litellm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
 
     now: Final[list[float]] = [100.0]
     sleeps: Final[list[float]] = []
@@ -593,7 +593,7 @@ async def test_retry_deadline_skips_sleep_that_would_pass_deadline() -> None:
 async def test_retry_attempt_is_interrupted_at_deadline() -> None:
     import anyio
 
-    from litellm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
 
     calls = 0
     failure: Final = _rate_limited_error("0")
@@ -619,7 +619,7 @@ async def test_retry_attempt_is_interrupted_at_deadline() -> None:
 async def test_retry_deadline_does_not_bound_first_attempt() -> None:
     import anyio
 
-    from litellm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
 
     async def slow() -> str:
         await anyio.sleep(0.15)
@@ -636,7 +636,7 @@ async def test_retry_deadline_does_not_bound_first_attempt() -> None:
 async def test_retry_upstream_rate_limit_never_retries_cancellation() -> None:
     import asyncio
 
-    from litellm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import retry_upstream_rate_limit
 
     sleeps: Final[list[float]] = []
     calls = 0
@@ -659,7 +659,7 @@ async def test_retry_upstream_rate_limit_never_retries_cancellation() -> None:
 
 
 def test_listing_failed_outright_only_when_every_server_faulted_non_auth() -> None:
-    from litellm.proxy.mcp_server.faults.list_outcomes import (
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import (
         ServerListOk,
         listing_failed_outright,
     )

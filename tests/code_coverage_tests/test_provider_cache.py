@@ -25,7 +25,7 @@ from urllib.parse import urlsplit
 import pytest
 from pydantic import JsonValue, TypeAdapter
 from e2e_http import NetworkError, PreparedForward, RawResponse, StreamChunk, StreamHead, forward, prepare_forward, without_retries
-from models import LiteLLMParamsBody, ModelMode, ModelNewBody
+from models import HangarLLMParamsBody, ModelMode, ModelNewBody
 from botocore.credentials import Credentials
 from botocore.eventstream import EventStreamBuffer
 from fixture_bundle import slug_for_test
@@ -618,17 +618,17 @@ def test_a_registration_carries_its_owners_segment_unless_it_is_provider_live(
     proxy: Final = build_proxy_client(base_url=url, control_plane_base_url=url, replica_urls=(url,), master_key="owner")
     try:
         with without_retries(), pytest.raises(AssertionError):
-            proxy.create_model("owned", LiteLLMParamsBody(model="openai/synthetic"), provider_live=provider_live)
+            proxy.create_model("owned", HangarLLMParamsBody(model="openai/synthetic"), provider_live=provider_live)
     finally:
         configured_cache.cache_clear()
     ((path, body),) = provider.hits
     assert path == "/model/new"
     sent: Final = ModelNewBody.model_validate_json(body)
     if provider_live:
-        assert sent.litellm_params.api_base is None
+        assert sent.hangarllm_params.api_base is None
         return
-    assert sent.litellm_params.api_base is not None
-    assert sent.litellm_params.api_base.endswith(f"/openai/t/{slug_for_test(current_test_key())}/v1")
+    assert sent.hangarllm_params.api_base is not None
+    assert sent.hangarllm_params.api_base.endswith(f"/openai/t/{slug_for_test(current_test_key())}/v1")
 
 
 OWNER_PROBE: Final = """
@@ -1113,7 +1113,7 @@ def test_anthropic_stream_requires_start_finish_and_stop() -> None:
 
 @pytest.mark.parametrize("provider,suffix", [("openai", "/v1"), ("anthropic", "")])
 def test_normal_registration_routes_supported_providers(provider: str, suffix: str) -> None:
-    params: Final = LiteLLMParamsBody(model=f"{provider}/test", api_key="os.environ/SYNTHETIC_KEY", timeout=12)
+    params: Final = HangarLLMParamsBody(model=f"{provider}/test", api_key="os.environ/SYNTHETIC_KEY", timeout=12)
     routed: Final = route_cache_model(params, lambda mount: f"http://edge.invalid/{mount}", enabled=True)
     assert routed.api_base == f"http://edge.invalid/{provider}{suffix}"
     assert routed.model_dump(exclude={"api_base"}) == params.model_dump(exclude={"api_base"})
@@ -1121,14 +1121,14 @@ def test_normal_registration_routes_supported_providers(provider: str, suffix: s
 
 
 @pytest.mark.parametrize("params", [
-    LiteLLMParamsBody(model="bedrock/test"),
-    LiteLLMParamsBody(model="azure/test"),
-    LiteLLMParamsBody(model="openai/test", api_base="https://custom.invalid/v1"),
-    LiteLLMParamsBody(model="openai/test", api_base=""),
-    LiteLLMParamsBody(model="openai/test", litellm_credential_name="named-credential"),
-    LiteLLMParamsBody(model="openai/test", mock_response="synthetic"),
+    HangarLLMParamsBody(model="bedrock/test"),
+    HangarLLMParamsBody(model="azure/test"),
+    HangarLLMParamsBody(model="openai/test", api_base="https://custom.invalid/v1"),
+    HangarLLMParamsBody(model="openai/test", api_base=""),
+    HangarLLMParamsBody(model="openai/test", hangarllm_credential_name="named-credential"),
+    HangarLLMParamsBody(model="openai/test", mock_response="synthetic"),
 ])
-def test_registration_preserves_unsupported_or_explicit_routes(params: LiteLLMParamsBody) -> None:
+def test_registration_preserves_unsupported_or_explicit_routes(params: HangarLLMParamsBody) -> None:
     def unexpected_edge(mount: str) -> str:
         pytest.fail(f"should not start edge for {mount}")
     assert route_cache_model(params, unexpected_edge, enabled=True) is params
@@ -1149,7 +1149,7 @@ def test_anthropic_on_bedrock_registers_the_edge_as_its_runtime_endpoint(model: 
     `os.environ/AWS_REGION`, which only the proxy can resolve. Treating that
     string as a region name would leave the whole Anthropic-on-Bedrock surface
     off the edge, which is the point of mounting it at all."""
-    params: Final = LiteLLMParamsBody(model=model, aws_region_name=region)
+    params: Final = HangarLLMParamsBody(model=model, aws_region_name=region)
     routed: Final = route_cache_model(params, lambda mount: f"http://edge.invalid/{mount}", enabled=True)
     assert routed.aws_bedrock_runtime_endpoint == "http://edge.invalid/bedrock/us-east-1"
     assert routed.api_base is None
@@ -1159,24 +1159,24 @@ def test_anthropic_on_bedrock_registers_the_edge_as_its_runtime_endpoint(model: 
 
 
 @pytest.mark.parametrize("params", [
-    LiteLLMParamsBody(model="bedrock/amazon.titan-embed-text-v2:0"),
-    LiteLLMParamsBody(model="bedrock/amazon.nova-canvas-v1:0"),
-    LiteLLMParamsBody(model="bedrock/amazon.nova-sonic-v1:0"),
-    LiteLLMParamsBody(model="bedrock/arn:aws:bedrock:us-east-1::foundation-model/cohere.rerank-v3-5:0"),
-    LiteLLMParamsBody(model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0", aws_role_name="arn:aws:iam::1:role/x"),
-    LiteLLMParamsBody(model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0", aws_access_key_id="AKIA"),
-    LiteLLMParamsBody(model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0", api_base="https://custom.invalid"),
-    LiteLLMParamsBody(
+    HangarLLMParamsBody(model="bedrock/amazon.titan-embed-text-v2:0"),
+    HangarLLMParamsBody(model="bedrock/amazon.nova-canvas-v1:0"),
+    HangarLLMParamsBody(model="bedrock/amazon.nova-sonic-v1:0"),
+    HangarLLMParamsBody(model="bedrock/arn:aws:bedrock:us-east-1::foundation-model/cohere.rerank-v3-5:0"),
+    HangarLLMParamsBody(model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0", aws_role_name="arn:aws:iam::1:role/x"),
+    HangarLLMParamsBody(model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0", aws_access_key_id="AKIA"),
+    HangarLLMParamsBody(model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0", api_base="https://custom.invalid"),
+    HangarLLMParamsBody(
         model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
         aws_bedrock_runtime_endpoint="https://custom.invalid",
     ),
-    LiteLLMParamsBody(model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0", aws_region_name="eu-west-1"),
-    LiteLLMParamsBody(model="bedrock/anthropic.claude-sonnet-5", aws_region_name="os.environ/AWS_REGION"),
-    LiteLLMParamsBody(model="bedrock/invoke/eu.anthropic.claude-sonnet-5", aws_region_name="os.environ/AWS_REGION"),
-    LiteLLMParamsBody(model="bedrock/us.anthropic.claude-opus-4-5", aws_region_name="us-east-1"),
-    LiteLLMParamsBody(model="bedrock/converse/us.anthropic.claude-haiku-9-9", aws_region_name="us-east-1"),
+    HangarLLMParamsBody(model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0", aws_region_name="eu-west-1"),
+    HangarLLMParamsBody(model="bedrock/anthropic.claude-sonnet-5", aws_region_name="os.environ/AWS_REGION"),
+    HangarLLMParamsBody(model="bedrock/invoke/eu.anthropic.claude-sonnet-5", aws_region_name="os.environ/AWS_REGION"),
+    HangarLLMParamsBody(model="bedrock/us.anthropic.claude-opus-4-5", aws_region_name="us-east-1"),
+    HangarLLMParamsBody(model="bedrock/converse/us.anthropic.claude-haiku-9-9", aws_region_name="us-east-1"),
 ])
-def test_bedrock_deployments_the_edge_must_not_touch_keep_their_direct_route(params: LiteLLMParamsBody) -> None:
+def test_bedrock_deployments_the_edge_must_not_touch_keep_their_direct_route(params: HangarLLMParamsBody) -> None:
     """Non-Anthropic models the runner role cannot invoke, deployments carrying
     their own AWS identity (routing those would replace the assume-role chain the
     batch suite exists to prove), explicit endpoints, unmounted regions, and a
@@ -1215,14 +1215,14 @@ def test_every_model_on_the_edge_allowlist_is_a_cross_region_profile() -> None:
 
 @pytest.mark.parametrize("mode", ["batch", "realtime", "image_generation"])
 def test_a_bedrock_deployment_with_a_mode_keeps_its_direct_route(mode: ModelMode) -> None:
-    params: Final = LiteLLMParamsBody(model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0")
+    params: Final = HangarLLMParamsBody(model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0")
     assert route_cache_model(
         params, lambda mount: f"http://edge.invalid/{mount}", enabled=True, mode=mode,
     ) is params
 
 
 def test_rollback_and_live_only_policy_keep_direct_provider_route() -> None:
-    params: Final = LiteLLMParamsBody(model="openai/test")
+    params: Final = HangarLLMParamsBody(model="openai/test")
     assert route_cache_model(params, lambda _: "http://edge.invalid", enabled=False) is params
     assert route_cache_model(params, lambda _: "http://edge.invalid", enabled=True, mode="realtime") is params
     token: Final = LIVE_PROVIDER_REQUIRED.set(True)
@@ -1390,7 +1390,7 @@ class TestBedrockStreams:
 
     def test_a_converse_stream_that_lost_its_usage_is_not_recordable(self) -> None:
         """ConverseStream names its stop reason a frame before it reports usage,
-        and litellm prices the call from that usage, so a stream cut between the
+        and hangarllm prices the call from that usage, so a stream cut between the
         two would replay as a free call."""
         without_metadata: Final = (
             eventstream_event("messageStart", {"role": "assistant"})

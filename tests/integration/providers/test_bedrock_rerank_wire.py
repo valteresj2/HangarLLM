@@ -51,7 +51,7 @@ def test_forwarded_client_header_on_rerank_is_excluded_from_the_sigv4_signature(
         "AWS_CONFIG_FILE": str(empty),
         "AWS_SHARED_CREDENTIALS_FILE": str(empty),
         "AWS_EC2_METADATA_DISABLED": "true",
-        "LITELLM_RUST": "false",
+        "HANGARLLM_RUST": "false",
     }
     with wire_server(rerank_peer) as wire:
         with (

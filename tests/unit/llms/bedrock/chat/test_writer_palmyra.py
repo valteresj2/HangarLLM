@@ -7,7 +7,7 @@ import pytest
 
 
 
-from litellm.llms.bedrock.common_utils import BedrockModelInfo
+from hangarllm.llms.bedrock.common_utils import BedrockModelInfo
 
 
 def test_writer_palmyra_routes_to_converse():

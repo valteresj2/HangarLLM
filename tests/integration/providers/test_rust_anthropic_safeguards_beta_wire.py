@@ -103,7 +103,7 @@ def shared_rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
         wire_server(outage_peer(outage)) as wire,
     ):
         config: Final = owned_config(directory, environment, wire.url)
-        with owned_proxy_process(environment, directory, {"LITELLM_RUST": "true"}, config=config, workers=2) as owned:
+        with owned_proxy_process(environment, directory, {"HANGARLLM_RUST": "true"}, config=config, workers=2) as owned:
             eventually(
                 lambda: started_workers(owned.log),
                 lambda pids: len(pids) == 2,
@@ -122,7 +122,7 @@ def rig(shared_rig: _Rig) -> _Rig:
 
 def _spend_rows(call_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s',
+        'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s',
         (call_id,),
     )
 
@@ -166,8 +166,8 @@ def test_sdk_messages_with_safeguards_go_upstream_with_the_dangerous_tool_use_be
         DANGEROUS_TOOL_USE,
     ), sent
     assert sent.safeguards == list(SAFEGUARDS), sent
-    assert "x-litellm-call-id" in raw.headers, dict(raw.headers)
-    call_id: Final = raw.headers["x-litellm-call-id"]
+    assert "x-hangarllm-call-id" in raw.headers, dict(raw.headers)
+    call_id: Final = raw.headers["x-hangarllm-call-id"]
     rows: Final = eventually(lambda: _spend_rows(call_id), lambda found: len(found) == 1, seconds=70)
     assert len(rows) == 1, rows
 

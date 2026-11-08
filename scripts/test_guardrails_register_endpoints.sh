@@ -4,14 +4,14 @@
 # Requires: proxy running with DB (migrations applied), valid admin API key.
 #
 # Usage:
-#   export LITELLM_API_KEY="sk-..."   # required, use an admin key
+#   export HANGARLLM_API_KEY="sk-..."   # required, use an admin key
 #   ./scripts/test_guardrails_register_endpoints.sh
-#   BASE_URL=http://localhost:4000 LITELLM_API_KEY="sk-..." ./scripts/test_guardrails_register_endpoints.sh
+#   BASE_URL=http://localhost:4000 HANGARLLM_API_KEY="sk-..." ./scripts/test_guardrails_register_endpoints.sh
 #
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:4000}"
-API_KEY="${LITELLM_API_KEY:-}"
+API_KEY="${HANGARLLM_API_KEY:-}"
 
 if ! command -v jq &>/dev/null; then
   echo "Error: jq is required. Install with: brew install jq (macOS) or apt-get install jq (Linux)"
@@ -19,7 +19,7 @@ if ! command -v jq &>/dev/null; then
 fi
 
 if [[ -z "$API_KEY" ]]; then
-  echo "Error: LITELLM_API_KEY is not set. Use an admin key to test list/approve/reject."
+  echo "Error: HANGARLLM_API_KEY is not set. Use an admin key to test list/approve/reject."
   exit 1
 fi
 
@@ -39,7 +39,7 @@ REGISTER_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/guardrails/re
   -H "Content-Type: application/json" \
   -d "{
     \"guardrail_name\": \"$NAME_APPROVE\",
-    \"litellm_params\": {
+    \"hangarllm_params\": {
       \"guardrail\": \"generic_guardrail_api\",
       \"mode\": \"pre_call\",
       \"api_base\": \"https://guardrails.example.com/validate\"
@@ -63,7 +63,7 @@ REJECT_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/guardrails/regi
   -H "Content-Type: application/json" \
   -d "{
     \"guardrail_name\": \"$NAME_REJECT\",
-    \"litellm_params\": {
+    \"hangarllm_params\": {
       \"guardrail\": \"generic_guardrail_api\",
       \"mode\": \"post_call\",
       \"api_base\": \"https://guardrails.example.com/reject-test\"

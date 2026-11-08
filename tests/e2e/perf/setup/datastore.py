@@ -47,23 +47,23 @@ _INFO: Final = TypeAdapter(dict[str, object])
 _INT: Final = TypeAdapter(int)
 _MONITOR_LINE: Final = TypeAdapter(dict[str, object])
 
-_TABLE: Final = re.compile(r'"(LiteLLM_\w+)"')
+_TABLE: Final = re.compile(r'"(HangarLLM_\w+)"')
 _AWAITED_TABLES: Final = frozenset(
     {
-        "LiteLLM_VerificationToken",
-        "LiteLLM_UserTable",
-        "LiteLLM_TeamTable",
-        "LiteLLM_TeamMembership",
-        "LiteLLM_OrganizationTable",
-        "LiteLLM_OrganizationMembership",
-        "LiteLLM_EndUserTable",
-        "LiteLLM_BudgetTable",
-        "LiteLLM_ObjectPermissionTable",
+        "HangarLLM_VerificationToken",
+        "HangarLLM_UserTable",
+        "HangarLLM_TeamTable",
+        "HangarLLM_TeamMembership",
+        "HangarLLM_OrganizationTable",
+        "HangarLLM_OrganizationMembership",
+        "HangarLLM_EndUserTable",
+        "HangarLLM_BudgetTable",
+        "HangarLLM_ObjectPermissionTable",
     }
 )
 _PLUMBING_VERBS: Final = frozenset({"BEGIN", "COMMIT", "ROLLBACK", "DEALLOCATE", "SET", "SHOW"})
 _REDIS_READS: Final = frozenset({"GET", "MGET", "HGET", "HGETALL", "EXISTS", "TTL", "PTTL"})
-_REDIS_NAMESPACE: Final = "litellm.caching:"
+_REDIS_NAMESPACE: Final = "hangarllm.caching:"
 _REDIS_WRITES: Final = frozenset(
     {"SET", "SETEX", "DEL", "EXPIRE", "INCRBYFLOAT", "INCR", "RPUSH", "LPUSH", "LPOP", "RPOP", "LTRIM", "HSET", "SADD"}
 )
@@ -127,7 +127,7 @@ class RedisCommand:
         invalidations (PUBLISH, DEL), the spend buffers the pods flush and any other write happen after the
         response or on a timer. Reads on keys these rules do not know stay unclassified and count in neither."""
         key: Final = self.key.removeprefix(_REDIS_NAMESPACE)
-        if key.startswith(("litellm_config:", "daily_", "cronjob_lock:", "litellm_spend", "litellm_daily")):
+        if key.startswith(("hangarllm_config:", "daily_", "cronjob_lock:", "hangarllm_spend", "hangarllm_daily")):
             return "background"
         if self.inside_script or self.command in {"EVALSHA", "EVAL"}:
             return "awaited"

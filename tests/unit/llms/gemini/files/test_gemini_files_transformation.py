@@ -7,8 +7,8 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-from litellm.llms.gemini.files.transformation import GoogleAIStudioFilesHandler
-from litellm.types.llms.openai import OpenAIFileObject
+from hangarllm.llms.gemini.files.transformation import GoogleAIStudioFilesHandler
+from hangarllm.types.llms.openai import OpenAIFileObject
 
 
 class TestGoogleAIStudioFilesTransformation:
@@ -23,17 +23,17 @@ class TestGoogleAIStudioFilesTransformation:
         Test that transform_retrieve_file_request returns empty params dict
         to avoid 'Content-Type' query parameter error
 
-        Regression test for: https://github.com/BerriAI/litellm/issues/XXX
+        Regression test for: https://github.com/valteresj2/HangarLLM/issues/XXX
         When retrieving a file, the API was incorrectly trying to pass Content-Type
         as a query parameter, which Gemini API rejected.
         """
         file_id = "https://generativelanguage.googleapis.com/v1beta/files/test123"
-        litellm_params = {"api_key": "test-api-key"}
+        hangarllm_params = {"api_key": "test-api-key"}
 
         url, params = self.handler.transform_retrieve_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         # API key is passed via x-goog-api-key header, not in URL
@@ -52,12 +52,12 @@ class TestGoogleAIStudioFilesTransformation:
         Test that transform_retrieve_file_request handles file_id without full URI
         """
         file_id = "files/test123"
-        litellm_params = {"api_key": "test-api-key"}
+        hangarllm_params = {"api_key": "test-api-key"}
 
         url, params = self.handler.transform_retrieve_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         # API key is passed via x-goog-api-key header, not in URL
@@ -78,12 +78,12 @@ class TestGoogleAIStudioFilesTransformation:
         credentials in httpx error tracebacks.
         """
         file_id = "cctqueckiggb"
-        litellm_params = {"api_key": "test-api-key"}
+        hangarllm_params = {"api_key": "test-api-key"}
 
         url, params = self.handler.transform_retrieve_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         assert (
@@ -94,12 +94,12 @@ class TestGoogleAIStudioFilesTransformation:
 
     def test_transform_retrieve_file_request_encodes_file_id_path_segment(self):
         file_id = "files/../../models/gemini-pro?x=1#frag"
-        litellm_params = {"api_key": "test-api-key"}
+        hangarllm_params = {"api_key": "test-api-key"}
 
         url, params = self.handler.transform_retrieve_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         assert (
@@ -113,21 +113,21 @@ class TestGoogleAIStudioFilesTransformation:
             self.handler.transform_retrieve_file_request(
                 file_id="files/..",
                 optional_params={},
-                litellm_params={"api_key": "test-api-key"},
+                hangarllm_params={"api_key": "test-api-key"},
             )
 
     @patch.dict("os.environ", {}, clear=True)
-    @patch("litellm.llms.gemini.common_utils.get_secret_str", return_value=None)
+    @patch("hangarllm.llms.gemini.common_utils.get_secret_str", return_value=None)
     def test_transform_retrieve_file_request_missing_api_key(self, mock_get_secret):
         """Test that transform_retrieve_file_request raises error when API key is missing"""
         file_id = "files/test123"
-        litellm_params = {}
+        hangarllm_params = {}
 
         with pytest.raises(ValueError, match="api_key is required"):
             self.handler.transform_retrieve_file_request(
                 file_id=file_id,
                 optional_params={},
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
             )
 
     def test_transform_retrieve_file_response_success(self):
@@ -157,7 +157,7 @@ class TestGoogleAIStudioFilesTransformation:
         result = self.handler.transform_retrieve_file_response(
             raw_response=mock_response,
             logging_obj=mock_logging_obj,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         # Verify transformation
@@ -190,7 +190,7 @@ class TestGoogleAIStudioFilesTransformation:
         result = self.handler.transform_retrieve_file_response(
             raw_response=mock_response,
             logging_obj=mock_logging_obj,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         # Verify error state handling
@@ -217,7 +217,7 @@ class TestGoogleAIStudioFilesTransformation:
         result = self.handler.transform_retrieve_file_response(
             raw_response=mock_response,
             logging_obj=mock_logging_obj,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         # PROCESSING state should map to "uploaded" status
@@ -248,7 +248,7 @@ class TestGoogleAIStudioFilesTransformation:
             self.handler.transform_retrieve_file_response(
                 raw_response=mock_response,
                 logging_obj=mock_logging_obj,
-                litellm_params={},
+                hangarllm_params={},
             )
 
     def test_validate_environment(self):
@@ -261,7 +261,7 @@ class TestGoogleAIStudioFilesTransformation:
             model="gemini-pro",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=api_key,
         )
 
@@ -270,7 +270,7 @@ class TestGoogleAIStudioFilesTransformation:
         assert result_headers["x-goog-api-key"] == api_key
 
     @patch.dict("os.environ", {}, clear=True)
-    @patch("litellm.llms.gemini.common_utils.get_secret_str", return_value=None)
+    @patch("hangarllm.llms.gemini.common_utils.get_secret_str", return_value=None)
     def test_validate_environment_missing_api_key(self, mock_get_secret):
         """Test that validate_environment raises error when API key is missing"""
         headers = {}
@@ -284,7 +284,7 @@ class TestGoogleAIStudioFilesTransformation:
                 model="gemini-pro",
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
             )
 
@@ -298,7 +298,7 @@ class TestGoogleAIStudioFilesTransformation:
             api_key=api_key,
             model="gemini-pro",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         # Verify URL structure - API key must NOT be in URL
@@ -309,7 +309,7 @@ class TestGoogleAIStudioFilesTransformation:
     def test_transform_delete_file_request_with_full_uri(self):
         """Test delete file request transformation with full URI"""
         file_id = "https://generativelanguage.googleapis.com/v1beta/files/test123"
-        litellm_params = {
+        hangarllm_params = {
             "api_key": "test-api-key",
             "api_base": "https://generativelanguage.googleapis.com",
         }
@@ -317,7 +317,7 @@ class TestGoogleAIStudioFilesTransformation:
         url, params = self.handler.transform_delete_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         assert url == "https://generativelanguage.googleapis.com/v1beta/files/test123"
@@ -328,7 +328,7 @@ class TestGoogleAIStudioFilesTransformation:
     def test_transform_delete_file_request_with_file_name_only(self):
         """Test delete file request transformation with file name only"""
         file_id = "files/test123"
-        litellm_params = {
+        hangarllm_params = {
             "api_key": "test-api-key",
             "api_base": "https://generativelanguage.googleapis.com",
         }
@@ -336,7 +336,7 @@ class TestGoogleAIStudioFilesTransformation:
         url, params = self.handler.transform_delete_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         # Verify URL construction
@@ -346,7 +346,7 @@ class TestGoogleAIStudioFilesTransformation:
 
     def test_transform_delete_file_request_encodes_file_id_path_segment(self):
         file_id = "files/../../models/gemini-pro?x=1#frag"
-        litellm_params = {
+        hangarllm_params = {
             "api_key": "test-api-key",
             "api_base": "https://generativelanguage.googleapis.com",
         }
@@ -354,7 +354,7 @@ class TestGoogleAIStudioFilesTransformation:
         url, params = self.handler.transform_delete_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         assert (

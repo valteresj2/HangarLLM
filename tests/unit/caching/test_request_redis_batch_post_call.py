@@ -16,29 +16,29 @@ import pytest
 
 from tests.unit.redis.stores.spend_counters_double import FakeSpendCounters
 
-import litellm
-from litellm.caching.caching import Cache
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_batch import (
+import hangarllm
+from hangarllm.caching.caching import Cache
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.caching.redis_batch import (
     active_post_call_redis_batch,
     drain_post_call_redis_batches,
     flush_post_call_redis_batches,
     request_redis_batch_scope,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarllmLogging
+from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
     ParallelSlotAcquisition,
     PROXY_MaxParallelRequestsHandler_v3,
     RequestRateLimiterStash,
 )
-from litellm.proxy.spend_tracking.spend_counter_batch import PendingSpendIncrement
-from litellm.proxy.utils import InternalUsageCache
-from litellm.redis.stores.rate_limits import CounterIncrement, RateLimitScope
-from litellm.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2
-from litellm.types.caching import RedisPipelineIncrementOperation
-from litellm.types.utils import ModelResponse
+from hangarllm.proxy.spend_tracking.spend_counter_batch import PendingSpendIncrement
+from hangarllm.proxy.utils import InternalUsageCache
+from hangarllm.redis.stores.rate_limits import CounterIncrement, RateLimitScope
+from hangarllm.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2
+from hangarllm.types.caching import RedisPipelineIncrementOperation
+from hangarllm.types.utils import ModelResponse
 from tests.unit.redis.stores.fake_rate_limits import FakeRateLimits
 
 from .test_redis_batch import FakeClient, FakeNatives, FakeRedisCache, fake_send
@@ -143,10 +143,10 @@ def _tpm_kwargs() -> Mapping[str, object]:
         "standard_logging_object": {
             "model_group": "gpt",
             "model_id": "dep-a",
-            "hidden_params": {"litellm_model_name": "openai/gpt-4o-mini"},
+            "hidden_params": {"hangarllm_model_name": "openai/gpt-4o-mini"},
             "total_tokens": 42,
         },
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
     }
 
 
@@ -386,18 +386,18 @@ async def test_the_success_handler_closes_the_post_call_batch_after_the_last_cal
             await dual_cache.async_increment_cache_post_call("counted", 1, ttl=None)
             pipelines_seen_by_callbacks.append(len(client.pipelines))
 
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    logging_obj = LitellmLogging(
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [])
+    logging_obj = HangarllmLogging(
         model="test-model",
         messages=[],
         stream=False,
         call_type="completion",
         start_time=datetime.datetime.now(),
-        litellm_call_id="post-call",
+        hangarllm_call_id="post-call",
         function_id="post-call",
         dynamic_async_success_callbacks=[Counter(), Counter()],
     )
-    logging_obj.update_environment_variables(litellm_params={"metadata": {}}, optional_params={})
+    logging_obj.update_environment_variables(hangarllm_params={"metadata": {}}, optional_params={})
     payload = {
         "id": "post-call",
         "call_type": "completion",
@@ -415,7 +415,7 @@ async def test_the_success_handler_closes_the_post_call_batch_after_the_last_cal
 
 @pytest.mark.asyncio
 async def test_spend_counter_increments_ride_the_native_post_call_batch(monkeypatch):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     natives = FakeNatives()
     spend = FakeSpendCounters(redis={"spend:key:k1": 7.0})

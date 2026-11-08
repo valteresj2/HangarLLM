@@ -202,7 +202,7 @@ async def _wait_for_received(peer: _Peer, expected: int) -> None:
 
 def _failure_rows(model: str, expected: int) -> None:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= expected,
         seconds=60,
     )
@@ -217,7 +217,7 @@ def _converse(scenario: Scenario, wire: Wire, **extra: JsonValue) -> str:
 def _deployment(name: str, wire: Wire, timeout: int | None) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": _CONVERSE_MODEL,
             "api_base": wire.url,
             **_AWS,

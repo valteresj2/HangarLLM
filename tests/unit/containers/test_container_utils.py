@@ -2,15 +2,15 @@
 import pytest
 
 
-import litellm
-from litellm.containers.utils import (
+import hangarllm
+from hangarllm.containers.utils import (
     ContainerRequestUtils,
     decode_managed_container_id_for_request,
 )
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.router import GenericLiteLLMParams
-from litellm.llms.openai.containers.transformation import OpenAIContainerConfig
-from litellm.types.containers.main import (
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.llms.openai.containers.transformation import OpenAIContainerConfig
+from hangarllm.types.containers.main import (
     ContainerCreateOptionalRequestParams,
     ContainerListOptionalRequestParams,
     DeleteContainerFileResponse,
@@ -232,13 +232,13 @@ class TestContainerRequestUtils:
             container_id=inner,
         )
         assert len(managed) > len(inner)
-        litellm_params: GenericLiteLLMParams = GenericLiteLLMParams()
+        hangarllm_params: GenericHangarLLMParams = GenericHangarLLMParams()
         original_id, provider, updated = decode_managed_container_id_for_request(
-            managed, "openai", litellm_params
+            managed, "openai", hangarllm_params
         )
         assert original_id == inner
         assert provider == "openai"
-        assert updated is litellm_params
+        assert updated is hangarllm_params
 
 
 class TestDeleteContainerFileResponseWireFormat:

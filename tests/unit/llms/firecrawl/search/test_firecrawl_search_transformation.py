@@ -2,8 +2,8 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.firecrawl.search.transformation import FirecrawlSearchConfig
+from hangarllm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from hangarllm.llms.firecrawl.search.transformation import FirecrawlSearchConfig
 
 
 def _transform(payload: object) -> SearchResponse:

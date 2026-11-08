@@ -25,13 +25,13 @@ test("CLI SSO login stores a session that lists models and completes a chat requ
   const env = {
     ...process.env,
     HOME: home,
-    LITELLM_CLI_DISABLE_KEYRING: "1",
+    HANGARLLM_CLI_DISABLE_KEYRING: "1",
     BROWSER: browserCommand,
     PYTHONUNBUFFERED: "1",
     FORCE_COLOR: undefined,
     NO_COLOR: "1",
-    LITELLM_PROXY_URL: baseURL,
-    LITELLM_PROXY_API_KEY: undefined,
+    HANGARLLM_PROXY_URL: baseURL,
+    HANGARLLM_PROXY_API_KEY: undefined,
   };
   const login = spawn(LITE_CLI, ["login"], { env });
   let loginOutput = "";
@@ -61,7 +61,7 @@ test("CLI SSO login stores a session that lists models and completes a chat requ
 
     expect(await loginExit, loginOutput).toBe(0);
     expect(loginOutput).toContain("Login successful!");
-    const stored: { key?: unknown } = JSON.parse(fs.readFileSync(path.join(home, ".litellm", "token.json"), "utf8"));
+    const stored: { key?: unknown } = JSON.parse(fs.readFileSync(path.join(home, ".hangarllm", "token.json"), "utf8"));
     expect(typeof stored.key).toBe("string");
     expect(stored.key, "CLI login issues a session token, not a virtual key").not.toMatch(/^sk-/);
 

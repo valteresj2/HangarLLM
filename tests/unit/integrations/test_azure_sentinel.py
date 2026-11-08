@@ -11,10 +11,10 @@ import pytest
 from httpx import Request, Response
 from pydantic import BaseModel, computed_field
 
-from litellm.integrations.azure_sentinel.azure_sentinel import AzureSentinelLogger
-from litellm.llms.custom_httpx.http_handler import MaskedHTTPStatusError
-from litellm.types.integrations.azure_sentinel import AZURE_SENTINEL_MAX_PAYLOAD_SIZE_BYTES
-from litellm.types.utils import StandardAuditLogPayload, StandardLoggingPayload
+from hangarllm.integrations.azure_sentinel.azure_sentinel import AzureSentinelLogger
+from hangarllm.llms.custom_httpx.http_handler import MaskedHTTPStatusError
+from hangarllm.types.integrations.azure_sentinel import AZURE_SENTINEL_MAX_PAYLOAD_SIZE_BYTES
+from hangarllm.types.utils import StandardAuditLogPayload, StandardLoggingPayload
 
 
 def _close_periodic_flush_task(coro):
@@ -121,7 +121,7 @@ async def test_azure_sentinel_queues_audit_log_event():
         changed_by="user-1",
         changed_by_api_key="sk-test",
         action="created",
-        table_name="LiteLLM_TeamTable",
+        table_name="HangarLLM_TeamTable",
         object_id="team-1",
         before_value=None,
         updated_values='{"team_alias": "sentinel-demo"}',
@@ -156,7 +156,7 @@ async def test_azure_sentinel_sends_audit_log_payload_to_ingestion_api():
         changed_by="user-1",
         changed_by_api_key="sk-test",
         action="created",
-        table_name="LiteLLM_TeamTable",
+        table_name="HangarLLM_TeamTable",
         object_id="team-1",
         before_value=None,
         updated_values='{"team_alias": "sentinel-demo"}',
@@ -190,7 +190,7 @@ async def test_azure_sentinel_sends_audit_log_payload_to_ingestion_api():
     body = json.loads(api_call_args.kwargs["data"].decode("utf-8"))
     assert body == [audit_log]
     assert "dcr-test123456789" in api_call_args.kwargs["url"]
-    assert "Custom-LiteLLM" in api_call_args.kwargs["url"]
+    assert "Custom-HangarLLM" in api_call_args.kwargs["url"]
     assert len(logger.audit_log_queue) == 0
 
 
@@ -200,8 +200,8 @@ async def test_azure_sentinel_flushes_standard_and_audit_logs_separately():
     with patch("asyncio.create_task", side_effect=_close_periodic_flush_task):
         logger = AzureSentinelLogger(
             dcr_immutable_id="dcr-test123456789",
-            stream_name="Custom-LiteLLM-Standard",
-            audit_stream_name="Custom-LiteLLM-Audit",
+            stream_name="Custom-HangarLLM-Standard",
+            audit_stream_name="Custom-HangarLLM-Audit",
             endpoint="https://test-dce.eastus-1.ingest.monitor.azure.com",
             tenant_id="test-tenant-id",
             client_id="test-client-id",
@@ -222,7 +222,7 @@ async def test_azure_sentinel_flushes_standard_and_audit_logs_separately():
         changed_by="user-1",
         changed_by_api_key="sk-test",
         action="created",
-        table_name="LiteLLM_TeamTable",
+        table_name="HangarLLM_TeamTable",
         object_id="team-1",
         before_value=None,
         updated_values='{"team_alias": "sentinel-demo"}',
@@ -262,11 +262,11 @@ async def test_azure_sentinel_flushes_standard_and_audit_logs_separately():
     assert len(ingestion_calls) == 2
 
     standard_call, audit_call = ingestion_calls
-    assert "Custom-LiteLLM-Standard" in standard_call.kwargs["url"]
+    assert "Custom-HangarLLM-Standard" in standard_call.kwargs["url"]
     assert json.loads(standard_call.kwargs["data"].decode("utf-8")) == [
         standard_payload
     ]
-    assert "Custom-LiteLLM-Audit" in audit_call.kwargs["url"]
+    assert "Custom-HangarLLM-Audit" in audit_call.kwargs["url"]
     assert json.loads(audit_call.kwargs["data"].decode("utf-8")) == [audit_log]
 
 
@@ -274,8 +274,8 @@ async def test_azure_sentinel_flushes_standard_and_audit_logs_separately():
 async def test_azure_sentinel_audit_stream_name_from_env_var(monkeypatch):
     """Audit stream resolves from AZURE_SENTINEL_AUDIT_STREAM_NAME when the string
     callback constructs the logger with no audit_stream_name argument."""
-    monkeypatch.setenv("AZURE_SENTINEL_STREAM_NAME", "Custom-LiteLLM-Standard")
-    monkeypatch.setenv("AZURE_SENTINEL_AUDIT_STREAM_NAME", "Custom-LiteLLM-Audit")
+    monkeypatch.setenv("AZURE_SENTINEL_STREAM_NAME", "Custom-HangarLLM-Standard")
+    monkeypatch.setenv("AZURE_SENTINEL_AUDIT_STREAM_NAME", "Custom-HangarLLM-Audit")
 
     with patch("asyncio.create_task", side_effect=_close_periodic_flush_task):
         logger = AzureSentinelLogger(
@@ -286,9 +286,9 @@ async def test_azure_sentinel_audit_stream_name_from_env_var(monkeypatch):
             client_secret="test-client-secret",
         )
 
-    assert logger.audit_stream_name == "Custom-LiteLLM-Audit"
-    assert "streams/Custom-LiteLLM-Audit" in logger.audit_api_endpoint
-    assert "streams/Custom-LiteLLM-Standard" in logger.api_endpoint
+    assert logger.audit_stream_name == "Custom-HangarLLM-Audit"
+    assert "streams/Custom-HangarLLM-Audit" in logger.audit_api_endpoint
+    assert "streams/Custom-HangarLLM-Standard" in logger.api_endpoint
 
     with patch("asyncio.create_task", side_effect=_close_periodic_flush_task):
         explicit_logger = AzureSentinelLogger(
@@ -297,10 +297,10 @@ async def test_azure_sentinel_audit_stream_name_from_env_var(monkeypatch):
             tenant_id="test-tenant-id",
             client_id="test-client-id",
             client_secret="test-client-secret",
-            audit_stream_name="Custom-LiteLLM-Explicit",
+            audit_stream_name="Custom-HangarLLM-Explicit",
         )
 
-    assert explicit_logger.audit_stream_name == "Custom-LiteLLM-Explicit"
+    assert explicit_logger.audit_stream_name == "Custom-HangarLLM-Explicit"
 
 
 def _build_logger(**overrides):
@@ -443,7 +443,7 @@ def _audit_payloads(count, filler_bytes=0):
             changed_by="user-1",
             changed_by_api_key="sk-test",
             action="created",
-            table_name="LiteLLM_TeamTable",
+            table_name="HangarLLM_TeamTable",
             object_id="team-1",
             before_value=None,
             updated_values=json.dumps({"team_alias": "x" * filler_bytes}),
@@ -490,7 +490,7 @@ def _too_large(*, raised):
 
 
 def _rejected(status_code, *, raised):
-    """litellm's http handler calls raise_for_status, so a real rejection arrives raised, not returned."""
+    """hangarllm's http handler calls raise_for_status, so a real rejection arrives raised, not returned."""
     request = Request("POST", "https://example.com")
     response = Response(status_code, request=request, text=f"rejected with {status_code}")
     if raised:
@@ -536,7 +536,7 @@ async def test_azure_sentinel_splits_a_batch_that_would_exceed_the_ingestion_cap
 async def test_azure_sentinel_halves_the_batch_on_413(queue_attr, send_method, build_payloads, raised):
     """A 413 the size estimate did not predict must halve the batch and retry, not drop it.
 
-    litellm's http handler raises MaskedHTTPStatusError on a 4xx, so the raised path is the one
+    hangarllm's http handler raises MaskedHTTPStatusError on a 4xx, so the raised path is the one
     a real Azure Monitor 413 takes, and both are covered here.
     """
     logger = _build_logger()

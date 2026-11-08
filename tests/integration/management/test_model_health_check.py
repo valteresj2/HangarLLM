@@ -210,7 +210,7 @@ def test_background_health_results_are_scoped_to_the_key_models(gateway: Gateway
             "model_list": [
                 {
                     "model_name": public_a,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": provider_model_a,
                         "api_base": f"{wire_a.url}/v1",
                         "api_key": api_key_a,
@@ -219,7 +219,7 @@ def test_background_health_results_are_scoped_to_the_key_models(gateway: Gateway
                 },
                 {
                     "model_name": public_b,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": provider_model_b,
                         "api_base": f"{wire_b.url}/v1",
                         "api_key": api_key_b,
@@ -294,7 +294,7 @@ def test_decisions_mode_health_check_resolves_the_mode_from_the_cost_map_and_sen
                 f"/{handle.scenario_id}/v1/decisions",
                 {
                     "model": "pplx-decider-v1-27b",
-                    "state": os.environ.get("DEFAULT_HEALTH_CHECK_PROMPT", "test from litellm"),
+                    "state": os.environ.get("DEFAULT_HEALTH_CHECK_PROMPT", "test from hangarllm"),
                     "questions": {"reachable": {"type": "noul", "instructions": "Is the service reachable?"}},
                 },
             )
@@ -317,7 +317,7 @@ def test_extraction_mode_health_check_resolves_the_mode_from_the_cost_map_and_se
                 f"/{handle.scenario_id}/ai/run/@cf/cloudflare/clairic",
                 {
                     "model": "clairic",
-                    "state": os.environ.get("DEFAULT_HEALTH_CHECK_PROMPT", "test from litellm"),
+                    "state": os.environ.get("DEFAULT_HEALTH_CHECK_PROMPT", "test from hangarllm"),
                     "fields": {"reachable": {"type": "text", "instructions": "Any word from the text"}},
                 },
             )
@@ -363,7 +363,7 @@ def test_decisions_mode_health_check_of_the_self_hosted_strands_model_resolves_t
                 f"/{handle.scenario_id}/v1/systemone",
                 {
                     "model": "strands-decider-2B-hobson-v19",
-                    "state": os.environ.get("DEFAULT_HEALTH_CHECK_PROMPT", "test from litellm"),
+                    "state": os.environ.get("DEFAULT_HEALTH_CHECK_PROMPT", "test from hangarllm"),
                     "questions": {"reachable": {"type": "noul", "instructions": "Is the service reachable?"}},
                 },
             )
@@ -417,7 +417,7 @@ def _create_team_health_deployment(
         "/model/new",
         {
             "model_name": public_model_name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": api_key,
                 "api_base": f"{upstream_url}/v1",
@@ -807,7 +807,7 @@ def _create_health_connection_deployment(
         "/model/new",
         {
             "model_name": public_model_name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{provider_model}",
                 "api_base": api_base,
                 "api_key": api_key,
@@ -895,8 +895,8 @@ def _health_connection_response(
             assert content_type == "audio/x-wav", files
             expected_audio: Final = (
                 Path(__file__).resolve().parents[3]
-                / "litellm"
-                / "litellm_core_utils"
+                / "hangarllm"
+                / "hangarllm_core_utils"
                 / "audio_utils"
                 / "audio_health_check.wav"
             ).read_bytes()
@@ -921,12 +921,12 @@ def _health_connection_response(
             elif request.target == "/v1/embeddings":
                 assert body == {
                     "model": model,
-                    "input": ["test from litellm"],
+                    "input": ["test from hangarllm"],
                 }, request.body.decode()
             elif request.target == "/v1/images/generations":
-                assert body == {"model": model, "prompt": "test from litellm"}, request.body.decode()
+                assert body == {"model": model, "prompt": "test from hangarllm"}, request.body.decode()
             elif request.target == "/v1/responses":
-                assert body == {"model": model, "input": "test from litellm"}, request.body.decode()
+                assert body == {"model": model, "input": "test from hangarllm"}, request.body.decode()
             else:
                 assert body in (
                     {
@@ -973,10 +973,10 @@ def test_health_test_connection_modes_use_stored_credentials_and_reject_environm
                     "POST",
                     "/health/test_connection",
                     {
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": model,
                             "api_base": base,
-                            "litellm_credential_name": mode_credential_name,
+                            "hangarllm_credential_name": mode_credential_name,
                         },
                         "mode": mode,
                     },
@@ -1024,10 +1024,10 @@ def test_health_test_connection_modes_use_stored_credentials_and_reject_environm
                 "POST",
                 "/health/test_connection",
                 {
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": configured_model,
                         "api_base": submitted_base,
-                        "litellm_credential_name": configured_credential_name,
+                        "hangarllm_credential_name": configured_credential_name,
                         "temperature": 0.2,
                     },
                     "model_info": {"mode": "chat"},
@@ -1064,7 +1064,7 @@ def test_health_test_connection_modes_use_stored_credentials_and_reject_environm
                 "POST",
                 "/health/test_connection",
                 {
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": configured_model,
                         "api_base": submitted_base,
                         "api_key": "os.environ/X",
@@ -1084,7 +1084,7 @@ def test_health_test_connection_modes_use_stored_credentials_and_reject_environm
                 "POST",
                 "/health/test_connection",
                 {
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": configured_model,
                         "api_base": submitted_base,
                     },
@@ -1133,7 +1133,7 @@ def test_health_test_connection_uses_model_info_id_for_duplicate_provider_models
                 api_key=api_key_b,
             )
             model: Final = f"openai/{provider_model}"
-            request_body: Final = {"litellm_params": {"model": model}}
+            request_body: Final = {"hangarllm_params": {"model": model}}
 
             response_a: Final = gateway.request(
                 "POST",
@@ -1233,10 +1233,10 @@ def test_health_test_connection_non_chat_modes_do_not_receive_chat_max_tokens(
                 "POST",
                 "/health/test_connection",
                 {
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": model,
                         "api_base": api_base,
-                        "litellm_credential_name": credential_name,
+                        "hangarllm_credential_name": credential_name,
                     },
                     "mode": mode,
                 },
@@ -1254,12 +1254,12 @@ def test_health_test_connection_non_chat_modes_do_not_receive_chat_max_tokens(
             if mode == "embedding":
                 assert JSON_OBJECT.validate_json(request.body) == {
                     "model": provider_model,
-                    "input": ["test from litellm"],
+                    "input": ["test from hangarllm"],
                 }, response.text
             elif mode == "image_generation":
                 assert JSON_OBJECT.validate_json(request.body) == {
                     "model": provider_model,
-                    "prompt": "test from litellm",
+                    "prompt": "test from hangarllm",
                 }, response.text
             else:
                 parts: Final = _multipart_parts(request)
@@ -1274,8 +1274,8 @@ def test_health_test_connection_non_chat_modes_do_not_receive_chat_max_tokens(
                     "audio/x-wav",
                     (
                         Path(__file__).resolve().parents[3]
-                        / "litellm"
-                        / "litellm_core_utils"
+                        / "hangarllm"
+                        / "hangarllm_core_utils"
                         / "audio_utils"
                         / "audio_health_check.wav"
                     ).read_bytes(),
@@ -1298,7 +1298,7 @@ def test_evaluation_mode_health_check_of_hosted_vllm_sends_a_choice_probe(gatewa
                 f"/{handle.scenario_id}/v1/systemone",
                 {
                     "model": "Qwen/Qwen3-0.6B",
-                    "state": os.environ.get("DEFAULT_HEALTH_CHECK_PROMPT", "test from litellm"),
+                    "state": os.environ.get("DEFAULT_HEALTH_CHECK_PROMPT", "test from hangarllm"),
                     "questions": {
                         "reachable": {
                             "type": "choice",
@@ -1344,7 +1344,7 @@ def test_evaluation_mode_health_check_of_a_databricks_serving_endpoint_resolves_
                 f"/{handle.scenario_id}/databricks-openjev-qwen35-4b/invocations",
                 {
                     "model": "databricks-openjev-qwen35-4b",
-                    "state": os.environ.get("DEFAULT_HEALTH_CHECK_PROMPT", "test from litellm"),
+                    "state": os.environ.get("DEFAULT_HEALTH_CHECK_PROMPT", "test from hangarllm"),
                     "questions": {"reachable": {"type": "noul", "instructions": "Is the service reachable?"}},
                 },
             )
@@ -1384,7 +1384,7 @@ def test_evaluation_mode_health_check_of_databricks_ai_decide_resolves_the_mode_
             (
                 f"/{handle.scenario_id}/api/2.0/ai-functions/ai-decide",
                 {
-                    "state": os.environ.get("DEFAULT_HEALTH_CHECK_PROMPT", "test from litellm"),
+                    "state": os.environ.get("DEFAULT_HEALTH_CHECK_PROMPT", "test from hangarllm"),
                     "questions": {"reachable": {"type": "noul", "instructions": "Is the service reachable?"}},
                 },
             )

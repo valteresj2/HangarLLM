@@ -12,14 +12,14 @@ import respx
 from integration._support.upstream import _aws_event_frame
 from integration._support.wire import Reply, Request, wire_server
 
-import litellm
-from litellm import Router, acompletion, aembedding, completion
-from litellm.caching.caching import Cache, LiteLLMCacheType
-from litellm.caching.caching_handler import _PENDING_CACHE_WRITES
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.proxy.hooks.batch_redis_get import PROXY_BatchRedisRequests
+import hangarllm
+from hangarllm import Router, acompletion, aembedding, completion
+from hangarllm.caching.caching import Cache, HangarLLMCacheType
+from hangarllm.caching.caching_handler import _PENDING_CACHE_WRITES
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.proxy.hooks.batch_redis_get import PROXY_BatchRedisRequests
 
 
 async def _drain_cache_writes() -> None:
@@ -39,11 +39,11 @@ async def _wait_for_stream_cache_entry(cache: Cache, model: str, messages: list[
 @pytest.fixture
 def redis_response_cache(monkeypatch: pytest.MonkeyPatch) -> Cache:
     cache: Final = Cache(
-        type=LiteLLMCacheType.REDIS,
+        type=HangarLLMCacheType.REDIS,
         host=os.environ["REDIS_HOST"],
         port=os.environ["REDIS_PORT"],
     )
-    monkeypatch.setattr(litellm, "cache", cache)
+    monkeypatch.setattr(hangarllm, "cache", cache)
     return cache
 
 
@@ -165,12 +165,12 @@ async def test_embedding_caching_base_64(redis_response_cache: Cache) -> None:
 @pytest.mark.asyncio
 async def test_redis_batch_cache_write(monkeypatch: pytest.MonkeyPatch) -> None:
     redis_response_cache: Final = Cache(
-        type=LiteLLMCacheType.REDIS,
+        type=HangarLLMCacheType.REDIS,
         host=os.environ["REDIS_HOST"],
         port=os.environ["REDIS_PORT"],
         redis_flush_size=2,
     )
-    monkeypatch.setattr(litellm, "cache", redis_response_cache)
+    monkeypatch.setattr(hangarllm, "cache", redis_response_cache)
     messages: Final = [{"role": "user", "content": f"batch write {uuid.uuid4().hex}"}]
     first: Final = await acompletion(
         model="gpt-4o-mini",
@@ -309,13 +309,13 @@ async def test_redis_cache_acompletion_stream_bedrock(
 @pytest.mark.asyncio
 async def test_redis_cache_atext_completion(redis_response_cache: Cache) -> None:
     prompt: Final = f"cached text completion {uuid.uuid4().hex}"
-    first: Final = await litellm.atext_completion(
+    first: Final = await hangarllm.atext_completion(
         model="gpt-3.5-turbo-instruct",
         prompt=prompt,
         mock_response="cached",
     )
     await _drain_cache_writes()
-    second: Final = await litellm.atext_completion(
+    second: Final = await hangarllm.atext_completion(
         model="gpt-3.5-turbo-instruct",
         prompt=prompt,
         mock_response="different",
@@ -470,13 +470,13 @@ async def test_redis_semantic_cache_acompletion(
     monkeypatch: pytest.MonkeyPatch, redis_search_enabled: None
 ) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "scripted-embedding-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     index_name: Final = f"semantic-{uuid.uuid4().hex}"
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "cache",
         Cache(
-            type=LiteLLMCacheType.REDIS_SEMANTIC,
+            type=HangarLLMCacheType.REDIS_SEMANTIC,
             redis_url=f"redis://{os.environ['REDIS_HOST']}:{os.environ['REDIS_PORT']}/0",
             redis_semantic_cache_index_name=index_name,
             similarity_threshold=0.8,
@@ -517,10 +517,10 @@ def test_redis_semantic_cache_completion(
 ) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "scripted-embedding-key")
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "cache",
         Cache(
-            type=LiteLLMCacheType.REDIS_SEMANTIC,
+            type=HangarLLMCacheType.REDIS_SEMANTIC,
             redis_url=f"redis://{os.environ['REDIS_HOST']}:{os.environ['REDIS_PORT']}/0",
             redis_semantic_cache_index_name=f"semantic-{uuid.uuid4().hex}",
             similarity_threshold=0.8,
@@ -561,7 +561,7 @@ async def test_acompletion_caching_on_router(redis_response_cache: Cache) -> Non
         model_list=[
             {
                 "model_name": "cached-model",
-                "litellm_params": {"model": "gpt-4o-mini", "mock_response": "router response"},
+                "hangarllm_params": {"model": "gpt-4o-mini", "mock_response": "router response"},
             }
         ],
         redis_host=os.environ["REDIS_HOST"],
@@ -585,11 +585,11 @@ async def test_acompletion_caching_on_router_caching_groups(redis_response_cache
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {"model": "gpt-4o-mini", "mock_response": "router response"},
+                "hangarllm_params": {"model": "gpt-4o-mini", "mock_response": "router response"},
             },
             {
                 "model_name": "secondary",
-                "litellm_params": {"model": "gpt-4o-mini", "mock_response": "different response"},
+                "hangarllm_params": {"model": "gpt-4o-mini", "mock_response": "different response"},
             },
         ],
         redis_host=os.environ["REDIS_HOST"],
@@ -613,7 +613,7 @@ async def test_acompletion_caching_with_ttl_on_router(redis_response_cache: Cach
         model_list=[
             {
                 "model_name": "ttl-model",
-                "litellm_params": {"model": "gpt-4o-mini", "mock_response": "router response"},
+                "hangarllm_params": {"model": "gpt-4o-mini", "mock_response": "router response"},
             }
         ],
         redis_host=os.environ["REDIS_HOST"],
@@ -640,7 +640,7 @@ async def test_completion_caching_on_router(redis_response_cache: Cache) -> None
         model_list=[
             {
                 "model_name": "completion-model",
-                "litellm_params": {"model": "gpt-4o-mini", "mock_response": "router response"},
+                "hangarllm_params": {"model": "gpt-4o-mini", "mock_response": "router response"},
             }
         ],
         redis_host=os.environ["REDIS_HOST"],

@@ -4,21 +4,21 @@ from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
-from litellm.exceptions import UnsupportedParamsError
+from hangarllm.exceptions import UnsupportedParamsError
 
-import litellm
-import litellm.llms.fal_ai.videos.transformation as fal_video_module
-from litellm.cost_calculator import default_video_cost_calculator
-from litellm.llms.fal_ai.videos.transformation import (
+import hangarllm
+import hangarllm.llms.fal_ai.videos.transformation as fal_video_module
+from hangarllm.cost_calculator import default_video_cost_calculator
+from hangarllm.llms.fal_ai.videos.transformation import (
     FalAIVideoConfig,
     FalAIVideoError,
     _queue_request_base_path,
 )
-from litellm.llms.openai.cost_calculation import video_generation_cost
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.types.videos.utils import decode_video_id_with_provider
-from litellm.utils import ProviderConfigManager
+from hangarllm.llms.openai.cost_calculation import video_generation_cost
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import LlmProviders
+from hangarllm.types.videos.utils import decode_video_id_with_provider
+from hangarllm.utils import ProviderConfigManager
 
 MODEL = "bytedance/seedance-2.5/text-to-video"
 H3_TEXT_MODEL = "minimax/h3/text-to-video"
@@ -119,7 +119,7 @@ class TestFalAIVideoTransformation:
                 "generate_audio": False,
                 "model": MODEL,
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -138,7 +138,7 @@ class TestFalAIVideoTransformation:
         url = self.config.get_complete_url(
             model=MODEL,
             api_base="https://proxy.internal/",
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == "https://proxy.internal"
@@ -151,7 +151,7 @@ class TestFalAIVideoTransformation:
                 headers={},
                 model=MODEL,
                 api_key=None,
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
             )
 
     def test_transform_video_create_response_encodes_model_and_usage(self):
@@ -212,7 +212,7 @@ class TestFalAIVideoTransformation:
         url, params = self.config.transform_video_status_retrieve_request(
             video_id=video.id,
             api_base="https://queue.fal.run",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert url == "https://queue.fal.run/bytedance/seedance-2.5/requests/abc/status"
@@ -221,11 +221,11 @@ class TestFalAIVideoTransformation:
         assert _queue_request_base_path("comfy/owner/app/x") == "comfy/owner/app"
 
     def test_status_request_rejects_unencoded_video_id(self):
-        with pytest.raises(ValueError, match="must be created through litellm"):
+        with pytest.raises(ValueError, match="must be created through hangarllm"):
             self.config.transform_video_status_retrieve_request(
                 video_id="abc",
                 api_base="https://queue.fal.run",
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -266,7 +266,7 @@ class TestFalAIVideoTransformation:
         poll_url, _ = self.config.transform_video_status_retrieve_request(
             video_id=video.id,
             api_base="https://queue.fal.run",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert poll_url == status_url
@@ -667,8 +667,8 @@ class TestFalAIVideoTransformation:
     def test_video_cost_uses_tiered_rows(self):
         rows = {
             model: row
-            for model, row in litellm.model_cost.items()
-            if row.get("litellm_provider") == "fal_ai" and row.get("mode") == "video_generation"
+            for model, row in hangarllm.model_cost.items()
+            if row.get("hangarllm_provider") == "fal_ai" and row.get("mode") == "video_generation"
         }
         assert rows
         for model, row in rows.items():
@@ -681,8 +681,8 @@ class TestFalAIVideoTransformation:
             )
 
     def test_h3_video_cost_uses_model_info_tiers(self, local_model_cost_map):
-        row = litellm.model_cost[f"fal_ai/{H3_TEXT_MODEL}"]
-        model_info = litellm.get_model_info(model=H3_TEXT_MODEL, custom_llm_provider="fal_ai")
+        row = hangarllm.model_cost[f"fal_ai/{H3_TEXT_MODEL}"]
+        model_info = hangarllm.get_model_info(model=H3_TEXT_MODEL, custom_llm_provider="fal_ai")
 
         assert (
             video_generation_cost(

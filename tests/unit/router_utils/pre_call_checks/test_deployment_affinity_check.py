@@ -7,20 +7,20 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.router_utils.pre_call_checks.deployment_affinity_check import (
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.router_utils.pre_call_checks.deployment_affinity_check import (
     DeploymentAffinityCheck,
 )
 
 
 @pytest.fixture(autouse=True)
-def isolate_litellm_router_state():
+def isolate_hangarllm_router_state():
     saved = {
-        name: getattr(litellm, name).copy()
-        if isinstance(getattr(litellm, name, None), list)
-        else getattr(litellm, name, None)
+        name: getattr(hangarllm, name).copy()
+        if isinstance(getattr(hangarllm, name, None), list)
+        else getattr(hangarllm, name, None)
         for name in (
             "callbacks",
             "input_callback",
@@ -32,11 +32,11 @@ def isolate_litellm_router_state():
             "model_fallbacks",
             "cache",
         )
-        if hasattr(litellm, name)
+        if hasattr(hangarllm, name)
     }
     yield
     for name, value in saved.items():
-        setattr(litellm, name, value)
+        setattr(hangarllm, name, value)
 
 
 class MockResponse:
@@ -94,11 +94,11 @@ async def test_async_user_key_affinity_routes_to_same_deployment():
         "user": None,
     }
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview-1",
                     "api_key": "mock-api-key-1",
                     "api_version": "mock-api-version",
@@ -109,7 +109,7 @@ async def test_async_user_key_affinity_routes_to_same_deployment():
             },
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview-2",
                     "api_key": "mock-api-key-2",
                     "api_version": "mock-api-version-2",
@@ -135,11 +135,11 @@ async def test_async_user_key_affinity_routes_to_same_deployment():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post,
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "hangarllm.router_strategy.simple_shuffle.random.choice",
             side_effect=deterministic_choice,
         ),
     ):
@@ -149,7 +149,7 @@ async def test_async_user_key_affinity_routes_to_same_deployment():
             model=model_group,
             input="Hello, how are you?",
             truncation="auto",
-            litellm_metadata={"user_api_key_hash": user_api_key_hash},
+            hangarllm_metadata={"user_api_key_hash": user_api_key_hash},
         )
         first_model_id = first_response._hidden_params["model_id"]
 
@@ -159,7 +159,7 @@ async def test_async_user_key_affinity_routes_to_same_deployment():
             model=model_group,
             input="Follow-up question",
             truncation="auto",
-            litellm_metadata={"user_api_key_hash": user_api_key_hash},
+            hangarllm_metadata={"user_api_key_hash": user_api_key_hash},
         )
         assert second_response._hidden_params["model_id"] == first_model_id
 
@@ -196,11 +196,11 @@ async def test_async_user_key_affinity_routes_with_model_group_alias():
     alias_model_group = "azure-computer-use-preview-alias"
     user_api_key_hash = "test-user-key-alias"
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": canonical_model_group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview-1",
                     "api_key": "mock-api-key-1",
                     "api_version": "mock-api-version",
@@ -210,7 +210,7 @@ async def test_async_user_key_affinity_routes_with_model_group_alias():
             },
             {
                 "model_name": canonical_model_group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview-2",
                     "api_key": "mock-api-key-2",
                     "api_version": "mock-api-version-2",
@@ -233,11 +233,11 @@ async def test_async_user_key_affinity_routes_with_model_group_alias():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post,
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "hangarllm.router_strategy.simple_shuffle.random.choice",
             side_effect=deterministic_choice,
         ),
     ):
@@ -247,7 +247,7 @@ async def test_async_user_key_affinity_routes_with_model_group_alias():
             model=alias_model_group,
             input="Hello",
             truncation="auto",
-            litellm_metadata={"user_api_key_hash": user_api_key_hash},
+            hangarllm_metadata={"user_api_key_hash": user_api_key_hash},
         )
         first_model_id = first_response._hidden_params["model_id"]
 
@@ -255,7 +255,7 @@ async def test_async_user_key_affinity_routes_with_model_group_alias():
             model=alias_model_group,
             input="Follow-up",
             truncation="auto",
-            litellm_metadata={"user_api_key_hash": user_api_key_hash},
+            hangarllm_metadata={"user_api_key_hash": user_api_key_hash},
         )
         assert second_response._hidden_params["model_id"] == first_model_id
 
@@ -310,11 +310,11 @@ async def test_async_previous_response_id_priority_over_user_key_affinity():
         "user": None,
     }
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview-1",
                     "api_key": "mock-api-key-1",
                     "api_version": "mock-api-version",
@@ -324,7 +324,7 @@ async def test_async_previous_response_id_priority_over_user_key_affinity():
             },
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview-2",
                     "api_key": "mock-api-key-2",
                     "api_version": "mock-api-version-2",
@@ -344,11 +344,11 @@ async def test_async_previous_response_id_priority_over_user_key_affinity():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post,
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "hangarllm.router_strategy.simple_shuffle.random.choice",
             side_effect=lambda seq: seq[0],
         ),
     ):
@@ -358,7 +358,7 @@ async def test_async_previous_response_id_priority_over_user_key_affinity():
             model=model_group,
             input="Hello, how are you?",
             truncation="auto",
-            litellm_metadata={"user_api_key_hash": user_api_key_hash},
+            hangarllm_metadata={"user_api_key_hash": user_api_key_hash},
         )
         first_model_id = first_response._hidden_params["model_id"]
         first_response_id = first_response.id
@@ -380,7 +380,7 @@ async def test_async_previous_response_id_priority_over_user_key_affinity():
             input="Follow-up question",
             truncation="auto",
             previous_response_id=first_response_id,
-            litellm_metadata={"user_api_key_hash": user_api_key_hash},
+            hangarllm_metadata={"user_api_key_hash": user_api_key_hash},
         )
         assert follow_up._hidden_params["model_id"] == first_model_id
 
@@ -413,11 +413,11 @@ async def test_async_user_parameter_does_not_trigger_deployment_affinity():
         "previous_response_id": None,
     }
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "azure-sdk-test",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/sdk-1",
                     "api_key": "mock",
                     "api_base": "https://mock1.openai.azure.com",
@@ -426,7 +426,7 @@ async def test_async_user_parameter_does_not_trigger_deployment_affinity():
             },
             {
                 "model_name": "azure-sdk-test",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/sdk-2",
                     "api_key": "mock",
                     "api_base": "https://mock2.openai.azure.com",
@@ -441,7 +441,7 @@ async def test_async_user_parameter_does_not_trigger_deployment_affinity():
     user_id = "sdk-user-123"
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(mock_response_data, 200)
@@ -471,7 +471,7 @@ async def test_async_pre_call_hook_uses_model_map_key_scope():
 
     kwargs = {
         "model_info": {"id": "model-id-123"},
-        "litellm_metadata": {
+        "hangarllm_metadata": {
             "user_api_key_hash": "user-key-abc",
             "deployment_model_name": "claude-sonnet-4-5@20250929",
         },
@@ -512,12 +512,12 @@ async def test_async_filter_deployments_uses_stable_model_map_key_for_affinity_s
     healthy_deployments = [
         {
             "model_name": stable_model_map_key,
-            "litellm_params": {"model": f"vertex_ai/{stable_model_map_key}"},
+            "hangarllm_params": {"model": f"vertex_ai/{stable_model_map_key}"},
             "model_info": {"id": "deployment-1"},
         },
         {
             "model_name": stable_model_map_key,
-            "litellm_params": {"model": f"bedrock/global.anthropic.{stable_model_map_key}-v1:0"},
+            "hangarllm_params": {"model": f"bedrock/global.anthropic.{stable_model_map_key}-v1:0"},
             "model_info": {"id": "deployment-2"},
         },
     ]
@@ -569,12 +569,12 @@ async def test_async_filter_deployments_falls_back_when_cached_deployment_is_unh
     healthy_deployments = [
         {
             "model_name": stable_model_map_key,
-            "litellm_params": {"model": f"vertex_ai/{stable_model_map_key}"},
+            "hangarllm_params": {"model": f"vertex_ai/{stable_model_map_key}"},
             "model_info": {"id": "deployment-1"},
         },
         {
             "model_name": stable_model_map_key,
-            "litellm_params": {"model": f"bedrock/global.anthropic.{stable_model_map_key}-v1:0"},
+            "hangarllm_params": {"model": f"bedrock/global.anthropic.{stable_model_map_key}-v1:0"},
             "model_info": {"id": "deployment-2"},
         },
     ]
@@ -605,12 +605,12 @@ async def test_async_filter_deployments_does_not_pin_when_target_order_is_set():
     healthy_deployments = [
         {
             "model_name": stable_model_map_key,
-            "litellm_params": {"model": f"vertex_ai/{stable_model_map_key}"},
+            "hangarllm_params": {"model": f"vertex_ai/{stable_model_map_key}"},
             "model_info": {"id": "deployment-1"},
         },
         {
             "model_name": stable_model_map_key,
-            "litellm_params": {"model": f"bedrock/global.anthropic.{stable_model_map_key}-v1:0"},
+            "hangarllm_params": {"model": f"bedrock/global.anthropic.{stable_model_map_key}-v1:0"},
             "model_info": {"id": "deployment-2"},
         },
     ]
@@ -645,12 +645,12 @@ async def test_async_user_key_affinity_ttl_expiry_allows_reroute():
     healthy_deployments = [
         {
             "model_name": stable_model_map_key,
-            "litellm_params": {"model": f"vertex_ai/{stable_model_map_key}"},
+            "hangarllm_params": {"model": f"vertex_ai/{stable_model_map_key}"},
             "model_info": {"id": "deployment-1"},
         },
         {
             "model_name": stable_model_map_key,
-            "litellm_params": {"model": f"bedrock/global.anthropic.{stable_model_map_key}-v1:0"},
+            "hangarllm_params": {"model": f"bedrock/global.anthropic.{stable_model_map_key}-v1:0"},
             "model_info": {"id": "deployment-2"},
         },
     ]
@@ -766,11 +766,11 @@ async def test_model_group_affinity_config_only_applies_to_configured_group():
         "previous_response_id": None,
     }
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4-deploy-1",
                     "api_key": "mock-key-1",
                     "api_base": "https://mock-gpt4-1.openai.azure.com",
@@ -780,7 +780,7 @@ async def test_model_group_affinity_config_only_applies_to_configured_group():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4-deploy-2",
                     "api_key": "mock-key-2",
                     "api_base": "https://mock-gpt4-2.openai.azure.com",
@@ -790,7 +790,7 @@ async def test_model_group_affinity_config_only_applies_to_configured_group():
             },
             {
                 "model_name": "claude-3",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/claude-3-deploy-1",
                     "api_key": "mock-key-3",
                     "api_base": "https://mock-claude-1.openai.azure.com",
@@ -800,7 +800,7 @@ async def test_model_group_affinity_config_only_applies_to_configured_group():
             },
             {
                 "model_name": "claude-3",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/claude-3-deploy-2",
                     "api_key": "mock-key-4",
                     "api_base": "https://mock-claude-2.openai.azure.com",
@@ -824,13 +824,13 @@ async def test_model_group_affinity_config_only_applies_to_configured_group():
                 model=model,
                 input="Hello",
                 truncation="auto",
-                litellm_metadata={"user_api_key_hash": user_api_key_hash},
+                hangarllm_metadata={"user_api_key_hash": user_api_key_hash},
             )
             model_ids.add(response._hidden_params["model_id"])
         return model_ids
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(mock_response_data, 200)
@@ -864,12 +864,12 @@ async def test_model_group_affinity_config_falls_back_to_global():
     healthy_deployments = [
         {
             "model_name": stable_model_map_key,
-            "litellm_params": {"model": "openai/gpt-4"},
+            "hangarllm_params": {"model": "openai/gpt-4"},
             "model_info": {"id": "deployment-1"},
         },
         {
             "model_name": stable_model_map_key,
-            "litellm_params": {"model": "openai/gpt-4"},
+            "hangarllm_params": {"model": "openai/gpt-4"},
             "model_info": {"id": "deployment-2"},
         },
     ]
@@ -921,12 +921,12 @@ async def test_model_group_affinity_config_overrides_global():
     healthy_deployments = [
         {
             "model_name": stable_model_map_key,
-            "litellm_params": {"model": "anthropic/claude-3-opus"},
+            "hangarllm_params": {"model": "anthropic/claude-3-opus"},
             "model_info": {"id": "deployment-1"},
         },
         {
             "model_name": stable_model_map_key,
-            "litellm_params": {"model": "anthropic/claude-3-opus"},
+            "hangarllm_params": {"model": "anthropic/claude-3-opus"},
             "model_info": {"id": "deployment-2"},
         },
     ]
@@ -956,12 +956,12 @@ def _two_deployments(model_group: str) -> list[dict]:
     return [
         {
             "model_name": model_group,
-            "litellm_params": {"model": "openai/gpt-5.4-mini"},
+            "hangarllm_params": {"model": "openai/gpt-5.4-mini"},
             "model_info": {"id": "openai-deployment-a"},
         },
         {
             "model_name": model_group,
-            "litellm_params": {"model": "openai/gpt-5.4-mini"},
+            "hangarllm_params": {"model": "openai/gpt-5.4-mini"},
             "model_info": {"id": "openai-deployment-b"},
         },
     ]
@@ -974,16 +974,16 @@ async def test_async_jwt_user_affinity_routes_to_same_deployment():
     They must still pin to one deployment per user.
     """
     model_group = "gpt-5.4-mini"
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": model_group,
-                "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "mock-api-key-a"},
+                "hangarllm_params": {"model": "openai/gpt-5.4-mini", "api_key": "mock-api-key-a"},
                 "model_info": {"id": "openai-deployment-a"},
             },
             {
                 "model_name": model_group,
-                "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "mock-api-key-b"},
+                "hangarllm_params": {"model": "openai/gpt-5.4-mini", "api_key": "mock-api-key-b"},
                 "model_info": {"id": "openai-deployment-b"},
             },
         ],
@@ -999,7 +999,7 @@ async def test_async_jwt_user_affinity_routes_to_same_deployment():
         return seq[1] if len(seq) > 1 else seq[0]
 
     with patch(
-        "litellm.router_strategy.simple_shuffle.random.choice",
+        "hangarllm.router_strategy.simple_shuffle.random.choice",
         side_effect=deterministic_choice,
     ):
         first_response = await router.acompletion(
@@ -1026,8 +1026,8 @@ async def test_proxy_jwt_auth_metadata_pins_per_user():
     The metadata the proxy stamps for a JWT caller (`UserAPIKeyAuth(api_key=None, user_id=<sub>)`)
     must claim a pin and be read back by the filter, and another JWT user must not inherit it.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
 
     model_group = "gpt-5.4-mini"
     healthy_deployments = _two_deployments(model_group)
@@ -1039,7 +1039,7 @@ async def test_proxy_jwt_auth_metadata_pins_per_user():
     )
 
     def proxy_request(user_id: str) -> dict[str, object]:
-        return LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+        return HangarLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
             data={"model": model_group, "messages": [{"role": "user", "content": "hi"}], "metadata": {}},
             user_api_key_dict=UserAPIKeyAuth(api_key=None, user_id=user_id),
             _metadata_variable_name="metadata",
@@ -1172,11 +1172,11 @@ class _ForbiddenError(Exception):
 async def test_retry_reaches_healthy_sibling_when_affinity_pins_deployment_that_refused(
     pre_call_check: str, metadata: dict[str, str]
 ):
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": _ForbiddenError("A refuses"),
@@ -1186,7 +1186,7 @@ async def test_retry_reaches_healthy_sibling_when_affinity_pins_deployment_that_
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from B",
@@ -1212,7 +1212,7 @@ async def test_retry_reaches_healthy_sibling_when_affinity_pins_deployment_that_
     ]
 
     assert [response._hidden_params["model_id"] for response in responses] == ["B", "B"]
-    assert [response._hidden_params["additional_headers"]["x-litellm-attempted-retries"] for response in responses] == [
+    assert [response._hidden_params["additional_headers"]["x-hangarllm-attempted-retries"] for response in responses] == [
         1,
         1,
     ]
@@ -1227,8 +1227,8 @@ async def test_previous_response_id_pin_holds_even_after_its_deployment_failed()
         enable_responses_api_affinity=True,
     )
     healthy_deployments: Final = [
-        {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}, "model_info": {"id": "A"}},
-        {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}, "model_info": {"id": "B"}},
+        {"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o"}, "model_info": {"id": "A"}},
+        {"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o"}, "model_info": {"id": "B"}},
     ]
 
     assert await callback.async_filter_deployments(

@@ -1,7 +1,7 @@
 import pytest
 
-from litellm.router_strategy.adaptive_router.classifier import classify_prompt
-from litellm.types.router import RequestType
+from hangarllm.router_strategy.adaptive_router.classifier import classify_prompt
+from hangarllm.types.router import RequestType
 
 
 @pytest.mark.parametrize(

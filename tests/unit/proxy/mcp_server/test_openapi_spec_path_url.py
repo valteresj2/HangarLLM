@@ -11,7 +11,7 @@ import pytest
 import yaml
 from respx import MockRouter
 
-from litellm.proxy.mcp_server import openapi_to_mcp_generator as gen
+from hangarllm.proxy.mcp_server import openapi_to_mcp_generator as gen
 
 
 class _FakeAsyncHTTPHandler:

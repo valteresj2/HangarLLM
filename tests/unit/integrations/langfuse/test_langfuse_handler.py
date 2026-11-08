@@ -5,10 +5,10 @@ import httpx
 import pytest
 import respx
 
-from litellm.integrations.langfuse.langfuse import LangFuseLogger
-from litellm.integrations.langfuse.langfuse_handler import LangFuseHandler
-from litellm.litellm_core_utils.specialty_caches.dynamic_logging_cache import DynamicLoggingCache
-from litellm.types.utils import StandardCallbackDynamicParams
+from hangarllm.integrations.langfuse.langfuse import LangFuseLogger
+from hangarllm.integrations.langfuse.langfuse_handler import LangFuseHandler
+from hangarllm.hangarllm_core_utils.specialty_caches.dynamic_logging_cache import DynamicLoggingCache
+from hangarllm.types.utils import StandardCallbackDynamicParams
 
 
 @pytest.fixture(autouse=True)

@@ -40,11 +40,11 @@ KEYCLOAK_ADMIN_USER_ENV: Final = "E2E_KEYCLOAK_ADMIN_USER"
 KEYCLOAK_ADMIN_PASSWORD_ENV: Final = "E2E_KEYCLOAK_ADMIN_PASSWORD"
 
 DEFAULT_KEYCLOAK_URL: Final = "http://127.0.0.1:8480"
-DEFAULT_REALM: Final = "litellm-e2e"
-TESTS_CLIENT_ID: Final = "litellm-e2e-tests"
-SHORT_LIVED_CLIENT_ID: Final = "litellm-e2e-shortlived"
-ADMIN_CLIENT_ID: Final = "litellm-e2e-admin"
-WRONG_AUDIENCE_CLIENT_ID: Final = "litellm-e2e-other-app"
+DEFAULT_REALM: Final = "hangarllm-e2e"
+TESTS_CLIENT_ID: Final = "hangarllm-e2e-tests"
+SHORT_LIVED_CLIENT_ID: Final = "hangarllm-e2e-shortlived"
+ADMIN_CLIENT_ID: Final = "hangarllm-e2e-admin"
+WRONG_AUDIENCE_CLIENT_ID: Final = "hangarllm-e2e-other-app"
 
 _START_HINT: Final = (
     "Start it with the `docker run ... quay.io/keycloak/keycloak` command in tests/e2e/CONTRIBUTING.md, "
@@ -110,7 +110,7 @@ def created_id(write: ExternalWrite, context: str) -> str:
 @dataclass(frozen=True, slots=True)
 class Identity:
     """One provisioned IdP user: the `sub` the proxy will see, the credential the
-    test signs in with, and the group whose name the litellm team carries."""
+    test signs in with, and the group whose name the hangarllm team carries."""
 
     user_id: str
     username: str
@@ -392,13 +392,13 @@ class BrowserAttributes(BaseModel):
 
 
 class AudienceConfig(BaseModel):
-    audience: str = Field(default="litellm-e2e", alias="included.custom.audience")
+    audience: str = Field(default="hangarllm-e2e", alias="included.custom.audience")
     access_token: str = Field(default="true", alias="access.token.claim")
     id_token: str = Field(default="false", alias="id.token.claim")
 
 
 class AudienceMapper(BaseModel):
-    name: str = "litellm-audience"
+    name: str = "hangarllm-audience"
     protocol: str = "openid-connect"
     mapper: str = Field(default="oidc-audience-mapper", alias="protocolMapper")
     config: AudienceConfig = Field(default_factory=AudienceConfig)

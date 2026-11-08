@@ -12,24 +12,24 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.integrations.clickhouse.clickhouse_spend_logger import (
+import hangarllm
+from hangarllm.integrations.clickhouse.clickhouse_spend_logger import (
     ClickHouseSpendLogger,
     parse_traceparent,
     spend_log_row_from_payload,
     strip_cache_hit_suffix,
 )
-from litellm.integrations.clickhouse.context import lens_analysis
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.litellm_core_utils.internal_call_metadata import BACKGROUND_RESPONSE_COST_REQUEST_ID_SUFFIX
-from litellm.litellm_core_utils import litellm_logging
-from litellm.litellm_core_utils.secret_redaction import REDACTED
-from litellm.tracing.types import SpendLogRecord
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from hangarllm.integrations.clickhouse.context import lens_analysis
+from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from hangarllm.hangarllm_core_utils.internal_call_metadata import BACKGROUND_RESPONSE_COST_REQUEST_ID_SUFFIX
+from hangarllm.hangarllm_core_utils import hangarllm_logging
+from hangarllm.hangarllm_core_utils.secret_redaction import REDACTED
+from hangarllm.tracing.types import SpendLogRecord
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
     SETTLES_BACKGROUND_RESPONSE_KWARG,
     BackgroundResponseSettlement,
 )
-from litellm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN, StandardLoggingPayload
+from hangarllm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN, StandardLoggingPayload
 
 _JSON_OBJECT_ADAPTER: Final = TypeAdapter(Mapping[str, JsonValue])
 
@@ -46,7 +46,7 @@ class _StandardPayloadBuilder(Protocol):
         init_response_obj: object,
         start_time: datetime,
         end_time: datetime,
-        logging_obj: litellm_logging.Logging,
+        logging_obj: hangarllm_logging.Logging,
         status: Literal["success", "failure"],
     ) -> StandardLoggingPayload | None: ...
 
@@ -74,7 +74,7 @@ class _ClickHouseLogger(Protocol):
 def _payload(**overrides: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "id": "chatcmpl-abc123",
-        "litellm_call_id": "gateway-call",
+        "hangarllm_call_id": "gateway-call",
         "trace_id": "trace-1",
         "session_id": "",
         "call_type": "acompletion",
@@ -125,24 +125,24 @@ def _standard_payload(
     metadata: Mapping[str, object] = MappingProxyType({}),
 ) -> StandardLoggingPayload:
     now: Final = datetime.now(timezone.utc)
-    logging_obj: Final = litellm_logging.Logging(
+    logging_obj: Final = hangarllm_logging.Logging(
         model="gpt-4o",
         messages=[],
         stream=False,
         call_type="acompletion",
         start_time=now,
-        litellm_call_id="standard-payload-call",
+        hangarllm_call_id="standard-payload-call",
         function_id="standard-payload-function",
     )
     kwargs: Final[dict[str, object]] = {
-        "litellm_call_id": "standard-payload-call",
+        "hangarllm_call_id": "standard-payload-call",
         "model": "gpt-4o",
         "messages": [],
         "call_type": "acompletion",
         "response_cost": response_cost,
-        "litellm_params": {"metadata": dict(metadata)},
+        "hangarllm_params": {"metadata": dict(metadata)},
     }
-    payload_builder: Final = cast(_StandardPayloadBuilder, litellm_logging.get_standard_logging_object_payload)
+    payload_builder: Final = cast(_StandardPayloadBuilder, hangarllm_logging.get_standard_logging_object_payload)
     payload: Final = payload_builder(
         kwargs=kwargs,
         init_response_obj={},
@@ -167,7 +167,7 @@ def _standard_payload(
 def test_end_user_is_stored_only_while_end_user_cost_tracking_is_on(
     monkeypatch: pytest.MonkeyPatch, payload: dict[str, Any], tracking_disabled: bool | None, expected_end_user: str
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_end_user_cost_tracking", tracking_disabled)
+    monkeypatch.setattr(hangarllm, "disable_end_user_cost_tracking", tracking_disabled)
 
     row: Final = spend_log_row_from_payload(cast(StandardLoggingPayload, payload), {})
 
@@ -183,7 +183,7 @@ def test_success_row_mapping():
     assert set(row) == set(SpendLogRecord.__annotations__)
     assert row["request_id"] == "chatcmpl-abc123"
     assert row["response_id"] == "chatcmpl-abc123"
-    assert row["litellm_call_id"] == "gateway-call"
+    assert row["hangarllm_call_id"] == "gateway-call"
     assert row["provider_request_id"] == ""
     assert row["spend"] == 0.00042
     assert (row["prompt_tokens"], row["completion_tokens"], row["total_tokens"]) == (20, 10, 30)
@@ -215,7 +215,7 @@ def test_provider_request_id_stays_separate_from_message_and_gateway_ids(header_
     kwargs: Final = {"response_cost": 0.00042, "response_headers": headers if header_source == "response_headers" else None}
     payload: Final = cast(StandardLoggingPayload, _payload(id="msg_native", hidden_params=hidden))
     row: Final = spend_log_row_from_payload(payload, kwargs)
-    assert (row["provider_request_id"], row["response_id"], row["litellm_call_id"]) == (
+    assert (row["provider_request_id"], row["response_id"], row["hangarllm_call_id"]) == (
         "req_native", "msg_native", "gateway-call"
     )
 
@@ -242,12 +242,12 @@ async def test_custom_request_metadata_is_redacted_before_clickhouse_logging(
     kwargs: Final = {
         "standard_logging_object": payload,
         "response_cost": 0.00042,
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {**custom, "shared": "request", "user_api_key_team_id": "untrusted-team"},
-            "litellm_metadata": {
+            "hangarllm_metadata": {
                 "integration": "agent",
                 "shared": "model",
-                "litellm_lens_internal": True,
+                "hangarllm_lens_internal": True,
                 "user_api_key_auth": {"api_key": "internal-api-key"},
                 "user_api_key_budget_reservation": {"token": "internal-token"},
                 "proxy_server_request": {"headers": {"authorization": "internal-auth"}},
@@ -281,8 +281,8 @@ async def test_custom_request_metadata_is_redacted_before_clickhouse_logging(
     assert "user_api_key_auth" not in metadata
     assert "user_api_key_budget_reservation" not in metadata
     assert "proxy_server_request" not in metadata
-    litellm_params: Final = cast(Mapping[str, object], kwargs["litellm_params"])
-    request_metadata: Final = cast(Mapping[str, object], litellm_params["metadata"])
+    hangarllm_params: Final = cast(Mapping[str, object], kwargs["hangarllm_params"])
+    request_metadata: Final = cast(Mapping[str, object], hangarllm_params["metadata"])
     assert request_metadata == {
         **custom,
         "shared": "request",
@@ -306,11 +306,11 @@ async def test_turn_off_message_logging_omits_all_custom_request_metadata() -> N
     kwargs: Final = {
         "standard_logging_object": payload,
         "response_cost": 0.00042,
-        "litellm_params": {"metadata": {**custom, "user_api_key_team_id": "untrusted-team"}},
+        "hangarllm_params": {"metadata": {**custom, "user_api_key_team_id": "untrusted-team"}},
     }
     logger: Final = cast(_ClickHouseLogger, ClickHouseSpendLogger(storage=MagicMock()))
 
-    with patch.object(litellm, "turn_off_message_logging", True):
+    with patch.object(hangarllm, "turn_off_message_logging", True):
         await logger.async_log_success_event(kwargs, None, None, None)
 
     log_rows: Final = logger.log_queue
@@ -320,7 +320,7 @@ async def test_turn_off_message_logging_omits_all_custom_request_metadata() -> N
     standard_metadata: Final = cast(Mapping[str, object], payload["metadata"])
     assert metadata == {
         **standard_metadata,
-        "litellm_lens_internal": False,
+        "hangarllm_lens_internal": False,
     }
     assert {"project", "api_key", "auth", "prompt"}.isdisjoint(metadata)
 
@@ -338,7 +338,7 @@ def test_anthropic_cache_fields_are_used_as_fallback():
 def test_explicit_session_id_wins_over_trace_id():
     row = spend_log_row_from_payload(
         _payload(),  # type: ignore[arg-type]
-        {"litellm_params": {"metadata": {"session_id": "sess-9"}}},
+        {"hangarllm_params": {"metadata": {"session_id": "sess-9"}}},
     )
     assert row["session_id"] == "sess-9"
 
@@ -350,7 +350,7 @@ def test_cache_hit_id_is_stripped_for_response_id():
     )
     assert row["request_id"] == "chatcmpl-abc123_cache_hit1727600000.123456"
     assert row["response_id"] == "chatcmpl-abc123"
-    assert row["litellm_call_id"] == "gateway-call"
+    assert row["hangarllm_call_id"] == "gateway-call"
     assert row["cache_hit"] is True
     assert strip_cache_hit_suffix("chatcmpl-xyz") == "chatcmpl-xyz"
 
@@ -361,7 +361,7 @@ def test_cache_hit_id_is_stripped_for_response_id():
         pytest.param(
             {
                 "call_type": "aget_responses",
-                "litellm_params": {
+                "hangarllm_params": {
                     "metadata": {INTERNAL_CALL_ORIGIN_METADATA_KEY: BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN}
                 },
             },
@@ -370,7 +370,7 @@ def test_cache_hit_id_is_stripped_for_response_id():
         pytest.param(
             {
                 "call_type": "pass_through_endpoint",
-                "litellm_params": {"metadata": {}},
+                "hangarllm_params": {"metadata": {}},
                 SETTLES_BACKGROUND_RESPONSE_KWARG: BackgroundResponseSettlement.SETTLES,
             },
             id="passthrough-settlement",
@@ -379,7 +379,7 @@ def test_cache_hit_id_is_stripped_for_response_id():
 )
 def test_background_cost_row_keeps_its_own_request_id_beside_its_create(cost_kwargs: Mapping[str, object]) -> None:
     payload: Final = cast(StandardLoggingPayload, _payload(id="resp_YWJjZA", call_type="aresponses"))
-    create_kwargs: Final[Mapping[str, object]] = {"call_type": "aresponses", "litellm_params": {"metadata": {}}}
+    create_kwargs: Final[Mapping[str, object]] = {"call_type": "aresponses", "hangarllm_params": {"metadata": {}}}
 
     rows: Final = [spend_log_row_from_payload(payload, kwargs) for kwargs in (create_kwargs, cost_kwargs)]
 
@@ -402,7 +402,7 @@ def test_parse_traceparent_valid_missing_malformed():
 def test_traceparent_from_proxy_server_request_headers():
     payload = _payload()
     payload["metadata"] = {**payload["metadata"], "requester_custom_headers": None}
-    kwargs = {"litellm_params": {"proxy_server_request": {"headers": {"Traceparent": TRACEPARENT}}}}
+    kwargs = {"hangarllm_params": {"proxy_server_request": {"headers": {"Traceparent": TRACEPARENT}}}}
 
     row = spend_log_row_from_payload(payload, kwargs)  # type: ignore[arg-type]
 
@@ -410,7 +410,7 @@ def test_traceparent_from_proxy_server_request_headers():
 
 
 def test_turn_off_message_logging_blanks_messages_and_response():
-    with patch.object(litellm, "turn_off_message_logging", True):
+    with patch.object(hangarllm, "turn_off_message_logging", True):
         row = spend_log_row_from_payload(_payload(), {})  # type: ignore[arg-type]
     assert row["messages"] == ""
     assert row["response"] == ""
@@ -453,12 +453,12 @@ async def test_trace_ingest_requests_are_not_logged_as_spend():
 @pytest.mark.asyncio
 async def test_clickhouse_callback_resolves_via_factory(monkeypatch):
     monkeypatch.setenv("CLICKHOUSE_URL", "http://localhost:8123")
-    monkeypatch.setattr(litellm_logging, "_in_memory_loggers", [])
+    monkeypatch.setattr(hangarllm_logging, "_in_memory_loggers", [])
 
-    created = litellm_logging._init_custom_logger_compatible_class("clickhouse", None, None)
+    created = hangarllm_logging._init_custom_logger_compatible_class("clickhouse", None, None)
     assert isinstance(created, ClickHouseSpendLogger)
-    assert litellm_logging._init_custom_logger_compatible_class("clickhouse", None, None) is created
-    assert litellm_logging.get_custom_logger_compatible_class("clickhouse") is created
+    assert hangarllm_logging._init_custom_logger_compatible_class("clickhouse", None, None) is created
+    assert hangarllm_logging.get_custom_logger_compatible_class("clickhouse") is created
 
 
 @pytest.mark.asyncio
@@ -466,8 +466,8 @@ async def test_caller_tags_cannot_impersonate_internal_lens_analysis():
     import asyncio
 
     payload: Final = _payload(
-        request_tags=["litellm-engine"],
-        metadata={"litellm_lens_internal": True},
+        request_tags=["hangarllm-engine"],
+        metadata={"hangarllm_lens_internal": True},
     )
 
     async def logged_internal():
@@ -478,10 +478,10 @@ async def test_caller_tags_cannot_impersonate_internal_lens_analysis():
         callback: Final = asyncio.create_task(logged_internal())
     internal: Final = await callback
     following: Final = spend_log_row_from_payload(payload, {})
-    assert json.loads(external["metadata"])["litellm_lens_internal"] is False
-    assert json.loads(internal["metadata"])["litellm_lens_internal"] is True
-    assert json.loads(following["metadata"])["litellm_lens_internal"] is False
-    assert external["request_tags"] == ["litellm-engine"]
+    assert json.loads(external["metadata"])["hangarllm_lens_internal"] is False
+    assert json.loads(internal["metadata"])["hangarllm_lens_internal"] is True
+    assert json.loads(following["metadata"])["hangarllm_lens_internal"] is False
+    assert external["request_tags"] == ["hangarllm-engine"]
 
 
 def _minimal_payload(request_id: str, *, status: str, cost: float) -> dict[str, object]:
@@ -622,5 +622,5 @@ def test_non_finite_payload_cost_is_logged_as_unknown(response_cost: float) -> N
 def test_standard_payload_retains_gateway_call_id(status: Literal["success", "failure"]) -> None:
     payload: Final = _standard_payload(response_cost=0.0, status=status)
     row: Final = spend_log_row_from_payload(payload, {"response_cost": 0.0})
-    assert row["litellm_call_id"] == payload["litellm_call_id"] == "standard-payload-call"
+    assert row["hangarllm_call_id"] == payload["hangarllm_call_id"] == "standard-payload-call"
     assert row["request_id"] == payload["id"]

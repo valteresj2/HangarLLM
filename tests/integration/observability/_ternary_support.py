@@ -39,7 +39,7 @@ SIGNED_HEADERS: Final = MappingProxyType(
         "Content-Type": "text/csv",
         "x-goog-content-length-range": "0,67108864",
         "x-goog-meta-ecs-connection-id": CONNECTION_ID,
-        "x-goog-meta-ecs-provider": "litellm",
+        "x-goog-meta-ecs-provider": "hangarllm",
     }
 )
 _SCRUBBED: Final = frozenset(
@@ -153,7 +153,7 @@ def scrubbed_environment(inherited: Mapping[str, str]) -> tuple[str, ...]:
 
 def callbacks_config(directory: Path, callbacks: tuple[str, ...]) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["callbacks"] = list(callbacks)
+    config["hangarllm_settings"]["callbacks"] = list(callbacks)
     path: Final = directory / "ternary-callbacks.yaml"
     path.write_text(yaml.safe_dump(config))
     return path
@@ -167,7 +167,7 @@ def set_database_timezone(database_url: str, zone: str) -> None:
 
 @dataclass(frozen=True, slots=True)
 class SpendRow:
-    """One `LiteLLM_DailyUserSpend` row; `service` becomes the FOCUS `ServiceName` (the model group)."""
+    """One `HangarLLM_DailyUserSpend` row; `service` becomes the FOCUS `ServiceName` (the model group)."""
 
     day: date
     service: str
@@ -184,7 +184,7 @@ def seed_daily_spend(database_url: str, rows: tuple[SpendRow, ...]) -> None:
             naive_utc: Final = row.updated_at.astimezone(timezone.utc).replace(tzinfo=None)
             connection.execute(
                 """
-                INSERT INTO "LiteLLM_DailyUserSpend"
+                INSERT INTO "HangarLLM_DailyUserSpend"
                     (id, user_id, date, api_key, model, model_group, custom_llm_provider,
                      prompt_tokens, completion_tokens, spend, api_requests, successful_requests,
                      failed_requests, created_at, updated_at)
@@ -215,7 +215,7 @@ def refreshing_updated_at(database_url: str, service: str) -> Iterator[None]:
         with psycopg.connect(database_url, autocommit=True) as connection:
             while not stop.wait(0.2):
                 connection.execute(
-                    """UPDATE "LiteLLM_DailyUserSpend" SET updated_at = (now() AT TIME ZONE 'UTC') WHERE model_group = %s""",
+                    """UPDATE "HangarLLM_DailyUserSpend" SET updated_at = (now() AT TIME ZONE 'UTC') WHERE model_group = %s""",
                     (service,),
                 )
 

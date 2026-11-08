@@ -1,17 +1,17 @@
 import pytest
 
-import litellm
-from litellm.types.utils import ModelResponse
+import hangarllm
+from hangarllm.types.utils import ModelResponse
 
 
 @pytest.mark.asyncio
 async def test_acompletion_mcp_auto_exec(monkeypatch):
     from types import SimpleNamespace
 
-    from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-        LiteLLM_Proxy_MCP_Handler,
+    from hangarllm.responses.mcp.hangarllm_proxy_mcp_handler import (
+        HangarLLM_Proxy_MCP_Handler,
     )
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
     dummy_tool = SimpleNamespace(
         name="local_search",
@@ -19,7 +19,7 @@ async def test_acompletion_mcp_auto_exec(monkeypatch):
         input_schema={"type": "object", "properties": {}},
     )
 
-    async def fake_process(user_api_key_auth, mcp_tools_with_litellm_proxy, **kwargs):
+    async def fake_process(user_api_key_auth, mcp_tools_with_hangarllm_proxy, **kwargs):
         return [dummy_tool], {"local_search": "local"}
 
     async def fake_execute(**kwargs):
@@ -39,12 +39,12 @@ async def test_acompletion_mcp_auto_exec(monkeypatch):
     fake_execute.called = False  # type: ignore[attr-defined]
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "process_mcp_tools_without_openai_transform",
         fake_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "execute_tool_calls",
         fake_execute,
     )
@@ -54,13 +54,13 @@ async def test_acompletion_mcp_auto_exec(monkeypatch):
         staticmethod(lambda secret_fields, tools: (None, None, None, None)),
     )
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hello"}],
         tools=[
             {
                 "type": "mcp",
-                "server_url": "litellm_proxy/mcp/local",
+                "server_url": "hangarllm_proxy/mcp/local",
                 "server_label": "local",
                 "require_approval": "never",
             }
@@ -84,10 +84,10 @@ async def test_acompletion_mcp_auto_exec(monkeypatch):
 async def test_acompletion_mcp_respects_manual_approval(monkeypatch):
     from types import SimpleNamespace
 
-    from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-        LiteLLM_Proxy_MCP_Handler,
+    from hangarllm.responses.mcp.hangarllm_proxy_mcp_handler import (
+        HangarLLM_Proxy_MCP_Handler,
     )
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
     dummy_tool = SimpleNamespace(
         name="local_search",
@@ -95,19 +95,19 @@ async def test_acompletion_mcp_respects_manual_approval(monkeypatch):
         input_schema={"type": "object", "properties": {}},
     )
 
-    async def fake_process(user_api_key_auth, mcp_tools_with_litellm_proxy, **kwargs):
+    async def fake_process(user_api_key_auth, mcp_tools_with_hangarllm_proxy, **kwargs):
         return [dummy_tool], {"local_search": "local"}
 
     async def fake_execute(**kwargs):
         pytest.fail("auto execution should not run when approval is required")
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "process_mcp_tools_without_openai_transform",
         fake_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "execute_tool_calls",
         fake_execute,
     )
@@ -117,13 +117,13 @@ async def test_acompletion_mcp_respects_manual_approval(monkeypatch):
         staticmethod(lambda secret_fields, tools: (None, None, None, None)),
     )
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hello"}],
         tools=[
             {
                 "type": "mcp",
-                "server_url": "litellm_proxy/mcp/local",
+                "server_url": "hangarllm_proxy/mcp/local",
                 "server_label": "local",
                 "require_approval": "manual",
             }
@@ -146,7 +146,7 @@ async def test_acompletion_mcp_respects_manual_approval(monkeypatch):
 @pytest.mark.asyncio
 async def test_completion_mcp_with_streaming_no_timeout_error(monkeypatch):
     """
-    Test that litellm.completion with stream=True and MCP tools does not raise
+    Test that hangarllm.completion with stream=True and MCP tools does not raise
     RuntimeError: Timeout context manager should be used inside a task.
 
     This test ensures that the fix in ba43f742ab86d51b7da63077b85b39d0ac808d30
@@ -158,11 +158,11 @@ async def test_completion_mcp_with_streaming_no_timeout_error(monkeypatch):
     from types import SimpleNamespace
     from unittest.mock import patch
 
-    from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-        LiteLLM_Proxy_MCP_Handler,
+    from hangarllm.responses.mcp.hangarllm_proxy_mcp_handler import (
+        HangarLLM_Proxy_MCP_Handler,
     )
-    from litellm.responses.utils import ResponsesAPIRequestUtils
-    from litellm.utils import CustomStreamWrapper
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.utils import CustomStreamWrapper
 
     dummy_tool = SimpleNamespace(
         name="local_search",
@@ -170,7 +170,7 @@ async def test_completion_mcp_with_streaming_no_timeout_error(monkeypatch):
         input_schema={"type": "object", "properties": {}},
     )
 
-    async def fake_process(user_api_key_auth, mcp_tools_with_litellm_proxy, **kwargs):
+    async def fake_process(user_api_key_auth, mcp_tools_with_hangarllm_proxy, **kwargs):
         return [dummy_tool], {"local_search": "local"}
 
     async def fake_execute(**kwargs):
@@ -190,12 +190,12 @@ async def test_completion_mcp_with_streaming_no_timeout_error(monkeypatch):
     fake_execute.called = False  # type: ignore[attr-defined]
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "process_mcp_tools_without_openai_transform",
         fake_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "execute_tool_calls",
         fake_execute,
     )
@@ -287,7 +287,7 @@ async def test_completion_mcp_with_streaming_no_timeout_error(monkeypatch):
     logging_obj.model_call_details = {}
     logging_obj.async_failure_handler = AsyncMock()
 
-    from litellm.types.utils import (
+    from hangarllm.types.utils import (
         ChatCompletionDeltaToolCall,
         Delta,
         Function,
@@ -404,16 +404,16 @@ async def test_completion_mcp_with_streaming_no_timeout_error(monkeypatch):
             object="chat.completion",
         )
 
-    with patch("litellm.acompletion", side_effect=mock_acompletion):
+    with patch("hangarllm.acompletion", side_effect=mock_acompletion):
         # This should not raise RuntimeError: Timeout context manager should be used inside a task
         # completion() returns a coroutine when MCP tools are present, which acompletion() awaits
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hello"}],
             tools=[
                 {
                     "type": "mcp",
-                    "server_url": "litellm_proxy/mcp/local",
+                    "server_url": "hangarllm_proxy/mcp/local",
                     "server_label": "local",
                     "require_approval": "never",
                 }
@@ -471,19 +471,19 @@ async def test_mcp_metadata_in_streaming_final_chunk(monkeypatch):
     from types import SimpleNamespace
     from unittest.mock import patch
 
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-        LiteLLM_Proxy_MCP_Handler,
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.responses.mcp.hangarllm_proxy_mcp_handler import (
+        HangarLLM_Proxy_MCP_Handler,
     )
-    from litellm.responses.utils import ResponsesAPIRequestUtils
-    from litellm.types.utils import (
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.types.utils import (
         ChatCompletionDeltaToolCall,
         Delta,
         Function,
         ModelResponseStream,
         StreamingChoices,
     )
-    from litellm.utils import CustomStreamWrapper
+    from hangarllm.utils import CustomStreamWrapper
 
     dummy_tool = SimpleNamespace(
         name="local_search",
@@ -491,7 +491,7 @@ async def test_mcp_metadata_in_streaming_final_chunk(monkeypatch):
         input_schema={"type": "object", "properties": {}},
     )
 
-    async def fake_process(user_api_key_auth, mcp_tools_with_litellm_proxy, **kwargs):
+    async def fake_process(user_api_key_auth, mcp_tools_with_hangarllm_proxy, **kwargs):
         return [dummy_tool], {"local_search": "local"}
 
     async def fake_execute(**kwargs):
@@ -507,12 +507,12 @@ async def test_mcp_metadata_in_streaming_final_chunk(monkeypatch):
         ]
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "process_mcp_tools_without_openai_transform",
         fake_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "execute_tool_calls",
         fake_execute,
     )
@@ -694,14 +694,14 @@ async def test_mcp_metadata_in_streaming_final_chunk(monkeypatch):
             object="chat.completion",
         )
 
-    with patch("litellm.acompletion", side_effect=mock_acompletion):
-        response = litellm.completion(
+    with patch("hangarllm.acompletion", side_effect=mock_acompletion):
+        response = hangarllm.completion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hello"}],
             tools=[
                 {
                     "type": "mcp",
-                    "server_url": "litellm_proxy/mcp/local",
+                    "server_url": "hangarllm_proxy/mcp/local",
                     "server_label": "local",
                     "require_approval": "never",
                 }
@@ -827,18 +827,18 @@ async def test_mcp_streaming_metadata_ordering(monkeypatch):
     from types import SimpleNamespace
     from unittest.mock import patch
 
-    from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-        LiteLLM_Proxy_MCP_Handler,
+    from hangarllm.responses.mcp.hangarllm_proxy_mcp_handler import (
+        HangarLLM_Proxy_MCP_Handler,
     )
-    from litellm.responses.utils import ResponsesAPIRequestUtils
-    from litellm.types.utils import (
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.types.utils import (
         ChatCompletionDeltaToolCall,
         Delta,
         Function,
         ModelResponseStream,
         StreamingChoices,
     )
-    from litellm.utils import CustomStreamWrapper
+    from hangarllm.utils import CustomStreamWrapper
 
     dummy_tool = SimpleNamespace(
         name="local_search",
@@ -846,7 +846,7 @@ async def test_mcp_streaming_metadata_ordering(monkeypatch):
         input_schema={"type": "object", "properties": {}},
     )
 
-    async def fake_process(user_api_key_auth, mcp_tools_with_litellm_proxy, **kwargs):
+    async def fake_process(user_api_key_auth, mcp_tools_with_hangarllm_proxy, **kwargs):
         return [dummy_tool], {"local_search": "local"}
 
     async def fake_execute(**kwargs):
@@ -862,12 +862,12 @@ async def test_mcp_streaming_metadata_ordering(monkeypatch):
         ]
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "process_mcp_tools_without_openai_transform",
         fake_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "execute_tool_calls",
         fake_execute,
     )
@@ -1029,14 +1029,14 @@ async def test_mcp_streaming_metadata_ordering(monkeypatch):
         # Non-streaming call should not happen with new implementation
         pytest.fail("Non-streaming call should not happen with new implementation")
 
-    with patch("litellm.acompletion", side_effect=mock_acompletion):
-        response = litellm.completion(
+    with patch("hangarllm.acompletion", side_effect=mock_acompletion):
+        response = hangarllm.completion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hello"}],
             tools=[
                 {
                     "type": "mcp",
-                    "server_url": "litellm_proxy/mcp/local",
+                    "server_url": "hangarllm_proxy/mcp/local",
                     "server_label": "local",
                     "require_approval": "never",
                 }

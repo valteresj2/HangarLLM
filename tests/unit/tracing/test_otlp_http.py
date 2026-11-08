@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.tracing.otlp_http import encode_otlp_response
+from hangarllm.tracing.otlp_http import encode_otlp_response
 
 
 def test_response_matches_request_encoding() -> None:

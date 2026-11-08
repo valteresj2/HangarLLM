@@ -1,7 +1,7 @@
-from litellm.litellm_core_utils.prompt_templates.reasoning_utils import (
+from hangarllm.hangarllm_core_utils.prompt_templates.reasoning_utils import (
     encrypted_reasoning_signature,
 )
-from litellm.llms.anthropic.messages.native.transformation import (
+from hangarllm.llms.anthropic.messages.native.transformation import (
     AnthropicMessagesConfig,
 )
 
@@ -11,7 +11,7 @@ def _transform(messages):
         model="claude-sonnet-4-5",
         messages=messages,
         anthropic_messages_optional_request_params={"max_tokens": 1024},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 """
-LiteLLM Health Check Client
+HangarLLM Health Check Client
 
-A sentinel health check tool that tests all configured models on a LiteLLM proxy.
+A sentinel health check tool that tests all configured models on a HangarLLM proxy.
 This script:
 - Can read models from YAML config file or fetch from proxy API
 - Sends a simple test request to each model concurrently
@@ -23,7 +23,7 @@ import yaml
 
 # Default prompt for health checks - exactly 100k characters
 # Generate a repeating pattern to reach exactly 100,000 characters
-_base_text = "This is a health check test prompt for LiteLLM proxy. "
+_base_text = "This is a health check test prompt for HangarLLM proxy. "
 _repeat_count = (100000 // len(_base_text)) + 1
 _DEFAULT_COMPLETION_PROMPT = (_base_text * _repeat_count)[:100000]
 
@@ -33,8 +33,8 @@ _embedding_repeat_count = (100000 // len(_embedding_base_text)) + 1
 _DEFAULT_EMBEDDING_TEXT = (_embedding_base_text * _embedding_repeat_count)[:100000]
 
 
-class LiteLLMHealthCheckClient:
-    """Client for health checking LiteLLM proxy models."""
+class HangarLLMHealthCheckClient:
+    """Client for health checking HangarLLM proxy models."""
 
     def __init__(
         self,
@@ -49,7 +49,7 @@ class LiteLLMHealthCheckClient:
         Initialize the health check client.
 
         Args:
-            base_url: Base URL of the LiteLLM proxy (e.g., https://litellm.example.com)
+            base_url: Base URL of the HangarLLM proxy (e.g., https://hangarllm.example.com)
             api_key: API key for authentication
             timeout: Request timeout in seconds (default: 120, matching Go implementation)
             completion_prompt: Test prompt for chat/completion models
@@ -108,8 +108,8 @@ class LiteLLMHealthCheckClient:
 
             for entry in model_list:
                 model_name = entry.get("model_name", "")
-                litellm_params = entry.get("litellm_params", {})
-                model_info = litellm_params.get("model_info", {})
+                hangarllm_params = entry.get("hangarllm_params", {})
+                model_info = hangarllm_params.get("model_info", {})
                 mode = model_info.get("mode", "")
 
                 # Use model_name as the ID (this is what gets sent to the API)
@@ -319,7 +319,7 @@ class LiteLLMHealthCheckClient:
                 )
                 if not models:
                     print(
-                        "No models matched LITELLM_MODELS_ONLY filter",
+                        "No models matched HANGARLLM_MODELS_ONLY filter",
                         file=sys.stderr,
                     )
                     return {}
@@ -399,11 +399,11 @@ class LiteLLMHealthCheckClient:
 
 async def main():
     """Main entry point."""
-    base_url = os.environ.get("LITELLM_BASE_URL", "http://localhost:4000")
-    api_key = os.environ["LITELLM_API_KEY"]
-    yaml_path = os.environ.get("LITELLM_MODELS_YAML")
+    base_url = os.environ.get("HANGARLLM_BASE_URL", "http://localhost:4000")
+    api_key = os.environ["HANGARLLM_API_KEY"]
+    yaml_path = os.environ.get("HANGARLLM_MODELS_YAML")
     custom_auth_header = os.environ.get(
-        "LITELLM_CUSTOM_AUTH_HEADER"
+        "HANGARLLM_CUSTOM_AUTH_HEADER"
     )  # e.g., "x-requester-service"
 
     # Debug: Print custom auth header value if set
@@ -411,25 +411,25 @@ async def main():
         print(f"Custom auth header from env: '{custom_auth_header}'", file=sys.stderr)
 
     if not base_url:
-        print("Error: LITELLM_BASE_URL environment variable not set", file=sys.stderr)
+        print("Error: HANGARLLM_BASE_URL environment variable not set", file=sys.stderr)
         sys.exit(1)
 
     if not api_key:
-        print("Error: LITELLM_API_KEY environment variable not set", file=sys.stderr)
+        print("Error: HANGARLLM_API_KEY environment variable not set", file=sys.stderr)
         sys.exit(1)
 
-    timeout = int(os.environ.get("LITELLM_TIMEOUT", "120"))  # Match Go's 120s default
+    timeout = int(os.environ.get("HANGARLLM_TIMEOUT", "120"))  # Match Go's 120s default
     completion_prompt = os.environ.get(
-        "LITELLM_COMPLETION_PROMPT", _DEFAULT_COMPLETION_PROMPT
+        "HANGARLLM_COMPLETION_PROMPT", _DEFAULT_COMPLETION_PROMPT
     )
-    embedding_text = os.environ.get("LITELLM_EMBEDDING_TEXT", _DEFAULT_EMBEDDING_TEXT)
-    json_output = os.environ.get("LITELLM_JSON_OUTPUT", "").lower() == "true"
+    embedding_text = os.environ.get("HANGARLLM_EMBEDDING_TEXT", _DEFAULT_EMBEDDING_TEXT)
+    json_output = os.environ.get("HANGARLLM_JSON_OUTPUT", "").lower() == "true"
     # Optional: only health-check these model IDs (comma-separated). E.g.:
-    # LITELLM_MODELS_ONLY=claude-3.7-sonnet,claude-3.5-sonnet,claude-4.5-haiku
-    models_only_raw = os.environ.get("LITELLM_MODELS_ONLY", "")
+    # HANGARLLM_MODELS_ONLY=claude-3.7-sonnet,claude-3.5-sonnet,claude-4.5-haiku
+    models_only_raw = os.environ.get("HANGARLLM_MODELS_ONLY", "")
     models_only = [m.strip() for m in models_only_raw.split(",") if m.strip()] or None
 
-    client = LiteLLMHealthCheckClient(
+    client = HangarLLMHealthCheckClient(
         base_url=base_url,
         api_key=api_key,
         timeout=timeout,

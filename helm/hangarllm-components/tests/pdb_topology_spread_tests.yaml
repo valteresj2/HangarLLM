@@ -32,7 +32,7 @@ tests:
           value: policy/v1
       - equal:
           path: metadata.name
-          value: RELEASE-NAME-litellm-gateway
+          value: RELEASE-NAME-hangarllm-gateway
       - equal:
           path: spec.minAvailable
           value: 1
@@ -41,7 +41,7 @@ tests:
       - equal:
           path: spec.selector.matchLabels
           value:
-            app.kubernetes.io/name: litellm
+            app.kubernetes.io/name: hangarllm
             app.kubernetes.io/instance: RELEASE-NAME
             app.kubernetes.io/component: gateway
 
@@ -59,7 +59,7 @@ tests:
       - equal:
           path: spec.selector.matchLabels
           value:
-            app.kubernetes.io/name: litellm
+            app.kubernetes.io/name: hangarllm
             app.kubernetes.io/instance: RELEASE-NAME
             app.kubernetes.io/component: backend
 
@@ -114,7 +114,7 @@ tests:
       - equal:
           path: spec.selector.matchLabels
           value:
-            app.kubernetes.io/name: litellm
+            app.kubernetes.io/name: hangarllm
             app.kubernetes.io/instance: RELEASE-NAME
             app.kubernetes.io/component: ui
 

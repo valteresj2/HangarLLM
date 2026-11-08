@@ -149,7 +149,7 @@ def _converse_request(wire: Wire, target: str = CONVERSE_TARGET) -> Request:
 def _spend_row(identity: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT model_group, status, prompt_tokens, completion_tokens, api_base FROM "LiteLLM_SpendLogs"'
+            'SELECT model_group, status, prompt_tokens, completion_tokens, api_base FROM "HangarLLM_SpendLogs"'
             " WHERE request_id=%s",
             (identity,),
         ),
@@ -270,7 +270,7 @@ def test_temperature_while_reasoning_is_refused_before_any_wire_request(gateway:
         assert response.status_code == 400, response.text
         assert "UnsupportedParamsError" in response.text and "'temperature'" in response.text, response.text
         assert wire.drain() == (), response.text
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert (row["status"], row["model_group"], row["prompt_tokens"]) == ("failure", model, 0), row
         assert "while reasoning is active" in response.text, response.text
 

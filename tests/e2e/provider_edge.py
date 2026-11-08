@@ -3,7 +3,7 @@
 Record and replay scope to provider-bound traffic only: the proxy boots for
 real, tests hit it for real, and only the hop from the proxy to the provider
 is recorded or served from a bundle. Suites opt in per deployment by pointing
-``litellm_params.api_base`` at ``provider_edge_api_base(mount)``, which is an
+``hangarllm_params.api_base`` at ``provider_edge_api_base(mount)``, which is an
 in-process HTTP server mounting each supported provider under a path prefix
 (``http://127.0.0.1:<port>/openai`` forwards to ``https://api.openai.com``).
 In record mode the edge relays each request verbatim, stores the interaction,

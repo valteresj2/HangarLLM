@@ -19,12 +19,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.litellm_core_utils.prompt_templates.file_id_utils import (
+from hangarllm.hangarllm_core_utils.prompt_templates.file_id_utils import (
     _decode_vector_store_ids_in_tools,
     update_responses_tools_with_model_file_ids,
 )
-from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from hangarllm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -38,7 +38,7 @@ def _make_unified_vs_id(
 ) -> str:
     """Build a valid base64-encoded unified vector-store ID."""
     raw = (
-        f"litellm_proxy:vector_store;"
+        f"hangarllm_proxy:vector_store;"
         f"unified_id,{unified_uuid};"
         f"model_id,{model_id};"
         f"provider_resource_id,{provider_resource_id}"
@@ -131,7 +131,7 @@ class TestUpdateResponsesToolsWithModelFileIds:
     def test_B2_code_interpreter_mapping_still_works(self):
         """code_interpreter mapping pass still works after decode pass."""
         model_id = "model-abc"
-        file_id = "litellm_managed_file_001"
+        file_id = "hangarllm_managed_file_001"
         tools = [_code_interpreter_tool([file_id])]
         mapping = {file_id: {model_id: "provider_file_xyz"}}
 
@@ -146,7 +146,7 @@ class TestUpdateResponsesToolsWithModelFileIds:
     def test_B3_both_passes_run_correctly(self):
         """Both file_search decode and code_interpreter mapping run."""
         model_id = "model-abc"
-        file_id = "litellm_managed_file_001"
+        file_id = "hangarllm_managed_file_001"
         unified_id = _make_unified_vs_id(provider_resource_id="vs_decoded")
 
         tools = [
@@ -188,27 +188,27 @@ class TestFileSearchGuardInResponsesMain:
     """Tests for _has_file_search_tool helper and emulated routing guard."""
 
     def test_has_file_search_tool_true(self):
-        from litellm.responses.main import _has_file_search_tool
+        from hangarllm.responses.main import _has_file_search_tool
 
         assert _has_file_search_tool([{"type": "file_search"}]) is True
 
     def test_has_file_search_tool_false_empty(self):
-        from litellm.responses.main import _has_file_search_tool
+        from hangarllm.responses.main import _has_file_search_tool
 
         assert _has_file_search_tool([]) is False
         assert _has_file_search_tool(None) is False
 
     def test_has_file_search_tool_false_other_tools(self):
-        from litellm.responses.main import _has_file_search_tool
+        from hangarllm.responses.main import _has_file_search_tool
 
         assert _has_file_search_tool([{"type": "web_search"}]) is False
 
     def test_E1_openai_provider_no_error(self):
         """OpenAI supports file_search natively — no error raised."""
-        from litellm.llms.openai.responses.transformation import (
+        from hangarllm.llms.openai.responses.transformation import (
             OpenAIResponsesAPIConfig,
         )
-        from litellm.responses.main import _has_file_search_tool
+        from hangarllm.responses.main import _has_file_search_tool
 
         config = OpenAIResponsesAPIConfig()
         tools = [{"type": "file_search", "vector_store_ids": ["vs_abc"]}]
@@ -218,7 +218,7 @@ class TestFileSearchGuardInResponsesMain:
 
     def test_E2_no_provider_config_routes_to_emulated_handler(self):
         """Provider config None + file_search should route to emulated handler."""
-        from litellm.responses.main import responses
+        from hangarllm.responses.main import responses
 
         tools = [{"type": "file_search", "vector_store_ids": ["vs_abc"]}]
         logging_obj = MagicMock()
@@ -226,35 +226,35 @@ class TestFileSearchGuardInResponsesMain:
 
         with (
             patch.object(
-                import_module("litellm.responses.main").litellm, "get_llm_provider",
+                import_module("hangarllm.responses.main").hangarllm, "get_llm_provider",
                 return_value=("claude-sonnet-4-5", "anthropic", None, None),
             ),
             patch.object(
-                import_module("litellm.responses.main"), "update_responses_input_with_model_file_ids",
+                import_module("hangarllm.responses.main"), "update_responses_input_with_model_file_ids",
                 return_value="hello",
             ),
             patch.object(
-                import_module("litellm.responses.main"), "update_responses_tools_with_model_file_ids",
+                import_module("hangarllm.responses.main"), "update_responses_tools_with_model_file_ids",
                 return_value=tools,
             ),
             patch.object(
-                import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config",
+                import_module("hangarllm.responses.main").ProviderConfigManager, "get_provider_responses_api_config",
                 return_value=None,
             ),
             patch.object(
-                import_module("litellm.responses.main").ResponsesAPIRequestUtils, "get_requested_response_api_optional_param",
+                import_module("hangarllm.responses.main").ResponsesAPIRequestUtils, "get_requested_response_api_optional_param",
                 return_value={},
             ),
             patch.object(
-                import_module("litellm.responses.main"), "run_async_function", return_value=expected
+                import_module("hangarllm.responses.main"), "run_async_function", return_value=expected
             ) as run_async_mock,
         ):
             result = responses(
                 input="hello",
                 model="anthropic/claude-sonnet-4-5",
                 tools=tools,
-                litellm_logging_obj=logging_obj,
-                litellm_call_id="call-123",
+                hangarllm_logging_obj=logging_obj,
+                hangarllm_call_id="call-123",
             )
 
         assert result == expected
@@ -264,10 +264,10 @@ class TestFileSearchGuardInResponsesMain:
 
     def test_E3_non_native_provider_config_routes_to_emulated_handler(self):
         """Non-native provider config + file_search should route to emulated handler."""
-        from litellm.llms.base_llm.responses.transformation import (
+        from hangarllm.llms.base_llm.responses.transformation import (
             BaseResponsesAPIConfig,
         )
-        from litellm.responses.main import responses
+        from hangarllm.responses.main import responses
 
         tools = [{"type": "file_search", "vector_store_ids": ["vs_abc"]}]
         logging_obj = MagicMock()
@@ -277,35 +277,35 @@ class TestFileSearchGuardInResponsesMain:
 
         with (
             patch.object(
-                import_module("litellm.responses.main").litellm, "get_llm_provider",
+                import_module("hangarllm.responses.main").hangarllm, "get_llm_provider",
                 return_value=("claude-sonnet-4-5", "anthropic", None, None),
             ),
             patch.object(
-                import_module("litellm.responses.main"), "update_responses_input_with_model_file_ids",
+                import_module("hangarllm.responses.main"), "update_responses_input_with_model_file_ids",
                 return_value="hello",
             ),
             patch.object(
-                import_module("litellm.responses.main"), "update_responses_tools_with_model_file_ids",
+                import_module("hangarllm.responses.main"), "update_responses_tools_with_model_file_ids",
                 return_value=tools,
             ),
             patch.object(
-                import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config",
+                import_module("hangarllm.responses.main").ProviderConfigManager, "get_provider_responses_api_config",
                 return_value=mock_config,
             ),
             patch.object(
-                import_module("litellm.responses.main").ResponsesAPIRequestUtils, "get_requested_response_api_optional_param",
+                import_module("hangarllm.responses.main").ResponsesAPIRequestUtils, "get_requested_response_api_optional_param",
                 return_value={},
             ),
             patch.object(
-                import_module("litellm.responses.main"), "run_async_function", return_value=expected
+                import_module("hangarllm.responses.main"), "run_async_function", return_value=expected
             ) as run_async_mock,
         ):
             result = responses(
                 input="hello",
                 model="anthropic/claude-sonnet-4-5",
                 tools=tools,
-                litellm_logging_obj=logging_obj,
-                litellm_call_id="call-123",
+                hangarllm_logging_obj=logging_obj,
+                hangarllm_call_id="call-123",
             )
 
         assert result == expected
@@ -315,7 +315,7 @@ class TestFileSearchGuardInResponsesMain:
 
     def test_E4_no_file_search_tools_no_error(self):
         """No file_search tool in request → guard never fires."""
-        from litellm.responses.main import _has_file_search_tool
+        from hangarllm.responses.main import _has_file_search_tool
 
         tools = [{"type": "web_search"}, {"type": "code_interpreter"}]
         assert not _has_file_search_tool(tools)
@@ -329,8 +329,8 @@ class TestFileSearchGuardInResponsesMain:
 class TestManagedFilesVectorStoreAccess:
     def _make_hook(self):
         """Return a ManagedFiles instance with prisma_client mocked."""
-        from litellm.hangar.proxy.managed_files import (
-            PROXY_LiteLLMManagedFiles as ManagedFiles,
+        from hangarllm.hangar.proxy.managed_files import (
+            PROXY_HangarLLMManagedFiles as ManagedFiles,
         )
 
         hook = ManagedFiles.__new__(ManagedFiles)
@@ -359,9 +359,9 @@ class TestManagedFilesVectorStoreAccess:
 
     def _make_vs_row(self, vector_store_id: str, team_id: Optional[str]) -> Any:
         """Build a row compatible with get_managed_vector_store_rows_by_uuids (Prisma model_dump)."""
-        from litellm.proxy._types import LiteLLM_ManagedVectorStoresTable
+        from hangarllm.proxy._types import HangarLLM_ManagedVectorStoresTable
 
-        return LiteLLM_ManagedVectorStoresTable(
+        return HangarLLM_ManagedVectorStoresTable(
             vector_store_id=vector_store_id,
             custom_llm_provider="openai",
             vector_store_name=None,
@@ -369,8 +369,8 @@ class TestManagedFilesVectorStoreAccess:
             vector_store_metadata=None,
             created_at=None,
             updated_at=None,
-            litellm_credential_name=None,
-            litellm_params=None,
+            hangarllm_credential_name=None,
+            hangarllm_params=None,
             team_id=team_id,
             user_id=None,
         )
@@ -391,11 +391,11 @@ class TestManagedFilesVectorStoreAccess:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 MagicMock(),
             ),
             patch(
-                "litellm.proxy.auth.auth_checks.get_managed_vector_store_rows_by_uuids",
+                "hangarllm.proxy.auth.auth_checks.get_managed_vector_store_rows_by_uuids",
                 side_effect=mock_get_rows,
             ),
         ):
@@ -420,11 +420,11 @@ class TestManagedFilesVectorStoreAccess:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 MagicMock(),
             ),
             patch(
-                "litellm.proxy.auth.auth_checks.get_managed_vector_store_rows_by_uuids",
+                "hangarllm.proxy.auth.auth_checks.get_managed_vector_store_rows_by_uuids",
                 side_effect=mock_get_rows,
             ),
         ):
@@ -452,11 +452,11 @@ class TestManagedFilesVectorStoreAccess:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 MagicMock(),
             ),
             patch(
-                "litellm.proxy.auth.auth_checks.get_managed_vector_store_rows_by_uuids",
+                "hangarllm.proxy.auth.auth_checks.get_managed_vector_store_rows_by_uuids",
                 get_rows_mock,
             ),
         ):
@@ -473,11 +473,11 @@ class TestManagedFilesVectorStoreAccess:
     @pytest.mark.asyncio
     async def test_F6_non_responses_call_type_skipped(self):
         """Access check only runs for aresponses/responses call types."""
-        from litellm.hangar.proxy.managed_files import (
-            PROXY_LiteLLMManagedFiles as ManagedFiles,
+        from hangarllm.hangar.proxy.managed_files import (
+            PROXY_HangarLLMManagedFiles as ManagedFiles,
         )
 
-        from litellm.proxy._types import CallTypes
+        from hangarllm.proxy._types import CallTypes
 
         # If call_type is acompletion, the vector_store check branch isn't reached.
         # Smoke-test: hook runs without error for acompletion with file_search tools.
@@ -502,8 +502,8 @@ class TestManagedFilesVectorStoreAccess:
 
 class TestGetVectorStoreIdsFromFileSearchTools:
     def _make_hook(self):
-        from litellm.hangar.proxy.managed_files import (
-            PROXY_LiteLLMManagedFiles as ManagedFiles,
+        from hangarllm.hangar.proxy.managed_files import (
+            PROXY_HangarLLMManagedFiles as ManagedFiles,
         )
 
         return ManagedFiles.__new__(ManagedFiles)
@@ -536,7 +536,7 @@ class TestGetVectorStoreIdsFromFileSearchTools:
 
 
 class TestEmulatedFileSearchHandler:
-    """Tests for litellm/responses/file_search/emulated_handler.py"""
+    """Tests for hangarllm/responses/file_search/emulated_handler.py"""
 
     def _make_mock_responses_api_response(
         self,
@@ -549,7 +549,7 @@ class TestEmulatedFileSearchHandler:
             output = [
                 {
                     "type": "function_call",
-                    "name": "litellm_file_search",
+                    "name": "hangarllm_file_search",
                     "call_id": "call_abc123",
                     "arguments": '{"query": "what is X?", "vector_store_id": "vs_001"}',
                 }
@@ -573,7 +573,7 @@ class TestEmulatedFileSearchHandler:
     # --- Tool conversion ---
 
     def test_H1_file_search_replaced_with_function_tool(self):
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             replace_file_search_tools,
         )
 
@@ -583,14 +583,14 @@ class TestEmulatedFileSearchHandler:
         assert vs_ids == ["vs_abc", "vs_def"]
         assert len(new_tools) == 1
         assert new_tools[0]["type"] == "function"
-        assert new_tools[0]["name"] == "litellm_file_search"
+        assert new_tools[0]["name"] == "hangarllm_file_search"
         # Both store IDs appear in the enum
         enum_ids = new_tools[0]["parameters"]["properties"]["vector_store_id"]["enum"]
         assert "vs_abc" in enum_ids
         assert "vs_def" in enum_ids
 
     def test_H2_non_file_search_tools_preserved(self):
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             replace_file_search_tools,
         )
 
@@ -605,7 +605,7 @@ class TestEmulatedFileSearchHandler:
         assert new_tools[1]["type"] == "function"
 
     def test_H3_no_file_search_tools_returns_unchanged(self):
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             replace_file_search_tools,
         )
 
@@ -616,7 +616,7 @@ class TestEmulatedFileSearchHandler:
         assert new_tools == [{"type": "web_search"}]
 
     def test_H4_empty_vector_store_ids_no_function_tool(self):
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             replace_file_search_tools,
         )
 
@@ -629,7 +629,7 @@ class TestEmulatedFileSearchHandler:
     # --- Detection ---
 
     def test_H5_should_use_emulated_for_non_native_provider(self):
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             should_use_emulated_file_search,
         )
 
@@ -640,10 +640,10 @@ class TestEmulatedFileSearchHandler:
         assert should_use_emulated_file_search(tools, mock_config) is True
 
     def test_H6_should_not_emulate_for_native_provider(self):
-        from litellm.llms.openai.responses.transformation import (
+        from hangarllm.llms.openai.responses.transformation import (
             OpenAIResponsesAPIConfig,
         )
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             should_use_emulated_file_search,
         )
 
@@ -653,7 +653,7 @@ class TestEmulatedFileSearchHandler:
         assert should_use_emulated_file_search(tools, config) is False
 
     def test_H7_should_not_emulate_without_file_search_tools(self):
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             should_use_emulated_file_search,
         )
 
@@ -666,7 +666,7 @@ class TestEmulatedFileSearchHandler:
     # --- Output synthesis ---
 
     def test_H8_synthesized_output_has_file_search_call_and_message(self):
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             _build_file_search_call_output,
             _build_message_output,
         )
@@ -683,7 +683,7 @@ class TestEmulatedFileSearchHandler:
         assert msg["content"][0]["text"] == "The answer is 42."
 
     def test_H9_file_citations_added_for_results_with_file_ids(self):
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             _build_file_citation_annotations,
         )
 
@@ -698,7 +698,7 @@ class TestEmulatedFileSearchHandler:
         assert annotations[0]["filename"] == "doc.pdf"
 
     def test_H10_no_duplicate_citations_for_same_file(self):
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             _build_file_citation_annotations,
         )
 
@@ -714,7 +714,7 @@ class TestEmulatedFileSearchHandler:
     def test_H14_include_search_results_returns_all_chunks(self):
         """All chunks are returned even when they originate from the same file,
         matching OpenAI native file_search behaviour."""
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             _build_search_results_for_include,
         )
 
@@ -742,7 +742,7 @@ class TestEmulatedFileSearchHandler:
     @pytest.mark.asyncio
     async def test_H11_emulated_full_flow_provider_calls_tool(self):
         """Full flow: provider calls file_search function → search → follow-up → OpenAI output."""
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             aresponses_with_emulated_file_search,
         )
 
@@ -762,11 +762,11 @@ class TestEmulatedFileSearchHandler:
 
         with (
             patch.object(
-                import_module("litellm.responses.file_search.emulated_handler"), "_call_aresponses",
+                import_module("hangarllm.responses.file_search.emulated_handler"), "_call_aresponses",
                 new=AsyncMock(side_effect=[first_resp, final_resp]),
             ),
             patch(
-                "litellm.vector_stores.main.asearch",
+                "hangarllm.vector_stores.main.asearch",
                 new=AsyncMock(return_value=mock_search_response),
             ),
         ):
@@ -792,7 +792,7 @@ class TestEmulatedFileSearchHandler:
     @pytest.mark.asyncio
     async def test_H11b_emulated_full_flow_primary_queries_schema(self):
         """Primary path: provider returns queries (plural array) as defined in the tool schema."""
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             aresponses_with_emulated_file_search,
         )
 
@@ -801,7 +801,7 @@ class TestEmulatedFileSearchHandler:
         first_resp_plural.output = [
             {
                 "type": "function_call",
-                "name": "litellm_file_search",
+                "name": "hangarllm_file_search",
                 "call_id": "call_plural",
                 "arguments": '{"queries": ["what is deep research?", "multi-step reasoning"], "vector_store_id": "vs_001"}',
             }
@@ -825,11 +825,11 @@ class TestEmulatedFileSearchHandler:
 
         with (
             patch.object(
-                import_module("litellm.responses.file_search.emulated_handler"), "_call_aresponses",
+                import_module("hangarllm.responses.file_search.emulated_handler"), "_call_aresponses",
                 new=AsyncMock(side_effect=[first_resp_plural, final_resp]),
             ),
             patch(
-                "litellm.vector_stores.main.asearch",
+                "hangarllm.vector_stores.main.asearch",
                 new=AsyncMock(return_value=mock_search_response),
             ),
         ):
@@ -850,7 +850,7 @@ class TestEmulatedFileSearchHandler:
     @pytest.mark.asyncio
     async def test_H12_emulated_flow_provider_answers_without_tool_call(self):
         """If provider answers directly (no tool call), still return OpenAI format."""
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             aresponses_with_emulated_file_search,
         )
 
@@ -859,7 +859,7 @@ class TestEmulatedFileSearchHandler:
         )
 
         with patch.object(
-            import_module("litellm.responses.file_search.emulated_handler"), "_call_aresponses",
+            import_module("hangarllm.responses.file_search.emulated_handler"), "_call_aresponses",
             new=AsyncMock(return_value=direct_resp),
         ):
             result = await aresponses_with_emulated_file_search(
@@ -877,7 +877,7 @@ class TestEmulatedFileSearchHandler:
 
     def test_H13_should_use_emulated_when_provider_config_is_none(self):
         """None provider config (chat fallback) also triggers emulation."""
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             should_use_emulated_file_search,
         )
 
@@ -891,8 +891,8 @@ class TestEmulatedFileSearchHandler:
         This ensures wrapper_async skips success/failure callbacks for sub-calls so
         billing fires exactly once (on the outer call) with the synthesized result.
         """
-        from litellm._internal_context import is_internal_call
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm._internal_context import is_internal_call
+        from hangarllm.responses.file_search.emulated_handler import (
             aresponses_with_emulated_file_search,
         )
 
@@ -909,11 +909,11 @@ class TestEmulatedFileSearchHandler:
 
         with (
             patch.object(
-                import_module("litellm.responses.file_search.emulated_handler"), "_call_aresponses",
+                import_module("hangarllm.responses.file_search.emulated_handler"), "_call_aresponses",
                 new=AsyncMock(side_effect=[first_resp, final_resp]),
             ) as mock_call,
             patch(
-                "litellm.vector_stores.main.asearch",
+                "hangarllm.vector_stores.main.asearch",
                 new=AsyncMock(return_value=mock_search_response),
             ),
         ):
@@ -943,7 +943,7 @@ class TestEmulatedFileSearchHandler:
     async def test_H16_model_chosen_id_outside_request_is_not_searched(self, caplog):
         """A vector_store_id the model returns that the request did not list is never
         searched; the request's own stores are searched instead, with a warning."""
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             aresponses_with_emulated_file_search,
         )
 
@@ -951,7 +951,7 @@ class TestEmulatedFileSearchHandler:
         first_resp.output = [
             {
                 "type": "function_call",
-                "name": "litellm_file_search",
+                "name": "hangarllm_file_search",
                 "call_id": "call_unlisted",
                 "arguments": '{"queries": ["launch codeword"], "vector_store_id": "vs_unlisted"}',
             }
@@ -974,12 +974,12 @@ class TestEmulatedFileSearchHandler:
         mock_asearch = AsyncMock(return_value=mock_search_response)
         with (
             patch.object(
-                import_module("litellm.responses.file_search.emulated_handler"),
+                import_module("hangarllm.responses.file_search.emulated_handler"),
                 "_call_aresponses",
                 new=AsyncMock(side_effect=[first_resp, final_resp]),
             ),
-            patch("litellm.vector_stores.main.asearch", new=mock_asearch),  # test-quality-ok: asserts store searched
-            caplog.at_level(logging.WARNING, logger="LiteLLM"),
+            patch("hangarllm.vector_stores.main.asearch", new=mock_asearch),  # test-quality-ok: asserts store searched
+            caplog.at_level(logging.WARNING, logger="HangarLLM"),
         ):
             await aresponses_with_emulated_file_search(
                 input="What is the launch codeword?",
@@ -1000,7 +1000,7 @@ class TestEmulatedFileSearchHandler:
     async def test_H17_model_chosen_id_within_request_narrows_search(self):
         """A vector_store_id the model returns that IS one of the request's stores is honored:
         only that store is searched, not every store in the request."""
-        from litellm.responses.file_search.emulated_handler import (
+        from hangarllm.responses.file_search.emulated_handler import (
             aresponses_with_emulated_file_search,
         )
 
@@ -1008,7 +1008,7 @@ class TestEmulatedFileSearchHandler:
         first_resp.output = [
             {
                 "type": "function_call",
-                "name": "litellm_file_search",
+                "name": "hangarllm_file_search",
                 "call_id": "call_narrow",
                 "arguments": '{"queries": ["q"], "vector_store_id": "vs_two"}',
             }
@@ -1031,11 +1031,11 @@ class TestEmulatedFileSearchHandler:
         mock_asearch = AsyncMock(return_value=mock_search_response)
         with (
             patch.object(
-                import_module("litellm.responses.file_search.emulated_handler"),
+                import_module("hangarllm.responses.file_search.emulated_handler"),
                 "_call_aresponses",
                 new=AsyncMock(side_effect=[first_resp, final_resp]),
             ),
-            patch("litellm.vector_stores.main.asearch", new=mock_asearch),  # test-quality-ok: asserts store searched
+            patch("hangarllm.vector_stores.main.asearch", new=mock_asearch),  # test-quality-ok: asserts store searched
         ):
             await aresponses_with_emulated_file_search(
                 input="q",

@@ -7,10 +7,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from prisma.errors import PrismaError
 
-from litellm._service_logger import ServiceTypes
-from litellm.proxy.db.db_lookup_gate import bounded_db_lookup
-from litellm.proxy.db.log_db_metrics import log_db_metrics
-from litellm.proxy.db.prisma_client import _PrismaDrainTracker, _TrackedPrismaEngine
+from hangarllm._service_logger import ServiceTypes
+from hangarllm.proxy.db.db_lookup_gate import bounded_db_lookup
+from hangarllm.proxy.db.log_db_metrics import log_db_metrics
+from hangarllm.proxy.db.prisma_client import _PrismaDrainTracker, _TrackedPrismaEngine
 
 
 def _tracked_engine() -> _TrackedPrismaEngine:
@@ -22,7 +22,7 @@ def _tracked_engine() -> _TrackedPrismaEngine:
 def success_hook() -> Iterator[AsyncMock]:
     hook: Final = AsyncMock()
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
         MagicMock(service_logging_obj=MagicMock(async_service_success_hook=hook)),
     ):
         yield hook
@@ -32,7 +32,7 @@ def success_hook() -> Iterator[AsyncMock]:
 def failure_hook() -> Iterator[AsyncMock]:
     hook: Final = AsyncMock()
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
         MagicMock(service_logging_obj=MagicMock(async_service_failure_hook=hook)),
     ):
         yield hook
@@ -63,11 +63,11 @@ async def test_a_decorated_call_that_queries_the_engine_emits_one_db_event_named
     async def read_user_row(**kwargs: object) -> object:
         return await engine.query("{}", tx_id=None)
 
-    await read_user_row(parent_otel_span="span", table_name="LiteLLM_UserTable")
+    await read_user_row(parent_otel_span="span", table_name="HangarLLM_UserTable")
 
     assert await _db_call_types(success_hook) == ("read_user_row",)
     event: Final = success_hook.await_args_list[0].kwargs
-    assert (event["parent_otel_span"], event["event_metadata"]) == ("span", {"table_name": "LiteLLM_UserTable"})
+    assert (event["parent_otel_span"], event["event_metadata"]) == ("span", {"table_name": "HangarLLM_UserTable"})
 
 
 @pytest.mark.asyncio
@@ -205,9 +205,9 @@ async def test_a_helper_without_a_table_name_parameter_gets_no_inferred_table(su
 
 
 _FIND_UNIQUE_KEY_PAYLOAD: Final = (
-    '{"query": "query { result: findUniqueLiteLLM_VerificationToken(where: {token: \\"h\\"}) { token } }"}'
+    '{"query": "query { result: findUniqueHangarLLM_VerificationToken(where: {token: \\"h\\"}) { token } }"}'
 )
-_RAW_SELECT_PAYLOAD: Final = '{"query": "mutation { result: queryRaw(query: \\"SELECT 1 FROM \\\\\\"LiteLLM_UserTable\\\\\\"\\", parameters: \\"[]\\") }"}'
+_RAW_SELECT_PAYLOAD: Final = '{"query": "mutation { result: queryRaw(query: \\"SELECT 1 FROM \\\\\\"HangarLLM_UserTable\\\\\\"\\", parameters: \\"[]\\") }"}'
 
 
 @pytest.mark.asyncio
@@ -221,8 +221,8 @@ async def test_an_undecorated_prisma_query_emits_one_db_event_named_from_the_eng
 
     assert await _db_call_types(success_hook) == ("query_raw", "find_unique")
     raw, model = (call.kwargs["event_metadata"] for call in success_hook.await_args_list)
-    assert raw == {"table_name": "LiteLLM_UserTable", "db_operation": "select"}
-    assert model == {"table_name": "LiteLLM_VerificationToken", "db_operation": "select"}
+    assert raw == {"table_name": "HangarLLM_UserTable", "db_operation": "select"}
+    assert model == {"table_name": "HangarLLM_VerificationToken", "db_operation": "select"}
 
 
 @pytest.mark.asyncio

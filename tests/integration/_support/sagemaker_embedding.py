@@ -28,7 +28,7 @@ IC_NOT_ALLOWED: Final = (
     "Inference Component Name header is not allowed for endpoints to which you dont plan to deploy inference "
     "components. Please remove the Inference Component Name header and try again."
 )
-PASS_IN_HINT: Final = "pass in via `litellm.embedding(..., model_id={InferenceComponentName})`"
+PASS_IN_HINT: Final = "pass in via `hangarllm.embedding(..., model_id={InferenceComponentName})`"
 REMOVE_HINT: Final = "remove `model_id` from this deployment, the endpoint has no inference components"
 
 
@@ -183,7 +183,7 @@ def respond(request: Request) -> Reply:
             return aws_error(400, "ValidationError", f"Endpoint {name} of account 000000000000 not found.")
 
 
-def litellm_params(model: str, **parameters: JsonValue) -> dict[str, JsonValue]:
+def hangarllm_params(model: str, **parameters: JsonValue) -> dict[str, JsonValue]:
     return {
         "model": model,
         "aws_access_key_id": ACCESS_KEY,
@@ -198,7 +198,7 @@ def deployment(
 ) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": litellm_params(model, **parameters),
+        "hangarllm_params": hangarllm_params(model, **parameters),
         **({} if model_info is None else {"model_info": dict(model_info)}),
     }
 

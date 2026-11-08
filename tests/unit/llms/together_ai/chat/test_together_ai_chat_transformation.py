@@ -6,15 +6,15 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.exceptions import UnsupportedParamsError
-from litellm.llms.base_llm.chat.transformation import LiteLLMLoggingObj
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.openai.chat.gpt_transformation import (
+import hangarllm
+from hangarllm.exceptions import UnsupportedParamsError
+from hangarllm.llms.base_llm.chat.transformation import HangarLLMLoggingObj
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.openai.chat.gpt_transformation import (
     OpenAIChatCompletionStreamingHandler,
 )
-from litellm.llms.together_ai.chat.transformation import TogetherAIChatConfig
-from litellm.types.utils import LlmProviders, ModelResponse
+from hangarllm.llms.together_ai.chat.transformation import TogetherAIChatConfig
+from hangarllm.types.utils import LlmProviders, ModelResponse
 import os
 
 TOOL_CALLING_MODEL = "openai/gpt-oss-20b"
@@ -57,10 +57,10 @@ def _map_reasoning_effort(model: str, effort: str) -> dict:
 
 @pytest.fixture(autouse=True)
 def force_local_model_cost(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    from litellm.litellm_core_utils.get_model_cost_map import get_model_cost_map
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    from hangarllm.hangarllm_core_utils.get_model_cost_map import get_model_cost_map
 
-    monkeypatch.setattr(litellm, "model_cost", get_model_cost_map(url=litellm.model_cost_map_url))
+    monkeypatch.setattr(hangarllm, "model_cost", get_model_cost_map(url=hangarllm.model_cost_map_url))
 
 
 @pytest.fixture(autouse=True)
@@ -71,27 +71,27 @@ def isolate_together_api_base_env(monkeypatch):
 @pytest.fixture
 def registry_disables_function_calling(monkeypatch):
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         f"together_ai/{NO_TOOLS_MODEL}",
-        {"litellm_provider": "together_ai", "mode": "chat", "supports_function_calling": False},
+        {"hangarllm_provider": "together_ai", "mode": "chat", "supports_function_calling": False},
     )
 
 
 @pytest.fixture
 def registry_disables_response_schema(monkeypatch):
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         f"together_ai/{NO_SCHEMA_MODEL}",
-        {"litellm_provider": "together_ai", "mode": "chat", "supports_response_schema": False},
+        {"hangarllm_provider": "together_ai", "mode": "chat", "supports_response_schema": False},
     )
 
 
 @pytest.fixture
 def together_warning_log(caplog):
-    from litellm._logging import verbose_logger
+    from hangarllm._logging import verbose_logger
 
     verbose_logger.addHandler(caplog.handler)
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         yield caplog
     verbose_logger.removeHandler(caplog.handler)
 
@@ -298,7 +298,7 @@ def test_reasoning_effort_default_is_dropped(model):
 
 
 def test_get_optional_params_translates_reasoning_effort_for_together():
-    optional_params = litellm.get_optional_params(
+    optional_params = hangarllm.get_optional_params(
         model=ADJUSTABLE_REASONING_MODEL,
         custom_llm_provider="together_ai",
         reasoning_effort="max",
@@ -308,8 +308,8 @@ def test_get_optional_params_translates_reasoning_effort_for_together():
 
 
 def test_get_optional_params_rejects_reasoning_effort_for_non_reasoning_together_model():
-    with pytest.raises(litellm.UnsupportedParamsError):
-        litellm.get_optional_params(
+    with pytest.raises(hangarllm.UnsupportedParamsError):
+        hangarllm.get_optional_params(
             model=NON_REASONING_MODEL,
             custom_llm_provider="together_ai",
             reasoning_effort="low",
@@ -370,7 +370,7 @@ def _transform_response(message: dict) -> ModelResponse:
     mock_response.json.return_value = raw_response_json
     mock_response.text = json.dumps(raw_response_json)
     mock_response.headers = {}
-    logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    logging_obj = MagicMock(spec=HangarLLMLoggingObj)
     logging_obj.post_call = MagicMock()
     logging_obj.model_call_details = {}
 
@@ -382,7 +382,7 @@ def _transform_response(message: dict) -> ModelResponse:
         request_data={},
         messages=[{"role": "user", "content": "What is 2+2?"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
         api_key="test-key",
         json_mode=False,
@@ -481,14 +481,14 @@ def test_transform_request_keeps_reasoning_content_strips_internal_fields():
         model=REASONING_MODEL,
         messages=[dict(message) for message in PRESERVED_THINKING_MESSAGES],
         optional_params={},
-        litellm_params={"custom_llm_provider": "together_ai"},
+        hangarllm_params={"custom_llm_provider": "together_ai"},
         headers={},
     )
 
     _assert_internal_fields_stripped_reasoning_kept(request["messages"])
 
 
-def test_tool_search_reply_sent_to_together_drops_litellm_response_fields():
+def test_tool_search_reply_sent_to_together_drops_hangarllm_response_fields():
     tool_search_reply = {
         "role": "assistant",
         "content": "",
@@ -511,7 +511,7 @@ def test_tool_search_reply_sent_to_together_drops_litellm_response_fields():
             {"role": "tool", "tool_call_id": "call_1", "content": "sunny"},
         ],
         optional_params={},
-        litellm_params={"custom_llm_provider": "together_ai"},
+        hangarllm_params={"custom_llm_provider": "together_ai"},
         headers={},
     )
 
@@ -533,7 +533,7 @@ async def test_async_transform_request_keeps_reasoning_content_strips_internal_f
         model=REASONING_MODEL,
         messages=[dict(message) for message in PRESERVED_THINKING_MESSAGES],
         optional_params={},
-        litellm_params={"custom_llm_provider": "together_ai"},
+        hangarllm_params={"custom_llm_provider": "together_ai"},
         headers={},
     )
 
@@ -541,7 +541,7 @@ async def test_async_transform_request_keeps_reasoning_content_strips_internal_f
 
 
 def test_completion_sends_chat_template_kwargs_and_preserved_reasoning():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     captured_requests: list[httpx.Request] = []
 
@@ -567,7 +567,7 @@ def test_completion_sends_chat_template_kwargs_and_preserved_reasoning():
 
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(respond)))
 
-    litellm.completion(
+    hangarllm.completion(
         model=f"together_ai/{REASONING_MODEL}",
         messages=[dict(message) for message in PRESERVED_THINKING_MESSAGES],
         chat_template_kwargs={"clear_thinking": False},
@@ -582,13 +582,13 @@ def test_completion_sends_chat_template_kwargs_and_preserved_reasoning():
 
 
 def test_together_ai_config_alias_points_at_chat_config():
-    assert litellm.TogetherAIConfig is litellm.TogetherAIChatConfig
-    config = litellm.TogetherAIConfig(max_tokens=10)
+    assert hangarllm.TogetherAIConfig is hangarllm.TogetherAIChatConfig
+    config = hangarllm.TogetherAIConfig(max_tokens=10)
     assert isinstance(config, TogetherAIChatConfig)
 
 
 def test_provider_config_manager_returns_together_chat_config():
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.utils import ProviderConfigManager
 
     config = ProviderConfigManager.get_provider_chat_config(model=REASONING_MODEL, provider=LlmProviders.TOGETHER_AI)
 
@@ -596,7 +596,7 @@ def test_provider_config_manager_returns_together_chat_config():
 
 
 def test_completion_routes_through_together_chat_config():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     captured_requests = []
 
@@ -626,7 +626,7 @@ def test_completion_routes_through_together_chat_config():
 
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(respond)))
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model=f"together_ai/{REASONING_MODEL}",
         messages=[{"role": "user", "content": "What is 2+2?"}],
         api_key="fake-key",
@@ -642,7 +642,7 @@ def test_completion_routes_through_together_chat_config():
 
 
 def test_completion_unmapped_model_sends_tools_to_together():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     captured_requests = []
 
@@ -681,7 +681,7 @@ def test_completion_unmapped_model_sends_tools_to_together():
 
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(respond)))
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model=f"together_ai/{UNMAPPED_MODEL}",
         messages=[{"role": "user", "content": "What is the weather in San Francisco?"}],
         tools=WEATHER_TOOLS,
@@ -699,7 +699,7 @@ def test_completion_unmapped_model_sends_tools_to_together():
 
 
 def _capture_completion_request(model: str, **completion_kwargs) -> dict:
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     captured_requests = []
 
@@ -724,7 +724,7 @@ def _capture_completion_request(model: str, **completion_kwargs) -> dict:
         )
 
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(respond)))
-    litellm.completion(
+    hangarllm.completion(
         model=f"together_ai/{model}",
         messages=[{"role": "user", "content": "Summarize with a title and summary."}],
         api_key="fake-key",
@@ -859,7 +859,7 @@ def test_streaming_completion_rebuilds_reasoning_and_parallel_tool_calls():
     client = _sync_client(captured_requests, _sse_response(*PARALLEL_TOOL_CALL_STREAM))
 
     chunks = list(
-        litellm.completion(
+        hangarllm.completion(
             model=f"together_ai/{UNMAPPED_MODEL}",
             messages=[{"role": "user", "content": "Weather and time in San Francisco?"}],
             tools=WEATHER_AND_TIME_TOOLS,
@@ -877,7 +877,7 @@ def test_streaming_completion_rebuilds_reasoning_and_parallel_tool_calls():
     streamed_reasoning = "".join(getattr(chunk.choices[0].delta, "reasoning_content", None) or "" for chunk in chunks)
     assert streamed_reasoning == "Need weather and time."
 
-    rebuilt = litellm.stream_chunk_builder(chunks)
+    rebuilt = hangarllm.stream_chunk_builder(chunks)
     message = rebuilt.choices[0].message
     assert message.reasoning_content == "Need weather and time."
     assert rebuilt.choices[0].finish_reason == "tool_calls"
@@ -899,7 +899,7 @@ async def test_async_streaming_completion_strips_internal_fields_and_streams_rea
     )
 
     try:
-        stream = await litellm.acompletion(
+        stream = await hangarllm.acompletion(
             model=f"together_ai/{REASONING_MODEL}",
             messages=[dict(message) for message in PRESERVED_THINKING_MESSAGES],
             chat_template_kwargs={"clear_thinking": False},
@@ -916,7 +916,7 @@ async def test_async_streaming_completion_strips_internal_fields_and_streams_rea
     assert request_body["chat_template_kwargs"] == {"clear_thinking": False}
     _assert_internal_fields_stripped_reasoning_kept(request_body["messages"])
 
-    rebuilt = litellm.stream_chunk_builder(chunks)
+    rebuilt = hangarllm.stream_chunk_builder(chunks)
     assert rebuilt.choices[0].message.reasoning_content == "Recalling 47."
     assert rebuilt.choices[0].message.content == "47"
 
@@ -929,7 +929,7 @@ def test_completion_bare_model_with_together_api_base_uses_together_config(api_b
         httpx.Response(200, json=_chat_completion({"role": "assistant", "content": "4", "reasoning": "2+2"})),
     )
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model=UNMAPPED_MODEL,
         messages=[{"role": "user", "content": "What is 2+2?"}],
         api_base=api_base,
@@ -951,7 +951,7 @@ def test_completion_honors_together_ai_api_base_env(monkeypatch):
         httpx.Response(200, json=_chat_completion({"role": "assistant", "content": "4"})),
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model=f"together_ai/{REASONING_MODEL}",
         messages=[{"role": "user", "content": "What is 2+2?"}],
         api_key="fake-key",
@@ -985,7 +985,7 @@ def test_responses_api_sends_tools_and_maps_reasoning_and_function_call():
         ),
     )
 
-    response = litellm.responses(
+    response = hangarllm.responses(
         model=f"together_ai/{UNMAPPED_MODEL}",
         input="What is the weather in San Francisco?",
         tools=[{"type": "function", "name": "get_weather", "parameters": {}}],
@@ -1028,7 +1028,7 @@ def test_anthropic_messages_replays_tool_loop_and_maps_reasoning_to_thinking_blo
         ),
     )
 
-    response = litellm.anthropic.messages.create(
+    response = hangarllm.anthropic.messages.create(
         model=f"together_ai/{UNMAPPED_MODEL}",
         max_tokens=100,
         messages=[dict(message) for message in ANTHROPIC_TOOL_LOOP_MESSAGES],
@@ -1073,7 +1073,7 @@ def test_anthropic_messages_streams_together_tool_call_as_input_json_delta():
     client = _sync_client(captured_requests, _sse_response(*PARALLEL_TOOL_CALL_STREAM))
 
     events = _anthropic_sse_events(
-        litellm.anthropic.messages.create(
+        hangarllm.anthropic.messages.create(
             model=f"together_ai/{UNMAPPED_MODEL}",
             max_tokens=100,
             messages=[{"role": "user", "content": "Weather and time in San Francisco?"}],
@@ -1142,7 +1142,7 @@ def test_declared_levels_model_still_disables_reasoning_on_none():
 
 
 def test_get_optional_params_preserves_max_for_declared_levels_model():
-    optional_params = litellm.get_optional_params(
+    optional_params = hangarllm.get_optional_params(
         model=DECLARED_LEVELS_MODEL,
         custom_llm_provider="together_ai",
         reasoning_effort="max",
@@ -1182,7 +1182,7 @@ def test_custom_role_wrappers_never_reach_the_request():
     client, captured_requests = _together_chat_transport()
     messages = [{"role": "user", "content": "Hello!"}]
 
-    litellm.completion(
+    hangarllm.completion(
         model=f"together_ai/{TOOL_CALLING_MODEL}",
         messages=messages,
         roles={
@@ -1208,9 +1208,9 @@ def test_custom_role_wrappers_never_reach_the_request():
     ],
 )
 def test_get_supported_response_format_together_ai(model: str) -> None:
-    os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-    litellm.model_cost = litellm.get_model_cost_map(url="")
-    optional_params = litellm.get_supported_openai_params(
+    os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
+    optional_params = hangarllm.get_supported_openai_params(
         model, custom_llm_provider="together_ai"
     )
     assert isinstance(optional_params, list)

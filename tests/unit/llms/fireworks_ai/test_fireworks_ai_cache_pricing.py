@@ -2,9 +2,9 @@ from copy import deepcopy
 
 import pytest
 
-from litellm.constants import FIREWORKS_AI_DEFAULT_CACHE_READ_RATE_RATIO
-from litellm.llms.fireworks_ai.cache_pricing import with_default_cache_read_rate
-from litellm.types.utils import ModelInfo
+from hangarllm.constants import FIREWORKS_AI_DEFAULT_CACHE_READ_RATE_RATIO
+from hangarllm.llms.fireworks_ai.cache_pricing import with_default_cache_read_rate
+from hangarllm.types.utils import ModelInfo
 
 
 def test_explicit_cache_read_rate_and_missing_input_rate_keep_the_entry_untouched() -> None:

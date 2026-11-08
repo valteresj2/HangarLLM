@@ -3,15 +3,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-import litellm
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.bedrock.embed.twelvelabs_marengo_3_transformation import (
+import hangarllm
+from hangarllm.llms.bedrock.common_utils import BedrockError
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.bedrock.embed.twelvelabs_marengo_3_transformation import (
     MARENGO_2_7_ONLY_PARAMS,
     build_marengo_3_request,
     is_marengo_3_model,
 )
-from litellm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
+from hangarllm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
     TwelveLabsMarengoEmbeddingConfig,
     drop_params_enabled,
 )
@@ -345,10 +345,10 @@ def test_marengo_2_7_only_params_are_advertised_only_for_2_7():
 
 
 def test_drop_params_comes_from_the_call_or_the_global(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     assert drop_params_enabled({}) is False
     assert drop_params_enabled({"drop_params": True}) is True
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     assert drop_params_enabled({}) is True
 
 
@@ -385,7 +385,7 @@ def test_timed_media_options_are_rejected_on_untimed_input_types_unless_dropped(
 
 
 def _embed_marengo_3_us(client: HTTPHandler, **params: object):
-    return litellm.embedding(
+    return hangarllm.embedding(
         model=f"bedrock/{MARENGO_3_US}",
         input="hello",
         client=client,
@@ -397,7 +397,7 @@ def _embed_marengo_3_us(client: HTTPHandler, **params: object):
 
 
 def test_per_request_drop_params_reaches_the_marengo_3_builder(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     client = HTTPHandler()
     with patch.object(client, "post") as mock_post:
         mock_response = Mock()
@@ -406,7 +406,7 @@ def test_per_request_drop_params_reaches_the_marengo_3_builder(monkeypatch):
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        with pytest.raises(litellm.BadRequestError, match=r"Marengo 2\.7 parameters textTruncate"):
+        with pytest.raises(hangarllm.BadRequestError, match=r"Marengo 2\.7 parameters textTruncate"):
             _embed_marengo_3_us(client, textTruncate="end")
         assert mock_post.call_count == 0
 

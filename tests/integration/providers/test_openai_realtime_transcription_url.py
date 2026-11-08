@@ -62,7 +62,7 @@ TRANSCRIPTION_QUERY: Final = f"intent={TRANSCRIPTION}"
 UNAUTHENTICATED_STATUS: Final = 403
 UPSTREAM_REFUSAL_CLOSE: Final = 1008
 UNKNOWN_MODEL_CLOSE: Final = 1011
-SPEND_SQL: Final = 'SELECT call_type, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE api_key = %s'
+SPEND_SQL: Final = 'SELECT call_type, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE api_key = %s'
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,7 +149,7 @@ def _named_deployment(creator: Gateway, scenario: Scenario, name: str, model: st
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {"model": model, "api_key": scenario_id, "api_base": creator.upstream_url.rstrip("/")},
+            "hangarllm_params": {"model": model, "api_key": scenario_id, "api_base": creator.upstream_url.rstrip("/")},
             "model_info": {},
         },
     )

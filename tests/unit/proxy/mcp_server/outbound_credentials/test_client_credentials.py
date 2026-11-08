@@ -10,7 +10,7 @@ import httpx2
 import pytest
 from pydantic import SecretStr
 
-from litellm.proxy.mcp_server.outbound_credentials.client_credentials import (
+from hangarllm.proxy.mcp_server.outbound_credentials.client_credentials import (
     ClientCredentialsBearerAuth,
     ClientCredentialsTokenSource,
     TokenEndpointDenied,
@@ -18,8 +18,8 @@ from litellm.proxy.mcp_server.outbound_credentials.client_credentials import (
     TokenEndpointSuccess,
     TokenEndpointUnreachable,
 )
-from litellm.proxy.mcp_server.outbound_credentials.result import Error, Ok
-from litellm.proxy.mcp_server.outbound_credentials.types import (
+from hangarllm.proxy.mcp_server.outbound_credentials.result import Error, Ok
+from hangarllm.proxy.mcp_server.outbound_credentials.types import (
     ClientCredentialsConfig,
 )
 
@@ -487,8 +487,8 @@ async def test_token_exchange_failure_diagnostics(mode, monkeypatch, caplog):
     import asyncio
     import logging
 
-    from litellm.llms.custom_httpx import http_handler
-    from litellm.proxy.mcp_server.outbound_credentials.client_credentials import post_client_credentials_grant
+    from hangarllm.llms.custom_httpx import http_handler
+    from hangarllm.proxy.mcp_server.outbound_credentials.client_credentials import post_client_credentials_grant
 
     class Poster:
         async def post(self, url, headers, data):
@@ -506,7 +506,7 @@ async def test_token_exchange_failure_diagnostics(mode, monkeypatch, caplog):
             return response
 
     monkeypatch.setattr(http_handler, "get_async_httpx_client", lambda **kwargs: Poster())
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         if mode == "cancel":
             with pytest.raises(asyncio.CancelledError):
                 await post_client_credentials_grant("https://idp/token", {}, {})
@@ -558,7 +558,7 @@ def test_subscription_identity_tracks_grant_configuration(changed):
 
 
 def test_subscription_identity_requires_managed_grant_metadata():
-    from litellm.proxy.mcp_server.outbound_credentials.types import HeaderCarrier
+    from hangarllm.proxy.mcp_server.outbound_credentials.types import HeaderCarrier
 
     async def refetch(token: str) -> str | None:
         return None

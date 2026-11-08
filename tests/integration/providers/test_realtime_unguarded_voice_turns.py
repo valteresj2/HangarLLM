@@ -79,7 +79,7 @@ CREATED_SECONDS: Final = 60.0
 STEP_SECONDS: Final = 30.0
 FIVE_KB: Final = "x" * 5120
 PCM_200MS_24KHZ: Final = base64.b64encode(bytes(9600)).decode()
-SPEND_SQL: Final = 'SELECT call_type FROM "LiteLLM_SpendLogs" WHERE api_key = %s'
+SPEND_SQL: Final = 'SELECT call_type FROM "HangarLLM_SpendLogs" WHERE api_key = %s'
 ROUTES: Final = ("/v1/realtime", "/realtime", "/openai/v1/realtime")
 BETA_HEADERS: Final = {"OpenAI-Beta": "realtime=v1"}
 COMMIT: Final[dict[str, JsonValue]] = {"type": "input_audio_buffer.commit"}
@@ -248,7 +248,7 @@ def _named_deployment(creator: Gateway, scenario: Scenario, scenario_id: str) ->
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{VOICE_MODEL}",
                 "api_key": scenario_id,
                 "api_base": f"{creator.upstream_url}/v1",
@@ -279,7 +279,7 @@ def _live_deployment(gateway: Gateway, scenario: Scenario, project: str) -> str:
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"vertex_ai/{LIVE_MODEL}",
                 "vertex_project": project,
                 "vertex_credentials": _live_credentials(upstream),
@@ -458,8 +458,8 @@ def _assert_client_turns(
 def _content_filter(name: str, mode: JsonValue, *, default_on: bool, word: str) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
-            "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+            "guardrail": "hangarllm_content_filter",
             "mode": mode,
             "default_on": default_on,
             "blocked_words": [{"keyword": word, "action": "BLOCK"}],
@@ -477,13 +477,13 @@ def _write_config(directory: Path, ca_bundle: Path) -> Path:
                     _content_filter(MIXED_GUARDRAIL, ["pre_call", REALTIME_HOOK], default_on=False, word=MIXED_WORD),
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                     "proxy_batch_write_at": 1,
                     "proxy_batch_polling_interval": 1,
                 },
-                "litellm_settings": {
+                "hangarllm_settings": {
                     "ssl_verify": str(ca_bundle),
                     "enable_redis_auth_cache": True,
                     "cache": True,

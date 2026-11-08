@@ -3,8 +3,8 @@
 from collections.abc import Callable, Mapping
 from typing import Final
 
-from litellm.router_core import RouterCore
-from litellm.router_python_host import Endpoint
+from hangarllm.router_core import RouterCore
+from hangarllm.router_python_host import Endpoint
 from tests.unit.test_router.core.scripted_host import Outcome, ScriptedHost, deployment
 
 MakeCore = Callable[..., RouterCore]
@@ -43,7 +43,7 @@ def headers(response: object) -> Mapping[str, object]:
 
 
 def metadata_of(kwargs: Mapping[str, object]) -> Mapping[str, object]:
-    found: Final = kwargs.get("metadata") or kwargs.get("litellm_metadata") or {}
+    found: Final = kwargs.get("metadata") or kwargs.get("hangarllm_metadata") or {}
     assert isinstance(found, Mapping)
     return found
 
@@ -65,7 +65,7 @@ def fails_once_then_answers(error: BaseException) -> Callable[..., Outcome]:
 
 
 class NamedEndpointHost(ScriptedHost):
-    """A ``ScriptedHost`` whose ``anthropic_messages`` endpoint carries that name, as litellm's
+    """A ``ScriptedHost`` whose ``anthropic_messages`` endpoint carries that name, as hangarllm's
     own function does. The core recognises a /v1/messages call (and its safeguard-refusal gate)
     by the endpoint's ``__name__``; ``ScriptedHost``'s endpoints are all named ``endpoint``."""
 

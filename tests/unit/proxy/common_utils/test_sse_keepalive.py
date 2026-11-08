@@ -5,9 +5,9 @@ from typing import Final, cast
 import pytest
 from fastapi.responses import StreamingResponse
 
-from litellm.proxy.common_request_processing import create_response
-from litellm.types.utils import ModelResponse
-from litellm.proxy.common_utils.sse_keepalive import (
+from hangarllm.proxy.common_request_processing import create_response
+from hangarllm.types.utils import ModelResponse
+from hangarllm.proxy.common_utils.sse_keepalive import (
     ANTHROPIC_PING_SSE_CHUNK,
     SSE_COMMENT_PING_BYTES,
     advance_sse_tail,
@@ -386,7 +386,7 @@ def _deployment(keepalive_seconds=..., model="openai/gpt-4o"):
     params = {"model": model}
     if keepalive_seconds is not ...:
         params["keepalive_seconds"] = keepalive_seconds
-    return {"model_name": "m", "litellm_params": params}
+    return {"model_name": "m", "hangarllm_params": params}
 
 
 @pytest.mark.parametrize(

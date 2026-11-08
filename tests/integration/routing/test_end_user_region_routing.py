@@ -33,7 +33,7 @@ def candidate(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Gateway]:
             *(
                 {
                     "model_name": MODEL,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"openai/{upstream}",
                         "api_base": f"{base.upstream_url}/v1",
                         "api_key": "synthetic-region-key",
@@ -45,7 +45,7 @@ def candidate(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Gateway]:
             *(
                 {
                     "model_name": UNCOUNTABLE_MODEL,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"openai/{upstream}",
                         "api_base": f"{base.upstream_url}/v1",
                         "api_key": "synthetic-region-key",
@@ -59,7 +59,7 @@ def candidate(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Gateway]:
             *(
                 {
                     "model_name": RPM_CAPPED_MODEL,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"openai/{upstream}",
                         "api_base": f"{base.upstream_url}/v1",
                         "api_key": "synthetic-region-key",
@@ -104,7 +104,7 @@ def test_an_end_users_allowed_region_pins_every_call_to_that_regions_deployment(
             for _ in range(CALLS)
         )
         assert [response.status_code for response in responses] == [200] * CALLS, [r.text for r in responses]
-        assert [response.headers.get("x-litellm-model-region") for response in responses] == [region] * CALLS
+        assert [response.headers.get("x-hangarllm-model-region") for response in responses] == [region] * CALLS
         observed: Final = upstream.get("/__observations").json()["requests"]
         assert [request["body"]["model"] for request in observed] == [UPSTREAM_BY_REGION[region]] * CALLS
 
@@ -155,7 +155,7 @@ def test_an_uncountable_prompt_still_pins_an_end_user_to_their_region(
         responses: Final = tuple(candidate.request("POST", path, body, key=key) for path, body in requests)
         assert [response.status_code for response in responses] == [200] * CALLS, [r.text for r in responses]
         pinned_deployment: Final = f"{UNCOUNTABLE_MODEL}-{PINNED_REGION}"
-        assert [response.headers.get("x-litellm-model-id") for response in responses] == [pinned_deployment] * CALLS
+        assert [response.headers.get("x-hangarllm-model-id") for response in responses] == [pinned_deployment] * CALLS
         observed: Final = upstream.get("/__observations").json()["requests"]
         pinned_upstream: Final = UPSTREAM_BY_REGION[PINNED_REGION]
         assert [request["body"]["model"] for request in observed] == [pinned_upstream] * recorded_chat_calls
@@ -171,4 +171,4 @@ def test_pre_call_checks_keep_serving_deployments_past_their_rpm(candidate: Gate
         assert [response.status_code for response in responses] == [200] * RPM_CAPPED_CALLS, [
             response.text for response in responses
         ]
-        assert {response.headers.get("x-litellm-model-id") for response in responses} <= RPM_CAPPED_DEPLOYMENTS
+        assert {response.headers.get("x-hangarllm-model-id") for response in responses} <= RPM_CAPPED_DEPLOYMENTS

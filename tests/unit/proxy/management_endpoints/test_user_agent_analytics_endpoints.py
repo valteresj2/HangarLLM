@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from litellm.proxy import proxy_server
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.management_endpoints.user_agent_analytics_endpoints import (
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.management_endpoints.user_agent_analytics_endpoints import (
     ActiveUsersAnalyticsResponse,
     DistinctTagResponse,
     DistinctTagsResponse,

@@ -7,10 +7,10 @@ import pytest
 from fastapi import Request
 from prisma import models as prisma_models
 
-from litellm.models.plugin_upload import PluginArchiveMetadata, PluginDownloader, PluginDownloadResult
-from litellm.proxy import proxy_server
-from litellm.proxy.discovery_endpoints.skill_hub_endpoints import public_hub_entries
-from litellm.repositories.plugin_upload_repository import PluginUploadRepository
+from hangarllm.models.plugin_upload import PluginArchiveMetadata, PluginDownloader, PluginDownloadResult
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy.discovery_endpoints.skill_hub_endpoints import public_hub_entries
+from hangarllm.repositories.plugin_upload_repository import PluginUploadRepository
 
 
 @pytest.mark.asyncio
@@ -25,9 +25,9 @@ async def test_download_without_stored_identity_returns_missing_skill() -> None:
 
 def plugin(
     name: str, manifest_json: str | None = None, *, host: str = "testserver",
-) -> prisma_models.LiteLLM_ClaudeCodePluginTable:
+) -> prisma_models.HangarLLM_ClaudeCodePluginTable:
     digest: Final = "a" * 64
-    return prisma_models.LiteLLM_ClaudeCodePluginTable(
+    return prisma_models.HangarLLM_ClaudeCodePluginTable(
         id=name, name=name, enabled=True, anonymous_download_count=0,
         manifest_json=manifest_json if manifest_json is not None else json.dumps({
             "source": {
@@ -52,14 +52,14 @@ async def test_public_discovery_pages_past_ineligible_and_invalid_rows_before_li
 
     async def find_many(
         *, where: Mapping[str, Mapping[str, str] | bool], take: int, order: Mapping[str, str],
-    ) -> tuple[prisma_models.LiteLLM_ClaudeCodePluginTable, ...]:
+    ) -> tuple[prisma_models.HangarLLM_ClaudeCodePluginTable, ...]:
         name_filter: Final = where.get("name", {})
         after: Final = name_filter.get("gt", "") if isinstance(name_filter, Mapping) else ""
         assert after < "z-portable-0999"
         ordered: Final = sorted(rows, key=lambda row: row.name, reverse=order.get("name") == "desc")
         return tuple(row for row in ordered if row.enabled == where["enabled"] and row.name > after)[:take]
 
-    prisma.writer_db.litellm_claudecodeplugintable.find_many = AsyncMock(side_effect=find_many)
+    prisma.writer_db.hangarllm_claudecodeplugintable.find_many = AsyncMock(side_effect=find_many)
     monkeypatch.setattr(proxy_server, "general_settings", {})
     monkeypatch.setenv("PROXY_BASE_URL", "http://testserver")
     monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)

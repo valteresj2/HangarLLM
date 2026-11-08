@@ -12,13 +12,13 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import JsonValue
 
-from litellm._logging import verbose_logger
-from litellm.constants import LITELLM_PROXY_ADMIN_NAME
-from litellm.models.deployment_warning import AdminIgnore
-from litellm.proxy._types import AUDIT_ACTIONS, LitellmTableNames, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.deps.repositories import get_deployment_warning_ignore_repository
-from litellm.proxy.health_endpoints.deployment_warning_endpoints import (
+from hangarllm._logging import verbose_logger
+from hangarllm.constants import HANGARLLM_PROXY_ADMIN_NAME
+from hangarllm.models.deployment_warning import AdminIgnore
+from hangarllm.proxy._types import AUDIT_ACTIONS, HangarllmTableNames, HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.deps.repositories import get_deployment_warning_ignore_repository
+from hangarllm.proxy.health_endpoints.deployment_warning_endpoints import (
     WarningCondition,
     config_audit_logger,
     current_warning_conditions,
@@ -27,12 +27,12 @@ from litellm.proxy.health_endpoints.deployment_warning_endpoints import (
     router,
     utc_now,
 )
-from litellm.proxy.proxy_server import (
+from hangarllm.proxy.proxy_server import (
     _dump_redacted_config,  # pyright: ignore[reportPrivateUsage]  # the exact redaction every config audit row goes through
 )
-from litellm.repositories.database import Database
-from litellm.repositories.deployment_warning_ignore_repository import DEPLOYMENT_WARNING_IGNORES_ROW_ID
-from litellm.rust_bridge._native import NativeDatabase
+from hangarllm.repositories.database import Database
+from hangarllm.repositories.deployment_warning_ignore_repository import DEPLOYMENT_WARNING_IGNORES_ROW_ID
+from hangarllm.rust_bridge._native import NativeDatabase
 
 T0: Final = datetime(2026, 10, 14, 12, 0, tzinfo=timezone.utc)
 THIRTY_DAYS: Final = 30 * 24 * 60 * 60
@@ -60,7 +60,7 @@ class RecordingAuditLogger:
         before_value: JsonValue | None,
         after_value: JsonValue | None,
         user_api_key_dict: UserAPIKeyAuth,
-        table_name: LitellmTableNames = LitellmTableNames.CONFIG_TABLE_NAME,
+        table_name: HangarllmTableNames = HangarllmTableNames.CONFIG_TABLE_NAME,
     ) -> None:
         self.calls.append(
             {
@@ -81,7 +81,7 @@ class Harness:
     audit: RecordingAuditLogger
     clock: list[datetime]
 
-    def as_role(self, role: LitellmUserRoles, user_id: str | None = "admin-user") -> None:
+    def as_role(self, role: HangarllmUserRoles, user_id: str | None = "admin-user") -> None:
         async def auth() -> UserAPIKeyAuth:
             return UserAPIKeyAuth(api_key="sk-test", user_id=user_id, user_role=role)
 
@@ -110,7 +110,7 @@ def harness() -> Iterator[Harness]:
     app.dependency_overrides[config_audit_logger] = lambda: audit
     app.dependency_overrides[utc_now] = lambda: clock[0]
     h = Harness(app=app, client=TestClient(app), store=store, audit=audit, clock=clock)
-    h.as_role(LitellmUserRoles.PROXY_ADMIN)
+    h.as_role(HangarllmUserRoles.PROXY_ADMIN)
     h.with_conditions(
         WarningCondition(id="env_credential_login", severity="critical"),
         WarningCondition(id="detailed_debug", severity="warning"),
@@ -181,7 +181,7 @@ class TestDeploymentWarningConditions:
 
     def test_no_redis_env_var_keeps_the_warning_listed_as_env_ignored(self):
         conditions = self._conditions(no_redis_on_multiple_workers=True, no_redis_warning_disabled_by_env=True)
-        assert conditions["no_redis"].env_var_ignore == "LITELLM_DISABLE_NO_REDIS_WARNING"
+        assert conditions["no_redis"].env_var_ignore == "HANGARLLM_DISABLE_NO_REDIS_WARNING"
 
     def test_env_var_alone_does_not_raise_the_no_redis_warning(self):
         assert self._conditions(no_redis_warning_disabled_by_env=True) == {}
@@ -197,20 +197,20 @@ def set_logger_level() -> Iterator[Callable[[int], None]]:
 class TestCurrentWarningConditions:
     @staticmethod
     def _proxy_state(monkeypatch, *, redis_cache: object, general_settings: dict[str, object], license: object) -> None:
-        monkeypatch.setattr("litellm.proxy.proxy_server.redis_usage_cache", redis_cache)
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
-        monkeypatch.setattr("litellm.proxy.proxy_server.premium_user_data", license)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.redis_usage_cache", redis_cache)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", general_settings)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user_data", license)
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server._license_check",
+            "hangarllm.proxy.proxy_server._license_check",
             SimpleNamespace(airgapped_license_data=None, license_str=None, public_key=None),
         )
 
     @pytest.mark.asyncio
     async def test_reads_every_signal_from_the_running_proxy(self, monkeypatch, set_logger_level):
         self._proxy_state(monkeypatch, redis_cache=None, general_settings={}, license={"expiration_date": "2026-10-20"})
-        monkeypatch.setenv("LITELLM_DISABLE_NO_REDIS_WARNING", "true")
+        monkeypatch.setenv("HANGARLLM_DISABLE_NO_REDIS_WARNING", "true")
         set_logger_level(logging.DEBUG)
 
         conditions = await current_warning_conditions(T0)
@@ -218,7 +218,7 @@ class TestCurrentWarningConditions:
         assert conditions == (
             WarningCondition(id="env_credential_login", severity="critical"),
             WarningCondition(id="license_expiry:2026-10-20", severity="critical"),
-            WarningCondition(id="no_redis", severity="warning", env_var_ignore="LITELLM_DISABLE_NO_REDIS_WARNING"),
+            WarningCondition(id="no_redis", severity="warning", env_var_ignore="HANGARLLM_DISABLE_NO_REDIS_WARNING"),
             WarningCondition(id="detailed_debug", severity="warning"),
         )
 
@@ -230,7 +230,7 @@ class TestCurrentWarningConditions:
             general_settings={"disable_env_credential_login": True},
             license=None,
         )
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("HANGARLLM_DISABLE_NO_REDIS_WARNING", raising=False)
         set_logger_level(logging.INFO)
 
         assert await current_warning_conditions(T0) == ()
@@ -247,7 +247,7 @@ class TestDeploymentWarningIgnoreStore:
             async def find_unique(where: dict[str, str]) -> object:
                 return row
 
-            return SimpleNamespace(litellm_uisettings=SimpleNamespace(find_unique=find_unique))
+            return SimpleNamespace(hangarllm_uisettings=SimpleNamespace(find_unique=find_unique))
 
         fresh: Final = {"detailed_debug": {"ignored_by": "a", "ignored_at": "2026-10-14T12:00:00Z"}}
         prisma: Final = MagicMock(
@@ -263,7 +263,7 @@ class TestDeploymentWarningIgnoreStore:
 
 
 class TestGetDeploymentWarnings:
-    @pytest.mark.parametrize("role", [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY])
+    @pytest.mark.parametrize("role", [HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY])
     def test_admins_and_viewers_read_warnings(self, harness, role):
         harness.as_role(role)
         response = harness.client.get("/health/deployment_warnings")
@@ -277,7 +277,7 @@ class TestGetDeploymentWarnings:
         }
 
     @pytest.mark.parametrize(
-        "role", [LitellmUserRoles.INTERNAL_USER, LitellmUserRoles.INTERNAL_USER_VIEW_ONLY, LitellmUserRoles.TEAM]
+        "role", [HangarllmUserRoles.INTERNAL_USER, HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY, HangarllmUserRoles.TEAM]
     )
     def test_other_roles_are_rejected(self, harness, role):
         harness.as_role(role)
@@ -285,18 +285,18 @@ class TestGetDeploymentWarnings:
 
     def test_env_var_ignore_is_reported(self, harness):
         harness.with_conditions(
-            WarningCondition(id="no_redis", severity="warning", env_var_ignore="LITELLM_DISABLE_NO_REDIS_WARNING")
+            WarningCondition(id="no_redis", severity="warning", env_var_ignore="HANGARLLM_DISABLE_NO_REDIS_WARNING")
         )
         assert harness.warnings()["no_redis"]["ignore"] == {
             "source": "env_var",
-            "env_var": "LITELLM_DISABLE_NO_REDIS_WARNING",
+            "env_var": "HANGARLLM_DISABLE_NO_REDIS_WARNING",
         }
 
     def test_env_var_ignore_wins_over_a_stored_admin_ignore(self, harness):
         harness.with_conditions(WarningCondition(id="no_redis", severity="warning"))
         harness.client.patch("/health/deployment_warnings/no_redis", json={"ignored": True})
         harness.with_conditions(
-            WarningCondition(id="no_redis", severity="warning", env_var_ignore="LITELLM_DISABLE_NO_REDIS_WARNING")
+            WarningCondition(id="no_redis", severity="warning", env_var_ignore="HANGARLLM_DISABLE_NO_REDIS_WARNING")
         )
         assert harness.warnings()["no_redis"]["ignore"]["source"] == "env_var"
 
@@ -310,7 +310,7 @@ class TestGetDeploymentWarnings:
 
 class TestUpdateDeploymentWarningIgnore:
     def test_snooze_computes_end_time_and_applies_to_every_admin(self, harness):
-        harness.as_role(LitellmUserRoles.PROXY_ADMIN, user_id="alice")
+        harness.as_role(HangarllmUserRoles.PROXY_ADMIN, user_id="alice")
         response = harness.client.patch(
             "/health/deployment_warnings/env_credential_login", json={"ignored": True, "snooze_seconds": 86400}
         )
@@ -323,7 +323,7 @@ class TestUpdateDeploymentWarningIgnore:
         }
         assert response.json() == {"id": "env_credential_login", "ignore": expected_ignore}
 
-        harness.as_role(LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY, user_id="bob")
+        harness.as_role(HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY, user_id="bob")
         warnings = harness.warnings()
         assert warnings["env_credential_login"]["ignore"] == expected_ignore
         assert warnings["detailed_debug"]["ignore"] is None
@@ -374,7 +374,7 @@ class TestUpdateDeploymentWarningIgnore:
 
         assert len(harness.audit.calls) == 2
         ignore_call, restore_call = harness.audit.calls
-        assert ignore_call["table_name"] == LitellmTableNames.UI_SETTINGS_TABLE_NAME
+        assert ignore_call["table_name"] == HangarllmTableNames.UI_SETTINGS_TABLE_NAME
         assert ignore_call["before_value"] == []
         assert ignore_call["after_value"] == [
             {
@@ -393,9 +393,9 @@ class TestUpdateDeploymentWarningIgnore:
         assert {call["action"] for call in harness.audit.calls} == {"updated"}
 
     def test_key_without_a_user_is_recorded_as_the_proxy_admin(self, harness):
-        harness.as_role(LitellmUserRoles.PROXY_ADMIN, user_id=None)
+        harness.as_role(HangarllmUserRoles.PROXY_ADMIN, user_id=None)
         response = harness.client.patch("/health/deployment_warnings/detailed_debug", json={"ignored": True})
-        assert response.json()["ignore"]["ignored_by"] == LITELLM_PROXY_ADMIN_NAME
+        assert response.json()["ignore"]["ignored_by"] == HANGARLLM_PROXY_ADMIN_NAME
 
     def test_expired_snoozes_are_not_carried_into_the_next_write(self, harness):
         harness.client.patch("/health/deployment_warnings/detailed_debug", json={"ignored": True, "snooze_seconds": 60})
@@ -450,7 +450,7 @@ class TestUpdateDeploymentWarningIgnore:
         assert response.status_code == 404
         assert harness.store.saved == []
 
-    @pytest.mark.parametrize("role", [LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY, LitellmUserRoles.INTERNAL_USER])
+    @pytest.mark.parametrize("role", [HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY, HangarllmUserRoles.INTERNAL_USER])
     def test_only_proxy_admins_can_ignore(self, harness, role):
         harness.as_role(role)
         response = harness.client.patch("/health/deployment_warnings/detailed_debug", json={"ignored": True})

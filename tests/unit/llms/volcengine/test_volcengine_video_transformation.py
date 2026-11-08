@@ -10,17 +10,17 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm import Router
-from litellm.exceptions import UnsupportedParamsError
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.openai.cost_calculation import video_generation_cost
-from litellm.llms.volcengine.videos.transformation import VolcEngineVideoConfig, VolcEngineVideoError
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.main import VideoCreateOptionalRequestParams
-from litellm.types.videos.utils import decode_video_id_with_provider, encode_video_id_with_provider
-from litellm.utils import ProviderConfigManager
-from litellm.videos.main import avideo_content, avideo_generation
+import hangarllm
+from hangarllm import Router
+from hangarllm.exceptions import UnsupportedParamsError
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.openai.cost_calculation import video_generation_cost
+from hangarllm.llms.volcengine.videos.transformation import VolcEngineVideoConfig, VolcEngineVideoError
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.videos.main import VideoCreateOptionalRequestParams
+from hangarllm.types.videos.utils import decode_video_id_with_provider, encode_video_id_with_provider
+from hangarllm.utils import ProviderConfigManager
+from hangarllm.videos.main import avideo_content, avideo_generation
 
 PNG_BYTES: Final = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
@@ -51,7 +51,7 @@ def _create_body(
         prompt="a cat on a roof",
         api_base=API_BASE,
         video_create_optional_request_params=params,
-        litellm_params=GenericLiteLLMParams(drop_params=drop_params),
+        hangarllm_params=GenericHangarLLMParams(drop_params=drop_params),
         headers={},
     )
     assert (files, url) == ((), TASKS_URL)
@@ -62,7 +62,7 @@ def _created(request_data: dict[str, object], model: str = SEEDANCE_2_5, logging
     return VolcEngineVideoConfig().transform_video_create_response(
         model=model,
         raw_response=_response({"id": TASK_ID}),
-        logging_obj=logging_obj,  # pyright: ignore[reportArgumentType]  # the transform only reads litellm_params off it
+        logging_obj=logging_obj,  # pyright: ignore[reportArgumentType]  # the transform only reads hangarllm_params off it
         custom_llm_provider="volcengine",
         request_data=request_data,
     )
@@ -71,7 +71,7 @@ def _created(request_data: dict[str, object], model: str = SEEDANCE_2_5, logging
 def _polled(payload: object, logging_obj: object = None):
     return VolcEngineVideoConfig().transform_video_status_retrieve_response(
         raw_response=_response(payload),
-        logging_obj=logging_obj,  # pyright: ignore[reportArgumentType]  # the transform only reads litellm_params off it
+        logging_obj=logging_obj,  # pyright: ignore[reportArgumentType]  # the transform only reads hangarllm_params off it
         custom_llm_provider="volcengine",
     )
 
@@ -225,7 +225,7 @@ def test_an_endpoint_id_priced_through_base_model_gets_the_base_models_default_t
         prompt="a cat on a roof",
         api_base=API_BASE,
         video_create_optional_request_params={"duration": 4},
-        litellm_params=GenericLiteLLMParams(model_info={"base_model": f"volcengine/{SEEDANCE_2_5}"}),
+        hangarllm_params=GenericHangarLLMParams(model_info={"base_model": f"volcengine/{SEEDANCE_2_5}"}),
         headers={},
     )
 
@@ -233,12 +233,12 @@ def test_an_endpoint_id_priced_through_base_model_gets_the_base_models_default_t
 
 
 @pytest.mark.parametrize("field", ["return_last_frame", "draft", "frame_count"])
-def test_a_field_litellm_does_not_send_to_ark_is_rejected(field: str):
+def test_a_field_hangarllm_does_not_send_to_ark_is_rejected(field: str):
     with pytest.raises(UnsupportedParamsError, match=f"does not send {field} to Ark"):
         _ = _create_body({"duration": 4, field: True})
 
 
-def test_a_field_litellm_does_not_send_to_ark_is_dropped_under_drop_params():
+def test_a_field_hangarllm_does_not_send_to_ark_is_dropped_under_drop_params():
     body = _create_body({"duration": 4, "return_last_frame": True, "seed": 7}, drop_params=True)
 
     assert "return_last_frame" not in body
@@ -314,7 +314,7 @@ def test_a_model_the_router_registered_without_prices_keeps_its_resolution():
     endpoint_id: Final = "ep-20261015-unpriced"
     _ = Router(
         model_list=[
-            {"model_name": "ark", "litellm_params": {"model": f"volcengine/{endpoint_id}", "api_key": "sk-test"}}
+            {"model_name": "ark", "hangarllm_params": {"model": f"volcengine/{endpoint_id}", "api_key": "sk-test"}}
         ]
     )
 
@@ -470,7 +470,7 @@ def test_the_create_usage_bills_its_duration_at_its_tier_rate(usage: dict[str, o
 
 def test_the_created_id_carries_the_requested_and_served_model_groups():
     logging_obj = Mock(
-        litellm_params={"litellm_metadata": {"model_group": "seedance", "deployment_model_name": "seedance-account-b"}}
+        hangarllm_params={"hangarllm_metadata": {"model_group": "seedance", "deployment_model_name": "seedance-account-b"}}
     )
 
     video = _created({"duration": 5}, logging_obj=logging_obj)
@@ -484,7 +484,7 @@ def test_the_created_id_carries_the_requested_and_served_model_groups():
 
 
 def test_a_create_without_router_metadata_carries_the_model():
-    video = _created({"duration": 5}, logging_obj=Mock(litellm_params={}))
+    video = _created({"duration": 5}, logging_obj=Mock(hangarllm_params={}))
 
     assert decode_video_id_with_provider(video.id) == {
         "custom_llm_provider": "volcengine",
@@ -509,7 +509,7 @@ def test_a_create_response_without_a_task_id_raises_instead_of_queueing_an_empty
         _ = VolcEngineVideoConfig().transform_video_create_response(
             model=SEEDANCE_2_5,
             raw_response=raw_response,
-            logging_obj=None,  # pyright: ignore[reportArgumentType]  # the transform only reads litellm_params off it
+            logging_obj=None,  # pyright: ignore[reportArgumentType]  # the transform only reads hangarllm_params off it
             custom_llm_provider="volcengine",
             request_data={"duration": 5},
         )
@@ -595,7 +595,7 @@ def test_a_failed_task_carries_its_error_block():
     ],
     ids=["unmapped-status", "no-id", "no-status"],
 )
-def test_a_poll_litellm_cannot_read_raises_instead_of_returning_a_job_to_poll_forever(payload: object, message: str):
+def test_a_poll_hangarllm_cannot_read_raises_instead_of_returning_a_job_to_poll_forever(payload: object, message: str):
     with pytest.raises(VolcEngineVideoError, match=message) as raised:
         _ = _polled(payload)
 
@@ -605,9 +605,9 @@ def test_a_poll_litellm_cannot_read_raises_instead_of_returning_a_job_to_poll_fo
 def test_a_poll_keeps_the_ids_requested_and_served_model_when_the_router_served_it():
     video_id = encode_video_id_with_provider(TASK_ID, "volcengine", "seedance", served_model="seedance-account-b")
     logging_obj = Mock(
-        litellm_params={
+        hangarllm_params={
             "video_id": video_id,
-            "litellm_metadata": {"model_group": "seedance", "deployment_model_name": "seedance-account-b"},
+            "hangarllm_metadata": {"model_group": "seedance", "deployment_model_name": "seedance-account-b"},
         }
     )
 
@@ -621,7 +621,7 @@ def test_a_poll_drops_a_served_model_the_router_did_not_route_to():
     edited = encode_video_id_with_provider(
         TASK_ID, "volcengine", "seedance-account-a", served_model="seedance-account-b"
     )
-    logging_obj = Mock(litellm_params={"video_id": edited, "litellm_metadata": {"model_group": "seedance-account-a"}})
+    logging_obj = Mock(hangarllm_params={"video_id": edited, "hangarllm_metadata": {"model_group": "seedance-account-a"}})
 
     video = _polled(_task(status="running"), logging_obj=logging_obj)
 
@@ -670,7 +670,7 @@ async def test_the_download_fetches_the_signed_url_through_the_callers_client():
 async def test_a_download_with_no_video_yet_is_a_bad_request_so_it_is_neither_retried_nor_cools_the_deployment(
     payload: dict[str, object], message: str
 ):
-    with pytest.raises(litellm.BadRequestError, match=message) as raised:
+    with pytest.raises(hangarllm.BadRequestError, match=message) as raised:
         _ = await _download(payload)
 
     assert raised.value.status_code == 400
@@ -679,7 +679,7 @@ async def test_a_download_with_no_video_yet_is_a_bad_request_so_it_is_neither_re
 def test_the_list_maps_ark_paging_and_filters():
     url, params = VolcEngineVideoConfig().transform_video_list_request(
         api_base=API_BASE,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
         limit=20,
         extra_query={"filter.status": "succeeded"},
@@ -694,10 +694,10 @@ def test_a_list_cursor_or_order_is_rejected_unless_drop_params(paging: dict[str,
 
     with pytest.raises(UnsupportedParamsError, match="pages by page_num"):
         _ = config.transform_video_list_request(
-            api_base=API_BASE, litellm_params=GenericLiteLLMParams(), headers={}, **paging
+            api_base=API_BASE, hangarllm_params=GenericHangarLLMParams(), headers={}, **paging
         )
     _, params = config.transform_video_list_request(
-        api_base=API_BASE, litellm_params=GenericLiteLLMParams(drop_params=True), headers={}, limit=5, **paging
+        api_base=API_BASE, hangarllm_params=GenericHangarLLMParams(drop_params=True), headers={}, limit=5, **paging
     )
 
     assert params == {"page_size": "5"}
@@ -733,8 +733,8 @@ def test_an_empty_list_still_carries_the_object_type():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("call", ["avideo_edit", "avideo_extension", "avideo_remix"])
 async def test_edit_extension_and_remix_are_a_bad_request_because_a_video_input_cannot_be_billed_at_create(call: str):
-    with pytest.raises(litellm.BadRequestError, match="Ark bills a task with a video input") as raised:
-        _ = await getattr(litellm, call)(
+    with pytest.raises(hangarllm.BadRequestError, match="Ark bills a task with a video input") as raised:
+        _ = await getattr(hangarllm, call)(
             video_id="https://x/source.mp4",
             prompt="make it brighter",
             seconds="5",
@@ -799,7 +799,7 @@ def test_a_missing_api_key_raises(monkeypatch: pytest.MonkeyPatch):
 
 def test_volcengine_resolves_to_the_video_config():
     config = ProviderConfigManager.get_provider_video_config(
-        model=SEEDANCE_2_5, provider=litellm.LlmProviders.VOLCENGINE
+        model=SEEDANCE_2_5, provider=hangarllm.LlmProviders.VOLCENGINE
     )
 
     assert type(config) is VolcEngineVideoConfig
@@ -821,7 +821,7 @@ def test_each_tier_rate_is_its_rendered_pixels_at_arks_price_for_that_tier(model
     rate scaled by pixels. Prices and frames are Ark's published per-resolution table, read 2026-10-16
     from https://www.volcengine.com/docs/82379/1544106, whose own 2.0 examples agree: 1080p 16:9 5s bills
     2.48 CNY/s and 4k bills 5.05 CNY/s."""
-    info = litellm.get_model_info(model=model, custom_llm_provider="volcengine")
+    info = hangarllm.get_model_info(model=model, custom_llm_provider="volcengine")
     frames = info["provider_specific_entry"]["volcengine_video_frames"]
 
     assert {tier: info[f"output_cost_per_second_{tier}"] for tier in ARK_VIDEO_TIERS[model]} == {
@@ -906,12 +906,12 @@ async def test_parameters_reach_the_wire_unpacked_whether_sent_top_level_or_in_e
     ],
     ids=["size", "seconds", "user"],
 )
-async def test_an_extra_body_field_litellm_maps_itself_is_honoured_and_its_leftover_copy_ignored(
+async def test_an_extra_body_field_hangarllm_maps_itself_is_honoured_and_its_leftover_copy_ignored(
     extra_body: dict[str, object], expected: dict[str, object]
 ):
     """The shared request builder copies extra_body onto the top-level params, where this adapter maps it, and then
     merges the raw extra_body back over the mapped params, returning the same key a second time as a field of its
-    own. The second copy has to be ignored rather than rejected as a field litellm never sends."""
+    own. The second copy has to be ignored rather than rejected as a field hangarllm never sends."""
     body = await _wire_body(
         model=f"volcengine/{SEEDANCE_2_5}",
         prompt="p",
@@ -943,7 +943,7 @@ async def test_an_extra_body_field_litellm_maps_itself_is_honoured_and_its_lefto
     ],
     ids=["top_level_seconds", "seconds", "size", "user", "prompt", "nested_parameters"],
 )
-async def test_a_request_field_litellm_maps_itself_is_rejected_inside_parameters(
+async def test_a_request_field_hangarllm_maps_itself_is_rejected_inside_parameters(
     fields: dict[str, object], misplaced: str
 ):
     with pytest.raises(UnsupportedParamsError, match=f"send {misplaced} as top-level request fields"):
@@ -978,7 +978,7 @@ async def test_a_request_field_inside_parameters_is_dropped_under_drop_params_an
     ],
     ids=["prompt", "model", "extra_headers"],
 )
-async def test_an_extra_body_copy_of_a_request_field_litellm_does_not_map_is_rejected(
+async def test_an_extra_body_copy_of_a_request_field_hangarllm_does_not_map_is_rejected(
     extra_body: dict[str, object], field: str
 ):
     with pytest.raises(UnsupportedParamsError, match=f"does not send {field} to Ark"):
@@ -997,7 +997,7 @@ async def test_a_user_that_is_not_a_string_is_rejected_rather_than_ignored():
     [{"drop_params": False}, {"organization": "org-1"}],
     ids=["drop_params", "organization"],
 )
-async def test_a_litellm_control_field_is_not_mistaken_for_an_ark_field(control: dict[str, object]):
+async def test_a_hangarllm_control_field_is_not_mistaken_for_an_ark_field(control: dict[str, object]):
     body = await _wire_body(model=f"volcengine/{SEEDANCE_2_5}", prompt="p", seconds="4", **control)
 
     assert body == {
@@ -1064,7 +1064,7 @@ def _two_account_router(**router_kwargs: object) -> Router:
         model_list=[
             {
                 "model_name": "seedance-a",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"volcengine/{SEEDANCE_2_5}",
                     "api_key": "key-a",
                     "api_base": ACCOUNT_A_HOST,
@@ -1072,7 +1072,7 @@ def _two_account_router(**router_kwargs: object) -> Router:
             },
             {
                 "model_name": "seedance-b",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"volcengine/{SEEDANCE_2_5}",
                     "api_key": "key-b",
                     "api_base": ACCOUNT_B_HOST,
@@ -1147,7 +1147,7 @@ def test_openrouter_video_images_become_provider_content(role: str) -> None:
     mapped: Final = config.map_openai_params(params, SEEDANCE_2_5, False)
     body, _, _ = config.transform_video_create_request(
         model=SEEDANCE_2_5, prompt="a cat", api_base=API_BASE,
-        video_create_optional_request_params=mapped, litellm_params=GenericLiteLLMParams(), headers={},
+        video_create_optional_request_params=mapped, hangarllm_params=GenericHangarLLMParams(), headers={},
     )
     assert body["content"] == [
         {"type": "text", "text": "a cat"},

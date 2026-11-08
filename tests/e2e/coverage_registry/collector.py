@@ -264,42 +264,42 @@ def _label_value(value: str) -> str:
 
 def render_prometheus(report: CoverageReport) -> str:
     lines = [
-        "# HELP litellm_e2e_coverage_cells E2E coverage registry cells by module and state.",
-        "# TYPE litellm_e2e_coverage_cells gauge",
+        "# HELP hangarllm_e2e_coverage_cells E2E coverage registry cells by module and state.",
+        "# TYPE hangarllm_e2e_coverage_cells gauge",
     ]
     for module in report.modules:
         label = _label_value(module.module)
         lines.append(
-            f'litellm_e2e_coverage_cells{{module="{label}",state="covered"}} {module.covered}'
+            f'hangarllm_e2e_coverage_cells{{module="{label}",state="covered"}} {module.covered}'
         )
         lines.append(
-            f'litellm_e2e_coverage_cells{{module="{label}",state="total"}} {module.total}'
+            f'hangarllm_e2e_coverage_cells{{module="{label}",state="total"}} {module.total}'
         )
     lines.extend(
         [
-            f'litellm_e2e_coverage_cells{{module="ALL",state="covered"}} {report.covered}',
-            f'litellm_e2e_coverage_cells{{module="ALL",state="total"}} {report.total}',
-            "# HELP litellm_e2e_coverage_percent E2E coverage percent by module.",
-            "# TYPE litellm_e2e_coverage_percent gauge",
+            f'hangarllm_e2e_coverage_cells{{module="ALL",state="covered"}} {report.covered}',
+            f'hangarllm_e2e_coverage_cells{{module="ALL",state="total"}} {report.total}',
+            "# HELP hangarllm_e2e_coverage_percent E2E coverage percent by module.",
+            "# TYPE hangarllm_e2e_coverage_percent gauge",
         ]
     )
     for module in report.modules:
         label = _label_value(module.module)
         lines.append(
-            f'litellm_e2e_coverage_percent{{module="{label}"}} {module.coverage_percent:.6f}'
+            f'hangarllm_e2e_coverage_percent{{module="{label}"}} {module.coverage_percent:.6f}'
         )
     lines.extend(
         [
-            f'litellm_e2e_coverage_percent{{module="ALL"}} {report.coverage_percent:.6f}',
-            "# HELP litellm_e2e_coverage_orphan_markers Coverage markers not found in the registry.",
-            "# TYPE litellm_e2e_coverage_orphan_markers gauge",
-            f"litellm_e2e_coverage_orphan_markers {len(report.orphan_markers)}",
-            "# HELP litellm_e2e_coverage_skipped_markers Registry cells claimed only by skipped tests.",
-            "# TYPE litellm_e2e_coverage_skipped_markers gauge",
-            f"litellm_e2e_coverage_skipped_markers {len(report.skipped_markers)}",
-            "# HELP litellm_e2e_coverage_collection_errors Pytest nodes that failed during collection.",
-            "# TYPE litellm_e2e_coverage_collection_errors gauge",
-            f"litellm_e2e_coverage_collection_errors {len(report.collection_errors)}",
+            f'hangarllm_e2e_coverage_percent{{module="ALL"}} {report.coverage_percent:.6f}',
+            "# HELP hangarllm_e2e_coverage_orphan_markers Coverage markers not found in the registry.",
+            "# TYPE hangarllm_e2e_coverage_orphan_markers gauge",
+            f"hangarllm_e2e_coverage_orphan_markers {len(report.orphan_markers)}",
+            "# HELP hangarllm_e2e_coverage_skipped_markers Registry cells claimed only by skipped tests.",
+            "# TYPE hangarllm_e2e_coverage_skipped_markers gauge",
+            f"hangarllm_e2e_coverage_skipped_markers {len(report.skipped_markers)}",
+            "# HELP hangarllm_e2e_coverage_collection_errors Pytest nodes that failed during collection.",
+            "# TYPE hangarllm_e2e_coverage_collection_errors gauge",
+            f"hangarllm_e2e_coverage_collection_errors {len(report.collection_errors)}",
         ]
     )
     return "\n".join(lines)

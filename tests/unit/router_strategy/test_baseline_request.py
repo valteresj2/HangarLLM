@@ -1,6 +1,6 @@
 from typing import Final
 
-from litellm.router_strategy.auto_router.baseline_request import baseline_request, capture_baseline_parameters
+from hangarllm.router_strategy.auto_router.baseline_request import baseline_request, capture_baseline_parameters
 
 
 def test_baseline_snapshot_owns_nested_caller_settings_and_overrides_routed_settings() -> None:
@@ -37,7 +37,7 @@ def test_chat_projection_applies_extra_body_after_top_level_parameters() -> None
 
 
 def test_baseline_projection_keeps_caller_tools_and_request_parameter_precedence() -> None:
-    from litellm.router_rust.invoke.shaping import merge_tools_from_deployment
+    from hangarllm.router_rust.invoke.shaping import merge_tools_from_deployment
 
     deployment: Final = {
         "tools": [{"type": "function", "function": {"name": "configured"}}],

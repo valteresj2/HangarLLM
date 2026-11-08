@@ -7,23 +7,23 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from pydantic import SecretStr
 
-from litellm.proxy._types import LiteLLM_MCPServerTable
-from litellm.proxy.mcp_server.outbound_credentials.login_assertion_exchange import (
+from hangarllm.proxy._types import HangarLLM_MCPServerTable
+from hangarllm.proxy.mcp_server.outbound_credentials.login_assertion_exchange import (
     exchange_login_assertion_for_refresh_token,
     login_exchange_servers,
     refresh_token_exchange_targets,
 )
-from litellm.proxy.mcp_server.outbound_credentials.result import Error, Ok, Result
-from litellm.proxy.mcp_server.outbound_credentials.sso_assertion_refresher import SSOClientConfig
-from litellm.proxy.mcp_server.outbound_credentials.sso_assertion_store import (
+from hangarllm.proxy.mcp_server.outbound_credentials.result import Error, Ok, Result
+from hangarllm.proxy.mcp_server.outbound_credentials.sso_assertion_refresher import SSOClientConfig
+from hangarllm.proxy.mcp_server.outbound_credentials.sso_assertion_store import (
     SAML2_SUBJECT_TOKEN_TYPE,
     SSOIdentityAssertion,
     assertion_from_saml_login,
     login_refresh_token_expired,
     with_login_refresh_token,
 )
-from litellm.proxy.mcp_server.outbound_credentials.token_endpoint import ExchangedToken
-from litellm.proxy.mcp_server.outbound_credentials.types import (
+from hangarllm.proxy.mcp_server.outbound_credentials.token_endpoint import ExchangedToken
+from hangarllm.proxy.mcp_server.outbound_credentials.types import (
     ClientAuth,
     ClientSecretAuth,
     CredError,
@@ -33,8 +33,8 @@ from litellm.proxy.mcp_server.outbound_credentials.types import (
     NoneConfig,
     ServerSpec,
 )
-from litellm.types.mcp import MCPAuth, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.types.mcp import MCPAuth, MCPTransport
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 _NOW = datetime(2026, 10, 16, 12, 0, tzinfo=timezone.utc)
 
@@ -277,7 +277,7 @@ class _FakeCatalog:
 
     async def build_mcp_server_from_table(
         self,
-        mcp_server: LiteLLM_MCPServerTable,
+        mcp_server: HangarLLM_MCPServerTable,
         *,
         credentials_are_encrypted: bool = True,
         env_vars_are_encrypted: bool | None = None,
@@ -289,8 +289,8 @@ class _FakeCatalog:
         )
 
 
-def _row(server_id: str, auth_type: MCPAuth, approval_status: str | None = None) -> LiteLLM_MCPServerTable:
-    return LiteLLM_MCPServerTable(
+def _row(server_id: str, auth_type: MCPAuth, approval_status: str | None = None) -> HangarLLM_MCPServerTable:
+    return HangarLLM_MCPServerTable(
         server_id=server_id,
         alias=server_id,
         url=f"https://{server_id}.example.com/mcp",
@@ -367,7 +367,7 @@ async def test_a_stalled_idp_does_not_hold_up_the_login(caplog: pytest.LogCaptur
     stopped answering, so the exchange has its own short deadline and the login keeps the plain assertion."""
     saml = _saml()
 
-    with caplog.at_level(logging.WARNING, logger="litellm.proxy"):
+    with caplog.at_level(logging.WARNING, logger="hangarllm.proxy"):
         exchanged = await exchange_login_assertion_for_refresh_token(
             saml,
             (_config(),),
@@ -383,7 +383,7 @@ async def test_a_stalled_idp_does_not_hold_up_the_login(caplog: pytest.LogCaptur
 class _OneBadRowCatalog(_FakeCatalog):
     async def build_mcp_server_from_table(
         self,
-        mcp_server: LiteLLM_MCPServerTable,
+        mcp_server: HangarLLM_MCPServerTable,
         *,
         credentials_are_encrypted: bool = True,
         env_vars_are_encrypted: bool | None = None,
@@ -403,7 +403,7 @@ class _OneBadRowCatalog(_FakeCatalog):
 async def test_one_unbuildable_db_row_does_not_cost_the_other_servers_their_exchange(caplog: pytest.LogCaptureFixture):
     catalog = _OneBadRowCatalog({})
 
-    with caplog.at_level(logging.WARNING, logger="litellm.proxy"):
+    with caplog.at_level(logging.WARNING, logger="hangarllm.proxy"):
         servers = await login_exchange_servers(
             catalog, [_row("broken", MCPAuth.oauth2_id_jag), _row("healthy", MCPAuth.oauth2_id_jag)]
         )

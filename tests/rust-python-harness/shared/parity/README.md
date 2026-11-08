@@ -4,8 +4,8 @@
 
 ## What the harness compares
 
-- A fixture contains a LiteLLM SDK input and a recorded upstream provider response
-- The same LiteLLM input is transformed by isolated baseline and candidate implementations
+- A fixture contains a HangarLLM SDK input and a recorded upstream provider response
+- The same HangarLLM input is transformed by isolated baseline and candidate implementations
 - The resulting provider requests must match in method, path, headers, and body, excluding runtime-specific HTTP metadata
 - The recorded provider response is then replayed unchanged to both workers
 - The harness compares the values returned through the Python SDK interface
@@ -42,7 +42,7 @@ in sync and async modes. They cover fragmented events, split UTF-8 characters, C
 application errors within a normally completed HTTP stream. HTTP byte boundaries and decoded SDK event boundaries
 are checked separately
 
-OCR remains the only integrated LiteLLM route. These tests validate shared streaming machinery, not another route's
+OCR remains the only integrated HangarLLM route. These tests validate shared streaming machinery, not another route's
 SDK parity. Connection interruption, early cancellation, and lifecycle timeout enforcement remain outside this coverage
 
 ## Hypothesis and property-based testing
@@ -51,7 +51,7 @@ SDK parity. Connection interruption, early cancellation, and lifecycle timeout e
 - Example-based tests use inputs selected by the test author
 - Property-based tests define strategies for valid inputs and properties that must hold for every generated example
 - Hypothesis generates combinations from those strategies and normally shrinks a failing example to a smaller reproducible case
-- In this harness, Hypothesis is used only during fixture generation to expand the LiteLLM input corpus
+- In this harness, Hypothesis is used only during fixture generation to expand the HangarLLM input corpus
 - Each API owns the strategies that vary its supported inputs
 - Fixture generation is deterministic, and each generated input is recorded with the raw provider response it received
 - The parity tests use committed fixtures and do not call the provider or generate new Hypothesis examples
@@ -68,8 +68,8 @@ and regeneration command. See the API package documentation for its configured c
 
 Fixtures use VCR's YAML `version: 1` format with ordered request/response `interactions`. VCR handles text and binary
 body serialization. Each cassette also contains `recorded_at`, `ttl_seconds: 0` (committed fixtures never expire), and
-`x-litellm` metadata holding the SDK input and request provenance. Streaming responses carry
-`x-litellm-chunk-lengths` so local replay preserves the original byte boundaries
+`x-hangarllm` metadata holding the SDK input and request provenance. Streaming responses carry
+`x-hangarllm-chunk-lengths` so local replay preserves the original byte boundaries
 
 The recording server captures requests before forwarding their responses. Saved requests use the stable
 `http://parity-provider.invalid` origin and strip authentication headers and credential query parameters. The upstream
@@ -83,7 +83,7 @@ Refresh parity cassettes through the API's recording command. Generic VCR writer
 
 Legacy JSON fixtures remain readable. Migrated cassettes mark reconstructed requests as `python_replay`; fresh
 recordings use `recorded`. The metadata extensions follow the filesystem cassette layout proposed in
-[PR #39338](https://github.com/BerriAI/litellm/pull/39338), without depending on its unmerged persistence backend
+[PR #39338](upstream issue 39338), without depending on its unmerged persistence backend
 
 ## References
 

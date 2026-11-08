@@ -5,8 +5,8 @@ from unittest.mock import patch
 import pytest
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.llms.anthropic.messages.context_management.inference_view import (
+import hangarllm
+from hangarllm.llms.anthropic.messages.context_management.inference_view import (
     CountContextEdits,
     InferenceRequestView,
     InferenceRequestViewError,
@@ -38,7 +38,7 @@ async def test_anthropic_view_keeps_only_the_turns_after_a_client_compaction_blo
 
 
 async def test_anthropic_view_flattens_a_replayed_web_search_result_into_text() -> None:
-    snippet: Final = "LiteLLM ships a weekly release candidate and a stable line."
+    snippet: Final = "HangarLLM ships a weekly release candidate and a stable line."
     view: Final = await inference_request_view(
         (
             {"role": "user", "content": "What is new?"},
@@ -52,7 +52,7 @@ async def test_anthropic_view_flattens_a_replayed_web_search_result_into_text() 
                         "content": [
                             {
                                 "type": "web_search_result",
-                                "url": "https://docs.litellm.ai/release_notes",
+                                "url": "https://github.com/valteresj2/HangarLLM#readme",
                                 "title": "Release notes",
                                 "encrypted_content": "",
                                 "snippet": snippet,
@@ -149,10 +149,10 @@ async def test_anthropic_view_applies_clear_edits_without_calling_the_compaction
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="gemini/gemini-2.5-flash",
         ),
-        patch.object(litellm, "acompletion", side_effect=AssertionError("count_tokens must not summarize")) as summary,
+        patch.object(hangarllm, "acompletion", side_effect=AssertionError("count_tokens must not summarize")) as summary,
     ):
         view: Final = await inference_request_view(turns, None, "anthropic", _edits(spec))
 
@@ -165,8 +165,8 @@ async def test_anthropic_view_counts_the_unedited_body_without_an_error_log_when
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     with (
-        patch.object(litellm, "token_counter", side_effect=RuntimeError("tokenizer unavailable")),
-        caplog.at_level(logging.DEBUG, logger="LiteLLM"),
+        patch.object(hangarllm, "token_counter", side_effect=RuntimeError("tokenizer unavailable")),
+        caplog.at_level(logging.DEBUG, logger="HangarLLM"),
     ):
         view: Final = await inference_request_view(_agent_turns(3), None, "anthropic", _edits(_CLEAR_OLD_TOOL_RESULTS))
 
@@ -183,7 +183,7 @@ async def test_anthropic_view_counts_the_turns_after_a_compaction_block_when_an_
         *_agent_turns(2, first_round=3),
     )
 
-    with patch.object(litellm, "token_counter", side_effect=RuntimeError("tokenizer unavailable")):
+    with patch.object(hangarllm, "token_counter", side_effect=RuntimeError("tokenizer unavailable")):
         view: Final = await inference_request_view(turns, None, "anthropic", _edits(_CLEAR_OLD_TOOL_RESULTS))
 
     assert isinstance(view, InferenceRequestView)
@@ -208,7 +208,7 @@ async def test_anthropic_view_clears_only_the_turns_after_a_compaction_block_whe
         *_agent_turns(2, first_round=3),
     )
 
-    with patch.object(litellm, "token_counter", side_effect=RuntimeError("tokenizer unavailable")):
+    with patch.object(hangarllm, "token_counter", side_effect=RuntimeError("tokenizer unavailable")):
         view: Final = await inference_request_view(turns, None, "anthropic", _edits(clear_before_compact))
 
     assert isinstance(view, InferenceRequestView)

@@ -21,9 +21,9 @@ import pytest
 from botocore.awsrequest import AWSPreparedRequest, AWSResponse
 
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.bedrock.batches.handler import (  # noqa: E402
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.bedrock.batches.handler import (  # noqa: E402
     BedrockBatchesHandler,
     _extract_job_id_from_arn,
     _extract_region_from_bedrock_arn,
@@ -34,7 +34,7 @@ from litellm.llms.bedrock.batches.handler import (  # noqa: E402
 JOB_ID = "abc1234567"
 JOB_ARN = f"arn:aws:bedrock:us-west-2:123456789012:model-invocation-job/{JOB_ID}"
 INPUT_URI = "s3://my-bucket/inputs/qwen3-235b-a22b-2507-batch.jsonl"
-OUTPUT_PREFIX = "s3://my-bucket/litellm-batch-outputs/litellm-bedrock-files-qwen-uuid/"
+OUTPUT_PREFIX = "s3://my-bucket/hangarllm-batch-outputs/hangarllm-bedrock-files-qwen-uuid/"
 SUBMIT_TIME = datetime(2026, 4, 28, 12, 0, 0, tzinfo=timezone.utc)
 END_TIME = datetime(2026, 4, 28, 12, 30, 0, tzinfo=timezone.utc)
 
@@ -42,7 +42,7 @@ END_TIME = datetime(2026, 4, 28, 12, 30, 0, tzinfo=timezone.utc)
 def _fake_boto3_response(status: str = "Completed", end_time=END_TIME):
     return {
         "jobArn": JOB_ARN,
-        "jobName": "litellm-bedrock-files-qwen-uuid",
+        "jobName": "hangarllm-bedrock-files-qwen-uuid",
         "modelId": "bedrock/qwen.qwen3-235b-a22b-2507-v1:0",
         "status": status,
         "submitTime": SUBMIT_TIME,
@@ -61,7 +61,7 @@ def patched_boto3():
     with (
         patch("boto3.client", return_value=fake_client) as boto_client_factory,
         patch(
-            "litellm.llms.bedrock.batches.transformation.BedrockBatchesConfig.get_credentials",
+            "hangarllm.llms.bedrock.batches.transformation.BedrockBatchesConfig.get_credentials",
             return_value=MagicMock(access_key="AKIA", secret_key="SECRET", token=None),
         ),
     ):
@@ -486,32 +486,32 @@ def test_cancel_batch_reraises_other_client_errors(patched_boto3):
     fake_client.get_model_invocation_job.assert_not_called()
 
 
-def test_litellm_cancel_batch_dispatches_to_bedrock(patched_boto3):
-    import litellm
+def test_hangarllm_cancel_batch_dispatches_to_bedrock(patched_boto3):
+    import hangarllm
 
     fake_client, _ = patched_boto3
     fake_client.get_model_invocation_job.return_value = _fake_boto3_response(status="Stopped")
 
-    batch = litellm.cancel_batch(batch_id=JOB_ARN, custom_llm_provider="bedrock")
+    batch = hangarllm.cancel_batch(batch_id=JOB_ARN, custom_llm_provider="bedrock")
 
     fake_client.stop_model_invocation_job.assert_called_once_with(jobIdentifier=JOB_ARN)
     assert batch.status == "cancelled"
 
 
-def test_litellm_batch_calls_send_every_bedrock_client_to_the_configured_endpoint(
+def test_hangarllm_batch_calls_send_every_bedrock_client_to_the_configured_endpoint(
     patched_boto3: tuple[MagicMock, MagicMock],
 ) -> None:
-    import litellm
+    import hangarllm
 
     fake_client, boto_client_factory = patched_boto3
     fake_client.get_model_invocation_job.return_value = _fake_boto3_response(status="Stopped")
 
-    litellm.cancel_batch(
+    hangarllm.cancel_batch(
         batch_id=JOB_ARN,
         custom_llm_provider="bedrock",
         aws_bedrock_control_plane_endpoint="https://bedrock-gateway.internal",
     )
-    litellm.retrieve_batch(
+    hangarllm.retrieve_batch(
         batch_id=JOB_ARN,
         custom_llm_provider="bedrock",
         aws_bedrock_control_plane_endpoint="https://bedrock-gateway.internal",
@@ -529,7 +529,7 @@ class _TagGatedSTSClient:
         self._access_key_id = access_key_id
 
     def get_caller_identity(self):
-        return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+        return {"Arn": "arn:aws:iam::111111111111:user/hangarllm-proxy-pod"}
 
     def assume_role(self, **params):
         from botocore.exceptions import ClientError
@@ -569,8 +569,8 @@ def test_handle_model_invocation_job_status_builds_the_client_from_the_tagged_se
             batch_id=JOB_ARN,
             aws_access_key_id="AKIABATCHSTATUSCALLER",
             aws_secret_access_key="pod-caller-secret",
-            aws_role_name="arn:aws:iam::999999999999:role/litellm-batch-role",
-            aws_session_name="litellm-batch-session",
+            aws_role_name="arn:aws:iam::999999999999:role/hangarllm-batch-role",
+            aws_session_name="hangarllm-batch-session",
             aws_session_tags=tags,
         )
 
@@ -580,7 +580,7 @@ def test_handle_model_invocation_job_status_builds_the_client_from_the_tagged_se
 
 def test_cancel_batch_stops_and_polls_the_job_with_the_tagged_session(monkeypatch):
     """Cancelling on a tag-gated role must forward the deployment's session tags to both the stop and status calls."""
-    import litellm
+    import hangarllm
 
     monkeypatch.delenv("AWS_WEB_IDENTITY_TOKEN_FILE", raising=False)
     monkeypatch.delenv("AWS_ROLE_ARN", raising=False)
@@ -596,13 +596,13 @@ def test_cancel_batch_stops_and_polls_the_job_with_the_tagged_session(monkeypatc
         return fake_bedrock
 
     with patch("boto3.client", side_effect=boto3_client):
-        batch = litellm.cancel_batch(
+        batch = hangarllm.cancel_batch(
             batch_id=JOB_ARN,
             custom_llm_provider="bedrock",
             aws_access_key_id="AKIABATCHCANCELCALLER",
             aws_secret_access_key="pod-caller-secret",
-            aws_role_name="arn:aws:iam::999999999999:role/litellm-batch-role",
-            aws_session_name="litellm-batch-session",
+            aws_role_name="arn:aws:iam::999999999999:role/hangarllm-batch-role",
+            aws_session_name="hangarllm-batch-session",
             aws_session_tags=tags,
         )
 
@@ -767,28 +767,28 @@ async def test_async_file_and_batch():
     """
     Test file retrieval
     """
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
     file_name = "bedrock_batch_completions.jsonl"
     _current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(_current_dir, file_name)
     capture_client = _CaptureAsyncHTTPHandler()
     with patch.dict(os.environ, _BEDROCK_TEST_AWS_ENV):
         with open(file_path, "rb") as batch_file:
-            file_obj = await litellm.acreate_file(
+            file_obj = await hangarllm.acreate_file(
                 file=batch_file,
                 purpose="batch",
                 custom_llm_provider="bedrock",
-                s3_bucket_name="litellm-proxy-941277531214",
+                s3_bucket_name="hangarllm-proxy-941277531214",
                 client=capture_client,
             )
         assert len(capture_client.put_calls) == 1
         print("CREATED FILE RESPONSE=", file_obj)
 
         with patch(
-            "litellm.llms.custom_httpx.llm_http_handler.get_async_httpx_client",
+            "hangarllm.llms.custom_httpx.llm_http_handler.get_async_httpx_client",
             return_value=capture_client,
         ):
-            create_batch_response = await litellm.acreate_batch(
+            create_batch_response = await hangarllm.acreate_batch(
                 completion_window="24h",
                 endpoint="/v1/chat/completions",
                 input_file_id=file_obj.id,
@@ -805,7 +805,7 @@ async def test_async_file_and_batch():
                 lambda jobIdentifier: capture_client.batch_jobs[jobIdentifier]
             )
             with patch("boto3.client", return_value=mock_bedrock_client):
-                retrieve_batch_response = await litellm.aretrieve_batch(
+                retrieve_batch_response = await hangarllm.aretrieve_batch(
                     batch_id=create_batch_response.id,
                     custom_llm_provider="bedrock",
                     model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -841,11 +841,11 @@ async def test_mock_bedrock_file_url_mapping():
             "rb",
         ) as batch_file,
     ):
-        file_obj = await litellm.acreate_file(
+        file_obj = await hangarllm.acreate_file(
             file=batch_file,
             purpose="batch",
             custom_llm_provider="bedrock",
-            s3_bucket_name="litellm-proxy-941277531214",
+            s3_bucket_name="hangarllm-proxy-941277531214",
             client=capture_client,
         )
 
@@ -856,7 +856,7 @@ async def test_mock_bedrock_file_url_mapping():
     assert captured_put_url is not None
     assert file_obj.id.startswith("s3://")
 
-    from litellm.llms.bedrock.files.transformation import BedrockFilesConfig
+    from hangarllm.llms.bedrock.files.transformation import BedrockFilesConfig
 
     bedrock_config = BedrockFilesConfig()
     expected_s3_uri, _ = bedrock_config._convert_https_url_to_s3_uri(captured_put_url)
@@ -896,11 +896,11 @@ async def test_bedrock_retrieve_batch():
     with (
         patch("boto3.client", return_value=mock_bedrock_client),
         patch(
-            "litellm.llms.bedrock.batches.transformation.BedrockBatchesConfig.get_credentials",
+            "hangarllm.llms.bedrock.batches.transformation.BedrockBatchesConfig.get_credentials",
             return_value=mock_creds,
         ),
     ):
-        batch_response = await litellm.aretrieve_batch(
+        batch_response = await hangarllm.aretrieve_batch(
             batch_id="arn:aws:bedrock:us-west-2:123456789012:model-invocation-job/test-job-123",
             custom_llm_provider="bedrock",
             model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -926,7 +926,7 @@ def test_bedrock_batch_with_encryption_key_in_post_request():
     Test that s3_encryption_key_id is included in the AWS POST request payload.
     """
     import json
-    import litellm
+    import hangarllm
 
     test_kms_key_id = (
         "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012"
@@ -952,11 +952,11 @@ def test_bedrock_batch_with_encryption_key_in_post_request():
     with (
         patch.dict(os.environ, _BEDROCK_TEST_AWS_ENV),
         patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             side_effect=mock_post,
         ),
     ):
-        response = litellm.create_batch(
+        response = hangarllm.create_batch(
             completion_window="24h",
             endpoint="/v1/chat/completions",
             input_file_id="s3://test-bucket/input/test.jsonl",
@@ -983,7 +983,7 @@ def test_bedrock_batch_with_encryption_key_in_post_request():
 
 
 def test_bedrock_file_upload_signing_uses_deployment_credentials(monkeypatch):
-    from litellm.llms.bedrock.files.transformation import BedrockFilesConfig
+    from hangarllm.llms.bedrock.files.transformation import BedrockFilesConfig
 
     config = BedrockFilesConfig()
     captured = {}
@@ -1005,7 +1005,7 @@ def test_bedrock_file_upload_signing_uses_deployment_credentials(monkeypatch):
             "purpose": "batch",
         },
         optional_params={},
-        litellm_params={
+        hangarllm_params={
             "s3_bucket_name": "deployment-bucket",
             "aws_access_key_id": "deployment-access-key",
             "aws_secret_access_key": "deployment-secret",
@@ -1020,7 +1020,7 @@ def test_bedrock_file_upload_signing_uses_deployment_credentials(monkeypatch):
 
 
 def test_bedrock_batch_signing_uses_deployment_credentials(monkeypatch):
-    from litellm.llms.bedrock.batches.transformation import BedrockBatchesConfig
+    from hangarllm.llms.bedrock.batches.transformation import BedrockBatchesConfig
 
     config = BedrockBatchesConfig()
     captured = {}
@@ -1039,7 +1039,7 @@ def test_bedrock_batch_signing_uses_deployment_credentials(monkeypatch):
             "endpoint": "/v1/chat/completions",
         },
         optional_params={},
-        litellm_params={
+        hangarllm_params={
             "aws_access_key_id": "deployment-access-key",
             "aws_secret_access_key": "deployment-secret",
             "aws_region_name": "eu-west-1",
@@ -1054,7 +1054,7 @@ def test_bedrock_batch_signing_uses_deployment_credentials(monkeypatch):
 
 
 def test_bedrock_batch_retrieval_signing_uses_deployment_credentials(monkeypatch):
-    from litellm.llms.bedrock.batches.transformation import BedrockBatchesConfig
+    from hangarllm.llms.bedrock.batches.transformation import BedrockBatchesConfig
 
     config = BedrockBatchesConfig()
     captured = {}
@@ -1068,7 +1068,7 @@ def test_bedrock_batch_retrieval_signing_uses_deployment_credentials(monkeypatch
     result = config.transform_retrieve_batch_request(
         batch_id="arn:aws:bedrock:eu-west-1:123456789012:model-invocation-job/job-1",
         optional_params={},
-        litellm_params={
+        hangarllm_params={
             "aws_access_key_id": "deployment-access-key",
             "aws_secret_access_key": "deployment-secret",
             "aws_region_name": "eu-west-1",
@@ -1082,7 +1082,7 @@ def test_bedrock_batch_retrieval_signing_uses_deployment_credentials(monkeypatch
 
 
 def test_bedrock_deployment_credentials_block_caller_profile_override(monkeypatch):
-    from litellm.llms.bedrock.batches.transformation import BedrockBatchesConfig
+    from hangarllm.llms.bedrock.batches.transformation import BedrockBatchesConfig
 
     config = BedrockBatchesConfig()
     captured = {}
@@ -1100,7 +1100,7 @@ def test_bedrock_deployment_credentials_block_caller_profile_override(monkeypatc
             "completion_window": "24h",
         },
         optional_params={"aws_profile_name": "caller-controlled-profile"},
-        litellm_params={
+        hangarllm_params={
             "aws_access_key_id": "deployment-access-key",
             "aws_secret_access_key": "deployment-secret",
             "aws_region_name": "eu-west-1",
@@ -1113,7 +1113,7 @@ def test_bedrock_deployment_credentials_block_caller_profile_override(monkeypatc
 
 
 def test_bedrock_file_upload_s3_region_survives_deployment_region_merge(monkeypatch):
-    from litellm.llms.bedrock.files.transformation import BedrockFilesConfig
+    from hangarllm.llms.bedrock.files.transformation import BedrockFilesConfig
 
     config = BedrockFilesConfig()
     captured = {}
@@ -1135,7 +1135,7 @@ def test_bedrock_file_upload_s3_region_survives_deployment_region_merge(monkeypa
             "purpose": "batch",
         },
         optional_params={},
-        litellm_params={
+        hangarllm_params={
             "s3_bucket_name": "deployment-bucket",
             "s3_region_name": "eu-central-1",
             "aws_access_key_id": "deployment-access-key",

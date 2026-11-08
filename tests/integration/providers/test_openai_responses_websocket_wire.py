@@ -103,7 +103,7 @@ def test_a_top_level_error_frame_reaches_the_client_and_logs_the_provider_code_a
         assert forwarded["input"][0]["content"][0]["text"] == text
         (row,) = eventually(
             lambda: read_rows(
-                'SELECT status, metadata FROM "LiteLLM_SpendLogs" WHERE api_key = %s',
+                'SELECT status, metadata FROM "HangarLLM_SpendLogs" WHERE api_key = %s',
                 (hashlib.sha256(key.encode()).hexdigest(),),
             ),
             lambda rows: len(rows) >= 1,
@@ -170,7 +170,7 @@ def test_a_declared_openai_provider_wins_over_another_providers_model_prefix(
         assert forwarded["model"] == gateway_model
         (row,) = eventually(
             lambda: read_rows(
-                'SELECT custom_llm_provider FROM "LiteLLM_SpendLogs" WHERE api_key = %s',
+                'SELECT custom_llm_provider FROM "HangarLLM_SpendLogs" WHERE api_key = %s',
                 (hashlib.sha256(key.encode()).hexdigest(),),
             ),
             lambda rows: len(rows) >= 1,

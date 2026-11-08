@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Final
 
-import litellm
+import hangarllm
 import pytest
-from litellm.utils import calculate_max_parallel_requests
+from hangarllm.utils import calculate_max_parallel_requests
 
 
 @pytest.mark.parametrize(
@@ -37,11 +37,11 @@ def test_scenario(
 
 @pytest.mark.asyncio
 async def test_max_parallel_requests_rpm_rate_limiting() -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "limited",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "test-key",
                     "rpm": 1,
@@ -61,17 +61,17 @@ async def test_max_parallel_requests_rpm_rate_limiting() -> None:
     first_response: Final = await router.acompletion(**request)
 
     assert first_response.choices[0].message.content == "response"
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await router.acompletion(**request)
 
 
 @pytest.mark.asyncio
 async def test_max_parallel_requests_tpm_rate_limiting_base_case() -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "limited",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "test-key",
                     "tpm": 1,
@@ -89,5 +89,5 @@ async def test_max_parallel_requests_tpm_rate_limiting_base_case() -> None:
         "mock_response": "ok",
     }
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await router.acompletion(**request)

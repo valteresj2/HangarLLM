@@ -42,7 +42,7 @@ CALLBACK_MODULE: Final = """
 import json
 import os
 
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 def _event(kind, kwargs, response_obj):
@@ -86,10 +86,10 @@ class SpeechEvents(CustomLogger):
 speech_events = SpeechEvents()
 """
 SPEND_ROWS_SQL: Final = (
-    'SELECT call_type, spend, prompt_tokens, completion_tokens, cache_hit FROM "LiteLLM_SpendLogs"'
+    'SELECT call_type, spend, prompt_tokens, completion_tokens, cache_hit FROM "HangarLLM_SpendLogs"'
     ' WHERE api_key = %s ORDER BY "startTime"'
 )
-KEY_SPEND_SQL: Final = 'SELECT spend FROM "LiteLLM_VerificationToken" WHERE token = %s'
+KEY_SPEND_SQL: Final = 'SELECT spend FROM "HangarLLM_VerificationToken" WHERE token = %s'
 
 Event = dict[str, JsonValue]
 
@@ -113,14 +113,14 @@ def _hashed(key: str) -> str:
 
 def _model_list(token_url: str) -> list[JsonValue]:
     return [
-        {"model_name": MODELS["gemini"], "litellm_params": {"model": f"gemini/{BACKEND}", "api_key": GEMINI_API_KEY}},
+        {"model_name": MODELS["gemini"], "hangarllm_params": {"model": f"gemini/{BACKEND}", "api_key": GEMINI_API_KEY}},
         {
             "model_name": TPM_MODEL,
-            "litellm_params": {"model": f"gemini/{BACKEND}", "api_key": GEMINI_API_KEY, "tpm": TPM_LIMIT},
+            "hangarllm_params": {"model": f"gemini/{BACKEND}", "api_key": GEMINI_API_KEY, "tpm": TPM_LIMIT},
         },
         {
             "model_name": MODELS["vertex_ai"],
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"vertex_ai/{BACKEND}",
                 "vertex_project": VERTEX_PROJECT,
                 "vertex_location": VERTEX_LOCATION,
@@ -132,7 +132,7 @@ def _model_list(token_url: str) -> list[JsonValue]:
 
 def _config(directory: Path, token_url: str, *, cached: bool) -> Path:
     stock: Final = JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
-    settings: Final = object_value(stock["litellm_settings"])
+    settings: Final = object_value(stock["hangarllm_settings"])
     kept: Final = {name: value for name, value in settings.items() if name not in {"cache", "cache_params"}}
     cache: Final[dict[str, JsonValue]] = (
         {"cache": True, "cache_params": {**object_value(settings["cache_params"]), "namespace": marker()}}
@@ -155,7 +155,7 @@ def _config(directory: Path, token_url: str, *, cached: bool) -> Path:
             {
                 **stock,
                 "model_list": _model_list(token_url),
-                "litellm_settings": {**kept, **cache, "callbacks": "tts_billing_callbacks.speech_events"},
+                "hangarllm_settings": {**kept, **cache, "callbacks": "tts_billing_callbacks.speech_events"},
                 "router_settings": {**object_value(stock["router_settings"]), "num_retries": 0, **routing},
             }
         )
@@ -193,7 +193,7 @@ def _speech(billing: BillingProxy, model: str, text: str, key: str, voice: str =
     response: Final = billing.proxy.gateway.request(
         "POST", "/v1/audio/speech", {"model": model, "input": text, "voice": voice}, key=key
     )
-    return Sent(response.status_code, response.content, response.headers.get("x-litellm-cache-key", ""))
+    return Sent(response.status_code, response.content, response.headers.get("x-hangarllm-cache-key", ""))
 
 
 def _upstream_calls(wire: Wire, text: str) -> int:
@@ -285,7 +285,7 @@ def test_cached_speech_repeat_is_a_free_cache_hit_after_a_billed_first_call(
         assert (first.status, repeat.status) == (200, 200), (first.body[:300], repeat.body[:300])
         assert wav_payload(first.body) == PCM and repeat.body == first.body
         assert _upstream_calls(tts_wire, text) == 1
-        assert repeat.cache_key, "the cached repeat carried no x-litellm-cache-key header"
+        assert repeat.cache_key, "the cached repeat carried no x-hangarllm-cache-key header"
         chat_spend: Final = _chat_spend(cached, model, scenario.key())
         billed, hit = _spend_rows(cached, speech_key, 2)
         assert billed["cache_hit"] != "True" and billed["spend"] == pytest.approx(chat_spend), billed

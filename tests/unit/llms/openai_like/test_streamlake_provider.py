@@ -6,12 +6,12 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.llms.openai_like.dynamic_config import create_config_class
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry
-from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-from litellm.types.utils import ModelResponse, Usage
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.llms.openai_like.dynamic_config import create_config_class
+from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
+from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+from hangarllm.types.utils import ModelResponse, Usage
 
 STREAMLAKE_BASE_URL: Final = "https://vanchin.streamlake.ai/api/gateway/v1/endpoints"
 STREAMLAKE_CHAT_URL: Final = f"{STREAMLAKE_BASE_URL}/chat/completions"
@@ -78,7 +78,7 @@ class TestStreamlakeProviderConfig:
             model="ep-test-endpoint",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="sk-resolved-key",
             api_base=None,
         )
@@ -94,7 +94,7 @@ class TestStreamlakeProviderConfig:
             api_key="sk-test",
             model="ep-test-endpoint",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == STREAMLAKE_CHAT_URL
 
@@ -178,12 +178,12 @@ async def test_streamlake_completion_uses_openai_compatible_http(
         assert json.loads(request.content) == expected_request_body
         return httpx.Response(200, json=response_body, request=request)
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(expected_url).mock(side_effect=handler)
         if is_async:
-            response: Final = await litellm.acompletion(
+            response: Final = await hangarllm.acompletion(
                 model="streamlake/ep-test-endpoint",
                 messages=[{"role": "user", "content": "hello"}],
                 api_key="sk-streamlake-test",
@@ -191,7 +191,7 @@ async def test_streamlake_completion_uses_openai_compatible_http(
                 max_tokens=512,
             )
         else:
-            response: Final = litellm.completion(
+            response: Final = hangarllm.completion(
                 model="streamlake/ep-test-endpoint",
                 messages=[{"role": "user", "content": "hello"}],
                 api_key="sk-streamlake-test",
@@ -228,11 +228,11 @@ def test_endpoint_id_call_forwards_tools_and_reasoning_effort_to_streamlake(monk
         "choices": [{"index": 0, "message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}],
         "usage": {"prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4},
     }
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(STREAMLAKE_CHAT_URL).mock(return_value=httpx.Response(200, json=response_body))
-        litellm.completion(
+        hangarllm.completion(
             model="streamlake/ep-test-endpoint",
             messages=[{"role": "user", "content": "weather in Paris?"}],
             api_key="sk-streamlake-test",
@@ -253,7 +253,7 @@ def _streamlake_keys(cost_map: dict[str, object]) -> tuple[str, ...]:
 
 def test_root_and_backup_cost_maps_carry_the_same_streamlake_rows() -> None:
     root: Final = json.loads((REPO_ROOT / "model_prices_and_context_window.json").read_text())
-    backup: Final = json.loads((REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json").read_text())
+    backup: Final = json.loads((REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json").read_text())
 
     assert _streamlake_keys(root)
     assert {key: root[key] for key in _streamlake_keys(root)} == {key: backup[key] for key in _streamlake_keys(backup)}
@@ -261,16 +261,16 @@ def test_root_and_backup_cost_maps_carry_the_same_streamlake_rows() -> None:
 
 @pytest.mark.usefixtures("local_model_cost_map")
 def test_endpoint_id_call_is_priced_from_the_lowercase_model_streamlake_returns() -> None:
-    keys: Final = _streamlake_keys(litellm.model_cost)
+    keys: Final = _streamlake_keys(hangarllm.model_cost)
     assert keys
 
     for key in keys:
-        info: Final = litellm.get_model_info(model=key)
+        info: Final = hangarllm.get_model_info(model=key)
         response: Final = ModelResponse(
             model=key.split("/", 1)[1].lower(),
             usage=Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500),
         )
-        cost: Final = litellm.completion_cost(
+        cost: Final = hangarllm.completion_cost(
             completion_response=response,
             model="streamlake/ep-test-endpoint",
             custom_llm_provider="streamlake",
@@ -284,11 +284,11 @@ def test_named_model_params_follow_the_row_and_fall_back_to_the_provider_default
     provider: Final = JSONProviderRegistry.get("streamlake")
     assert provider is not None
     config: Final = create_config_class(provider)()
-    keys: Final = _streamlake_keys(litellm.model_cost)
+    keys: Final = _streamlake_keys(hangarllm.model_cost)
     assert keys
 
     for key in keys:
-        row: Final = litellm.model_cost[key]
+        row: Final = hangarllm.model_cost[key]
         supported: Final = config.get_supported_openai_params(model=key.split("/", 1)[1].lower())
         assert ("tools" in supported) is (row.get("supports_function_calling") is not False), key
         assert ("reasoning_effort" in supported) is (row.get("supports_reasoning") is not False), key
@@ -297,7 +297,7 @@ def test_named_model_params_follow_the_row_and_fall_back_to_the_provider_default
 @pytest.mark.usefixtures("local_model_cost_map")
 def test_streamlake_wildcard_expands_to_every_streamlake_row() -> None:
     expanded: Final = get_known_models_from_wildcard("streamlake/*")
-    assert set(expanded) == set(_streamlake_keys(litellm.model_cost))
+    assert set(expanded) == set(_streamlake_keys(hangarllm.model_cost))
 
 
 @pytest.mark.usefixtures("local_model_cost_map")
@@ -316,11 +316,11 @@ def test_cache_control_marks_reach_streamlake(monkeypatch: pytest.MonkeyPatch) -
         "choices": [{"index": 0, "message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}],
         "usage": {"prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4},
     }
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(STREAMLAKE_CHAT_URL).mock(return_value=httpx.Response(200, json=response_body))
-        litellm.completion(
+        hangarllm.completion(
             model="streamlake/qwen3.8-27b",
             messages=[{"role": "system", "content": [system_block]}, {"role": "user", "content": "hi"}],
             api_key="sk-streamlake-test",
@@ -347,11 +347,11 @@ def test_reasoning_effort_is_dropped_for_models_streamlake_lists_without_reasoni
         "choices": [{"index": 0, "message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}],
         "usage": {"prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4},
     }
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(STREAMLAKE_CHAT_URL).mock(return_value=httpx.Response(200, json=response_body))
-        litellm.completion(
+        hangarllm.completion(
             model=f"streamlake/{model}",
             messages=[{"role": "user", "content": "hi"}],
             api_key="sk-streamlake-test",
@@ -360,8 +360,8 @@ def test_reasoning_effort_is_dropped_for_models_streamlake_lists_without_reasoni
         )
 
     assert "reasoning_effort" not in json.loads(route.calls.last.request.content)
-    with pytest.raises(litellm.UnsupportedParamsError):
-        litellm.completion(
+    with pytest.raises(hangarllm.UnsupportedParamsError):
+        hangarllm.completion(
             model=f"streamlake/{model}",
             messages=[{"role": "user", "content": "hi"}],
             api_key="sk-streamlake-test",
@@ -372,10 +372,10 @@ def test_reasoning_effort_is_dropped_for_models_streamlake_lists_without_reasoni
 @pytest.mark.usefixtures("local_model_cost_map")
 def test_streamlake_rows_with_a_cache_read_price_declare_prompt_caching() -> None:
     cached_rows: Final = tuple(
-        key for key in _streamlake_keys(litellm.model_cost) if "cache_read_input_token_cost" in litellm.model_cost[key]
+        key for key in _streamlake_keys(hangarllm.model_cost) if "cache_read_input_token_cost" in hangarllm.model_cost[key]
     )
     assert cached_rows
-    assert [key for key in cached_rows if litellm.model_cost[key].get("supports_prompt_caching") is not True] == []
+    assert [key for key in cached_rows if hangarllm.model_cost[key].get("supports_prompt_caching") is not True] == []
 
 
 @pytest.mark.usefixtures("local_model_cost_map")
@@ -387,14 +387,14 @@ def test_qwen3_8_explicit_cache_hits_and_prefix_hits_use_their_own_read_price(
     # StreamLake's price page (https://www.streamlake.ai/document/DOC/mgrnm4xm362hvp5wyce, read 2026-10-28) lists
     # separate PrefixCache and Cache Read prices for Qwen3.8, and its usage tags only explicit hits with cache_type
     rate_key: Final = "explicit_cache_read_input_token_cost" if cache_type else "cache_read_input_token_cost"
-    row: Final = litellm.model_cost[f"streamlake/{model}"]
+    row: Final = hangarllm.model_cost[f"streamlake/{model}"]
     details: Final = {"cached_tokens": 4000} | ({"cache_type": cache_type} if cache_type else {})
     response: Final = ModelResponse(
         model=model,
         usage=Usage(prompt_tokens=5000, completion_tokens=100, total_tokens=5100, prompt_tokens_details=details),
     )
 
-    cost: Final = litellm.completion_cost(
+    cost: Final = hangarllm.completion_cost(
         completion_response=response, model=f"streamlake/{model}", custom_llm_provider="streamlake"
     )
 

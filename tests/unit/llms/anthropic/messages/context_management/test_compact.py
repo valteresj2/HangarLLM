@@ -20,12 +20,12 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.llms.anthropic.messages.context_management import (
+import hangarllm
+from hangarllm.llms.anthropic.messages.context_management import (
     AnthropicContextManagementError,
     apply_context_management,
 )
-from litellm.llms.anthropic.messages.context_management.editors.compact import (
+from hangarllm.llms.anthropic.messages.context_management.editors.compact import (
     _augment_system_with_summary,
     _extract_summary_text,
     _select_last_user_question,
@@ -34,18 +34,18 @@ from litellm.llms.anthropic.messages.context_management.editors.compact import (
     apply_client_compaction_block_history,
     apply_compact_20260112,
 )
-from litellm.llms.anthropic.messages.context_management.result import (
+from hangarllm.llms.anthropic.messages.context_management.result import (
     PolyfillResult,
 )
-from litellm.proxy._types import (
-    LiteLLM_BudgetTable,
-    LiteLLM_ProjectTableCachedObj,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_UserTable,
+from hangarllm.proxy._types import (
+    HangarLLM_BudgetTable,
+    HangarLLM_ProjectTableCachedObj,
+    HangarLLM_TeamMembership,
+    HangarLLM_TeamTableCachedObj,
+    HangarLLM_UserTable,
     UserAPIKeyAuth,
 )
-from litellm.proxy.hooks.parallel_request_limiter_v3 import RateLimitUnverifiableError
+from hangarllm.proxy.hooks.parallel_request_limiter_v3 import RateLimitUnverifiableError
 from tests.unit.llms.anthropic.messages.conftest import ProxyAuthState
 
 MODEL = "openai/gpt-4o"
@@ -321,7 +321,7 @@ async def test_trigger_below_minimum_raises():
 async def test_trigger_at_minimum_does_not_raise():
     """Exactly 50 000 is allowed — only strictly less than 50k is rejected."""
     with patch(
-        "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+        "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
         return_value=None,
     ):
         result = await apply_compact_20260112(
@@ -346,7 +346,7 @@ async def test_trigger_at_minimum_does_not_raise():
 async def test_opt_in_gating_no_summary_model_configured():
     messages = _simple_messages()
     with patch(
-        "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+        "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
         return_value=None,
     ):
         result = await apply_compact_20260112(
@@ -373,7 +373,7 @@ async def test_opt_in_gating_no_summary_model_keeps_post_compaction_tail():
     messages = _messages_with_compaction("prior summary text")
 
     with patch(
-        "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+        "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
         return_value=None,
     ):
         result = await apply_compact_20260112(
@@ -455,10 +455,10 @@ async def test_slice_only_path_with_existing_compaction_block():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=500),  # well under threshold
+        patch("hangarllm.token_counter", return_value=500),  # well under threshold
     ):
         result = await apply_compact_20260112(
             model=MODEL,
@@ -492,10 +492,10 @@ async def test_slice_only_no_compaction_block_under_threshold():
     messages = _simple_messages()
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=500),
+        patch("hangarllm.token_counter", return_value=500),
     ):
         result = await apply_compact_20260112(
             model=MODEL,
@@ -523,12 +523,12 @@ async def test_full_summary_path():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),  # over 150k threshold
+        patch("hangarllm.token_counter", return_value=200_000),  # over 150k threshold
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             new_callable=AsyncMock,
             return_value=mock_response,
         ),
@@ -569,7 +569,7 @@ async def test_full_summary_path():
 
 
 async def test_full_summary_path_uses_router_when_available():
-    """When llm_router is provided, its acompletion method is called instead of litellm."""
+    """When llm_router is provided, its acompletion method is called instead of hangarllm."""
     messages = _simple_messages()
     mock_response = _make_mock_response("<summary>Router summary</summary>")
     mock_router = MagicMock()
@@ -577,10 +577,10 @@ async def test_full_summary_path_uses_router_when_available():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="my-summary-model",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
     ):
         result = await apply_compact_20260112(
             model=MODEL,
@@ -599,26 +599,26 @@ async def test_full_summary_path_uses_router_when_available():
     assert result.compaction_block["content"] == "Router summary"
 
 
-async def test_litellm_metadata_propagated_to_summary_call():
-    """Auth fields from the proxy ``litellm_metadata`` are forwarded to the summary call."""
+async def test_hangarllm_metadata_propagated_to_summary_call():
+    """Auth fields from the proxy ``hangarllm_metadata`` are forwarded to the summary call."""
     messages = _simple_messages()
     mock_response = _make_mock_response("<summary>Summary</summary>")
-    parent_litellm_metadata = {
+    parent_hangarllm_metadata = {
         "user_api_key": "sk-test",
         "user_api_key_team_id": "team-123",
         "user_api_key_user_id": "user-456",
-        "litellm_call_id": "call-789",
+        "hangarllm_call_id": "call-789",
         "should_not_propagate": "secret",
     }
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             new_callable=AsyncMock,
             return_value=mock_response,
         ) as mock_call,
@@ -629,7 +629,7 @@ async def test_litellm_metadata_propagated_to_summary_call():
             tools=None,
             system=None,
             edit_spec=_EDIT_SPEC_DEFAULT,
-            litellm_metadata=parent_litellm_metadata,
+            hangarllm_metadata=parent_hangarllm_metadata,
         )
 
     call_kwargs = mock_call.call_args.kwargs
@@ -650,12 +650,12 @@ async def test_summary_call_failed():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             new_callable=AsyncMock,
             side_effect=RuntimeError("network error"),
         ),
@@ -686,12 +686,12 @@ async def test_summary_extraction_failed_no_tags():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             new_callable=AsyncMock,
             return_value=mock_response,
         ),
@@ -718,7 +718,7 @@ async def test_pause_after_compaction_ignored_warning():
     """pause_after_compaction: true → warning recorded, request proceeds normally."""
     messages = _simple_messages()
     with patch(
-        "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+        "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
         return_value=None,
     ):
         result = await apply_compact_20260112(
@@ -741,7 +741,7 @@ async def test_pause_after_compaction_ignored_warning():
 async def test_unsupported_trigger_type_falls_back_to_default():
     messages = _simple_messages()
     with patch(
-        "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+        "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
         return_value=None,
     ):
         result = await apply_compact_20260112(
@@ -779,12 +779,12 @@ async def test_custom_instructions_used_verbatim():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             side_effect=_fake_call_summary_model,
         ),
     ):
@@ -824,12 +824,12 @@ async def test_default_instructions_appended_with_no_tool_suffix_when_no_tools()
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             side_effect=_fake_call_summary_model,
         ),
     ):
@@ -860,12 +860,12 @@ async def test_default_instructions_with_tools_appends_no_tool_suffix():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             side_effect=_fake_call_summary_model,
         ),
     ):
@@ -894,12 +894,12 @@ async def test_system_prompt_forwarded_to_summary_call_as_string():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             side_effect=_fake_call_summary_model,
         ),
     ):
@@ -934,12 +934,12 @@ async def test_system_prompt_forwarded_to_summary_call_as_content_blocks():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             side_effect=_fake_call_summary_model,
         ),
     ):
@@ -977,12 +977,12 @@ async def test_summary_call_carries_prior_compaction_summary_into_system():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             side_effect=_fake_call_summary_model,
         ),
     ):
@@ -1014,12 +1014,12 @@ async def test_summary_call_omits_system_message_when_system_is_none():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             side_effect=_fake_call_summary_model,
         ),
     ):
@@ -1055,12 +1055,12 @@ async def test_summary_call_does_not_emit_consecutive_user_turns():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             side_effect=_fake_call_summary_model,
         ),
     ):
@@ -1085,10 +1085,10 @@ async def test_summary_call_sends_default_max_tokens():
     (which require it) don't reject the request and silently fall back to
     ``summary_call_failed``.
     """
-    from litellm.llms.anthropic.messages.context_management.constants import (
+    from hangarllm.llms.anthropic.messages.context_management.constants import (
         COMPACT_SUMMARY_MAX_TOKENS,
     )
-    from litellm.llms.anthropic.messages.context_management.editors.compact import (
+    from hangarllm.llms.anthropic.messages.context_management.editors.compact import (
         _call_summary_model,
     )
 
@@ -1112,7 +1112,7 @@ async def test_summary_call_sends_default_max_tokens():
 async def test_summary_call_honors_max_tokens_override():
     """Operators can override the default summary ``max_tokens`` via
     ``general_settings.context_management_summary_max_tokens``."""
-    from litellm.llms.anthropic.messages.context_management.editors.compact import (
+    from hangarllm.llms.anthropic.messages.context_management.editors.compact import (
         _read_summary_max_tokens_setting,
     )
 
@@ -1124,12 +1124,12 @@ async def test_summary_call_honors_max_tokens_override():
             return _make_mock_response("<summary>x</summary>")
 
     with patch(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"context_management_summary_max_tokens": 8192},
     ):
         assert _read_summary_max_tokens_setting() == 8192
 
-        from litellm.llms.anthropic.messages.context_management.editors.compact import (
+        from hangarllm.llms.anthropic.messages.context_management.editors.compact import (
             _call_summary_model,
         )
 
@@ -1148,16 +1148,16 @@ def test_summary_max_tokens_setting_falls_back_for_invalid_values():
     """Invalid override values (non-int, non-positive, missing) fall back to
     the compiled default so a typo in ``general_settings`` doesn't break the
     summary call."""
-    from litellm.llms.anthropic.messages.context_management.constants import (
+    from hangarllm.llms.anthropic.messages.context_management.constants import (
         COMPACT_SUMMARY_MAX_TOKENS,
     )
-    from litellm.llms.anthropic.messages.context_management.editors.compact import (
+    from hangarllm.llms.anthropic.messages.context_management.editors.compact import (
         _read_summary_max_tokens_setting,
     )
 
     for bad in ("4096", 0, -1, None, {"value": 1024}):
         with patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"context_management_summary_max_tokens": bad},
         ):
             assert _read_summary_max_tokens_setting() == COMPACT_SUMMARY_MAX_TOKENS, (
@@ -1168,10 +1168,10 @@ def test_summary_max_tokens_setting_falls_back_for_invalid_values():
 async def test_summary_call_sends_default_timeout():
     """``timeout`` is set on the summary call so a slow or unresponsive summary
     model cannot hang the parent ``/v1/messages`` request indefinitely."""
-    from litellm.llms.anthropic.messages.context_management.constants import (
+    from hangarllm.llms.anthropic.messages.context_management.constants import (
         COMPACT_SUMMARY_TIMEOUT_SECONDS,
     )
-    from litellm.llms.anthropic.messages.context_management.editors.compact import (
+    from hangarllm.llms.anthropic.messages.context_management.editors.compact import (
         _call_summary_model,
     )
 
@@ -1235,12 +1235,12 @@ async def test_summary_model_denied_when_key_not_in_allowlist():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             mock_call,
         ),
     ):
@@ -1267,12 +1267,12 @@ async def test_summary_model_allowed_when_in_key_allowlist():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             mock_call,
         ),
     ):
@@ -1298,12 +1298,12 @@ async def test_summary_model_allowed_when_no_user_api_key_auth():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             mock_call,
         ),
     ):
@@ -1322,12 +1322,12 @@ async def test_summary_model_allowed_when_no_user_api_key_auth():
 async def _compact_as(auth: UserAPIKeyAuth, summary_call: AsyncMock) -> PolyfillResult:
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             summary_call,
         ),
     ):
@@ -1346,32 +1346,32 @@ async def _compact_as(auth: UserAPIKeyAuth, summary_call: AsyncMock) -> Polyfill
     [
         (
             _fake_user_api_key_auth(key_models=["all-proxy-models"], team_id="team-1"),
-            (LiteLLM_TeamTableCachedObj(team_id="team-1", models=["claude-haiku-4-5"]),),
+            (HangarLLM_TeamTableCachedObj(team_id="team-1", models=["claude-haiku-4-5"]),),
             True,
         ),
         (
             _fake_user_api_key_auth(key_models=["all-proxy-models"], team_id="team-1"),
-            (LiteLLM_TeamTableCachedObj(team_id="team-1", models=["gpt-4o"]),),
+            (HangarLLM_TeamTableCachedObj(team_id="team-1", models=["gpt-4o"]),),
             False,
         ),
         (
             _fake_user_api_key_auth(key_models=["all-proxy-models"], user_id="user-123"),
-            (LiteLLM_UserTable(user_id="user-123", models=["gpt-3.5-turbo"]),),
+            (HangarLLM_UserTable(user_id="user-123", models=["gpt-3.5-turbo"]),),
             False,
         ),
         (
             _fake_user_api_key_auth(key_models=["all-proxy-models"], project_id="project-1"),
-            (LiteLLM_ProjectTableCachedObj(project_id="project-1", models=["gpt-3.5-turbo"]),),
+            (HangarLLM_ProjectTableCachedObj(project_id="project-1", models=["gpt-3.5-turbo"]),),
             False,
         ),
         (
             _fake_user_api_key_auth(key_models=["all-proxy-models"], team_id="team-1", user_id="user-123"),
             (
-                LiteLLM_TeamTableCachedObj(team_id="team-1", models=["claude-haiku-4-5"]),
-                LiteLLM_TeamMembership(
+                HangarLLM_TeamTableCachedObj(team_id="team-1", models=["claude-haiku-4-5"]),
+                HangarLLM_TeamMembership(
                     user_id="user-123",
                     team_id="team-1",
-                    litellm_budget_table=LiteLLM_BudgetTable(allowed_models=["gpt-3.5-turbo"]),
+                    hangarllm_budget_table=HangarLLM_BudgetTable(allowed_models=["gpt-3.5-turbo"]),
                 ),
             ),
             False,
@@ -1383,7 +1383,7 @@ async def test_summary_model_runs_only_when_every_scope_of_the_caller_grants_it(
     proxy_auth_state: ProxyAuthState,
     auth: UserAPIKeyAuth,
     rows: tuple[
-        LiteLLM_TeamTableCachedObj | LiteLLM_UserTable | LiteLLM_ProjectTableCachedObj | LiteLLM_TeamMembership, ...
+        HangarLLM_TeamTableCachedObj | HangarLLM_UserTable | HangarLLM_ProjectTableCachedObj | HangarLLM_TeamMembership, ...
     ],
     summarized: bool,
 ) -> None:
@@ -1404,15 +1404,15 @@ async def test_summary_model_denied_when_team_membership_read_hits_a_db_outage(
 
     class _UnreachableMembershipPrisma:
         class db:
-            class litellm_teammembership:
+            class hangarllm_teammembership:
                 @staticmethod
                 async def find_unique(where: dict[str, dict[str, str]], include: dict[str, bool]) -> None:
                     raise httpx.ConnectError("All connection attempts failed")
 
-    proxy_auth_state.seed(LiteLLM_TeamTableCachedObj(team_id="team-outage", models=["claude-haiku-4-5"]))
+    proxy_auth_state.seed(HangarLLM_TeamTableCachedObj(team_id="team-outage", models=["claude-haiku-4-5"]))
     summary_call: Final = AsyncMock(return_value=_make_mock_response("<summary>x</summary>"))
 
-    with patch("litellm.proxy.proxy_server.prisma_client", _UnreachableMembershipPrisma()):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", _UnreachableMembershipPrisma()):
         result: Final = await _compact_as(
             _fake_user_api_key_auth(key_models=["all-proxy-models"], team_id="team-outage", user_id="user-outage"),
             summary_call,
@@ -1425,7 +1425,7 @@ async def test_summary_model_denied_when_team_membership_read_hits_a_db_outage(
 async def test_summary_model_denied_when_key_over_model_budget():
     """A caller whose per-model budget for the summary model is exhausted cannot
     trigger the summary call via compaction."""
-    import litellm
+    import hangarllm
 
     messages = _simple_messages()
     mock_call = AsyncMock(return_value=_make_mock_response("<summary>x</summary>"))
@@ -1438,20 +1438,20 @@ async def test_summary_model_denied_when_key_over_model_budget():
 
     limiter = MagicMock()
     limiter.is_key_within_model_budget = AsyncMock(
-        side_effect=litellm.BudgetExceededError(message="over budget", current_cost=10, max_budget=5)
+        side_effect=hangarllm.BudgetExceededError(message="over budget", current_cost=10, max_budget=5)
     )
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             mock_call,
         ),
-        patch("litellm.proxy.proxy_server.model_max_budget_limiter", limiter),
+        patch("hangarllm.proxy.proxy_server.model_max_budget_limiter", limiter),
     ):
         result = await apply_compact_20260112(
             model=MODEL,
@@ -1475,7 +1475,7 @@ async def test_summary_model_denied_when_user_over_model_budget():
     only the key and end-user scopes would let compaction increment a counter it
     can never be refused by, which is the asymmetry this PR exists to remove.
     """
-    import litellm
+    import hangarllm
 
     messages = _simple_messages()
     mock_call = AsyncMock(return_value=_make_mock_response("<summary>x</summary>"))
@@ -1489,20 +1489,20 @@ async def test_summary_model_denied_when_user_over_model_budget():
 
     limiter = MagicMock()
     limiter.is_user_within_model_budget = AsyncMock(
-        side_effect=litellm.BudgetExceededError(message="over budget", current_cost=10, max_budget=5)
+        side_effect=hangarllm.BudgetExceededError(message="over budget", current_cost=10, max_budget=5)
     )
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             mock_call,
         ),
-        patch("litellm.proxy.proxy_server.model_max_budget_limiter", limiter),
+        patch("hangarllm.proxy.proxy_server.model_max_budget_limiter", limiter),
     ):
         result = await apply_compact_20260112(
             model=MODEL,
@@ -1527,7 +1527,7 @@ async def test_summary_model_denied_when_user_over_model_budget():
     )
     import inspect
 
-    from litellm.proxy.hooks.model_max_budget_limiter import (
+    from hangarllm.proxy.hooks.model_max_budget_limiter import (
         PROXY_VirtualKeyModelMaxBudgetLimiter,
     )
 
@@ -1537,25 +1537,25 @@ async def test_summary_model_denied_when_user_over_model_budget():
 
 
 async def test_summary_model_denied_when_team_member_over_model_budget(monkeypatch: pytest.MonkeyPatch):
-    from litellm.caching.dual_cache import DualCache
-    from litellm.llms.anthropic.messages.context_management.constants import COMPACT_SUMMARY_MODEL_SETTING_KEY
-    from litellm.models.team_membership import LiteLLM_TeamMembership
-    from litellm.proxy._types import (
-        LiteLLM_BudgetTable,
-        LiteLLM_TeamTableCachedObj,
-        LitellmUserRoles,
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.llms.anthropic.messages.context_management.constants import COMPACT_SUMMARY_MODEL_SETTING_KEY
+    from hangarllm.models.team_membership import HangarLLM_TeamMembership
+    from hangarllm.proxy._types import (
+        HangarLLM_BudgetTable,
+        HangarLLM_TeamTableCachedObj,
+        HangarllmUserRoles,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.auth.auth_checks import get_team_member_default_budget
-    from litellm.proxy.auth.user_api_key_auth import _load_team_member_default_model_budget
-    from litellm.proxy.common_utils.user_api_key_cache import (
+    from hangarllm.proxy.auth.auth_checks import get_team_member_default_budget
+    from hangarllm.proxy.auth.user_api_key_auth import _load_team_member_default_model_budget
+    from hangarllm.proxy.common_utils.user_api_key_cache import (
         UserApiKeyCache,
         team_membership_reservation_cache_key,
     )
-    from litellm.proxy.hooks.model_max_budget_limiter import PROXY_VirtualKeyModelMaxBudgetLimiter
-    from litellm.proxy.proxy_server import general_settings
+    from hangarllm.proxy.hooks.model_max_budget_limiter import PROXY_VirtualKeyModelMaxBudgetLimiter
+    from hangarllm.proxy.proxy_server import general_settings
 
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     budget_id: Final = "summary-budget"
     member_budget: Final = {"claude-haiku-4-5": {"max_budget": 0.0, "budget_duration": "1d"}}
@@ -1563,38 +1563,38 @@ async def test_summary_model_denied_when_team_member_over_model_budget(monkeypat
     team_id: Final = "team-1"
     user_api_key_cache: Final = UserApiKeyCache()
     prisma_client: Final = MagicMock()
-    team_object: Final = LiteLLM_TeamTableCachedObj(
+    team_object: Final = HangarLLM_TeamTableCachedObj(
         team_id=team_id,
         models=["all-proxy-models"],
         metadata={"team_member_budget_id": budget_id},
     )
-    membership: Final = LiteLLM_TeamMembership(
+    membership: Final = HangarLLM_TeamMembership(
         user_id=user_id,
         team_id=team_id,
         budget_id=budget_id,
-        litellm_budget_table=LiteLLM_BudgetTable(budget_id=budget_id, model_max_budget={}),
+        hangarllm_budget_table=HangarLLM_BudgetTable(budget_id=budget_id, model_max_budget={}),
     )
     await user_api_key_cache.async_set_cache(
         key=team_membership_reservation_cache_key(user_id=user_id, team_id=team_id),
         value=membership,
-        model_type=LiteLLM_TeamMembership,
+        model_type=HangarLLM_TeamMembership,
     )
     await user_api_key_cache.async_set_cache(
         key=f"team_member_default_budget:{budget_id}",
-        value=LiteLLM_BudgetTable(budget_id=budget_id, model_max_budget=member_budget),
-        model_type=LiteLLM_BudgetTable,
+        value=HangarLLM_BudgetTable(budget_id=budget_id, model_max_budget=member_budget),
+        model_type=HangarLLM_BudgetTable,
     )
     await user_api_key_cache.async_set_cache(
         key=f"team_id:{team_id}",
         value=team_object,
-        model_type=LiteLLM_TeamTableCachedObj,
+        model_type=HangarLLM_TeamTableCachedObj,
     )
 
     auth: Final = UserAPIKeyAuth(
         token="hashed-token",
         user_id=user_id,
         team_id=team_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         models=["all-proxy-models"],
     )
     await _load_team_member_default_model_budget(
@@ -1615,12 +1615,12 @@ async def test_summary_model_denied_when_team_member_over_model_budget(monkeypat
         )
     ).model_max_budget == member_budget
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
-            {"model_name": MODEL, "litellm_params": {"model": MODEL}},
+            {"model_name": MODEL, "hangarllm_params": {"model": MODEL}},
             {
                 "model_name": "claude-haiku-4-5",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "claude-haiku-4-5",
                     "mock_response": "<summary>x</summary>",
                 },
@@ -1652,7 +1652,7 @@ async def test_summary_model_denied_when_team_member_over_model_budget(monkeypat
 
 async def test_summary_model_denied_when_end_user_over_model_budget():
     """End-user per-model budget is enforced for the summary subrequest too."""
-    import litellm
+    import hangarllm
 
     messages = _simple_messages()
     mock_call = AsyncMock(return_value=_make_mock_response("<summary>x</summary>"))
@@ -1667,20 +1667,20 @@ async def test_summary_model_denied_when_end_user_over_model_budget():
     limiter = MagicMock()
     limiter.is_key_within_model_budget = AsyncMock(return_value=True)
     limiter.is_end_user_within_model_budget = AsyncMock(
-        side_effect=litellm.BudgetExceededError(message="over budget", current_cost=10, max_budget=5)
+        side_effect=hangarllm.BudgetExceededError(message="over budget", current_cost=10, max_budget=5)
     )
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             mock_call,
         ),
-        patch("litellm.proxy.proxy_server.model_max_budget_limiter", limiter),
+        patch("hangarllm.proxy.proxy_server.model_max_budget_limiter", limiter),
     ):
         result = await apply_compact_20260112(
             model=MODEL,
@@ -1713,15 +1713,15 @@ async def test_summary_model_allowed_when_within_model_budget():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             mock_call,
         ),
-        patch("litellm.proxy.proxy_server.model_max_budget_limiter", limiter),
+        patch("hangarllm.proxy.proxy_server.model_max_budget_limiter", limiter),
     ):
         result = await apply_compact_20260112(
             model=MODEL,
@@ -1804,15 +1804,15 @@ async def test_summary_model_rate_limit_check_errors(limiter_error, summary_call
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             mock_call,
         ),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
     ):
         result = await apply_compact_20260112(
             model=MODEL,
@@ -1846,15 +1846,15 @@ async def test_summary_model_denied_when_over_rate_limit():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             mock_call,
         ),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
     ):
         result = await apply_compact_20260112(
             model=MODEL,
@@ -1882,15 +1882,15 @@ async def test_summary_model_allowed_when_within_rate_limit():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             mock_call,
         ),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
     ):
         result = await apply_compact_20260112(
             model=MODEL,
@@ -1910,10 +1910,10 @@ async def test_summary_model_allowed_when_within_rate_limit():
 async def test_summary_model_allowed_while_the_caller_holds_the_keys_only_parallel_slot():
     """The summary call runs inside a request the limiter already admitted, so the
     caller's own in-flight slot must not trip a ``max_parallel_requests`` gauge."""
-    from litellm.caching.caching import DualCache
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import PROXY_MaxParallelRequestsHandler_v3
-    from litellm.proxy.utils import InternalUsageCache, hash_token
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.hooks.parallel_request_limiter_v3 import PROXY_MaxParallelRequestsHandler_v3
+    from hangarllm.proxy.utils import InternalUsageCache, hash_token
 
     messages = _simple_messages()
     mock_call = AsyncMock(return_value=_make_mock_response("<summary>ok</summary>"))
@@ -1930,15 +1930,15 @@ async def test_summary_model_allowed_while_the_caller_holds_the_keys_only_parall
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             mock_call,
         ),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", _proxy_logging_like_the_live_proxy(limiter)),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", _proxy_logging_like_the_live_proxy(limiter)),
     ):
         result = await apply_compact_20260112(
             model=MODEL,
@@ -1966,15 +1966,15 @@ async def test_summary_model_rate_limit_skipped_for_legacy_limiter():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             mock_call,
         ),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
     ):
         result = await apply_compact_20260112(
             model=MODEL,
@@ -1995,7 +1995,7 @@ async def test_summary_model_denied_when_team_over_model_budget():
     charged to the team counter via the propagated `user_api_key_team_model_max_budget`.
     The key's own `model_max_budget` is handed to the limiter so a key-level
     override keeps taking precedence over the team cap here as it does in auth."""
-    import litellm
+    import hangarllm
 
     messages = _simple_messages()
     mock_call = AsyncMock(return_value=_make_mock_response("<summary>x</summary>"))
@@ -2013,21 +2013,21 @@ async def test_summary_model_denied_when_team_over_model_budget():
     limiter = MagicMock()
     limiter.is_key_within_model_budget = AsyncMock(return_value=True)
     limiter.is_team_within_model_budget = AsyncMock(
-        side_effect=litellm.BudgetExceededError(message="over budget", current_cost=10, max_budget=5)
+        side_effect=hangarllm.BudgetExceededError(message="over budget", current_cost=10, max_budget=5)
     )
 
     with (
         patch(  # test-quality-ok: apply_compact_20260112 reads the summary model setting as a module global, no seam
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),  # test-quality-ok: forces the over-threshold branch
+        patch("hangarllm.token_counter", return_value=200_000),  # test-quality-ok: forces the over-threshold branch
         patch(  # test-quality-ok: the summary call is the observable that must NOT happen when the team is over budget
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             mock_call,
         ),
         patch(  # test-quality-ok: the limiter is a proxy_server module global the editor imports, no injection seam
-            "litellm.proxy.proxy_server.model_max_budget_limiter", limiter
+            "hangarllm.proxy.proxy_server.model_max_budget_limiter", limiter
         ),
     ):
         result = await apply_compact_20260112(
@@ -2049,7 +2049,7 @@ async def test_summary_model_denied_when_team_over_model_budget():
     )
     import inspect
 
-    from litellm.proxy.hooks.model_max_budget_limiter import (
+    from hangarllm.proxy.hooks.model_max_budget_limiter import (
         PROXY_VirtualKeyModelMaxBudgetLimiter,
     )
 
@@ -2065,7 +2065,7 @@ async def test_scoped_budget_metadata_propagated_to_summary_call():
     limiter hooks read, so the summary tokens debit those scoped budgets/counters."""
     messages = _simple_messages()
     mock_response = _make_mock_response("<summary>Summary</summary>")
-    parent_litellm_metadata = {
+    parent_hangarllm_metadata = {
         "user_api_key": "sk-test",
         "user_api_key_end_user_id": "customer-1",
         "user_api_end_user_max_budget": 10,
@@ -2074,12 +2074,12 @@ async def test_scoped_budget_metadata_propagated_to_summary_call():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             new_callable=AsyncMock,
             return_value=mock_response,
         ) as mock_call,
@@ -2090,7 +2090,7 @@ async def test_scoped_budget_metadata_propagated_to_summary_call():
             tools=None,
             system=None,
             edit_spec=_EDIT_SPEC_DEFAULT,
-            litellm_metadata=parent_litellm_metadata,
+            hangarllm_metadata=parent_hangarllm_metadata,
         )
 
     propagated = mock_call.call_args.kwargs["metadata"]
@@ -2102,7 +2102,7 @@ async def test_scoped_budget_metadata_propagated_to_summary_call():
 async def test_summary_call_passes_end_user_id_as_top_level_user():
     """``_call_summary_model`` forwards the propagated end-user id as the top-level
     ``user`` kwarg that legacy limiter / prometheus end-user tracking reads."""
-    from litellm.llms.anthropic.messages.context_management.editors.compact import (
+    from hangarllm.llms.anthropic.messages.context_management.editors.compact import (
         _call_summary_model,
     )
 
@@ -2125,7 +2125,7 @@ async def test_summary_call_passes_end_user_id_as_top_level_user():
 
 async def test_summary_call_omits_user_when_no_end_user_id():
     """No end-user id on the parent request means no ``user`` kwarg is sent."""
-    from litellm.llms.anthropic.messages.context_management.editors.compact import (
+    from hangarllm.llms.anthropic.messages.context_management.editors.compact import (
         _call_summary_model,
     )
 
@@ -2151,7 +2151,7 @@ async def test_model_budget_metadata_propagated_to_summary_call():
     summary subrequest so its spend counts against the caller's model budget."""
     messages = _simple_messages()
     mock_response = _make_mock_response("<summary>Summary</summary>")
-    parent_litellm_metadata = {
+    parent_hangarllm_metadata = {
         "user_api_key": "sk-test",
         "user_api_key_model_max_budget": {"claude-haiku-4-5": {"budget_limit": 5}},
         "user_api_key_end_user_model_max_budget": {"claude-haiku-4-5": {"budget_limit": 2}},
@@ -2159,12 +2159,12 @@ async def test_model_budget_metadata_propagated_to_summary_call():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             new_callable=AsyncMock,
             return_value=mock_response,
         ) as mock_call,
@@ -2175,7 +2175,7 @@ async def test_model_budget_metadata_propagated_to_summary_call():
             tools=None,
             system=None,
             edit_spec=_EDIT_SPEC_DEFAULT,
-            litellm_metadata=parent_litellm_metadata,
+            hangarllm_metadata=parent_hangarllm_metadata,
         )
 
     propagated = mock_call.call_args.kwargs["metadata"]
@@ -2196,12 +2196,12 @@ async def test_summary_call_propagates_allowed_model_region():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._call_summary_model",
             mock_call,
         ),
     ):
@@ -2222,7 +2222,7 @@ async def test_summary_call_omits_allowed_model_region_when_unset():
     """Callers without a region restriction must not get an ``allowed_model_region=None``
     kwarg, which would otherwise force the router to evaluate region filtering.
     """
-    from litellm.llms.anthropic.messages.context_management.editors.compact import (
+    from hangarllm.llms.anthropic.messages.context_management.editors.compact import (
         _call_summary_model,
     )
 
@@ -2245,7 +2245,7 @@ async def test_summary_call_omits_allowed_model_region_when_unset():
 
 async def test_summary_call_forwards_allowed_model_region_when_set():
     """When the caller is region-restricted, the kwarg reaches the router."""
-    from litellm.llms.anthropic.messages.context_management.editors.compact import (
+    from hangarllm.llms.anthropic.messages.context_management.editors.compact import (
         _call_summary_model,
     )
 
@@ -2276,7 +2276,7 @@ async def test_dispatcher_routes_compact_edit():
     """compact_20260112 in the dispatcher resolves to opt-in gate when no model set."""
     messages = _simple_messages()
     with patch(
-        "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+        "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
         return_value=None,
     ):
         result = await apply_context_management(
@@ -2318,7 +2318,7 @@ async def test_dispatcher_trigger_below_minimum_raises_through():
 
 async def test_run_polyfill_skipped_when_context_management_in_additional_drop_params():
     """additional_drop_params=["context_management"] is the explicit opt-out."""
-    from litellm.llms.anthropic.messages.adapters.handler import (
+    from hangarllm.llms.anthropic.messages.adapters.handler import (
         _run_polyfill_if_enabled,
     )
 
@@ -2328,24 +2328,24 @@ async def test_run_polyfill_skipped_when_context_management_in_additional_drop_p
         tools=None,
         system=None,
         context_management_spec={"edits": [{"type": "compact_20260112"}]},
-        litellm_metadata={},
+        hangarllm_metadata={},
         additional_drop_params=["context_management"],
         llm_router=None,
     )
     assert result is None
 
 
-async def test_run_polyfill_runs_when_litellm_drop_params_true(monkeypatch):
+async def test_run_polyfill_runs_when_hangarllm_drop_params_true(monkeypatch):
     """drop_params must not disable the polyfill: context_management is a
-    LiteLLM-supported param (polyfilled where not native), and drop_params only
+    HangarLLM-supported param (polyfilled where not native), and drop_params only
     exists to strip genuinely unsupported params."""
-    from litellm.llms.anthropic.messages.adapters.handler import (
+    from hangarllm.llms.anthropic.messages.adapters.handler import (
         _run_polyfill_if_enabled,
     )
 
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     with patch(
-        "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+        "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
         return_value=None,
     ):
         result = await _run_polyfill_if_enabled(
@@ -2354,7 +2354,7 @@ async def test_run_polyfill_runs_when_litellm_drop_params_true(monkeypatch):
             tools=None,
             system=None,
             context_management_spec={"edits": [{"type": "compact_20260112"}]},
-            litellm_metadata={},
+            hangarllm_metadata={},
             additional_drop_params=None,
             llm_router=None,
         )
@@ -2364,7 +2364,7 @@ async def test_run_polyfill_runs_when_litellm_drop_params_true(monkeypatch):
 
 async def test_run_polyfill_skipped_when_spec_empty():
     """Empty context_management_spec must also return None (no polyfill work)."""
-    from litellm.llms.anthropic.messages.adapters.handler import (
+    from hangarllm.llms.anthropic.messages.adapters.handler import (
         _run_polyfill_if_enabled,
     )
 
@@ -2374,7 +2374,7 @@ async def test_run_polyfill_skipped_when_spec_empty():
         tools=None,
         system=None,
         context_management_spec=None,
-        litellm_metadata={},
+        hangarllm_metadata={},
         additional_drop_params=None,
         llm_router=None,
     )
@@ -2434,7 +2434,7 @@ def _tool_use_messages() -> List[Dict[str, Any]]:
 
 
 def _openai_chat_response():
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     return ModelResponse(
         id="chatcmpl-test",
@@ -2445,8 +2445,8 @@ def _openai_chat_response():
 
 
 async def _call_async_adapter_handler(**handler_kwargs: Any):
-    from litellm.llms.anthropic.messages.adapters.handler import (
-        LiteLLMMessagesToCompletionTransformationHandler,
+    from hangarllm.llms.anthropic.messages.adapters.handler import (
+        HangarLLMMessagesToCompletionTransformationHandler,
     )
 
     captured: Dict[str, Any] = {}
@@ -2455,13 +2455,13 @@ async def _call_async_adapter_handler(**handler_kwargs: Any):
         captured.update(kwargs)
         return _openai_chat_response()
 
-    with patch("litellm.acompletion", side_effect=_capture_acompletion):
-        response = await LiteLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
+    with patch("hangarllm.acompletion", side_effect=_capture_acompletion):
+        response = await HangarLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
             max_tokens=128,
             messages=_tool_use_messages(),
             model=MODEL,
             context_management=_CLEAR_TOOL_USES_SPEC,
-            litellm_router=MagicMock(),
+            hangarllm_router=MagicMock(),
             **handler_kwargs,
         )
     return response, captured
@@ -2485,10 +2485,10 @@ async def test_async_handler_runs_polyfill_when_request_drop_params_true():
     _assert_polyfill_applied(response, captured)
 
 
-async def test_async_handler_runs_polyfill_when_litellm_drop_params_true(monkeypatch):
-    """Regression (LIT-3768): proxy-wide litellm.drop_params=True silently
+async def test_async_handler_runs_polyfill_when_hangarllm_drop_params_true(monkeypatch):
+    """Regression (LIT-3768): proxy-wide hangarllm.drop_params=True silently
     skipped the polyfill too."""
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     response, captured = await _call_async_adapter_handler()
     _assert_polyfill_applied(response, captured)
 
@@ -2504,8 +2504,8 @@ async def test_async_handler_additional_drop_params_strips_context_management():
 
 
 def _call_sync_adapter_handler(**handler_kwargs: Any):
-    from litellm.llms.anthropic.messages.adapters.handler import (
-        LiteLLMMessagesToCompletionTransformationHandler,
+    from hangarllm.llms.anthropic.messages.adapters.handler import (
+        HangarLLMMessagesToCompletionTransformationHandler,
     )
 
     captured: Dict[str, Any] = {}
@@ -2514,13 +2514,13 @@ def _call_sync_adapter_handler(**handler_kwargs: Any):
         captured.update(kwargs)
         return _openai_chat_response()
 
-    with patch("litellm.completion", side_effect=_capture_completion):
-        response = LiteLLMMessagesToCompletionTransformationHandler.anthropic_messages_handler(
+    with patch("hangarllm.completion", side_effect=_capture_completion):
+        response = HangarLLMMessagesToCompletionTransformationHandler.anthropic_messages_handler(
             max_tokens=128,
             messages=_tool_use_messages(),
             model=MODEL,
             context_management=_CLEAR_TOOL_USES_SPEC,
-            litellm_router=None,
+            hangarllm_router=None,
             **handler_kwargs,
         )
     return response, captured
@@ -2532,10 +2532,10 @@ def test_sync_handler_runs_polyfill_when_request_drop_params_true():
     _assert_polyfill_applied(response, captured)
 
 
-def test_sync_handler_runs_polyfill_when_litellm_drop_params_true(monkeypatch):
-    """Proxy-wide litellm.drop_params=True must not skip the polyfill on the
+def test_sync_handler_runs_polyfill_when_hangarllm_drop_params_true(monkeypatch):
+    """Proxy-wide hangarllm.drop_params=True must not skip the polyfill on the
     sync entry point either."""
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     response, captured = _call_sync_adapter_handler()
     _assert_polyfill_applied(response, captured)
 
@@ -2550,13 +2550,13 @@ def test_sync_handler_additional_drop_params_strips_context_management():
     assert "sunny in SF" in forwarded
 
 
-async def test_prepare_context_managed_request_forwards_proxy_litellm_metadata():
-    """The handler must hand the polyfill the proxy ``litellm_metadata`` (which
+async def test_prepare_context_managed_request_forwards_proxy_hangarllm_metadata():
+    """The handler must hand the polyfill the proxy ``hangarllm_metadata`` (which
     carries ``user_api_key`` / ``user_api_key_team_id`` / ...), not the
     Anthropic-shape ``metadata`` arg (which only carries ``user_id``). Otherwise
     the summary subcall lands on the router with no parent attribution, and
     those tokens go unbilled to the caller's key/team."""
-    from litellm.llms.anthropic.messages.adapters.handler import (
+    from hangarllm.llms.anthropic.messages.adapters.handler import (
         prepare_context_managed_request,
     )
 
@@ -2564,15 +2564,15 @@ async def test_prepare_context_managed_request_forwards_proxy_litellm_metadata()
 
     class _RouterStub:
         async def acompletion(self, **kwargs):
-            captured_summary_metadata.update(kwargs.get("litellm_metadata", {}))
+            captured_summary_metadata.update(kwargs.get("hangarllm_metadata", {}))
             return _make_mock_response("<summary>s</summary>")
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
+            "hangarllm.llms.anthropic.messages.context_management.editors.compact._read_summary_model_setting",
             return_value="claude-haiku-4-5",
         ),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.token_counter", return_value=200_000),
     ):
         result = await prepare_context_managed_request(
             model=MODEL,
@@ -2580,14 +2580,14 @@ async def test_prepare_context_managed_request_forwards_proxy_litellm_metadata()
             tools=None,
             system=None,
             context_management_spec={"edits": [_EDIT_SPEC_DEFAULT]},
-            litellm_metadata={
+            hangarllm_metadata={
                 "user_api_key": "sk-parent",
                 "user_api_key_team_id": "team-abc",
                 "user_api_key_user_id": "user-xyz",
                 "user_api_key_team_member_model_max_budget": {
                     "claude-haiku-4-5": {"budget_limit": 4.0, "time_period": "1d"}
                 },
-                "litellm_call_id": "call-1",
+                "hangarllm_call_id": "call-1",
             },
             additional_drop_params=None,
             llm_router=_RouterStub(),
@@ -2600,7 +2600,7 @@ async def test_prepare_context_managed_request_forwards_proxy_litellm_metadata()
     assert captured_summary_metadata.get("user_api_key_team_member_model_max_budget") == {
         "claude-haiku-4-5": {"budget_limit": 4.0, "time_period": "1d"}
     }
-    assert captured_summary_metadata.get("litellm_call_id") == "call-1"
+    assert captured_summary_metadata.get("hangarllm_call_id") == "call-1"
     # Anthropic-shape ``metadata.user_id`` must not leak in as a propagated field.
     assert "user_id" not in captured_summary_metadata
 
@@ -2614,7 +2614,7 @@ def test_anthropic_context_management_error_format():
     """AnthropicContextManagementError must produce an Anthropic-format body via
     AnthropicExceptionMapping.transform_to_anthropic_error — the same path the
     /v1/messages endpoint takes when it catches this exception."""
-    from litellm.anthropic_interface.exceptions import AnthropicExceptionMapping
+    from hangarllm.anthropic_interface.exceptions import AnthropicExceptionMapping
 
     body = AnthropicExceptionMapping.transform_to_anthropic_error(
         status_code=400,
@@ -2652,8 +2652,8 @@ def test_endpoint_returns_anthropic_400_on_context_management_error():
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from litellm.proxy.anthropic_endpoints.endpoints import router
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.anthropic_endpoints.endpoints import router
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     # Stub proxy_server to avoid apscheduler/heavy proxy deps imported lazily
     # inside the route handler at request time.
@@ -2669,8 +2669,8 @@ def test_endpoint_returns_anthropic_400_on_context_management_error():
     mock_proxy_server.user_temperature = None
     mock_proxy_server.version = "test"
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}):
-        with patch("litellm.proxy.anthropic_endpoints.endpoints.ProxyBaseLLMRequestProcessing") as mock_cls:
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}):
+        with patch("hangarllm.proxy.anthropic_endpoints.endpoints.ProxyBaseLLMRequestProcessing") as mock_cls:
             mock_instance = MagicMock()
             mock_instance.base_process_llm_request = AsyncMock(
                 side_effect=AnthropicContextManagementError(
@@ -2711,8 +2711,8 @@ def test_endpoint_runs_failure_hook_on_500_context_management_error():
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from litellm.proxy.anthropic_endpoints.endpoints import router
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.anthropic_endpoints.endpoints import router
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     failure_hook = AsyncMock()
     mock_proxy_server = MagicMock()
@@ -2728,8 +2728,8 @@ def test_endpoint_runs_failure_hook_on_500_context_management_error():
     mock_proxy_server.user_temperature = None
     mock_proxy_server.version = "test"
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}):
-        with patch("litellm.proxy.anthropic_endpoints.endpoints.ProxyBaseLLMRequestProcessing") as mock_cls:
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}):
+        with patch("hangarllm.proxy.anthropic_endpoints.endpoints.ProxyBaseLLMRequestProcessing") as mock_cls:
             mock_instance = MagicMock()
             mock_instance.base_process_llm_request = AsyncMock(
                 side_effect=AnthropicContextManagementError(
@@ -2760,7 +2760,7 @@ def test_endpoint_runs_failure_hook_on_500_context_management_error():
 
 
 def test_count_effective_tokens_counts_midturn_system_correction():
-    from litellm.llms.anthropic.messages.context_management.editors.compact import (
+    from hangarllm.llms.anthropic.messages.context_management.editors.compact import (
         _count_effective_tokens,
     )
 
@@ -2787,7 +2787,7 @@ def test_count_effective_tokens_counts_midturn_system_correction():
 
 
 def test_build_summary_messages_keeps_midturn_system_correction_in_place():
-    from litellm.llms.anthropic.messages.context_management.editors.compact import (
+    from hangarllm.llms.anthropic.messages.context_management.editors.compact import (
         _build_summary_messages,
     )
 
@@ -2815,16 +2815,16 @@ def test_build_summary_messages_keeps_midturn_system_correction_in_place():
 
 async def test_threshold_check_counts_tokens_off_the_event_loop(monkeypatch):
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.hangarllm_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
     )
 
-    from litellm.llms.anthropic.messages.context_management.constants import (
+    from hangarllm.llms.anthropic.messages.context_management.constants import (
         COMPACT_SUMMARY_MODEL_SETTING_KEY,
     )
-    from litellm.proxy.proxy_server import general_settings
+    from hangarllm.proxy.proxy_server import general_settings
 
     monkeypatch.setitem(general_settings, COMPACT_SUMMARY_MODEL_SETTING_KEY, "claude-haiku-4-5")
     warm_tokenizer(MODEL)

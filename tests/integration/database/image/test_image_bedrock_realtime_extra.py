@@ -7,7 +7,7 @@ boots, passes health checks, and then fails every Nova Sonic session with
 that class of regression (missing extra, lockfile drift, a stage that syncs a
 different set of extras), which a static Dockerfile check cannot.
 
-Gated on LITELLM_IMAGE like the other image checks in this directory; exercised
+Gated on HANGARLLM_IMAGE like the other image checks in this directory; exercised
 where an image has been built (the image-scan workflow). Requires a working docker CLI.
 """
 
@@ -18,14 +18,14 @@ from typing import Final
 
 import pytest
 
-IMAGE: Final = os.getenv("LITELLM_IMAGE")
+IMAGE: Final = os.getenv("HANGARLLM_IMAGE")
 NON_ROOT_UID: Final = "12345:0"
 IMPORT_PROBE: Final = (
     "import aws_sdk_bedrock_runtime, smithy_aws_core, smithy_http.aio.crt; print('bedrock-realtime ok')"
 )
 
 pytestmark = [
-    pytest.mark.skipif(IMAGE is None, reason="requires a built image (set LITELLM_IMAGE)"),
+    pytest.mark.skipif(IMAGE is None, reason="requires a built image (set HANGARLLM_IMAGE)"),
     pytest.mark.skipif(shutil.which("docker") is None, reason="requires the docker CLI"),
 ]
 

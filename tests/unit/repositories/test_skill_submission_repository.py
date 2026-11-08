@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from litellm.repositories.skill_submission_repository import scan_passed_for_archive
+from hangarllm.repositories.skill_submission_repository import scan_passed_for_archive
 
 
 @pytest.mark.parametrize("status,digest,report,expected", [

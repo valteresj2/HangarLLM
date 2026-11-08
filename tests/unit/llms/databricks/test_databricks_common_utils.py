@@ -11,11 +11,11 @@ import responses
 import respx
 from fastapi.testclient import TestClient
 
-import litellm
-from litellm._version import version
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.exceptions import BadRequestError
-from litellm.llms.databricks.common_utils import DatabricksBase, DatabricksException
+import hangarllm
+from hangarllm._version import version
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.exceptions import BadRequestError
+from hangarllm.llms.databricks.common_utils import DatabricksBase, DatabricksException
 
 
 def test_databricks_validate_environment():
@@ -70,7 +70,7 @@ def _assert_sdk_request(request: httpx.Request, expected_url: str, expected_body
     assert str(request.url) == expected_url
     assert request.headers["Authorization"] == f"Bearer {SDK_TOKEN}"
     assert request.headers["Content-Type"] == "application/json"
-    assert request.headers["User-Agent"] == f"litellm/{version}"
+    assert request.headers["User-Agent"] == f"hangarllm/{version}"
     assert json.loads(request.content) == expected_body
 
 
@@ -87,12 +87,12 @@ def test_throws_if_api_base_or_api_key_not_set_without_databricks_sdk(
         monkeypatch.delenv("DATABRICKS_API_BASE", raising=False)
 
     with pytest.raises(BadRequestError) as completion_error:
-        litellm.completion(
+        hangarllm.completion(
             model="databricks/dbrx-instruct-071224",
             messages=[{"role": "user", "content": "How are you?"}],
         )
     with pytest.raises(BadRequestError) as embedding_error:
-        litellm.embedding(model="databricks/bge-12312", input=["Hello", "World"])
+        hangarllm.embedding(model="databricks/bge-12312", input=["Hello", "World"])
 
     for error in (completion_error.value, embedding_error.value):
         assert error.status_code == 400
@@ -134,7 +134,7 @@ def test_completions_uses_databricks_sdk_if_api_key_and_base_not_specified(
     route: Final = respx_mock.post(url).mock(return_value=httpx.Response(200, json=upstream_response))
     messages: Final = [{"role": "user", "content": "How are you?"}]
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="databricks/dbrx-instruct-071224",
         messages=messages,
         temperature=0.5,
@@ -185,7 +185,7 @@ def test_embeddings_uses_databricks_sdk_if_api_key_and_base_not_specified(
     route: Final = respx_mock.post(url).mock(return_value=httpx.Response(200, json=upstream_response))
     inputs: Final = ["Hello", "World"]
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="databricks/bge-large-en-v1.5",
         input=inputs,
         extraparam="testpassingextraparam",

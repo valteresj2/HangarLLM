@@ -13,16 +13,16 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 
-import litellm
-from litellm import DualCache, Router
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.hooks.dynamic_rate_limiter_v3 import (
+import hangarllm
+from hangarllm import DualCache, Router
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.hooks.dynamic_rate_limiter_v3 import (
     PROXY_DynamicRateLimitHandlerV3 as DynamicRateLimitHandler,
 )
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
     PROXY_MaxParallelRequestsHandler_v3,
 )
-from litellm.redis.stores.rate_limits import RateLimitScope
+from hangarllm.redis.stores.rate_limits import RateLimitScope
 from tests.unit.redis.stores.fake_rate_limits import FakeRateLimits
 
 
@@ -56,10 +56,10 @@ async def test_priority_weight_allocation(monkeypatch):
     This validates the core fix where before it would split 50/50.
     """
     # Set up environment for premium feature
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
 
     # Set up priority reservations
-    litellm.priority_reservation = {"high": 0.9, "low": 0.1}
+    hangarllm.priority_reservation = {"high": 0.9, "low": 0.1}
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -71,7 +71,7 @@ async def test_priority_weight_allocation(monkeypatch):
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -137,10 +137,10 @@ async def test_concurrent_priority_requests(monkeypatch):
     This tests the exact scenario mentioned: priorities 0.9 and 0.1 should be 0.9/0.1, not 0.5/0.5.
     """
     # Set up environment for premium feature
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
 
     # Set up the exact scenario from the issue
-    litellm.priority_reservation = {"high": 0.9, "low": 0.1}
+    hangarllm.priority_reservation = {"high": 0.9, "low": 0.1}
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -152,7 +152,7 @@ async def test_concurrent_priority_requests(monkeypatch):
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -223,10 +223,10 @@ async def test_100_concurrent_priority_requests(time_controller, monkeypatch):
     - Spread across 10 seconds to simulate real-world load
     """
     # Set up environment for premium feature
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
 
     # Set up priority reservations
-    litellm.priority_reservation = {"high": 0.9, "low": 0.1}
+    hangarllm.priority_reservation = {"high": 0.9, "low": 0.1}
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache, time_provider=time_controller.now)
@@ -238,7 +238,7 @@ async def test_100_concurrent_priority_requests(time_controller, monkeypatch):
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -369,9 +369,9 @@ async def test_concurrent_pre_call_hooks_stress(monkeypatch):
     Standard users (20% allocation) should have ~70% success rate with 30% random limiting.
     """
     # Set up environment for premium feature
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
 
-    litellm.priority_reservation = {"premium": 0.8, "standard": 0.2}
+    hangarllm.priority_reservation = {"premium": 0.8, "standard": 0.2}
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -383,7 +383,7 @@ async def test_concurrent_pre_call_hooks_stress(monkeypatch):
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -399,7 +399,7 @@ async def test_concurrent_pre_call_hooks_stress(monkeypatch):
     rate_limited_requests = []
 
     # Mock saturation check to return high saturation (forces strict mode)
-    async def mock_get_cache(key, litellm_parent_otel_span=None, local_only=False):
+    async def mock_get_cache(key, hangarllm_parent_otel_span=None, local_only=False):
         """Mock cache to simulate high saturation."""
         # Return high usage to trigger strict mode (>80% saturation)
         if ":requests" in key or ":tokens" in key:
@@ -595,10 +595,10 @@ async def test_fake_calls_case_1_no_rate_limiting_at_capacity(monkeypatch):
 
     Once saturation hits 50%, strict mode enforces priority-based limits.
     """
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
 
     # Set up priority reservations
-    litellm.priority_reservation = {"key_a": 0.75, "key_b": 0.25}
+    hangarllm.priority_reservation = {"key_a": 0.75, "key_b": 0.25}
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -610,7 +610,7 @@ async def test_fake_calls_case_1_no_rate_limiting_at_capacity(monkeypatch):
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -714,9 +714,9 @@ async def test_fake_calls_case_2_priority_queue_during_saturation(monkeypatch):
 
     When total traffic exceeds capacity, rate limiting enforces priority reservations.
     """
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
 
-    litellm.priority_reservation = {"key_a": 0.75, "key_b": 0.25}
+    hangarllm.priority_reservation = {"key_a": 0.75, "key_b": 0.25}
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -728,7 +728,7 @@ async def test_fake_calls_case_2_priority_queue_during_saturation(monkeypatch):
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -839,10 +839,10 @@ async def test_fake_calls_case_3_spillover_capacity_default_keys(monkeypatch):
 
     Tests spillover behavior where default keys share remaining capacity.
     """
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
 
-    litellm.priority_reservation = {"key_a": 0.75}
-    litellm.priority_reservation_settings.default_priority = 0.25
+    hangarllm.priority_reservation = {"key_a": 0.75}
+    hangarllm.priority_reservation_settings.default_priority = 0.25
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -854,7 +854,7 @@ async def test_fake_calls_case_3_spillover_capacity_default_keys(monkeypatch):
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -965,9 +965,9 @@ async def test_fake_calls_case_4_over_allocated_with_normalization(monkeypatch):
     - Due to concurrent burst, total successful may exceed 100 RPM in the test window
     - This test verifies normalization works and total capacity is reasonably bounded
     """
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
 
-    litellm.priority_reservation = {"key_a": 0.60, "key_b": 0.80}
+    hangarllm.priority_reservation = {"key_a": 0.60, "key_b": 0.80}
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -979,7 +979,7 @@ async def test_fake_calls_case_4_over_allocated_with_normalization(monkeypatch):
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -1094,10 +1094,10 @@ async def test_fake_calls_case_5_default_value_priority_reservation(monkeypatch)
 
     Tests complex scenario with explicit priorities and default priority.
     """
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
 
-    litellm.priority_reservation = {"key_a": 0.50, "key_b": 0.20, "key_c": 0.05}
-    litellm.priority_reservation_settings.default_priority = 0.05
+    hangarllm.priority_reservation = {"key_a": 0.50, "key_b": 0.20, "key_c": 0.05}
+    hangarllm.priority_reservation_settings.default_priority = 0.05
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -1109,7 +1109,7 @@ async def test_fake_calls_case_5_default_value_priority_reservation(monkeypatch)
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -1214,10 +1214,10 @@ async def test_default_priority_shared_pool(monkeypatch):
     - Key A, B, C (no priority) should share ONE 25 RPM pool
     - NOT get 25 RPM each (which would be 75 RPM total)
     """
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
 
-    litellm.priority_reservation = {"prod": 0.75}
-    litellm.priority_reservation_settings.default_priority = 0.25
+    hangarllm.priority_reservation = {"prod": 0.75}
+    hangarllm.priority_reservation_settings.default_priority = 0.25
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -1229,7 +1229,7 @@ async def test_default_priority_shared_pool(monkeypatch):
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -1294,10 +1294,10 @@ async def test_async_log_success_event_increments_by_actual_tokens(monkeypatch):
     """
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import ModelResponse, Usage
+    from hangarllm.types.utils import ModelResponse, Usage
 
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
-    litellm.priority_reservation = {"dev": 0.1, "prod": 0.9}
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
+    hangarllm.priority_reservation = {"dev": 0.1, "prod": 0.9}
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -1307,7 +1307,7 @@ async def test_async_log_success_event_increments_by_actual_tokens(monkeypatch):
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -1347,13 +1347,13 @@ async def test_async_log_success_event_increments_by_actual_tokens(monkeypatch):
             },
             "model_group": model,
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {"model_group": model},
         },
     }
 
     with patch(
-        "litellm.proxy.common_utils.callback_utils.get_model_group_from_litellm_kwargs",
+        "hangarllm.proxy.common_utils.callback_utils.get_model_group_from_hangarllm_kwargs",
         return_value=model,
     ):
         await handler.async_log_success_event(
@@ -1392,11 +1392,11 @@ async def test_saturation_check_cache_ttl_configuration(monkeypatch):
     - After expiration, fresh values should be fetched from Redis
     - This prevents nodes from having stale saturation data in multi-node deployments
     """
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
 
     # Set a short TTL for testing (5 seconds)
-    original_ttl = litellm.priority_reservation_settings.saturation_check_cache_ttl
-    litellm.priority_reservation_settings.saturation_check_cache_ttl = 5
+    original_ttl = hangarllm.priority_reservation_settings.saturation_check_cache_ttl
+    hangarllm.priority_reservation_settings.saturation_check_cache_ttl = 5
 
     try:
         dual_cache = DualCache()
@@ -1407,7 +1407,7 @@ async def test_saturation_check_cache_ttl_configuration(monkeypatch):
             model_list=[
                 {
                     "model_name": model,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "gpt-3.5-turbo",
                         "api_key": "test-key",
                         "api_base": "test-base",
@@ -1449,7 +1449,7 @@ async def test_saturation_check_cache_ttl_configuration(monkeypatch):
 
         # Test with different TTL value
         get_cache_calls.clear()
-        litellm.priority_reservation_settings.saturation_check_cache_ttl = 30
+        hangarllm.priority_reservation_settings.saturation_check_cache_ttl = 30
 
         await handler._get_saturation_value_from_cache(counter)
 
@@ -1461,7 +1461,7 @@ async def test_saturation_check_cache_ttl_configuration(monkeypatch):
 
     finally:
         # Restore original TTL
-        litellm.priority_reservation_settings.saturation_check_cache_ttl = original_ttl
+        hangarllm.priority_reservation_settings.saturation_check_cache_ttl = original_ttl
 
 
 @pytest.mark.asyncio
@@ -1474,10 +1474,10 @@ async def test_async_log_success_event_uses_team_priority_from_auth_metadata(mon
     """
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import ModelResponse, Usage
+    from hangarllm.types.utils import ModelResponse, Usage
 
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
-    litellm.priority_reservation = {"team_priority": 0.8, "default": 0.2}
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
+    hangarllm.priority_reservation = {"team_priority": 0.8, "default": 0.2}
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -1487,7 +1487,7 @@ async def test_async_log_success_event_uses_team_priority_from_auth_metadata(mon
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -1525,13 +1525,13 @@ async def test_async_log_success_event_uses_team_priority_from_auth_metadata(mon
             },
             "model_group": model,
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {"model_group": model},
         },
     }
 
     with patch(
-        "litellm.proxy.common_utils.callback_utils.get_model_group_from_litellm_kwargs",
+        "hangarllm.proxy.common_utils.callback_utils.get_model_group_from_hangarllm_kwargs",
         return_value=model,
     ):
         await handler.async_log_success_event(
@@ -1566,8 +1566,8 @@ async def test_priority_429_includes_model_name_and_configured_limits(monkeypatc
     """
     from fastapi import HTTPException
 
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
-    litellm.priority_reservation = {"prod": 0.5}
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
+    hangarllm.priority_reservation = {"prod": 0.5}
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -1580,7 +1580,7 @@ async def test_priority_429_includes_model_name_and_configured_limits(monkeypatc
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -1659,10 +1659,10 @@ async def test_tpm_only_model_enforces_priority_and_model_capacity(monkeypatch):
     """
     from fastapi import HTTPException
 
-    from litellm.types.utils import ModelResponse, Usage
+    from hangarllm.types.utils import ModelResponse, Usage
 
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
-    litellm.priority_reservation = {"dev": 0.25, "prod": 0.5}
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
+    hangarllm.priority_reservation = {"dev": 0.25, "prod": 0.5}
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -1672,7 +1672,7 @@ async def test_tpm_only_model_enforces_priority_and_model_capacity(monkeypatch):
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -1694,7 +1694,7 @@ async def test_tpm_only_model_enforces_priority_and_model_capacity(monkeypatch):
                 "standard_logging_object": {
                     "metadata": {"user_api_key_auth_metadata": {"priority": priority}},
                 },
-                "litellm_params": {"metadata": {"model_group": model}},
+                "hangarllm_params": {"metadata": {"model_group": model}},
             },
             response_obj=ModelResponse(
                 model=model,
@@ -1739,7 +1739,7 @@ async def test_tpm_only_model_enforces_priority_and_model_capacity(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_post_call_success_hook_attaches_priority_headers_to_dict_response():
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+    from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
         RateLimitResponse,
         RateLimitStatus,
         get_or_create_request_stash,
@@ -1763,7 +1763,7 @@ async def test_post_call_success_hook_attaches_priority_headers_to_dict_response
         "type": "message",
         "role": "assistant",
         "content": [],
-        "_hidden_params": {"additional_headers": {"x-litellm-attempted-retries": 0}},
+        "_hidden_params": {"additional_headers": {"x-hangarllm-attempted-retries": 0}},
     }
 
     await handler.async_post_call_success_hook(
@@ -1773,11 +1773,11 @@ async def test_post_call_success_hook_attaches_priority_headers_to_dict_response
     )
 
     additional_headers = response["_hidden_params"]["additional_headers"]
-    assert additional_headers["x-litellm-attempted-retries"] == 0
+    assert additional_headers["x-hangarllm-attempted-retries"] == 0
     assert additional_headers["x-ratelimit-priority_model-limit-requests"] == 75
     assert additional_headers["x-ratelimit-priority_model-remaining-requests"] == 74
-    assert additional_headers["x-litellm-priority"] == "premium"
-    assert additional_headers["x-litellm-rate-limiter-version"] == "v3"
+    assert additional_headers["x-hangarllm-priority"] == "premium"
+    assert additional_headers["x-hangarllm-rate-limiter-version"] == "v3"
 
 
 @pytest.mark.asyncio
@@ -1817,5 +1817,5 @@ async def test_post_call_success_hook_priority_header_is_always_http_encodable(t
 
     additional_headers = response["_hidden_params"]["additional_headers"]
     http_response = Response(headers={key: str(value) for key, value in additional_headers.items()})
-    assert http_response.headers.get("x-litellm-priority") == expected_priority_header
-    assert http_response.headers["x-litellm-rate-limiter-version"] == "v3"
+    assert http_response.headers.get("x-hangarllm-priority") == expected_priority_header
+    assert http_response.headers["x-hangarllm-rate-limiter-version"] == "v3"

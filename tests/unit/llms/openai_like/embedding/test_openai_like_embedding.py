@@ -9,10 +9,10 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 import respx
 
-import litellm
+import hangarllm
 
-from litellm.llms.openai_like.embedding.handler import OpenAILikeEmbeddingHandler
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.llms.openai_like.embedding.handler import OpenAILikeEmbeddingHandler
+from hangarllm.types.utils import EmbeddingResponse
 
 
 class TestOpenAILikeEmbeddingHandler:
@@ -366,7 +366,7 @@ def test_llamafile_embedding_posts_to_the_env_api_base(
     monkeypatch.setenv("LLAMAFILE_API_BASE", "http://llamafile.test/v1")
     route: Final = respx_mock.post("http://llamafile.test/v1/embeddings").respond(json=_OPENAI_LIKE_EMBEDDING_BODY)
 
-    response: Final = litellm.embedding(model="llamafile/jina-embeddings-v3", input=["Hello world"])
+    response: Final = hangarllm.embedding(model="llamafile/jina-embeddings-v3", input=["Hello world"])
 
     assert route.call_count == 1
     assert json.loads(route.calls.last.request.content) == {"model": "jina-embeddings-v3", "input": ["Hello world"]}
@@ -377,12 +377,12 @@ def test_llamafile_embedding_posts_to_the_env_api_base(
 async def test_lm_studio_embedding_posts_to_the_env_api_base(
     sync_mode: bool, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("LM_STUDIO_API_BASE", "http://lm-studio.test")
     route: Final = respx_mock.post("http://lm-studio.test/embeddings").respond(json=_OPENAI_LIKE_EMBEDDING_BODY)
     request: Final = {"model": "lm_studio/jina-embeddings-v3", "input": ["Hello world"]}
 
-    response: Final = litellm.embedding(**request) if sync_mode else await litellm.aembedding(**request)
+    response: Final = hangarllm.embedding(**request) if sync_mode else await hangarllm.aembedding(**request)
 
     assert route.call_count == 1
     assert json.loads(route.calls.last.request.content) == {"model": "jina-embeddings-v3", "input": ["Hello world"]}

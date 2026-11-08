@@ -1,7 +1,7 @@
 """
 Helpers for the retries / deployment-health characterization tests (``test_retries_health_characterization*.py``).
 
-Backoff values carry litellm's random jitter (up to ``JITTER`` seconds), so sleeps are asserted inside
+Backoff values carry hangarllm's random jitter (up to ``JITTER`` seconds), so sleeps are asserted inside
 ``[base, base + JITTER)``.
 """
 
@@ -12,8 +12,8 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm.router_core import RouterCore
+import hangarllm
+from hangarllm.router_core import RouterCore
 from tests.unit.test_router.core.scripted_host import Call, ScriptedHost
 
 MESSAGES: Final = [{"role": "user", "content": "hi"}]
@@ -33,36 +33,36 @@ def http_response(status: int, headers: Mapping[str, str] | None = None) -> http
     return httpx.Response(status, headers=dict(headers or {}), request=_REQUEST)
 
 
-def not_found() -> litellm.NotFoundError:
-    return litellm.NotFoundError(message="no such model", llm_provider="openai", model="gpt-4o")
+def not_found() -> hangarllm.NotFoundError:
+    return hangarllm.NotFoundError(message="no such model", llm_provider="openai", model="gpt-4o")
 
 
-def permission_denied() -> litellm.PermissionDeniedError:
-    return litellm.PermissionDeniedError(
+def permission_denied() -> hangarllm.PermissionDeniedError:
+    return hangarllm.PermissionDeniedError(
         message="forbidden", llm_provider="openai", model="gpt-4o", response=http_response(403)
     )
 
 
-def unprocessable() -> litellm.UnprocessableEntityError:
-    return litellm.UnprocessableEntityError(
+def unprocessable() -> hangarllm.UnprocessableEntityError:
+    return hangarllm.UnprocessableEntityError(
         message="unprocessable", llm_provider="openai", model="gpt-4o", response=http_response(422)
     )
 
 
-def service_unavailable() -> litellm.ServiceUnavailableError:
-    return litellm.ServiceUnavailableError(message="unavailable", llm_provider="openai", model="gpt-4o")
+def service_unavailable() -> hangarllm.ServiceUnavailableError:
+    return hangarllm.ServiceUnavailableError(message="unavailable", llm_provider="openai", model="gpt-4o")
 
 
-def bad_gateway() -> litellm.BadGatewayError:
-    return litellm.BadGatewayError(message="bad gateway", llm_provider="openai", model="gpt-4o")
+def bad_gateway() -> hangarllm.BadGatewayError:
+    return hangarllm.BadGatewayError(message="bad gateway", llm_provider="openai", model="gpt-4o")
 
 
-def api_connection() -> litellm.APIConnectionError:
-    return litellm.APIConnectionError(message="connection reset", llm_provider="openai", model="gpt-4o")
+def api_connection() -> hangarllm.APIConnectionError:
+    return hangarllm.APIConnectionError(message="connection reset", llm_provider="openai", model="gpt-4o")
 
 
 def api_status(status: int) -> ErrorBuilder:
-    return lambda: litellm.APIError(
+    return lambda: hangarllm.APIError(
         status_code=status, message=f"status {status}", llm_provider="openai", model="gpt-4o"
     )
 
@@ -71,9 +71,9 @@ def plain_error() -> ValueError:
     return ValueError("not a provider error")
 
 
-def rate_limited(retry_after: str | None = None) -> litellm.RateLimitError:
+def rate_limited(retry_after: str | None = None) -> hangarllm.RateLimitError:
     headers: Final = {"retry-after": retry_after} if retry_after is not None else {}
-    return litellm.RateLimitError(
+    return hangarllm.RateLimitError(
         message="slow down", llm_provider="openai", model="gpt-4o", response=httpx.Response(429, headers=headers)
     )
 
@@ -81,7 +81,7 @@ def rate_limited(retry_after: str | None = None) -> litellm.RateLimitError:
 async def attempt(core: RouterCore, model: str = "g", **kwargs: object) -> object:  # kwargs-ok: request kwargs
     """The response, or the error the core raised. A request the Rust core does not serve yet propagates, so the
     test is skipped rather than failed."""
-    from litellm.router_rust.core import RustCoreUnsupported
+    from hangarllm.router_rust.core import RustCoreUnsupported
 
     try:
         return await core.acompletion(model=model, messages=MESSAGES, **kwargs)  # pyright: ignore[reportAttributeAccessIssue]  # every core serves acompletion
@@ -92,7 +92,7 @@ async def attempt(core: RouterCore, model: str = "g", **kwargs: object) -> objec
 
 
 def attempt_sync(core: RouterCore, model: str = "g", **kwargs: object) -> object:  # kwargs-ok: request kwargs
-    from litellm.router_rust.core import RustCoreUnsupported
+    from hangarllm.router_rust.core import RustCoreUnsupported
 
     try:
         return core.completion(model=model, messages=MESSAGES, **kwargs)  # pyright: ignore[reportAttributeAccessIssue]  # every core serves completion
@@ -128,7 +128,7 @@ class MetadataRecorder:
 
     def then(self, builder: ErrorBuilder | None) -> Callable[..., object]:
         def outcome(**kwargs: object) -> object:  # kwargs-ok: the request
-            metadata: Final = kwargs.get("metadata") or kwargs.get("litellm_metadata") or {}
+            metadata: Final = kwargs.get("metadata") or kwargs.get("hangarllm_metadata") or {}
             assert isinstance(metadata, Mapping)
             self.snapshots.append({key: copy.deepcopy(metadata.get(key)) for key in self.KEYS})
             return builder() if builder is not None else None
@@ -138,7 +138,7 @@ class MetadataRecorder:
 
 class BackgroundSuccessLoggingHost(ScriptedHost):
     """``ScriptedHost`` whose async success callbacks run in a background task after the response is returned,
-    as litellm's logging worker runs them (``ScriptedHost`` runs them before returning). Await ``drain()``
+    as hangarllm's logging worker runs them (``ScriptedHost`` runs them before returning). Await ``drain()``
     before reading what they wrote."""
 
     __slots__ = ("_pending",)

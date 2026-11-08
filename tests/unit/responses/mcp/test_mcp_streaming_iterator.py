@@ -9,23 +9,23 @@ import pytest
 from fastapi import HTTPException
 from mcp.types import CallToolResult, TextContent
 
-import litellm  # noqa: F401 - ensures litellm.responses.main is registered in sys.modules
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
-from litellm.responses.mcp.mcp_streaming_iterator import (
+import hangarllm  # noqa: F401 - ensures hangarllm.responses.main is registered in sys.modules
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
+from hangarllm.responses.mcp.mcp_streaming_iterator import (
     MCPEnhancedStreamingIterator,
 )
-from litellm.types.llms.openai import (
-    BaseLiteLLMOpenAIResponseObject,
+from hangarllm.types.llms.openai import (
+    BaseHangarLLMOpenAIResponseObject,
     ResponsesAPIResponse,
     ResponsesAPIStreamEvents,
 )
 
-# `litellm.__init__` re-exports a function named `responses`, which shadows the
-# `litellm.responses` subpackage as an attribute — `import litellm.responses.main`
+# `hangarllm.__init__` re-exports a function named `responses`, which shadows the
+# `hangarllm.responses` subpackage as an attribute — `import hangarllm.responses.main`
 # can resolve to the unrelated third-party `responses` package instead. Look the
 # real submodule up in sys.modules directly to sidestep the shadowing.
-responses_main_module = sys.modules["litellm.responses.main"]
+responses_main_module = sys.modules["hangarllm.responses.main"]
 
 
 class _FakeAsyncStream:
@@ -65,7 +65,7 @@ def _text_message(text: str):
     return {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": text}]}
 
 
-def _item_type(item: dict[str, object] | BaseLiteLLMOpenAIResponseObject) -> str:
+def _item_type(item: dict[str, object] | BaseHangarLLMOpenAIResponseObject) -> str:
     return str(item["type"]) if isinstance(item, dict) else str(item.type)
 
 
@@ -96,12 +96,12 @@ def _mock_mcp_environment(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
         get_mcp_server_by_name=MagicMock(return_value=None),
     )
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
+        "hangarllm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
         fake_manager,
     )
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "hangarllm.proxy.proxy_server",
         types.SimpleNamespace(proxy_logging_obj=MagicMock(), prisma_client=None),
     )
     return call_tool
@@ -112,11 +112,11 @@ def _make_iterator(initial_chunks, max_agentic_loops: int | str | None = None) -
         base_iterator=_FakeAsyncStream(initial_chunks),
         mcp_events=[],
         tool_server_map={"read_wiki_contents": "deepwiki"},
-        mcp_tools_with_litellm_proxy=[{"require_approval": "never"}],
+        mcp_tools_with_hangarllm_proxy=[{"require_approval": "never"}],
         user_api_key_auth=None,
         original_request_params={
             "model": "gpt-4",
-            "input": "what is berriai/litellm?",
+            "input": "what is valteresj2/HangarLLM?",
             "tools": [{"type": "mcp"}],
             **({"max_agentic_loops": max_agentic_loops} if max_agentic_loops is not None else {}),
         },
@@ -149,7 +149,7 @@ async def test_second_round_tool_call_is_executed_and_reaches_final_text(monkeyp
         ]
     )
 
-    iterator.original_request_params["litellm_metadata"] = {"guardrails": ["block-all"]}
+    iterator.original_request_params["hangarllm_metadata"] = {"guardrails": ["block-all"]}
     chunks = [chunk async for chunk in iterator]
 
     # Both rounds' tool calls were actually executed, not just streamed unexecuted.
@@ -208,7 +208,7 @@ async def test_follow_up_input_keeps_every_previous_tool_round(monkeypatch: pyte
     user_messages: Final = [
         item for item in third_follow_up_input if isinstance(item, dict) and item.get("role") == "user"
     ]
-    assert user_messages == [{"type": "message", "role": "user", "content": "what is berriai/litellm?"}]
+    assert user_messages == [{"type": "message", "role": "user", "content": "what is valteresj2/HangarLLM?"}]
 
 
 @pytest.mark.asyncio
@@ -258,7 +258,7 @@ async def test_tool_call_rounds_are_capped(monkeypatch, max_agentic_loops, expec
 
 @pytest.mark.parametrize(("max_agentic_loops", "expected_error"), ((0, ValueError), ("three", TypeError)))
 def test_invalid_max_agentic_loops_raises_when_creating_iterator(max_agentic_loops, expected_error):
-    with pytest.raises(expected_error, match=r"litellm_params\.max_agentic_loops"):
+    with pytest.raises(expected_error, match=r"hangarllm_params\.max_agentic_loops"):
         _make_iterator([], max_agentic_loops=max_agentic_loops)
 
 
@@ -392,11 +392,11 @@ async def test_streaming_follow_up_replays_reasoning_when_store_is_false(monkeyp
         ),
         mcp_events=[],
         tool_server_map={"read_wiki_contents": "deepwiki"},
-        mcp_tools_with_litellm_proxy=[{"require_approval": "never"}],
+        mcp_tools_with_hangarllm_proxy=[{"require_approval": "never"}],
         user_api_key_auth=None,
         original_request_params={
             "model": "gpt-5",
-            "input": "what is berriai/litellm?",
+            "input": "what is valteresj2/HangarLLM?",
             "tools": [{"type": "mcp"}],
             "store": False,
             "previous_response_id": "resp_prev",
@@ -430,11 +430,11 @@ async def test_streaming_follow_up_keeps_previous_response_id_when_stored(monkey
         ),
         mcp_events=[],
         tool_server_map={"read_wiki_contents": "deepwiki"},
-        mcp_tools_with_litellm_proxy=[{"require_approval": "never"}],
+        mcp_tools_with_hangarllm_proxy=[{"require_approval": "never"}],
         user_api_key_auth=None,
         original_request_params={
             "model": "gpt-5",
-            "input": "what is berriai/litellm?",
+            "input": "what is valteresj2/HangarLLM?",
             "tools": [{"type": "mcp"}],
             "previous_response_id": "resp_prev",
         },
@@ -562,7 +562,7 @@ async def test_executed_mcp_call_arguments_reach_a_snapshot_reader_once(monkeypa
     _mock_mcp_environment(monkeypatch)
     follow_up = _FakeAsyncStream(_lifecycle_round("resp-final", _text_message("Alpha.")))
     monkeypatch.setattr(responses_main_module, "aresponses", AsyncMock(side_effect=[follow_up]))
-    arguments = '{"repoName": "berriai/litellm"}'
+    arguments = '{"repoName": "valteresj2/HangarLLM"}'
     iterator = _make_iterator(
         [
             _created_chunk("resp-interim"),
@@ -594,7 +594,7 @@ async def test_stream_without_auto_execute_is_forwarded_unchanged(monkeypatch):
         base_iterator=_FakeAsyncStream(list(upstream)),
         mcp_events=[],
         tool_server_map={"read_wiki_contents": "deepwiki"},
-        mcp_tools_with_litellm_proxy=[{"require_approval": "always"}],
+        mcp_tools_with_hangarllm_proxy=[{"require_approval": "always"}],
         user_api_key_auth=None,
         original_request_params={"model": "gpt-4", "input": "hi", "tools": [{"type": "mcp"}]},
     )

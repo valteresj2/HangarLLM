@@ -4,21 +4,21 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.openrouter.common_utils import OpenRouterModelInfo
+import hangarllm
+from hangarllm.llms.openrouter.common_utils import OpenRouterModelInfo
 
 DEFAULT_BASE: Final = "https://openrouter.ai/api/v1"
-KEY_SOURCES: Final = ("api_key", "litellm.api_key", "litellm.openrouter_key", "OPENROUTER_API_KEY", "OR_API_KEY")
-BASE_SOURCES: Final = ("api_base", "litellm.api_base", "OPENROUTER_API_BASE")
+KEY_SOURCES: Final = ("api_key", "hangarllm.api_key", "hangarllm.openrouter_key", "OPENROUTER_API_KEY", "OR_API_KEY")
+BASE_SOURCES: Final = ("api_base", "hangarllm.api_base", "OPENROUTER_API_BASE")
 
 
 @pytest.fixture(autouse=True)
 def _no_ambient_openrouter_settings(monkeypatch: pytest.MonkeyPatch):
     for env_var in ("OPENROUTER_API_BASE", "OPENROUTER_API_KEY", "OR_API_KEY"):
         monkeypatch.delenv(env_var, raising=False)
-    monkeypatch.setattr(litellm, "api_key", None)
-    monkeypatch.setattr(litellm, "api_base", None)
-    monkeypatch.setattr(litellm, "openrouter_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "openrouter_key", None)
 
 
 def _catalog(*model_ids: str) -> httpx.Response:
@@ -26,8 +26,8 @@ def _catalog(*model_ids: str) -> httpx.Response:
 
 
 def _configure(monkeypatch: pytest.MonkeyPatch, source: str, value: str) -> None:
-    if source.startswith("litellm."):
-        monkeypatch.setattr(litellm, source.removeprefix("litellm."), value)
+    if source.startswith("hangarllm."):
+        monkeypatch.setattr(hangarllm, source.removeprefix("hangarllm."), value)
     else:
         monkeypatch.setenv(source, value)
 
@@ -136,7 +136,7 @@ def test_validate_environment_adds_the_resolved_key_and_keeps_the_callers_header
     headers: Final = {"X-Title": "my-app"}
 
     assert OpenRouterModelInfo().validate_environment(
-        headers=headers, model="openrouter/openai/gpt-5.4-mini", messages=(), optional_params={}, litellm_params={}
+        headers=headers, model="openrouter/openai/gpt-5.4-mini", messages=(), optional_params={}, hangarllm_params={}
     ) == {"X-Title": "my-app", "Authorization": "Bearer sk-or-env"}
     assert headers == {"X-Title": "my-app"}
 
@@ -147,7 +147,7 @@ def test_validate_environment_without_any_key_sends_no_authorization():
         model="openrouter/openai/gpt-5.4-mini",
         messages=(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     ) == {"X-Title": "my-app"}
 
 

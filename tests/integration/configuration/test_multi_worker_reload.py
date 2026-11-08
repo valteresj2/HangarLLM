@@ -25,8 +25,8 @@ def _launched_config(owned: OwnedProxy) -> Path:
 def _config(model: str) -> str:
     return json.dumps(
         {
-            "model_list": [{"model_name": model, "litellm_params": {"model": "openai/reload-test"}}],
-            "general_settings": {"master_key": "os.environ/LITELLM_MASTER_KEY"},
+            "model_list": [{"model_name": model, "hangarllm_params": {"model": "openai/reload-test"}}],
+            "general_settings": {"master_key": "os.environ/HANGARLLM_MASTER_KEY"},
             "router_settings": {"redis_host": "os.environ/REDIS_HOST", "redis_port": "os.environ/REDIS_PORT"},
         }
     )

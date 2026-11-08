@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import AuthCacheInvalidationSubscriber
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.mcp_server.byok_credential_cache import (
+from hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub import AuthCacheInvalidationSubscriber
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.mcp_server.byok_credential_cache import (
     CachedByokCredential,
     byok_credential_cache,
     byok_credential_cache_key,

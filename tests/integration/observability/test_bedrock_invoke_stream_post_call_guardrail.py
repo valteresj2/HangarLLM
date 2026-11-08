@@ -252,7 +252,7 @@ class Rig:
         key: Final = self.keys[guardrail]
 
         def authenticate(request: object, **_: object) -> None:
-            getattr(request, "headers")["x-litellm-api-key"] = key
+            getattr(request, "headers")["x-hangarllm-api-key"] = key
 
         client.meta.events.register("before-send.bedrock-runtime.*", authenticate)
         try:
@@ -281,7 +281,7 @@ class Rig:
 def _guardrail(name: str, sink: Wire, **settings: JsonValue) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "generic_guardrail_api",
             "mode": "post_call",
             "default_on": False,
@@ -295,7 +295,7 @@ def _guardrail(name: str, sink: Wire, **settings: JsonValue) -> dict[str, JsonVa
 def _bedrock_guardrail(name: str, sink: Wire, **settings: JsonValue) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "bedrock",
             "mode": "post_call",
             "default_on": False,
@@ -313,7 +313,7 @@ def _bedrock_guardrail(name: str, sink: Wire, **settings: JsonValue) -> dict[str
 def _noma_guardrail(name: str, sink: Wire, **settings: JsonValue) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "noma_v2",
             "mode": "post_call",
             "default_on": False,
@@ -327,7 +327,7 @@ def _noma_guardrail(name: str, sink: Wire, **settings: JsonValue) -> dict[str, J
 def _deployment(name: str, model_id: str, upstream: Wire) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"bedrock/{model_id}",
             "api_base": upstream.url,
             "aws_access_key_id": "AKIASYNTHETICRELAY",
@@ -397,7 +397,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
                 _bedrock_guardrail(RELEASE_ON_SCAN, sink, streaming_buffer_release_on_scan=True),
                 {
                     "guardrail_name": CODE,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "custom_code",
                         "mode": "post_call",
                         "default_on": False,
@@ -459,7 +459,7 @@ def _stream_with_call_id(rig: Rig, guardrail: str, marker: str, model: str = CLA
             response.status_code,
             response.headers.get("content-type", ""),
             response.read(),
-            response.headers.get("x-litellm-call-id", ""),
+            response.headers.get("x-hangarllm-call-id", ""),
         )
 
 
@@ -478,8 +478,8 @@ def _exception(frames: Sequence[Frame]) -> tuple[str, str] | None:
 def _spend_statuses(call_id: str, at_least: int) -> list[JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT status FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s OR request_id=%s '
-            "OR metadata->>'litellm_call_id'=%s ORDER BY status",
+            'SELECT status FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s OR request_id=%s '
+            "OR metadata->>'hangarllm_call_id'=%s ORDER BY status",
             (call_id, call_id, call_id),
         ),
         lambda rows: len(rows) >= at_least,
@@ -686,7 +686,7 @@ def test_block_raised_mid_stream_logs_the_relayed_spend_and_the_failure(rig: Rig
     frames: Final = decode(body)
     assert frames[0].kind == "message_start", frames
     assert _exception(frames) == ("validationException", CODE_BLOCK_REASON), frames
-    assert call_id, "the relayed stream carries no x-litellm-call-id"
+    assert call_id, "the relayed stream carries no x-hangarllm-call-id"
     assert _spend_statuses(call_id, 2) == ["failure", "success"]
 
 

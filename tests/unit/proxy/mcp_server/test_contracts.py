@@ -4,8 +4,8 @@ from typing import Final
 import pytest
 from pydantic import SecretStr
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.mcp_server.operations import prepare_context
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.mcp_server.operations import prepare_context
 
 
 def test_guardrail_bearer_stays_out_of_egress_and_context_representations() -> None:

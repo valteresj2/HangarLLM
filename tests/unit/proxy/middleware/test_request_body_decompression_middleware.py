@@ -23,7 +23,7 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 from starlette.types import Message, Receive, Scope, Send
 
-from litellm.proxy.middleware.request_body_decompression_middleware import (
+from hangarllm.proxy.middleware.request_body_decompression_middleware import (
     GZIP,
     GZIP_MAGIC,
     RFC_9659_ZSTD_WINDOW_LOG_MAX,
@@ -259,7 +259,7 @@ def test_operator_request_size_limit_caps_the_decoded_body_when_it_is_lower(
 def test_proxy_bounds_skill_uploads_before_authentication_or_body_parsing(
     coding: str, compress: Callable[[bytes], bytes], method: str, path: str,
 ) -> None:
-    from litellm.proxy.proxy_server import app
+    from hangarllm.proxy.proxy_server import app
 
     body: Final = random.Random(0).randbytes(6 * MIB) + bytes(6 * MIB)
     encoded: Final = compress(body)

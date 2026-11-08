@@ -1,6 +1,6 @@
 """The response cache keys an answer by the router's model group on every endpoint the router serves.
 
-The router names the model group in ``metadata`` on ``/v1/chat/completions`` and in ``litellm_metadata`` on
+The router names the model group in ``metadata`` on ``/v1/chat/completions`` and in ``hangarllm_metadata`` on
 ``/v1/responses`` and ``/v1/messages``. Every cell gives each model group its own scripted upstream scenario on one
 shared provider model, fills one group's entry, and reads which scenario the identical request reached next and which
 answer the caller got: an answer served from the cache repeats the id of the request that filled it.
@@ -155,7 +155,7 @@ def _caching_groups_config(directory: Path, endpoint: Endpoint, first: Group, se
         "model_list": [
             {
                 "model_name": group.name,
-                "litellm_params": {"model": model, "api_key": PROVIDER_KEY, "api_base": group.upstream.api_base()},
+                "hangarllm_params": {"model": model, "api_key": PROVIDER_KEY, "api_base": group.upstream.api_base()},
             }
             for group, model in ((first, endpoint.provider_model), (second, endpoint.sibling_model))
         ],

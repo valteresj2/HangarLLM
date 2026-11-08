@@ -1,20 +1,20 @@
-LiteLLM componentized — release {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+HangarLLM componentized — release {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
 
 Components:
 {{- if .Values.gateway.enabled }}
-  - gateway  : Service {{ include "litellm.gateway.fullname" . }} on port {{ .Values.gateway.service.port }}
+  - gateway  : Service {{ include "hangarllm.gateway.fullname" . }} on port {{ .Values.gateway.service.port }}
 {{- end }}
 {{- if .Values.backend.enabled }}
-  - backend  : Service {{ include "litellm.backend.fullname" . }} on port {{ .Values.backend.service.port }}
+  - backend  : Service {{ include "hangarllm.backend.fullname" . }} on port {{ .Values.backend.service.port }}
 {{- end }}
 {{- if .Values.ui.enabled }}
-  - ui       : Service {{ include "litellm.ui.fullname" . }} on port {{ .Values.ui.service.port }}
+  - ui       : Service {{ include "hangarllm.ui.fullname" . }} on port {{ .Values.ui.service.port }}
 {{- end }}
 
 Port-forward examples:
-  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "litellm.gateway.fullname" . }} {{ .Values.gateway.service.port }}
-  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "litellm.backend.fullname" . }} {{ .Values.backend.service.port }}
-  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "litellm.ui.fullname" . }} {{ .Values.ui.service.port }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "hangarllm.gateway.fullname" . }} {{ .Values.gateway.service.port }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "hangarllm.backend.fullname" . }} {{ .Values.backend.service.port }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "hangarllm.ui.fullname" . }} {{ .Values.ui.service.port }}
 
 Reminders:
   - Sensitive values come from Secret references only. Before installing, set:
@@ -46,7 +46,7 @@ Reminders:
   - Per-component extras (gateway / backend / ui):
       - {component}.extraEnv / envConfigMaps / envSecrets      (the latter two are lists of resource names →
                                                                 envFrom configMapRef / secretRef)
-      - {component}.logLevel                                   (renders as LITELLM_LOG)
+      - {component}.logLevel                                   (renders as HANGARLLM_LOG)
       - gateway.config.proxy_config                            (rendered into a ConfigMap and mounted at
                                                                 /app/config/config.yaml; gateway reads it via
                                                                 CONFIG_FILE_PATH)

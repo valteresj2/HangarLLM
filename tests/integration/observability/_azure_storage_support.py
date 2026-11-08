@@ -15,8 +15,8 @@ import yaml
 from integration._support.client import JsonValue, eventually, object_value
 from integration._support.wire import Reply, Request
 
-ACCOUNT: Final = "litellmaudit"
-FILE_SYSTEM: Final = "litellm-logs"
+ACCOUNT: Final = "hangarllmaudit"
+FILE_SYSTEM: Final = "hangarllm-logs"
 SINK_HOSTS: Final = (f"{ACCOUNT}.dfs.core.localhost", f"{ACCOUNT}.blob.core.localhost")
 ACCOUNT_KEY: Final = base64.b64encode(b"synthetic-account-key-for-integration-tests").decode()
 AUTHENTICATION_FAILED: Final = (
@@ -178,7 +178,7 @@ def azure_storage_config(
     path: Path, settings: Mapping[str, JsonValue] | None = None, *, callback_setting: str = "callbacks"
 ) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"].update({callback_setting: ["azure_storage"], **(settings or {})})
+    config["hangarllm_settings"].update({callback_setting: ["azure_storage"], **(settings or {})})
     target: Final = path / "azure_storage.yaml"
     target.write_text(yaml.safe_dump(config))
     return target

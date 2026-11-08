@@ -9,8 +9,8 @@ from integration.translation.runner import assert_translation
 
 GPT_6_1_SOL_TOOL_SEARCH_TEST_CASE: Final = TranslationTestCase(
     scenario="tool_search",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "bedrock/global.openai.gpt-6.1-sol",
         "max_tokens": 1024,
         "thinking": {"type": "adaptive"},
@@ -135,7 +135,7 @@ GPT_6_1_SOL_TOOL_SEARCH_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 115,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "type": "message",
         "role": "assistant",

@@ -5,9 +5,9 @@ import openai
 import pytest
 import respx
 
-import litellm
-from litellm.llms.base_llm.search.transformation import SearchResponse
-from litellm.llms.xai.search.transformation import XAISearchConfig
+import hangarllm
+from hangarllm.llms.base_llm.search.transformation import SearchResponse
+from hangarllm.llms.xai.search.transformation import XAISearchConfig
 
 RESPONSES_URL: Final = "https://api.x.ai/v1/responses"
 ANSWER: Final = "Grok update from X."
@@ -66,7 +66,7 @@ async def test_search_returns_citations_and_preserves_the_full_bill_after_limiti
         "api_key": "test-xai-key",
         "max_results": 1,
     }
-    result = await litellm.asearch(**params) if use_async else litellm.search(**params)
+    result = await hangarllm.asearch(**params) if use_async else hangarllm.search(**params)
 
     assert isinstance(result, SearchResponse)
     assert result.model_dump() == {
@@ -96,11 +96,11 @@ async def test_configured_search_model_and_filters_reach_xai_through_the_router(
     respx_mock: respx.MockRouter,
 ) -> None:
     route = respx_mock.post(RESPONSES_URL).respond(json=_response(0))
-    router = litellm.Router(
+    router = hangarllm.Router(
         search_tools=[
             {
                 "search_tool_name": "social-search",
-                "litellm_params": {
+                "hangarllm_params": {
                     "search_provider": "xai",
                     "api_key": "test-xai-key",
                     "search_model": "grok-test",
@@ -154,7 +154,7 @@ def test_search_does_not_report_failed_or_unbillable_upstream_responses_as_succe
 ) -> None:
     respx_mock.post(RESPONSES_URL).respond(json=payload)
     with pytest.raises(openai.APIStatusError) as error:
-        litellm.search(query="test", search_provider="xai", api_key="test-xai-key")
+        hangarllm.search(query="test", search_provider="xai", api_key="test-xai-key")
     assert error.value.status_code == 502
 
 
@@ -162,7 +162,7 @@ def test_search_does_not_report_failed_or_unbillable_upstream_responses_as_succe
 def test_upstream_http_error_keeps_its_status(respx_mock: respx.MockRouter, status: int) -> None:
     respx_mock.post(RESPONSES_URL).respond(status, json={"error": "upstream error"})
     with pytest.raises(openai.APIStatusError) as error:
-        litellm.search(query="test", search_provider="xai", api_key="test-xai-key")
+        hangarllm.search(query="test", search_provider="xai", api_key="test-xai-key")
     assert error.value.status_code == status
 
 
@@ -170,7 +170,7 @@ def test_search_with_no_citations_still_records_the_bill(
     respx_mock: respx.MockRouter,
 ) -> None:
     respx_mock.post(RESPONSES_URL).respond(json={"output": [], "usage": {"cost_in_usd_ticks": 99}})
-    result = litellm.search(query="test", search_provider="xai", api_key="test-xai-key")
+    result = hangarllm.search(query="test", search_provider="xai", api_key="test-xai-key")
     assert isinstance(result, SearchResponse)
     assert result.results == []
     assert result.hidden_params["response_cost"] == pytest.approx(99 / 10_000_000_000)
@@ -210,15 +210,15 @@ def test_operator_base_and_explicit_model_are_used_without_mutating_headers(
 async def test_websearch_interception_returns_xai_citations_and_cost(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from litellm.integrations.websearch_interception.handler import WebSearchInterceptionLogger
-    from litellm.proxy import proxy_server
+    from hangarllm.integrations.websearch_interception.handler import WebSearchInterceptionLogger
+    from hangarllm.proxy import proxy_server
 
     respx_mock.post(RESPONSES_URL).respond(json=_response())
-    router = litellm.Router(
+    router = hangarllm.Router(
         search_tools=[
             {
                 "search_tool_name": "social-search",
-                "litellm_params": {"search_provider": "xai", "api_key": "test-xai-key"},
+                "hangarllm_params": {"search_provider": "xai", "api_key": "test-xai-key"},
             }
         ]
     )

@@ -3,7 +3,7 @@ import json
 
 # Adds the parent directory to the system path
 
-from litellm.llms.bytez.chat.transformation import BytezChatConfig, API_BASE, version
+from hangarllm.llms.bytez.chat.transformation import BytezChatConfig, API_BASE, version
 
 TEST_API_KEY = "MOCK_BYTEZ_API_KEY"
 TEST_MODEL_NAME = "google/gemma-3-4b-it"
@@ -48,14 +48,14 @@ class TestBytezChatConfig:
             model=TEST_MODEL,
             messages=TEST_MESSAGES,  # type: ignore
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=TEST_API_KEY,
             api_base=API_BASE,
         )
 
         assert result["Authorization"] == f"Key {TEST_API_KEY}"
         assert result["content-type"] == "application/json"
-        assert result["user-agent"] == f"litellm/{version}"
+        assert result["user-agent"] == f"hangarllm/{version}"
 
     def test_missing_api_key(self):
         config = BytezChatConfig()
@@ -67,7 +67,7 @@ class TestBytezChatConfig:
                 model=TEST_MODEL,
                 messages=TEST_MESSAGES,  # type: ignore
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
                 api_base=API_BASE,
             )
@@ -77,7 +77,7 @@ class TestBytezChatConfig:
         )
 
     def test_bytez_completion_mock_sync(self, respx_mock):
-        import litellm
+        import hangarllm
 
         input_messages = [
             {"role": "user", "content": "What is your favorite kind of cat?"}
@@ -99,8 +99,8 @@ class TestBytezChatConfig:
             status_code=200,
         )
 
-        # Make the actual API call through LiteLLM
-        response = litellm.completion(
+        # Make the actual API call through HangarLLM
+        response = hangarllm.completion(
             model=TEST_MODEL,
             messages=input_messages,
             api_key=TEST_API_KEY,
@@ -118,7 +118,7 @@ class TestBytezChatConfig:
                 api_key=TEST_API_KEY,
                 model="google/gemma?x=1#frag",
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
             )
             == f"{API_BASE}/google/gemma%3Fx%3D1%23frag"
         )
@@ -129,7 +129,7 @@ class TestBytezChatConfig:
                 api_key=TEST_API_KEY,
                 model="../../models/other",
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
             )
 
     def test_bytez_messages_adaptation(self):
@@ -285,7 +285,7 @@ class TestBytezChatConfig:
                 model=TEST_MODEL,
                 messages=TEST_MESSAGES,  # type: ignore
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=TEST_API_KEY,
                 api_base=API_BASE,
             )
@@ -294,7 +294,7 @@ class TestBytezChatConfig:
                 model=TEST_MODEL_NAME,
                 messages=messages,
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 headers=headers,
             )
 

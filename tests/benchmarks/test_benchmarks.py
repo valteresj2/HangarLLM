@@ -1,8 +1,8 @@
 """
-Performance benchmarks for litellm core operations.
+Performance benchmarks for hangarllm core operations.
 
 These benchmarks measure the performance of frequently called functions
-in the litellm hot path: token counting, model info lookup, provider
+in the hangarllm hot path: token counting, model info lookup, provider
 resolution, and cost calculation.
 """
 
@@ -10,10 +10,10 @@ import threading
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.litellm_core_utils.thread_pool_executor import executor
-from litellm.litellm_core_utils.token_counter import token_counter
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.hangarllm_core_utils.thread_pool_executor import executor
+from hangarllm.hangarllm_core_utils.token_counter import token_counter
 
 
 # ---------------------------------------------------------------------------
@@ -121,19 +121,19 @@ def test_token_counter_raw_text():
 @pytest.mark.benchmark
 def test_get_model_info_openai():
     """Benchmark model info lookup for an OpenAI model."""
-    litellm.get_model_info("gpt-4o")
+    hangarllm.get_model_info("gpt-4o")
 
 
 @pytest.mark.benchmark
 def test_get_model_info_anthropic():
     """Benchmark model info lookup for an Anthropic model."""
-    litellm.get_model_info("claude-sonnet-4-20250514")
+    hangarllm.get_model_info("claude-sonnet-4-20250514")
 
 
 @pytest.mark.benchmark
 def test_get_model_info_with_provider():
     """Benchmark model info lookup with an explicit provider prefix."""
-    litellm.get_model_info("openai/gpt-4o", custom_llm_provider="openai")
+    hangarllm.get_model_info("openai/gpt-4o", custom_llm_provider="openai")
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +176,7 @@ def test_get_llm_provider_azure():
 @pytest.mark.benchmark
 def test_cost_per_token_openai():
     """Benchmark cost-per-token calculation for OpenAI models."""
-    litellm.cost_per_token(
+    hangarllm.cost_per_token(
         model="gpt-4o",
         prompt_tokens=1000,
         completion_tokens=500,
@@ -186,7 +186,7 @@ def test_cost_per_token_openai():
 @pytest.mark.benchmark
 def test_cost_per_token_anthropic():
     """Benchmark cost-per-token calculation for Anthropic models."""
-    litellm.cost_per_token(
+    hangarllm.cost_per_token(
         model="claude-sonnet-4-20250514",
         prompt_tokens=1000,
         completion_tokens=500,
@@ -201,13 +201,13 @@ def test_cost_per_token_anthropic():
 @pytest.mark.benchmark
 def test_get_model_cost_key_exact_match():
     """Benchmark model cost key lookup with an exact match."""
-    litellm.utils.get_model_cost_key("gpt-4o")
+    hangarllm.utils.get_model_cost_key("gpt-4o")
 
 
 @pytest.mark.benchmark
 def test_get_model_cost_key_case_insensitive():
     """Benchmark model cost key lookup with case-insensitive fallback."""
-    litellm.utils.get_model_cost_key("GPT-4o")
+    hangarllm.utils.get_model_cost_key("GPT-4o")
 
 
 # ---------------------------------------------------------------------------

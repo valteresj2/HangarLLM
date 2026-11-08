@@ -4,7 +4,7 @@ from typing import Final
 import httpx
 import pytest
 
-from litellm.llms.azure_ai.agents.transformation import AzureAIAgentsConfig
+from hangarllm.llms.azure_ai.agents.transformation import AzureAIAgentsConfig
 
 MESSAGES: Final = [
     {"role": "system", "content": "be brief"},
@@ -62,7 +62,7 @@ def test_transform_request_builds_the_agent_run_payload(
         model="azure_ai/agents/asst_from_model",
         messages=MESSAGES,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -73,8 +73,8 @@ def test_azure_ai_agents_build_model_response_with_annotations():
     """
     Test that _build_model_response includes annotations in the Message object.
     """
-    from litellm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
+    from hangarllm.types.utils import ModelResponse
 
     handler = AzureAIAgentsHandler()
     model_response = ModelResponse()
@@ -110,8 +110,8 @@ def test_azure_ai_agents_build_model_response_without_annotations():
     """
     Test that _build_model_response works correctly without annotations.
     """
-    from litellm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
+    from hangarllm.types.utils import ModelResponse
 
     handler = AzureAIAgentsHandler()
     model_response = ModelResponse()
@@ -133,7 +133,7 @@ def test_azure_ai_agents_config_get_agent_id():
     """
     Test agent ID extraction via config method.
     """
-    from litellm.llms.azure_ai.agents.transformation import AzureAIAgentsConfig
+    from hangarllm.llms.azure_ai.agents.transformation import AzureAIAgentsConfig
 
     config = AzureAIAgentsConfig()
 
@@ -151,7 +151,7 @@ def test_azure_ai_agents_config_get_complete_url():
     """
     Test that AzureAIAgentsConfig correctly generates base URLs.
     """
-    from litellm.llms.azure_ai.agents.transformation import AzureAIAgentsConfig
+    from hangarllm.llms.azure_ai.agents.transformation import AzureAIAgentsConfig
 
     config = AzureAIAgentsConfig()
 
@@ -160,7 +160,7 @@ def test_azure_ai_agents_config_get_complete_url():
         api_key=None,
         model="agents/asst_123",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         stream=False,
     )
     assert url == "https://test-project.services.ai.azure.com"
@@ -170,7 +170,7 @@ def test_azure_ai_agents_config_get_complete_url():
         api_key=None,
         model="agents/asst_123",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         stream=False,
     )
     assert url_with_slash == "https://test-project.services.ai.azure.com"
@@ -180,7 +180,7 @@ def test_azure_ai_agents_config_transform_request():
     """
     Test that AzureAIAgentsConfig correctly transforms requests.
     """
-    from litellm.llms.azure_ai.agents.transformation import AzureAIAgentsConfig
+    from hangarllm.llms.azure_ai.agents.transformation import AzureAIAgentsConfig
 
     config = AzureAIAgentsConfig()
 
@@ -193,7 +193,7 @@ def test_azure_ai_agents_config_transform_request():
         model="azure_ai/agents/asst_123",
         messages=messages,
         optional_params={},
-        litellm_params={"stream": False},
+        hangarllm_params={"stream": False},
         headers={},
     )
 
@@ -210,7 +210,7 @@ def test_azure_ai_agents_extract_content_from_messages():
     """
     Test content extraction from Azure Agents message response.
     """
-    from litellm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
+    from hangarllm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
 
     handler = AzureAIAgentsHandler()
 
@@ -244,9 +244,9 @@ def test_azure_ai_agents_extract_content_with_annotations():
     Test that annotations (e.g., Bing Search citations) are extracted from
     Azure Agents message responses and transformed to OpenAI-compatible format.
 
-    Ref: https://github.com/BerriAI/litellm/issues/19126
+    Ref: upstream issue 19126
     """
-    from litellm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
+    from hangarllm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
 
     handler = AzureAIAgentsHandler()
 
@@ -295,7 +295,7 @@ def test_azure_ai_agents_get_agent_id_from_model():
     """
     Test agent ID extraction from model name.
     """
-    from litellm.llms.azure_ai.agents.transformation import AzureAIAgentsConfig
+    from hangarllm.llms.azure_ai.agents.transformation import AzureAIAgentsConfig
 
     agent_id = AzureAIAgentsConfig.get_agent_id_from_model("azure_ai/agents/asst_abc123")
     assert agent_id == "asst_abc123"
@@ -314,7 +314,7 @@ def test_azure_ai_agents_handler_url_builders():
     Azure Foundry Agents API uses direct paths without /openai/ prefix.
     See: https://learn.microsoft.com/en-us/azure/ai-foundry/agents/quickstart
     """
-    from litellm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
+    from hangarllm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
 
     handler = AzureAIAgentsHandler()
     api_base = "https://test.services.ai.azure.com/api/projects/test-project"
@@ -339,7 +339,7 @@ def test_azure_ai_agents_is_agents_route():
     """
     Test the is_azure_ai_agents_route detection method.
     """
-    from litellm.llms.azure_ai.agents.transformation import AzureAIAgentsConfig
+    from hangarllm.llms.azure_ai.agents.transformation import AzureAIAgentsConfig
 
     assert AzureAIAgentsConfig.is_azure_ai_agents_route("azure_ai/agents/asst_123") is True
     assert AzureAIAgentsConfig.is_azure_ai_agents_route("agents/asst_123") is True
@@ -352,7 +352,7 @@ def test_azure_ai_agents_provider_detection():
     """
     Test that the azure_ai provider is correctly detected from model name.
     """
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     model, provider, api_key, api_base = get_llm_provider(
         model="azure_ai/agents/asst_abc123",
@@ -371,7 +371,7 @@ async def test_azure_ai_agents_streaming_accumulates_annotations_from_multiple_t
 
     Ref: Greptile review on PR #23849
     """
-    from litellm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
+    from hangarllm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
 
     handler = AzureAIAgentsHandler()
 
@@ -448,9 +448,9 @@ async def test_azure_ai_agents_streaming_annotations_from_completed_message():
     Test that annotations from thread.message.completed SSE events are collected
     and attached to the final chunk's delta.
 
-    Ref: https://github.com/BerriAI/litellm/issues/19126
+    Ref: upstream issue 19126
     """
-    from litellm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
+    from hangarllm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
 
     handler = AzureAIAgentsHandler()
 
@@ -517,7 +517,7 @@ def test_azure_ai_agents_validate_environment():
 
     Azure Foundry Agents uses Bearer token authentication (Azure AD tokens).
     """
-    from litellm.llms.azure_ai.agents.transformation import AzureAIAgentsConfig
+    from hangarllm.llms.azure_ai.agents.transformation import AzureAIAgentsConfig
 
     config = AzureAIAgentsConfig()
 
@@ -526,7 +526,7 @@ def test_azure_ai_agents_validate_environment():
         model="agents/asst_123",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test-azure-ad-token",
         api_base="https://test.services.ai.azure.com/api/projects/test-project",
     )
@@ -539,7 +539,7 @@ def test_azure_ai_get_azure_ai_route():
     """
     Test the get_azure_ai_route dispatch method.
     """
-    from litellm.llms.azure_ai.common_utils import AzureFoundryModelInfo
+    from hangarllm.llms.azure_ai.common_utils import AzureFoundryModelInfo
 
     assert AzureFoundryModelInfo.get_azure_ai_route("agents/asst_123") == "agents"
     assert AzureFoundryModelInfo.get_azure_ai_route("azure_ai/agents/asst_abc") == "agents"

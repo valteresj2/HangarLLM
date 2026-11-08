@@ -12,10 +12,10 @@ from typing import Final, Optional
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
-from litellm.utils import get_excluded_filtered_deployments
+import hangarllm
+from hangarllm import Router
+from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
+from hangarllm.utils import get_excluded_filtered_deployments
 
 
 # ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ def _make_dep(dep_id: str, weight: Optional[int] = None) -> dict:
         params["weight"] = weight
     return {
         "model_name": "test-model",
-        "litellm_params": params,
+        "hangarllm_params": params,
         "model_info": {"id": dep_id},
     }
 
@@ -67,7 +67,7 @@ class TestGetExcludedFilteredDeployments:
 
     def test_handles_missing_model_info(self):
         deps = [
-            {"model_name": "x", "litellm_params": {"model": "gpt-4o"}},  # no model_info
+            {"model_name": "x", "hangarllm_params": {"model": "gpt-4o"}},  # no model_info
             _make_dep("b"),
         ]
         result = get_excluded_filtered_deployments(deps, excluded_deployment_ids=["b"])
@@ -86,7 +86,7 @@ async def test_no_failover_when_flag_off():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("region-A failed"),
@@ -96,7 +96,7 @@ async def test_no_failover_when_flag_off():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from B",
@@ -110,7 +110,7 @@ async def test_no_failover_when_flag_off():
         # enable_weighted_failover defaults to False
     )
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await router.acompletion(
             model="test-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -124,7 +124,7 @@ async def test_failover_lands_on_other_deployment_when_flag_on():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("region-A down"),
@@ -134,7 +134,7 @@ async def test_failover_lands_on_other_deployment_when_flag_on():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from B",
@@ -162,7 +162,7 @@ async def test_failover_chain_three_deployments():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("A down"),
@@ -172,7 +172,7 @@ async def test_failover_chain_three_deployments():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("B down"),
@@ -182,7 +182,7 @@ async def test_failover_chain_three_deployments():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from C",
@@ -210,7 +210,7 @@ async def test_failover_exhausted_raises_original_error_class():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("A down"),
@@ -220,7 +220,7 @@ async def test_failover_exhausted_raises_original_error_class():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("B down"),
@@ -234,7 +234,7 @@ async def test_failover_exhausted_raises_original_error_class():
         enable_weighted_failover=True,
     )
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await router.acompletion(
             model="test-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -248,7 +248,7 @@ async def test_failover_falls_through_to_external_fallback():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("A down"),
@@ -258,7 +258,7 @@ async def test_failover_falls_through_to_external_fallback():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("B down"),
@@ -268,7 +268,7 @@ async def test_failover_falls_through_to_external_fallback():
             },
             {
                 "model_name": "fallback-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from fallback",
@@ -297,7 +297,7 @@ async def test_weights_respected_when_all_healthy():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "from A",
@@ -307,7 +307,7 @@ async def test_weights_respected_when_all_healthy():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "from B",
@@ -345,7 +345,7 @@ async def test_failover_skipped_for_non_simple_shuffle():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("A down"),
@@ -354,7 +354,7 @@ async def test_failover_skipped_for_non_simple_shuffle():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("B down"),
@@ -367,7 +367,7 @@ async def test_failover_skipped_for_non_simple_shuffle():
         enable_weighted_failover=True,
     )
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await router.acompletion(
             model="test-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -381,13 +381,13 @@ async def test_failover_skipped_for_context_window_error():
     `mock_testing_context_fallbacks` to deterministically raise the right
     exception class.
     """
-    import litellm
+    import hangarllm
 
     router = Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from A",
@@ -397,7 +397,7 @@ async def test_failover_skipped_for_context_window_error():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from B",
@@ -411,7 +411,7 @@ async def test_failover_skipped_for_context_window_error():
         enable_weighted_failover=True,
     )
 
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         await router.acompletion(
             model="test-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -428,7 +428,7 @@ async def test_user_config_two_region_failover():
         model_list=[
             {
                 "model_name": "gpt-5.4-mini",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/deployment-eastus2",
                     "api_key": "bad",
                     "api_base": "https://eastus2.example",
@@ -439,7 +439,7 @@ async def test_user_config_two_region_failover():
             },
             {
                 "model_name": "gpt-5.4-mini",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/deployment-northcentralus",
                     "api_key": "good",
                     "api_base": "https://northcentralus.example",
@@ -491,7 +491,7 @@ async def test_failover_reaches_healthy_sibling_when_affinity_pins_failed_deploy
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("A down"),
@@ -501,7 +501,7 @@ async def test_failover_reaches_healthy_sibling_when_affinity_pins_failed_deploy
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from B",
@@ -511,7 +511,7 @@ async def test_failover_reaches_healthy_sibling_when_affinity_pins_failed_deploy
             },
             {
                 "model_name": "fallback-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from fallback",
@@ -535,7 +535,7 @@ async def test_failover_reaches_healthy_sibling_when_affinity_pins_failed_deploy
     router.upsert_deployment(
         Deployment(
             model_name="test-model",
-            litellm_params=LiteLLM_Params(model="gpt-4o", api_key="bad", mock_response="ok from A", weight=1),
+            hangarllm_params=HangarLLM_Params(model="gpt-4o", api_key="bad", mock_response="ok from A", weight=1),
             model_info=ModelInfo(id="A"),
         )
     )
@@ -546,7 +546,7 @@ async def test_failover_reaches_healthy_sibling_when_affinity_pins_failed_deploy
     )
 
     assert while_a_is_down._hidden_params["model_id"] == "B"
-    assert while_a_is_down._hidden_params["additional_headers"]["x-litellm-attempted-fallbacks"] == 1
+    assert while_a_is_down._hidden_params["additional_headers"]["x-hangarllm-attempted-fallbacks"] == 1
     assert after_a_recovers._hidden_params["model_id"] == "A"
 
 
@@ -555,12 +555,12 @@ def _two_deployment_router(model: str) -> Router:
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": model, "api_key": "bad", "weight": 1},
+                "hangarllm_params": {"model": model, "api_key": "bad", "weight": 1},
                 "model_info": {"id": "A"},
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": model, "api_key": "good", "weight": 0},
+                "hangarllm_params": {"model": model, "api_key": "good", "weight": 0},
                 "model_info": {"id": "B"},
             },
         ],
@@ -592,10 +592,10 @@ async def test_weighted_failover_moves_every_endpoint_to_another_deployment(
     async def provider(**kwargs: object) -> object:
         keys_called.append(kwargs.get("api_key"))
         if kwargs.get("api_key") == "bad":
-            raise litellm.InternalServerError(message="A is down", llm_provider="openai", model=model)
+            raise hangarllm.InternalServerError(message="A is down", llm_provider="openai", model=model)
         return answer
 
-    monkeypatch.setattr(litellm, endpoint, provider)
+    monkeypatch.setattr(hangarllm, endpoint, provider)
     router: Final = _two_deployment_router(model)
 
     response: Final = await getattr(router, endpoint)(model="test-model", **arguments)
@@ -614,20 +614,20 @@ async def test_weighted_failover_skips_the_failed_deployment_for_clientside_cred
     async def provider(**kwargs: object) -> object:
         api_bases_called.append(kwargs.get("api_base"))
         if kwargs.get("api_base") == "http://a":
-            raise litellm.InternalServerError(message="A is down", llm_provider="openai", model="m")
+            raise hangarllm.InternalServerError(message="A is down", llm_provider="openai", model="m")
         return answer
 
-    monkeypatch.setattr(litellm, "aembedding", provider)
+    monkeypatch.setattr(hangarllm, "aembedding", provider)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "openai/text-embedding-3-small", "api_base": "http://a", "weight": 1},
+                "hangarllm_params": {"model": "openai/text-embedding-3-small", "api_base": "http://a", "weight": 1},
                 "model_info": {"id": "A"},
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "openai/text-embedding-3-small", "api_base": "http://b", "weight": 0},
+                "hangarllm_params": {"model": "openai/text-embedding-3-small", "api_base": "http://b", "weight": 0},
                 "model_info": {"id": "B"},
             },
         ],
@@ -654,20 +654,20 @@ def test_a_sync_attempt_stamps_the_failed_deployment(
     monkeypatch: pytest.MonkeyPatch, endpoint: str, arguments: dict[str, object]
 ) -> None:
     def provider(**kwargs: object) -> object:
-        raise litellm.InternalServerError(message="down", llm_provider="openai", model="m")
+        raise hangarllm.InternalServerError(message="down", llm_provider="openai", model="m")
 
-    monkeypatch.setattr(litellm, endpoint, provider)
+    monkeypatch.setattr(hangarllm, endpoint, provider)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "openai/m", "api_key": "k"},
+                "hangarllm_params": {"model": "openai/m", "api_key": "k"},
                 "model_info": {"id": "A"},
             }
         ],
     )
 
-    with pytest.raises(litellm.InternalServerError) as raised:
+    with pytest.raises(hangarllm.InternalServerError) as raised:
         getattr(router, endpoint)(model="test-model", **arguments)
 
     assert getattr(raised.value, "failed_deployment_id", None) == "A"
@@ -679,13 +679,13 @@ async def test_a_failed_pick_stamps_no_deployment() -> None:
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "openai/text-embedding-3-small", "api_key": "k"},
+                "hangarllm_params": {"model": "openai/text-embedding-3-small", "api_key": "k"},
                 "model_info": {"id": "A"},
             }
         ],
     )
 
-    with pytest.raises(litellm.BadRequestError, match="no healthy deployments") as raised:
+    with pytest.raises(hangarllm.BadRequestError, match="no healthy deployments") as raised:
         await router.aembedding(input=["hi"], model="no-such-model")
 
     assert getattr(raised.value, "failed_deployment_id", None) is None

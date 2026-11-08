@@ -31,7 +31,7 @@ CLAUDE_TARGET: Final = (
     f"/v1/projects/{PROJECT}/locations/{CLAUDE_LOCATION}/publishers/anthropic/models/{CLAUDE_BACKEND}:rawPredict"
 )
 VALUES: Final = [0.5, 0.25]
-FILE_MESSAGE: Final = "Unable to load the vertex credentials file. LiteLLM's log names the path and the reason."
+FILE_MESSAGE: Final = "Unable to load the vertex credentials file. HangarLLM's log names the path and the reason."
 VALUE_ADVICE: Final = "Set it to a readable file path, or to the credentials JSON itself."
 PROXY_ROOT: Final = Path(__file__).resolve().parents[3]
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
@@ -345,7 +345,7 @@ def test_non_string_credentials_are_refused_at_registration_without_a_provider_c
             "/model/new",
             {
                 "model_name": f"integration-{uuid.uuid4().hex}",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"vertex_ai/{CHAT_BACKEND}",
                     "api_base": wire.url,
                     "vertex_project": PROJECT,
@@ -425,7 +425,7 @@ def test_rust_enabled_messages_route_loads_a_claude_key_file_and_names_unloadabl
     (tmp_path / "rust").mkdir()
     with (
         wire_server(vertex_claude_peer) as wire,
-        owned_proxy(gateway, tmp_path / "rust", {"LITELLM_RUST": "true"}, workers=2) as candidate,
+        owned_proxy(gateway, tmp_path / "rust", {"HANGARLLM_RUST": "true"}, workers=2) as candidate,
         candidate.scenario() as scenario,
     ):
 

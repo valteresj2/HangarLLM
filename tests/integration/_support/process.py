@@ -778,18 +778,18 @@ def _proxy_environment(
     )
     removed: Final = frozenset((*remove_environment, *(("DATABASE_URL_READ_REPLICA",) if unpaired_reader else ())))
     configured_hooks: Final = overrides.get(
-        "LITELLM_WORKER_STARTUP_HOOKS",
-        inherited.get("LITELLM_WORKER_STARTUP_HOOKS", "") if "LITELLM_WORKER_STARTUP_HOOKS" not in removed else "",
+        "HANGARLLM_WORKER_STARTUP_HOOKS",
+        inherited.get("HANGARLLM_WORKER_STARTUP_HOOKS", "") if "HANGARLLM_WORKER_STARTUP_HOOKS" not in removed else "",
     )
     return MappingProxyType(
         {
             **{name: value for name, value in inherited.items() if name not in removed},
-            "LITELLM_MASTER_KEY": gateway.key,
-            "LITELLM_SALT_KEY": source.get("LITELLM_SALT_KEY", "sk-integration-salt"),
+            "HANGARLLM_MASTER_KEY": gateway.key,
+            "HANGARLLM_SALT_KEY": source.get("HANGARLLM_SALT_KEY", "sk-integration-salt"),
             "STORE_MODEL_IN_DB": "True",
             "PYTHON_DOTENV_DISABLED": "1",
             **overrides,
-            "LITELLM_WORKER_STARTUP_HOOKS": ",".join(
+            "HANGARLLM_WORKER_STARTUP_HOOKS": ",".join(
                 hook
                 for hook in (
                     "integration._support.runtime:configure_executor",
@@ -1064,7 +1064,7 @@ class UpstreamSlot:
     """A scripted upstream a test module owns on a fixed port, so a cell can take it down and bring it back.
 
     It runs from the harness's own checkout, never ``INTEGRATION_PROXY_ROOT``: the double belongs to the tests,
-    the proxy root only names the litellm under test."""
+    the proxy root only names the hangarllm under test."""
 
     __slots__ = ("certificate", "directory", "inherited", "port", "process", "root")
 

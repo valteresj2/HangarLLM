@@ -44,7 +44,7 @@ _CLAUDE: Final = "claude-sonnet-5-5"
 _GEMINI: Final = "gemini-3.8-flash"
 _AGENT_RUNTIME: Final = "arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/integration-agent"
 _PROVIDER_KEY: Final = "synthetic-provider-key"
-_CALL_ID_HEADER: Final = "x-litellm-call-id"
+_CALL_ID_HEADER: Final = "x-hangarllm-call-id"
 _USAGE: Final = {"prompt_tokens": 9, "completion_tokens": 7, "total_tokens": 16}
 _TARGETS: Final[Mapping[Family, str]] = {
     "openai": "/chat/completions",
@@ -464,12 +464,12 @@ def test_concurrent_burst_ends_each_stream_by_whether_its_provider_finished_it(g
         )
 
 
-_SPEND_LOG_INSERT: Final = b'INSERT INTO "public"."LiteLLM_SpendLogs"'
+_SPEND_LOG_INSERT: Final = b'INSERT INTO "public"."HangarLLM_SpendLogs"'
 
 
 def _spend_statuses(database_url: str | None) -> Counter[tuple[str, str]]:
-    rows: Final = read_rows('SELECT litellm_call_id, status FROM "LiteLLM_SpendLogs"', (), database_url=database_url)
-    return Counter((string_value(row["litellm_call_id"]), string_value(row["status"])) for row in rows)
+    rows: Final = read_rows('SELECT hangarllm_call_id, status FROM "HangarLLM_SpendLogs"', (), database_url=database_url)
+    return Counter((string_value(row["hangarllm_call_id"]), string_value(row["status"])) for row in rows)
 
 
 def test_spend_log_outage_mid_burst_keeps_each_stream_ending_and_lands_every_row_once(

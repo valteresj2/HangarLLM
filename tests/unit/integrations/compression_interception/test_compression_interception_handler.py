@@ -6,15 +6,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.integrations.compression_interception.handler import (
+from hangarllm.integrations.compression_interception.handler import (
     CompressionInterceptionLogger,
 )
-from litellm.types.utils import CallTypes
+from hangarllm.types.utils import CallTypes
 
 
 def test_initialize_from_proxy_config():
-    """Test initialization from proxy config with litellm_settings."""
-    litellm_settings = {
+    """Test initialization from proxy config with hangarllm_settings."""
+    hangarllm_settings = {
         "compression_interception_params": {
             "enabled": True,
             "compression_trigger": 1234,
@@ -23,7 +23,7 @@ def test_initialize_from_proxy_config():
     }
 
     logger = CompressionInterceptionLogger.initialize_from_proxy_config(
-        litellm_settings=litellm_settings,
+        hangarllm_settings=hangarllm_settings,
         callback_specific_params={},
     )
 
@@ -42,7 +42,7 @@ def test_initialize_from_proxy_config_ignores_non_dict_callback_specific_params(
     The value is ignored and the logger falls back to defaults.
     """
     logger = CompressionInterceptionLogger.initialize_from_proxy_config(
-        litellm_settings={},
+        hangarllm_settings={},
         callback_specific_params={"compression_interception": True},
     )
 
@@ -53,7 +53,7 @@ def test_initialize_from_proxy_config_ignores_non_dict_callback_specific_params(
 def test_initialize_from_proxy_config_honors_dict_callback_specific_params():
     """A valid dict under callback_settings.compression_interception is applied."""
     logger = CompressionInterceptionLogger.initialize_from_proxy_config(
-        litellm_settings={},
+        hangarllm_settings={},
         callback_specific_params={
             "compression_interception": {
                 "enabled": False,
@@ -80,7 +80,7 @@ async def test_pre_call_hook_compresses_messages_and_injects_tool(monkeypatch):
             {
                 "type": "function",
                 "function": {
-                    "name": "litellm_content_retrieve",
+                    "name": "hangarllm_content_retrieve",
                     "parameters": {
                         "type": "object",
                         "properties": {"key": {"type": "string"}},
@@ -93,11 +93,11 @@ async def test_pre_call_hook_compresses_messages_and_injects_tool(monkeypatch):
     def _fake_compress(**kwargs):
         return compressed_result
 
-    # The handler does ``from litellm.compression import compress`` at module
+    # The handler does ``from hangarllm.compression import compress`` at module
     # scope, so we must patch the binding on the handler module — patching
-    # ``litellm.compress`` has no effect on the already-bound reference.
+    # ``hangarllm.compress`` has no effect on the already-bound reference.
     monkeypatch.setattr(
-        "litellm.integrations.compression_interception.handler.compress",
+        "hangarllm.integrations.compression_interception.handler.compress",
         _fake_compress,
     )
 
@@ -120,8 +120,8 @@ async def test_pre_call_hook_compresses_messages_and_injects_tool(monkeypatch):
     assert result["messages"] == compressed_result["messages"]
     tool_names = [t.get("function", {}).get("name") for t in result["tools"]]
     assert "existing_tool" in tool_names
-    assert "litellm_content_retrieve" in tool_names
-    assert result["litellm_call_id"] in logger._compression_cache_by_call_id
+    assert "hangarllm_content_retrieve" in tool_names
+    assert result["hangarllm_call_id"] in logger._compression_cache_by_call_id
 
 
 @pytest.mark.asyncio
@@ -147,7 +147,7 @@ async def test_pre_call_hook_below_trigger_does_not_inject_empty_tools(monkeypat
         }
 
     monkeypatch.setattr(
-        "litellm.integrations.compression_interception.handler.compress",
+        "hangarllm.integrations.compression_interception.handler.compress",
         _fake_compress_noop,
     )
 
@@ -164,7 +164,7 @@ async def test_pre_call_hook_below_trigger_does_not_inject_empty_tools(monkeypat
     # Original request had no ``tools`` — skipped compression must leave it that way.
     assert "tools" not in result
     # Cache must not be populated for a no-op.
-    assert result.get("litellm_call_id") not in logger._compression_cache_by_call_id
+    assert result.get("hangarllm_call_id") not in logger._compression_cache_by_call_id
 
 
 @pytest.mark.asyncio
@@ -176,7 +176,7 @@ async def test_should_run_agentic_loop_detects_retrieval_tool_use():
             {
                 "type": "tool_use",
                 "id": "toolu_123",
-                "name": "litellm_content_retrieve",
+                "name": "hangarllm_content_retrieve",
                 "input": {"key": "auth.py"},
             }
         ]
@@ -190,7 +190,7 @@ async def test_should_run_agentic_loop_detects_retrieval_tool_use():
             {
                 "type": "function",
                 "function": {
-                    "name": "litellm_content_retrieve",
+                    "name": "hangarllm_content_retrieve",
                     "parameters": {"type": "object"},
                 },
             }
@@ -216,7 +216,7 @@ async def test_build_agentic_loop_plan_returns_request_patch():
     )
 
     logging_obj = MagicMock()
-    logging_obj.litellm_call_id = call_id
+    logging_obj.hangarllm_call_id = call_id
     logging_obj.model_call_details = {
         "agentic_loop_params": {"model": "bedrock/invoke/claude-3-5-sonnet"}
     }
@@ -227,7 +227,7 @@ async def test_build_agentic_loop_plan_returns_request_patch():
                 {
                     "id": "toolu_abc",
                     "type": "tool_use",
-                    "name": "litellm_content_retrieve",
+                    "name": "hangarllm_content_retrieve",
                     "input": {"key": "auth.py"},
                 }
             ]
@@ -238,14 +238,14 @@ async def test_build_agentic_loop_plan_returns_request_patch():
         anthropic_messages_provider_config=None,
         anthropic_messages_optional_request_params={
             "max_tokens": 1024,
-            "tools": [{"name": "litellm_content_retrieve"}],
+            "tools": [{"name": "hangarllm_content_retrieve"}],
         },
         logging_obj=logging_obj,
         stream=False,
         kwargs={
             "temperature": 0.1,
             "_compression_interception_internal": True,
-            "litellm_logging_obj": object(),
+            "hangarllm_logging_obj": object(),
         },
     )
 
@@ -258,7 +258,7 @@ async def test_build_agentic_loop_plan_returns_request_patch():
     tool_result_content = plan.request_patch.messages[-1]["content"][0]["content"]
     assert tool_result_content == "full auth file"
     assert "_compression_interception_internal" not in plan.request_patch.kwargs
-    assert "litellm_logging_obj" not in plan.request_patch.kwargs
+    assert "hangarllm_logging_obj" not in plan.request_patch.kwargs
     assert plan.request_patch.kwargs["temperature"] == 0.1
     assert "max_tokens" not in plan.request_patch.optional_params
 
@@ -266,11 +266,11 @@ async def test_build_agentic_loop_plan_returns_request_patch():
 @pytest.mark.asyncio
 async def test_should_run_agentic_loop_with_custom_type_tools():
     """Test that async_should_run_agentic_loop returns True when tools contain
-    litellm_content_retrieve as a custom-typed tool (e.g. Claude Code tool list)
+    hangarllm_content_retrieve as a custom-typed tool (e.g. Claude Code tool list)
     and the model response includes a matching tool_use block."""
     logger = CompressionInterceptionLogger()
 
-    # Exact tools payload produced by Claude Code – litellm_content_retrieve is
+    # Exact tools payload produced by Claude Code – hangarllm_content_retrieve is
     # the final entry and uses type="custom" (not type="function").
     tools = [
         {
@@ -312,7 +312,7 @@ async def test_should_run_agentic_loop_with_custom_type_tools():
             },
         },
         {
-            "name": "litellm_content_retrieve",
+            "name": "hangarllm_content_retrieve",
             "description": "Retrieve the full content of a file or message that was compressed to save tokens.",
             "input_schema": {
                 "type": "object",
@@ -339,7 +339,7 @@ async def test_should_run_agentic_loop_with_custom_type_tools():
             {
                 "type": "tool_use",
                 "id": "toolu_abc",
-                "name": "litellm_content_retrieve",
+                "name": "hangarllm_content_retrieve",
                 "input": {"key": "message_0"},
             }
         ]
@@ -367,7 +367,7 @@ async def test_build_agentic_loop_plan_missing_key_fallback():
     logger = CompressionInterceptionLogger()
 
     logging_obj = MagicMock()
-    logging_obj.litellm_call_id = "missing_call"
+    logging_obj.hangarllm_call_id = "missing_call"
     logging_obj.model_call_details = {"agentic_loop_params": {}}
 
     plan = await logger.async_build_agentic_loop_plan(
@@ -376,7 +376,7 @@ async def test_build_agentic_loop_plan_missing_key_fallback():
                 {
                     "id": "toolu_missing",
                     "type": "tool_use",
-                    "name": "litellm_content_retrieve",
+                    "name": "hangarllm_content_retrieve",
                     "input": {"key": "not_found.py"},
                 }
             ]
@@ -410,45 +410,45 @@ def _stub_compress_result(original_tokens, compressed_tokens, cache):
 
 
 @pytest.mark.asyncio
-async def test_pre_call_hook_records_compression_savings_in_litellm_metadata(monkeypatch):
+async def test_pre_call_hook_records_compression_savings_in_hangarllm_metadata(monkeypatch):
     """
     When compression fires, the hook must record tokens_before/after/saved into
-    the request's litellm_metadata IN PLACE (the proxy and logging object hold
+    the request's hangarllm_metadata IN PLACE (the proxy and logging object hold
     references to the same dict), so the savings land in the SpendLog row's
     metadata JSON under ``compression_savings``.
     """
     logger = CompressionInterceptionLogger()
     monkeypatch.setattr(
-        "litellm.integrations.compression_interception.handler.compress",
+        "hangarllm.integrations.compression_interception.handler.compress",
         lambda **kwargs: _stub_compress_result(12000, 5000, {"auth.py": "content"}),
     )
 
-    litellm_metadata = {"user_api_key": "hashed-key", "user_api_key_user_id": "u1"}
+    hangarllm_metadata = {"user_api_key": "hashed-key", "user_api_key_user_id": "u1"}
     kwargs = {
         "model": "claude-sonnet-5",
         "messages": [{"role": "user", "content": "very large context"}],
-        "litellm_metadata": litellm_metadata,
+        "hangarllm_metadata": hangarllm_metadata,
     }
 
     result = await logger.async_pre_call_deployment_hook(kwargs=kwargs, call_type=CallTypes.anthropic_messages)
 
     assert result is not None
-    assert result["litellm_metadata"] is litellm_metadata
-    assert litellm_metadata["compression_savings"] == {
+    assert result["hangarllm_metadata"] is hangarllm_metadata
+    assert hangarllm_metadata["compression_savings"] == {
         "tokens_before": 12000,
         "tokens_after": 5000,
         "tokens_saved": 7000,
         "source": "compression_interception",
     }
-    assert litellm_metadata["user_api_key"] == "hashed-key"
+    assert hangarllm_metadata["user_api_key"] == "hashed-key"
 
 
 @pytest.mark.asyncio
-async def test_pre_call_hook_creates_litellm_metadata_when_absent(monkeypatch):
-    """SDK-direct calls have no litellm_metadata dict yet; the hook creates it."""
+async def test_pre_call_hook_creates_hangarllm_metadata_when_absent(monkeypatch):
+    """SDK-direct calls have no hangarllm_metadata dict yet; the hook creates it."""
     logger = CompressionInterceptionLogger()
     monkeypatch.setattr(
-        "litellm.integrations.compression_interception.handler.compress",
+        "hangarllm.integrations.compression_interception.handler.compress",
         lambda **kwargs: _stub_compress_result(300, 100, {"k": "v"}),
     )
 
@@ -460,7 +460,7 @@ async def test_pre_call_hook_creates_litellm_metadata_when_absent(monkeypatch):
     result = await logger.async_pre_call_deployment_hook(kwargs=kwargs, call_type=CallTypes.anthropic_messages)
 
     assert result is not None
-    assert result["litellm_metadata"]["compression_savings"]["tokens_saved"] == 200
+    assert result["hangarllm_metadata"]["compression_savings"]["tokens_saved"] == 200
 
 
 @pytest.mark.asyncio
@@ -480,21 +480,21 @@ async def test_pre_call_hook_invalid_token_counts_fail_open(monkeypatch, origina
     """Invalid token counts must never crash the request; savings simply are not recorded."""
     logger = CompressionInterceptionLogger()
     monkeypatch.setattr(
-        "litellm.integrations.compression_interception.handler.compress",
+        "hangarllm.integrations.compression_interception.handler.compress",
         lambda **kwargs: _stub_compress_result(original_tokens, compressed_tokens, {"k": "v"}),
     )
 
-    litellm_metadata = {"user_api_key": "hashed-key"}
+    hangarllm_metadata = {"user_api_key": "hashed-key"}
     kwargs = {
         "model": "claude-sonnet-5",
         "messages": [{"role": "user", "content": "ctx"}],
-        "litellm_metadata": litellm_metadata,
+        "hangarllm_metadata": hangarllm_metadata,
     }
 
     result = await logger.async_pre_call_deployment_hook(kwargs=kwargs, call_type=CallTypes.anthropic_messages)
 
     assert result is not None
-    assert "compression_savings" not in litellm_metadata
+    assert "compression_savings" not in hangarllm_metadata
 
 
 @pytest.mark.asyncio
@@ -502,7 +502,7 @@ async def test_pre_call_hook_no_compression_records_no_savings(monkeypatch):
     """When compression is a no-op (empty cache) nothing is recorded."""
     logger = CompressionInterceptionLogger()
     monkeypatch.setattr(
-        "litellm.integrations.compression_interception.handler.compress",
+        "hangarllm.integrations.compression_interception.handler.compress",
         lambda **kwargs: {
             "messages": [],
             "original_tokens": 100,
@@ -513,22 +513,22 @@ async def test_pre_call_hook_no_compression_records_no_savings(monkeypatch):
         },
     )
 
-    litellm_metadata = {"user_api_key": "hashed-key"}
+    hangarllm_metadata = {"user_api_key": "hashed-key"}
     kwargs = {
         "model": "claude-sonnet-5",
         "messages": [{"role": "user", "content": "small"}],
-        "litellm_metadata": litellm_metadata,
+        "hangarllm_metadata": hangarllm_metadata,
     }
 
     await logger.async_pre_call_deployment_hook(kwargs=kwargs, call_type=CallTypes.anthropic_messages)
 
-    assert "compression_savings" not in litellm_metadata
+    assert "compression_savings" not in hangarllm_metadata
 
 
 @pytest.mark.asyncio
 async def test_pre_call_hook_counts_tokens_off_the_event_loop():
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.hangarllm_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,

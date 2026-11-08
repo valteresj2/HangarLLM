@@ -22,15 +22,15 @@ _MODEL: Final = "cc-subscription-sol"
 _INPUT_TOKENS: Final = 1000
 _OUTPUT_TOKENS: Final = 100
 _COST_MAP: Final[Mapping[str, Mapping[str, JsonValue]]] = {
-    f"chatgpt/{_MODEL}": {"litellm_provider": "chatgpt", "mode": "responses"},
+    f"chatgpt/{_MODEL}": {"hangarllm_provider": "chatgpt", "mode": "responses"},
     _MODEL: {
-        "litellm_provider": "openai",
+        "hangarllm_provider": "openai",
         "mode": "responses",
         "input_cost_per_token": 1e-6,
         "output_cost_per_token": 8e-6,
     },
     f"azure/{_MODEL}": {
-        "litellm_provider": "azure",
+        "hangarllm_provider": "azure",
         "mode": "responses",
         "input_cost_per_token": 3e-6,
         "output_cost_per_token": 5e-6,
@@ -101,13 +101,13 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
         overrides: Final = {
             "CHATGPT_TOKEN_DIR": str(cv.login(directory)),
             "CHATGPT_API_BASE": wire.url,
-            "LITELLM_MODEL_COST_MAP_URL": f"{wire.url}/_cost_map",
+            "HANGARLLM_MODEL_COST_MAP_URL": f"{wire.url}/_cost_map",
             "MODEL_COST_MAP_MIN_MODEL_COUNT": "1",
             "MODEL_COST_MAP_MAX_SHRINK_RATIO": "0",
         }
         config: Final = cv.proxy_config(directory, probe=False)
         with owned_proxy_process(
-            gateway, directory, overrides, config=config, remove_environment=("LITELLM_LOCAL_MODEL_COST_MAP",)
+            gateway, directory, overrides, config=config, remove_environment=("HANGARLLM_LOCAL_MODEL_COST_MAP",)
         ) as owned:
             yield _Rig(wire, owned)
 
@@ -134,11 +134,11 @@ def test_base_model_bills_the_priced_row_when_the_deployment_provider_row_has_no
             "POST", "/v1/responses", {"model": model, "input": [{"role": "user", "content": "price control"}]}
         )
         assert response.status_code == 200, response.text
-        assert float(response.headers.get("x-litellm-response-cost", "0")) == pytest.approx(expected_spend), (
+        assert float(response.headers.get("x-hangarllm-response-cost", "0")) == pytest.approx(expected_spend), (
             response.headers
         )
         rows: Final = eventually(
-            lambda: read_rows('SELECT spend, status FROM "LiteLLM_SpendLogs" WHERE model_group = %s', (model,)),
+            lambda: read_rows('SELECT spend, status FROM "HangarLLM_SpendLogs" WHERE model_group = %s', (model,)),
             lambda values: len(values) == 1,
             seconds=70,
         )

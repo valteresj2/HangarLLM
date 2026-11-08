@@ -3,7 +3,7 @@ Tests for the /guardrails/usage/* endpoints backing the dashboard Guardrail Moni
 
 Regression (LIT-2529): guardrails defined in config.yaml live only in
 IN_MEMORY_GUARDRAIL_HANDLER, so the monitor's overview/detail/logs endpoints —
-which read the litellm_guardrailstable Prisma table — could not see them:
+which read the hangarllm_guardrailstable Prisma table — could not see them:
 detail 404'd, overview omitted them (or rendered them as Custom/Guardrail
 orphans), and logs missed their logical-name alias.
 """
@@ -18,17 +18,17 @@ import pytest
 from fastapi import HTTPException
 from prisma.errors import TableNotFoundError
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
-from litellm.proxy.guardrails.usage_endpoints import (
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
+from hangarllm.proxy.guardrails.usage_endpoints import (
     guardrails_usage_detail,
     guardrails_usage_logs,
     guardrails_usage_overview,
     policies_usage_overview,
 )
-from litellm.types.guardrails import Guardrail, LitellmParams
+from hangarllm.types.guardrails import Guardrail, HangarllmParams
 
-ADMIN = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+ADMIN = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
 # Query() defaults don't resolve to None when the handler is called directly.
 START, END = "2026-04-20", "2026-04-27"
 
@@ -52,17 +52,17 @@ def _yaml_guardrail(
     return Guardrail(
         guardrail_id=guardrail_id,
         guardrail_name=name,
-        litellm_params=LitellmParams(guardrail=provider, mode="pre_call"),
+        hangarllm_params=HangarllmParams(guardrail=provider, mode="pre_call"),
         guardrail_info=info if info is not None else {"type": "PII", "description": "yaml-defined"},
     )
 
 
 def _db_row(guardrail_id: str = "db-1", name: str = "db-guard", provider: str = "aim") -> Any:
-    """A Prisma-style row: attribute access, litellm_params/guardrail_info as plain dicts."""
-    row = MagicMock(spec=["guardrail_id", "guardrail_name", "litellm_params", "guardrail_info"])
+    """A Prisma-style row: attribute access, hangarllm_params/guardrail_info as plain dicts."""
+    row = MagicMock(spec=["guardrail_id", "guardrail_name", "hangarllm_params", "guardrail_info"])
     row.guardrail_id = guardrail_id
     row.guardrail_name = name
-    row.litellm_params = {"guardrail": provider, "mode": "pre_call"}
+    row.hangarllm_params = {"guardrail": provider, "mode": "pre_call"}
     row.guardrail_info = {"type": "ContentSafety", "description": "db-defined"}
     return row
 
@@ -111,20 +111,20 @@ def _prisma(
 ) -> MagicMock:
     client = MagicMock()
     db = client.db
-    db.litellm_guardrailstable.find_many = AsyncMock(return_value=find_many or [])
-    db.litellm_guardrailstable.find_unique = AsyncMock(return_value=find_unique)
-    db.litellm_dailyguardrailmetrics.find_many = AsyncMock(return_value=metrics or [])
-    db.litellm_dailyguardrailusageunits.find_many = AsyncMock(return_value=units or [])
-    db.litellm_spendlogguardrailindex.find_many = AsyncMock(return_value=index_find_many or [])
-    db.litellm_spendlogguardrailindex.count = AsyncMock(return_value=0)
-    db.litellm_spendlogs.find_many = AsyncMock(return_value=[])
+    db.hangarllm_guardrailstable.find_many = AsyncMock(return_value=find_many or [])
+    db.hangarllm_guardrailstable.find_unique = AsyncMock(return_value=find_unique)
+    db.hangarllm_dailyguardrailmetrics.find_many = AsyncMock(return_value=metrics or [])
+    db.hangarllm_dailyguardrailusageunits.find_many = AsyncMock(return_value=units or [])
+    db.hangarllm_spendlogguardrailindex.find_many = AsyncMock(return_value=index_find_many or [])
+    db.hangarllm_spendlogguardrailindex.count = AsyncMock(return_value=0)
+    db.hangarllm_spendlogs.find_many = AsyncMock(return_value=[])
     return client
 
 
 def _patches(prisma: MagicMock, handler: InMemoryGuardrailHandler):
     return (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),
-        patch("litellm.proxy.guardrails.guardrail_registry.IN_MEMORY_GUARDRAIL_HANDLER", handler),
+        patch("hangarllm.proxy.proxy_server.prisma_client", prisma),
+        patch("hangarllm.proxy.guardrails.guardrail_registry.IN_MEMORY_GUARDRAIL_HANDLER", handler),
     )
 
 
@@ -142,7 +142,7 @@ async def test_detail_returns_yaml_guardrail_when_db_misses():
         )
     assert resp.guardrail_id == "yaml-1"
     assert resp.guardrail_name == "yaml-pii"
-    assert resp.provider == "presidio"  # coerced from the LitellmParams pydantic model
+    assert resp.provider == "presidio"  # coerced from the HangarllmParams pydantic model
     assert resp.type == "PII"  # from guardrail_info
     assert resp.description == "yaml-defined"
 
@@ -260,7 +260,7 @@ async def test_overview_reports_usage_units_per_row_and_total():
     row = next(r for r in resp.rows if r.id == "yaml-uuid")
     assert row.usageUnits == {"topicPolicyUnits": 4, "contentPolicyUnits": 5}
     assert resp.totalUsageUnits == {"topicPolicyUnits": 11, "contentPolicyUnits": 5}
-    units_where = prisma.db.litellm_dailyguardrailusageunits.find_many.call_args.kwargs["where"]
+    units_where = prisma.db.hangarllm_dailyguardrailusageunits.find_many.call_args.kwargs["where"]
     assert units_where == {"date": {"gte": START, "lte": END}}
 
 
@@ -295,20 +295,20 @@ async def test_detail_breaks_units_down_by_day_team_and_key():
         "hash-1": {"contentPolicyUnits": 2, "topicPolicyUnits": 1},
         "hash-2": {"contentPolicyUnits": 1},
     }
-    units_where = prisma.db.litellm_dailyguardrailusageunits.find_many.call_args.kwargs["where"]
+    units_where = prisma.db.hangarllm_dailyguardrailusageunits.find_many.call_args.kwargs["where"]
     assert units_where == {"guardrail_id": {"in": ["yaml-pii", "yaml-1"]}, "date": {"gte": START, "lte": END}}
 
 
 def _units_table_missing() -> TableNotFoundError:
     return TableNotFoundError(
-        data={"user_facing_error": {"meta": {"table": "public.LiteLLM_DailyGuardrailUsageUnits"}}}
+        data={"user_facing_error": {"meta": {"table": "public.HangarLLM_DailyGuardrailUsageUnits"}}}
     )
 
 
 @pytest.mark.asyncio
 async def test_overview_degrades_units_to_empty_when_units_table_is_missing():
     prisma = _prisma(metrics=[_metric("yaml-pii", requests=4, passed=3, blocked=1)])
-    prisma.db.litellm_dailyguardrailusageunits.find_many = AsyncMock(side_effect=_units_table_missing())
+    prisma.db.hangarllm_dailyguardrailusageunits.find_many = AsyncMock(side_effect=_units_table_missing())
     handler = _config_handler(_yaml_guardrail(guardrail_id="yaml-uuid", name="yaml-pii"))
     p1, p2 = _patches(prisma, handler)
     with p1, p2:
@@ -442,7 +442,7 @@ async def test_detail_breaks_cost_down_by_unit_day_team_and_key():
 @pytest.mark.asyncio
 async def test_detail_degrades_units_to_empty_when_units_table_is_missing():
     prisma = _prisma(metrics=[_metric("yaml-pii", requests=4, passed=3, blocked=1)])
-    prisma.db.litellm_dailyguardrailusageunits.find_many = AsyncMock(side_effect=_units_table_missing())
+    prisma.db.hangarllm_dailyguardrailusageunits.find_many = AsyncMock(side_effect=_units_table_missing())
     handler = _config_handler(_yaml_guardrail())
     p1, p2 = _patches(prisma, handler)
     with p1, p2:
@@ -481,7 +481,7 @@ async def test_logs_resolves_config_guardrail_logical_name():
             end_date=END,
             user_api_key_dict=ADMIN,
         )
-    where = prisma.db.litellm_spendlogguardrailindex.find_many.call_args.kwargs["where"]
+    where = prisma.db.hangarllm_spendlogguardrailindex.find_many.call_args.kwargs["where"]
     assert where["guardrail_id"] == {"in": ["yaml-uuid", "yaml-pii"]}
 
 
@@ -519,7 +519,7 @@ def _spend_log(request_id: str, *guardrail_statuses: str, guardrail_id: str = "c
 async def test_logs_reports_flagged_action_for_guardrail_flagged_status():
     """LIT-6894: Request Logs surface a custom code flag() verdict as flagged with its reason."""
     prisma = _prisma(index_find_many=[_index_row("r-flag"), _index_row("r-pass"), _index_row("r-block")])
-    prisma.db.litellm_spendlogs.find_many = AsyncMock(
+    prisma.db.hangarllm_spendlogs.find_many = AsyncMock(
         return_value=[
             _spend_log("r-flag", "guardrail_flagged"),
             _spend_log("r-pass", "success"),
@@ -562,7 +562,7 @@ async def test_logs_reports_post_call_flag_when_pre_call_allowed():
     """LIT-6894: a guardrail on mode [pre_call, post_call] that allows the request but flags the response
     shows as flagged, not hidden behind the pre_call allow entry."""
     prisma = _prisma(index_find_many=[_index_row("r-post-flag")])
-    prisma.db.litellm_spendlogs.find_many = AsyncMock(
+    prisma.db.hangarllm_spendlogs.find_many = AsyncMock(
         return_value=[_spend_log("r-post-flag", "success", "guardrail_flagged")]
     )
     p1, p2 = _patches(prisma, _config_handler())
@@ -648,8 +648,8 @@ async def test_policies_overview_returns_a_full_row_and_totals():
     metric = _metric("pol-1", requests=10, passed=8, blocked=2)
     metric.policy_id = "pol-1"
     prisma = _prisma()
-    prisma.db.litellm_policytable.find_many = AsyncMock(return_value=[policy])
-    prisma.db.litellm_dailypolicymetrics.find_many = AsyncMock(return_value=[metric])
+    prisma.db.hangarllm_policytable.find_many = AsyncMock(return_value=[policy])
+    prisma.db.hangarllm_dailypolicymetrics.find_many = AsyncMock(return_value=[metric])
     p1, p2 = _patches(prisma, _config_handler())
     with p1, p2:
         resp = await policies_usage_overview(start_date=START, end_date=END, user_api_key_dict=ADMIN)
@@ -678,7 +678,7 @@ async def test_detail_prev_trend_query_is_bounded():
     p1, p2 = _patches(prisma, handler)
     with p1, p2:
         await guardrails_usage_detail(guardrail_id="db-1", start_date=START, end_date=END, user_api_key_dict=ADMIN)
-    wheres = [c.kwargs["where"] for c in prisma.db.litellm_dailyguardrailmetrics.find_many.await_args_list]
+    wheres = [c.kwargs["where"] for c in prisma.db.hangarllm_dailyguardrailmetrics.find_many.await_args_list]
     prev_wheres = [w for w in wheres if "lt" in w.get("date", {})]
     assert prev_wheres
     assert all("gte" in w["date"] for w in prev_wheres)
@@ -701,7 +701,7 @@ async def test_logs_report_not_run_entries_as_not_run_not_passed():
         ]
     }
     prisma = _prisma(find_unique=_db_row(), index_find_many=[index_row])
-    prisma.db.litellm_spendlogs.find_many = AsyncMock(return_value=[spend_log])
+    prisma.db.hangarllm_spendlogs.find_many = AsyncMock(return_value=[spend_log])
     handler = _config_handler()
     p1, p2 = _patches(prisma, handler)
     with p1, p2:
@@ -731,7 +731,7 @@ async def test_logs_action_passed_filter_excludes_not_run_entries():
     spend_log.startTime = datetime(2026, 4, 22)
     spend_log.metadata = {"guardrail_information": [{"guardrail_name": "db-1", "guardrail_status": "not_run"}]}
     prisma = _prisma(find_unique=_db_row(), index_find_many=[index_row])
-    prisma.db.litellm_spendlogs.find_many = AsyncMock(return_value=[spend_log])
+    prisma.db.hangarllm_spendlogs.find_many = AsyncMock(return_value=[spend_log])
     handler = _config_handler()
     p1, p2 = _patches(prisma, handler)
     with p1, p2:

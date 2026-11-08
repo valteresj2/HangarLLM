@@ -20,8 +20,8 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "au-pii-tax-identifiers",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -48,8 +48,8 @@
       },
       {
         "guardrail_name": "au-pii-passports",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -66,8 +66,8 @@
       },
       {
         "guardrail_name": "international-pii-identifiers",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -159,8 +159,8 @@
       },
       {
         "guardrail_name": "contact-information-pii",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -202,8 +202,8 @@
       },
       {
         "guardrail_name": "financial-pii",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -245,8 +245,8 @@
       },
       {
         "guardrail_name": "credentials-api-keys",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -283,8 +283,8 @@
       },
       {
         "guardrail_name": "network-infrastructure-pii",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -306,8 +306,8 @@
       },
       {
         "guardrail_name": "protected-class-information",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -395,8 +395,8 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "au-pii-tax-identifiers",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -423,8 +423,8 @@
       },
       {
         "guardrail_name": "credentials-api-keys",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -461,8 +461,8 @@
       },
       {
         "guardrail_name": "financial-pii",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -536,8 +536,8 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "nsfw-content-filter-english",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -554,8 +554,8 @@
       },
       {
         "guardrail_name": "nsfw-content-filter-australian",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -572,8 +572,8 @@
       },
       {
         "guardrail_name": "nsfw-self-harm-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -590,8 +590,8 @@
       },
       {
         "guardrail_name": "nsfw-child-safety-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -608,8 +608,8 @@
       },
       {
         "guardrail_name": "nsfw-racial-bias-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -660,8 +660,8 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "nsfw-content-filter-english-only",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -678,8 +678,8 @@
       },
       {
         "guardrail_name": "nsfw-self-harm-filter-basic",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -696,8 +696,8 @@
       },
       {
         "guardrail_name": "nsfw-child-safety-filter-basic",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -714,8 +714,8 @@
       },
       {
         "guardrail_name": "nsfw-racial-bias-filter-basic",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -768,8 +768,8 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "nsfw-filter-english",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -786,8 +786,8 @@
       },
       {
         "guardrail_name": "nsfw-filter-spanish",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -804,8 +804,8 @@
       },
       {
         "guardrail_name": "nsfw-filter-french",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -822,8 +822,8 @@
       },
       {
         "guardrail_name": "nsfw-filter-german",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -840,8 +840,8 @@
       },
       {
         "guardrail_name": "nsfw-filter-australian",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -858,8 +858,8 @@
       },
       {
         "guardrail_name": "nsfw-self-harm-filter-global",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -876,8 +876,8 @@
       },
       {
         "guardrail_name": "nsfw-child-safety-filter-global",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -894,8 +894,8 @@
       },
       {
         "guardrail_name": "nsfw-racial-bias-filter-global",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
@@ -948,8 +948,8 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "gdpr-eu-national-identifiers",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -971,8 +971,8 @@
       },
       {
         "guardrail_name": "gdpr-eu-financial-data",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -994,8 +994,8 @@
       },
       {
         "guardrail_name": "gdpr-eu-contact-information",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -1022,8 +1022,8 @@
       },
       {
         "guardrail_name": "gdpr-eu-business-identifiers",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -1080,13 +1080,13 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "eu-ai-act-art5-manipulation",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "eu_ai_act_art5_manipulation",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_manipulation.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_manipulation.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -1099,13 +1099,13 @@
       },
       {
         "guardrail_name": "eu-ai-act-art5-vulnerability",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "eu_ai_act_art5_vulnerability",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_vulnerability.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_vulnerability.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -1118,13 +1118,13 @@
       },
       {
         "guardrail_name": "eu-ai-act-art5-social-scoring",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "eu_ai_act_art5_social_scoring",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_social_scoring.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_social_scoring.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -1137,13 +1137,13 @@
       },
       {
         "guardrail_name": "eu-ai-act-art5-emotion-recognition",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "eu_ai_act_art5_emotion_recognition",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_emotion_recognition.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_emotion_recognition.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -1156,13 +1156,13 @@
       },
       {
         "guardrail_name": "eu-ai-act-art5-biometric-profiling",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "eu_ai_act_art5_biometric_profiling",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_biometric_profiling.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_biometric_profiling.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -1175,13 +1175,13 @@
       },
       {
         "guardrail_name": "eu-ai-act-art5-manipulation-fr",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "eu_ai_act_art5_manipulation_fr",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_manipulation_fr.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_manipulation_fr.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -1194,13 +1194,13 @@
       },
       {
         "guardrail_name": "eu-ai-act-art5-vulnerability-fr",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "eu_ai_act_art5_vulnerability_fr",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_vulnerability_fr.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_vulnerability_fr.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -1213,13 +1213,13 @@
       },
       {
         "guardrail_name": "eu-ai-act-art5-social-scoring-fr",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "eu_ai_act_art5_social_scoring_fr",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_social_scoring_fr.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_social_scoring_fr.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -1232,13 +1232,13 @@
       },
       {
         "guardrail_name": "eu-ai-act-art5-emotion-recognition-fr",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "eu_ai_act_art5_emotion_recognition_fr",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_emotion_recognition_fr.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_emotion_recognition_fr.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -1251,13 +1251,13 @@
       },
       {
         "guardrail_name": "eu-ai-act-art5-biometric-profiling-fr",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "eu_ai_act_art5_biometric_profiling_fr",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_biometric_profiling_fr.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/eu_ai_act_art5_biometric_profiling_fr.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -1295,7 +1295,7 @@
   {
     "id": "mcp-security-unregistered-server-block",
     "title": "MCP Security: Block Unregistered Servers",
-    "description": "Blocks requests that reference MCP servers not registered on this LiteLLM gateway. Prevents unauthorized tool access via unregistered MCP endpoints.",
+    "description": "Blocks requests that reference MCP servers not registered on this HangarLLM gateway. Prevents unauthorized tool access via unregistered MCP endpoints.",
     "icon": "ShieldCheckIcon",
     "iconColor": "text-red-500",
     "iconBg": "bg-red-50",
@@ -1306,7 +1306,7 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "mcp-security-block",
-        "litellm_params": {
+        "hangarllm_params": {
           "guardrail": "mcp_security",
           "mode": "pre_call",
           "default_on": true,
@@ -1347,8 +1347,8 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "airline-pnr-skywards-pii",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -1370,8 +1370,8 @@
       },
       {
         "guardrail_name": "airline-passport-multinational",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -1438,8 +1438,8 @@
       },
       {
         "guardrail_name": "airline-payment-financial",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -1476,8 +1476,8 @@
       },
       {
         "guardrail_name": "airline-contact-info-uae",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -1557,8 +1557,8 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "aviation-ops-data-protection",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -1608,13 +1608,13 @@
       },
       {
         "guardrail_name": "aviation-safety-topic-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "aviation_safety_topics",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/aviation_safety_topics.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/aviation_safety_topics.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -1627,13 +1627,13 @@
       },
       {
         "guardrail_name": "airline-brand-protection-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "post_call",
           "categories": [
             {
               "category": "airline_brand_protection",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/airline_brand_protection.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/airline_brand_protection.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -1698,8 +1698,8 @@
       },
       {
         "guardrail_name": "competitor-name-input-blocker",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "blocked_words": "{{competitors_blocked_words}}"
         },
@@ -1709,8 +1709,8 @@
       },
       {
         "guardrail_name": "competitor-name-output-blocker",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "post_call",
           "blocked_words": "{{competitors_blocked_words}}"
         },
@@ -1720,8 +1720,8 @@
       },
       {
         "guardrail_name": "competitor-recommendation-input-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "blocked_words": "{{competitor_recommendation_words}}"
         },
@@ -1731,8 +1731,8 @@
       },
       {
         "guardrail_name": "competitor-recommendation-output-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "post_call",
           "blocked_words": "{{competitor_recommendation_words}}"
         },
@@ -1742,8 +1742,8 @@
       },
       {
         "guardrail_name": "competitor-comparison-input-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "blocked_words": "{{competitor_comparison_words}}"
         },
@@ -1753,8 +1753,8 @@
       },
       {
         "guardrail_name": "competitor-comparison-output-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "post_call",
           "blocked_words": "{{competitor_comparison_words}}"
         },
@@ -1801,8 +1801,8 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "uae-data-protection-pii",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -1845,13 +1845,13 @@
       },
       {
         "guardrail_name": "uae-cultural-sensitivity-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "uae_cultural_sensitivity",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/uae_cultural_sensitivity.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/uae_cultural_sensitivity.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -1864,13 +1864,13 @@
       },
       {
         "guardrail_name": "uae-anti-discrimination-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "uae_anti_discrimination",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/uae_anti_discrimination.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/uae_anti_discrimination.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -1931,8 +1931,8 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "competitor-input-blocker",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "blocked_words": "{{competitors_blocked_words}}"
         },
@@ -1942,8 +1942,8 @@
       },
       {
         "guardrail_name": "competitor-output-blocker",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "post_call",
           "blocked_words": "{{competitors_blocked_words}}"
         },
@@ -1953,8 +1953,8 @@
       },
       {
         "guardrail_name": "competitor-recommendation-input-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "blocked_words": "{{competitor_recommendation_words}}"
         },
@@ -1964,8 +1964,8 @@
       },
       {
         "guardrail_name": "competitor-recommendation-output-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "post_call",
           "blocked_words": "{{competitor_recommendation_words}}"
         },
@@ -1975,8 +1975,8 @@
       },
       {
         "guardrail_name": "competitor-comparison-input-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "blocked_words": "{{competitor_comparison_words}}"
         },
@@ -1986,8 +1986,8 @@
       },
       {
         "guardrail_name": "competitor-comparison-output-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "post_call",
           "blocked_words": "{{competitor_comparison_words}}"
         },
@@ -2036,8 +2036,8 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "sg-pdpa-pii-identifiers",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -2059,8 +2059,8 @@
       },
       {
         "guardrail_name": "sg-pdpa-contact-information",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -2087,8 +2087,8 @@
       },
       {
         "guardrail_name": "sg-pdpa-financial-data",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -2110,8 +2110,8 @@
       },
       {
         "guardrail_name": "sg-pdpa-business-identifiers",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -2128,13 +2128,13 @@
       },
       {
         "guardrail_name": "sg-pdpa-personal-identifiers",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "sg_pdpa_personal_identifiers",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/sg_pdpa_personal_identifiers.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/sg_pdpa_personal_identifiers.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2147,13 +2147,13 @@
       },
       {
         "guardrail_name": "sg-pdpa-sensitive-data",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "sg_pdpa_sensitive_data",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/sg_pdpa_sensitive_data.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/sg_pdpa_sensitive_data.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2166,13 +2166,13 @@
       },
       {
         "guardrail_name": "sg-pdpa-do-not-call",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "sg_pdpa_do_not_call",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/sg_pdpa_do_not_call.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/sg_pdpa_do_not_call.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2185,13 +2185,13 @@
       },
       {
         "guardrail_name": "sg-pdpa-data-transfer",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "sg_pdpa_data_transfer",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/sg_pdpa_data_transfer.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/sg_pdpa_data_transfer.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2204,13 +2204,13 @@
       },
       {
         "guardrail_name": "sg-pdpa-profiling-automated-decisions",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "sg_pdpa_profiling_automated_decisions",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/sg_pdpa_profiling_automated_decisions.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/sg_pdpa_profiling_automated_decisions.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2263,13 +2263,13 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "sg-mas-fairness-bias",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "sg_mas_fairness_bias",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/sg_mas_fairness_bias.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/sg_mas_fairness_bias.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2282,13 +2282,13 @@
       },
       {
         "guardrail_name": "sg-mas-transparency-explainability",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "sg_mas_transparency_explainability",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/sg_mas_transparency_explainability.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/sg_mas_transparency_explainability.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2301,13 +2301,13 @@
       },
       {
         "guardrail_name": "sg-mas-human-oversight",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "sg_mas_human_oversight",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/sg_mas_human_oversight.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/sg_mas_human_oversight.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2320,13 +2320,13 @@
       },
       {
         "guardrail_name": "sg-mas-data-governance",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "sg_mas_data_governance",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/sg_mas_data_governance.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/sg_mas_data_governance.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2339,13 +2339,13 @@
       },
       {
         "guardrail_name": "sg-mas-model-security",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "sg_mas_model_security",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/policy_templates/sg_mas_model_security.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/policy_templates/sg_mas_model_security.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2394,13 +2394,13 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "claims-fraud-coaching-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "claims_fraud_coaching",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/categories/claims_fraud_coaching.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/categories/claims_fraud_coaching.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2413,13 +2413,13 @@
       },
       {
         "guardrail_name": "claims-phi-disclosure-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "claims_phi_disclosure",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/categories/claims_phi_disclosure.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/categories/claims_phi_disclosure.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2432,13 +2432,13 @@
       },
       {
         "guardrail_name": "claims-prior-auth-gaming-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "claims_prior_auth_gaming",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/categories/claims_prior_auth_gaming.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/categories/claims_prior_auth_gaming.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2451,13 +2451,13 @@
       },
       {
         "guardrail_name": "claims-system-override-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "claims_system_override",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/categories/claims_system_override.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/categories/claims_system_override.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2470,13 +2470,13 @@
       },
       {
         "guardrail_name": "claims-medical-advice-filter",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "categories": [
             {
               "category": "claims_medical_advice",
-              "category_file": "litellm/proxy/guardrails/content_filter_data/categories/claims_medical_advice.yaml",
+              "category_file": "hangarllm/proxy/guardrails/content_filter_data/categories/claims_medical_advice.yaml",
               "enabled": true,
               "action": "BLOCK",
               "severity_threshold": "medium"
@@ -2526,8 +2526,8 @@
     "guardrailDefinitions": [
       {
         "guardrail_name": "ca-pii-government-identifiers",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -2549,8 +2549,8 @@
       },
       {
         "guardrail_name": "ca-pii-health-drivers",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -2572,8 +2572,8 @@
       },
       {
         "guardrail_name": "ca-pii-immigration",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -2590,8 +2590,8 @@
       },
       {
         "guardrail_name": "ca-pii-financial",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -2633,8 +2633,8 @@
       },
       {
         "guardrail_name": "ca-pii-contact-information",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {
@@ -2661,8 +2661,8 @@
       },
       {
         "guardrail_name": "ca-pii-institutional-ids",
-        "litellm_params": {
-          "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+          "guardrail": "hangarllm_content_filter",
           "mode": "pre_call",
           "patterns": [
             {

@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from prometheus_client import REGISTRY
 
-from litellm.integrations.prometheus import (
+from hangarllm.integrations.prometheus import (
     PrometheusLogger,
     _DEFAULT_BUDGET_METRICS_PER_REQUEST_TIMEOUT,
     _get_budget_metrics_per_request_timeout,
@@ -50,7 +50,7 @@ def _call_increment(logger: PrometheusLogger):
         user_api_team_alias="team-alias",
         user_api_key="key-1",
         user_api_key_alias="key-alias",
-        litellm_params={"metadata": {}},
+        hangarllm_params={"metadata": {}},
         response_cost=0.01,
         user_id="user-1",
         user_api_key_org_id="org-1",
@@ -75,7 +75,7 @@ async def test_budget_metric_emission_skips_on_timeout(prometheus_logger, monkey
     prometheus_logger._set_user_budget_metrics_after_api_request = AsyncMock()
     prometheus_logger._set_org_budget_metrics_after_api_request = AsyncMock()
 
-    with patch("litellm.integrations.prometheus.verbose_logger") as mock_logger:
+    with patch("hangarllm.integrations.prometheus.verbose_logger") as mock_logger:
         await _call_increment(prometheus_logger)
 
     assert _skip_logged(mock_logger.debug)
@@ -91,7 +91,7 @@ async def test_budget_metric_emission_completes_within_timeout(prometheus_logger
     prometheus_logger._set_user_budget_metrics_after_api_request = AsyncMock()
     prometheus_logger._set_org_budget_metrics_after_api_request = AsyncMock()
 
-    with patch("litellm.integrations.prometheus.verbose_logger") as mock_logger:
+    with patch("hangarllm.integrations.prometheus.verbose_logger") as mock_logger:
         await _call_increment(prometheus_logger)
 
     assert prometheus_logger._set_api_key_budget_metrics_after_api_request.await_count == 1

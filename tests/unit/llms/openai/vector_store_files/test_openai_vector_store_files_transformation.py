@@ -3,10 +3,10 @@ from typing import Final
 import httpx
 import pytest
 
-from litellm.llms.openai.vector_store_files.transformation import (
+from hangarllm.llms.openai.vector_store_files.transformation import (
     OpenAIVectorStoreFilesConfig,
 )
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.types.router import GenericHangarLLMParams
 
 
 @pytest.fixture()
@@ -16,9 +16,9 @@ def config() -> OpenAIVectorStoreFilesConfig:
 
 def test_validate_environment_sets_headers(config: OpenAIVectorStoreFilesConfig):
     headers: dict = {}
-    params = GenericLiteLLMParams(api_key="sk-test")
+    params = GenericHangarLLMParams(api_key="sk-test")
 
-    result = config.validate_environment(headers=headers, litellm_params=params)
+    result = config.validate_environment(headers=headers, hangarllm_params=params)
 
     assert result["Authorization"] == "Bearer sk-test"
     assert result[config.ASSISTANTS_HEADER_KEY] == config.ASSISTANTS_HEADER_VALUE
@@ -29,7 +29,7 @@ def test_get_complete_url(config: OpenAIVectorStoreFilesConfig):
     url = config.get_complete_url(
         api_base="https://api.example.com/v1",
         vector_store_id="vs_123",
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://api.example.com/v1/vector_stores/vs_123/files"
 
@@ -40,7 +40,7 @@ def test_get_complete_url_encodes_vector_store_id(
     url = config.get_complete_url(
         api_base="https://api.example.com/v1",
         vector_store_id="../vs_123?x=1#frag",
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert (

@@ -10,10 +10,10 @@ from integration._support import tool_search as ts
 from integration._support.wire import Wire, wire_server
 from pydantic import JsonValue
 
-import litellm
-from litellm import Router
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolMessage, ChatCompletionToolParam
-from litellm.types.utils import ChatCompletionMessageToolCall, Choices, Message, ModelResponse
+import hangarllm
+from hangarllm import Router
+from hangarllm.types.llms.openai import AllMessageValues, ChatCompletionToolMessage, ChatCompletionToolParam
+from hangarllm.types.utils import ChatCompletionMessageToolCall, Choices, Message, ModelResponse
 
 pytestmark: Final = pytest.mark.timeout(120)
 
@@ -63,12 +63,12 @@ def test_completion_returns_and_replays_tool_search_items() -> None:
     with wire_server(ts.scripted) as wire:
         user: Final = _user(marker)
         first: Final = _message(
-            litellm.completion(model=pcb.MODEL, messages=_messages(user), tools=tools, **_kwargs(wire))
+            hangarllm.completion(model=pcb.MODEL, messages=_messages(user), tools=tools, **_kwargs(wire))
         )
         _assert_turn_one(first, marker)
         pcb.posted(wire, marker)
         second: Final = _message(
-            litellm.completion(
+            hangarllm.completion(
                 model=pcb.MODEL,
                 messages=_messages(user, first, ts.tool_result(marker)),
                 tools=tools,
@@ -85,14 +85,14 @@ def test_streamed_completion_rebuilt_by_stream_chunk_builder_replays_tool_search
 
     async def run(wire: Wire) -> tuple[Message, Message]:
         user: Final = _user(marker)
-        stream: Final = await litellm.acompletion(
+        stream: Final = await hangarllm.acompletion(
             model=pcb.MODEL, messages=_messages(user), tools=tools, stream=True, **_kwargs(wire)
         )
         chunks: Final = [chunk async for chunk in stream]  # pyright: ignore[reportGeneralTypeIssues]  # stream wrapper
-        built: Final = _message(litellm.stream_chunk_builder(chunks, messages=_messages(user)))
+        built: Final = _message(hangarllm.stream_chunk_builder(chunks, messages=_messages(user)))
         pcb.posted(wire, marker)
         answered: Final = _message(
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model=pcb.MODEL,
                 messages=_messages(user, built.model_dump(), ts.tool_result(marker)),
                 tools=tools,
@@ -114,14 +114,14 @@ def test_streamed_turn_without_tool_search_replays_its_reasoning() -> None:
     tools: Final = _tools({"type": "function", "function": ts.function(ts.WEATHER)})
     with wire_server(ts.scripted) as wire:
         user: Final = _user(marker)
-        stream: Final = litellm.completion(
+        stream: Final = hangarllm.completion(
             model=pcb.MODEL, messages=_messages(user), tools=tools, stream=True, **_kwargs(wire)
         )
         chunks: Final = list(stream)  # pyright: ignore[reportArgumentType]  # stream wrapper
-        built: Final = _message(litellm.stream_chunk_builder(chunks, messages=_messages(user)))
+        built: Final = _message(hangarllm.stream_chunk_builder(chunks, messages=_messages(user)))
         pcb.posted(wire, marker)
         answered: Final = _message(
-            litellm.completion(
+            hangarllm.completion(
                 model=pcb.MODEL,
                 messages=_messages(user, built.model_dump(), ts.tool_result(marker)),
                 tools=tools,
@@ -141,7 +141,7 @@ def test_router_completion_replays_tool_search_items() -> None:
     tools: Final = _tools(*ts.chat_tools(ts.WEATHER))
     with wire_server(ts.scripted) as wire:
         router: Final = Router(
-            model_list=[{"model_name": "bridged", "litellm_params": {"model": pcb.MODEL, **_kwargs(wire)}}],
+            model_list=[{"model_name": "bridged", "hangarllm_params": {"model": pcb.MODEL, **_kwargs(wire)}}],
             num_retries=0,
         )
         user: Final = _user(marker)
@@ -170,7 +170,7 @@ def _posted_in_order(wire: Wire, marker: str) -> Sequence[list[dict[str, JsonVal
 def test_run_tool_loop_keeps_tool_search_items_and_namespace_between_rounds() -> None:
     marker: Final = uuid.uuid4().hex
     with wire_server(ts.scripted) as wire:
-        answer: Final = litellm.run_tool_loop(
+        answer: Final = hangarllm.run_tool_loop(
             model=pcb.MODEL,
             messages=_messages(_user(marker)),
             tools=_tools(*ts.chat_tools(ts.WEATHER)),
@@ -185,7 +185,7 @@ def test_async_run_tool_loop_keeps_two_searches_in_order() -> None:
     marker: Final = uuid.uuid4().hex
     with wire_server(ts.scripted) as wire:
         answer: Final = asyncio.run(
-            litellm.arun_tool_loop(
+            hangarllm.arun_tool_loop(
                 model=pcb.MODEL,
                 messages=_messages(_user(marker, ts.TWO_SEARCHES)),
                 tools=_tools(*ts.chat_tools(ts.WEATHER, ts.TIME)),

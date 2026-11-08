@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from litellm.proxy.db.db_transaction_queue.window_spend_update_queue import (
+from hangarllm.proxy.db.db_transaction_queue.window_spend_update_queue import (
     WindowSpendUpdateQueue,
     build_window_spend_transaction,
     to_naive_utc,
@@ -47,7 +47,7 @@ def test_build_window_spend_transaction_stores_naive_utc_iso():
 
 
 def test_build_window_spend_transaction_stores_started_at_as_naive_utc_iso():
-    """started_at is compared against LiteLLM_SpendLogs.startTime, which the
+    """started_at is compared against HangarLLM_SpendLogs.startTime, which the
     spend log writer stores after converting the request start to UTC."""
     non_utc = datetime(2026, 8, 10, 8, 30, 15, 123456, tzinfo=timezone(timedelta(hours=-4)))
 

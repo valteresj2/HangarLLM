@@ -13,8 +13,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.auth.authorization_dependencies import get_log_team_lookup
-from litellm.proxy.spend_tracking.spend_tracking_utils import (
+from hangarllm.proxy.auth.authorization_dependencies import get_log_team_lookup
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import (
     get_spend_by_team,
     get_spend_by_team_and_customer,
 )
@@ -81,8 +81,8 @@ async def test_global_activity_wraps_params_in_at_time_zone_utc(monkeypatch):
     so the date window and `date_trunc` bucketing do not depend on the DB
     session timezone. Regression guard for Issue 1.
     """
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.spend_tracking.spend_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import (
         get_global_activity,
     )
 
@@ -90,9 +90,9 @@ async def test_global_activity_wraps_params_in_at_time_zone_utc(monkeypatch):
     mock_prisma.db = MagicMock()
     mock_prisma.db.query_raw = AsyncMock(return_value=[])
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin")
+    auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin")
 
     await get_global_activity(
         start_date="2026-02-16",
@@ -128,8 +128,8 @@ async def test_global_activity_internal_user_wraps_params_in_at_time_zone_utc(
     helper (`get_global_activity_internal_user`) and has its own SQL string.
     Both branches must carry the fix. Regression guard for Issue 1.
     """
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.spend_tracking.spend_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import (
         get_global_activity,
     )
 
@@ -137,9 +137,9 @@ async def test_global_activity_internal_user_wraps_params_in_at_time_zone_utc(
     mock_prisma.db = MagicMock()
     mock_prisma.db.query_raw = AsyncMock(return_value=[])
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER, user_id="internal_user_1")
+    auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER, user_id="internal_user_1")
 
     await get_global_activity(
         start_date="2026-02-16",
@@ -162,20 +162,20 @@ async def test_spend_logs_ui_wraps_params_in_at_time_zone_utc(monkeypatch):
     log filter window doesn't drift with the DB session TZ. Regression
     guard for GH #22529.
     """
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.spend_tracking.spend_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import (
         ui_view_spend_logs,
     )
 
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
     statement_timeout_reads(mock_prisma, AsyncMock(return_value=[]))
-    mock_prisma.db.litellm_spendlogs = MagicMock()
-    mock_prisma.db.litellm_spendlogs.count = AsyncMock(return_value=0)
+    mock_prisma.db.hangarllm_spendlogs = MagicMock()
+    mock_prisma.db.hangarllm_spendlogs.count = AsyncMock(return_value=0)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin")
+    auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin")
 
     mock_request = MagicMock()
     mock_request.url.path = "/spend/logs/ui"
@@ -217,8 +217,8 @@ def _make_ui_spend_logs_mock(count_total, page_rows):
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
     statement_timeout_reads(mock_prisma, AsyncMock(side_effect=[[{"total_count": count_total}], page_rows]))
-    mock_prisma.db.litellm_spendlogs = MagicMock()
-    mock_prisma.db.litellm_spendlogs.count = AsyncMock(return_value=0)
+    mock_prisma.db.hangarllm_spendlogs = MagicMock()
+    mock_prisma.db.hangarllm_spendlogs.count = AsyncMock(return_value=0)
     return mock_prisma
 
 
@@ -227,12 +227,12 @@ async def test_spend_logs_ui_uses_bounded_count_not_full_scan(monkeypatch):
     """
     /spend/logs/ui must compute its pagination total with a bounded
     `SELECT COUNT(*) FROM (SELECT 1 ... LIMIT $cap+1)` so it never scans the
-    whole time window of a huge LiteLLM_SpendLogs table (Aurora ACU spike,
+    whole time window of a huge HangarLLM_SpendLogs table (Aurora ACU spike,
     LIT-4119). It must also avoid the unbounded prisma `.count()` /
     `COUNT(*) OVER ()` full-window count that reads every matching row.
     """
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.spend_tracking.spend_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import (
         SPEND_LOGS_PAGINATION_COUNT_CAP,
         ui_view_spend_logs,
     )
@@ -242,9 +242,9 @@ async def test_spend_logs_ui_uses_bounded_count_not_full_scan(monkeypatch):
         {"request_id": "req-2", "metadata": "{}", "session_id": None},
     ]
     mock_prisma = _make_ui_spend_logs_mock(count_total=137, page_rows=page_rows)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin")
+    auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin")
     mock_request = MagicMock()
     mock_request.url.path = "/spend/logs/ui"
 
@@ -264,7 +264,7 @@ async def test_spend_logs_ui_uses_bounded_count_not_full_scan(monkeypatch):
         user_api_key_dict=auth,
     )
 
-    mock_prisma.db.litellm_spendlogs.count.assert_not_called()
+    mock_prisma.db.hangarllm_spendlogs.count.assert_not_called()
 
     count_call = _spend_log_reads(mock_prisma).call_args_list[0]
     count_sql = count_call[0][0]
@@ -297,17 +297,17 @@ async def test_spend_logs_ui_caps_total_for_large_result_sets(monkeypatch):
     `total_is_capped` so the UI can render `<cap>+` instead of an exact total
     that would require scanning the whole window (LIT-4119).
     """
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.spend_tracking.spend_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import (
         SPEND_LOGS_PAGINATION_COUNT_CAP,
         ui_view_spend_logs,
     )
 
     page_rows = [{"request_id": "req-1", "metadata": "{}", "session_id": None}]
     mock_prisma = _make_ui_spend_logs_mock(count_total=SPEND_LOGS_PAGINATION_COUNT_CAP + 1, page_rows=page_rows)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin")
+    auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin")
     mock_request = MagicMock()
     mock_request.url.path = "/spend/logs/ui"
 
@@ -339,8 +339,8 @@ async def test_spend_logs_ui_empty_page_reports_zero_total(monkeypatch):
     zero count (real `COUNT(*)` always returns one row) and the page query
     returns no rows, so the total is zero without an unbounded prisma `.count()`.
     """
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.spend_tracking.spend_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import (
         ui_view_spend_logs,
     )
 
@@ -349,12 +349,12 @@ async def test_spend_logs_ui_empty_page_reports_zero_total(monkeypatch):
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
     statement_timeout_reads(mock_prisma, AsyncMock(side_effect=[[{"total_count": 0}], []]))
-    mock_prisma.db.litellm_spendlogs = MagicMock()
-    mock_prisma.db.litellm_spendlogs.count = AsyncMock(return_value=0)
+    mock_prisma.db.hangarllm_spendlogs = MagicMock()
+    mock_prisma.db.hangarllm_spendlogs.count = AsyncMock(return_value=0)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin")
+    auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin")
     mock_request = MagicMock()
     mock_request.url.path = "/spend/logs/ui"
 
@@ -374,7 +374,7 @@ async def test_spend_logs_ui_empty_page_reports_zero_total(monkeypatch):
         user_api_key_dict=auth,
     )
 
-    mock_prisma.db.litellm_spendlogs.count.assert_not_called()
+    mock_prisma.db.hangarllm_spendlogs.count.assert_not_called()
     assert response["total"] == 0
     assert response["total_pages"] == 0
     assert response["data"] == []
@@ -388,8 +388,8 @@ async def test_spend_logs_ui_out_of_range_page_keeps_total(monkeypatch):
     total must not collapse to zero and no unbounded prisma `.count()` is
     needed. total/total_pages stay accurate off the hot path too.
     """
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.spend_tracking.spend_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import (
         ui_view_spend_logs,
     )
 
@@ -398,12 +398,12 @@ async def test_spend_logs_ui_out_of_range_page_keeps_total(monkeypatch):
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
     statement_timeout_reads(mock_prisma, AsyncMock(side_effect=[[{"total_count": 7}], []]))
-    mock_prisma.db.litellm_spendlogs = MagicMock()
-    mock_prisma.db.litellm_spendlogs.count = AsyncMock(return_value=0)
+    mock_prisma.db.hangarllm_spendlogs = MagicMock()
+    mock_prisma.db.hangarllm_spendlogs.count = AsyncMock(return_value=0)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin")
+    auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin")
     mock_request = MagicMock()
     mock_request.url.path = "/spend/logs/ui"
 
@@ -423,7 +423,7 @@ async def test_spend_logs_ui_out_of_range_page_keeps_total(monkeypatch):
         user_api_key_dict=auth,
     )
 
-    mock_prisma.db.litellm_spendlogs.count.assert_not_called()
+    mock_prisma.db.hangarllm_spendlogs.count.assert_not_called()
     assert response["total"] == 7
     assert response["total_pages"] == (7 + 2 - 1) // 2
     assert response["data"] == []
@@ -483,7 +483,7 @@ async def test_global_spend_report_team_group_forwards_team_id(monkeypatch):
     team_id (team_id was only honored when a customer_id was also supplied).
     This asserts the endpoint forwards team_id into the DB query.
     """
-    from litellm.proxy.spend_tracking.spend_management_endpoints import (
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import (
         get_global_spend_report,
     )
 
@@ -491,8 +491,8 @@ async def test_global_spend_report_team_group_forwards_team_id(monkeypatch):
     mock_prisma.db = MagicMock()
     statement_timeout_reads(mock_prisma, AsyncMock(return_value=[]))
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
 
     await get_global_spend_report(
         start_date="2026-07-01",
@@ -515,8 +515,8 @@ async def test_global_spend_report_team_group_forwards_team_id(monkeypatch):
 async def test_spend_logs_ui_group_by_session_paginates_sessions(monkeypatch):
     """With group_by_session=true, /spend/logs/ui pages and counts sessions, not calls, one representative row per
     session, so the footer's total matches the rows shown (issue #38060)."""
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.spend_tracking.spend_management_endpoints import ui_view_spend_logs
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import ui_view_spend_logs
 
     group_key = "COALESCE(NULLIF(session_id, ''), request_id), api_key"
     session_rows = [
@@ -538,9 +538,9 @@ async def test_spend_logs_ui_group_by_session_paginates_sessions(monkeypatch):
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
     statement_timeout_reads(mock_prisma, AsyncMock(side_effect=mock_query_raw))
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin")
+    auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin")
     mock_request = MagicMock()
     mock_request.url.path = "/spend/logs/ui"
 
@@ -592,17 +592,17 @@ async def test_spend_logs_ui_group_by_session_offset_pages_for_other_sorts(monke
     Sorting a grouped listing by a column other than startTime has no keyset
     to resume from, so it pages the DISTINCT ON representatives with OFFSET.
     """
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.spend_tracking.spend_management_endpoints import ui_view_spend_logs
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import ui_view_spend_logs
 
     page_rows = [
         {"request_id": "req-1", "metadata": "{}", "session_id": None},
         {"request_id": "req-2", "metadata": "{}", "session_id": None},
     ]
     mock_prisma = _make_ui_spend_logs_mock(count_total=12, page_rows=page_rows)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin")
+    auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin")
     mock_request = MagicMock()
     mock_request.url.path = "/spend/logs/ui"
 
@@ -645,14 +645,14 @@ async def test_spend_logs_ui_request_id_lookup_with_grouping_returns_exact_row(m
     exact requested row: the filter runs before grouping, so the row is its
     own group's representative and deep links keep working.
     """
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.spend_tracking.spend_management_endpoints import ui_view_spend_logs
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import ui_view_spend_logs
 
     target_row = {"request_id": "req-deep-link", "metadata": "{}", "session_id": None}
     mock_prisma = _make_ui_spend_logs_mock(count_total=1, page_rows=[target_row])
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin")
+    auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin")
     mock_request = MagicMock()
     mock_request.url.path = "/spend/logs/ui"
 
@@ -681,10 +681,10 @@ async def test_spend_logs_ui_request_id_lookup_with_grouping_returns_exact_row(m
 
 
 async def _spend_logs_ui_page(mock_prisma: MagicMock, monkeypatch: pytest.MonkeyPatch) -> Mapping[str, object]:
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.spend_tracking.spend_management_endpoints import ui_view_spend_logs
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import ui_view_spend_logs
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
     mock_request = MagicMock()
     mock_request.url.path = "/spend/logs/ui"
     return await ui_view_spend_logs(
@@ -700,7 +700,7 @@ async def _spend_logs_ui_page(mock_prisma: MagicMock, monkeypatch: pytest.Monkey
         page_size=50,
         sort_by="startTime",
         sort_order="desc",
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin"),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin"),
     )
 
 
@@ -718,7 +718,7 @@ async def test_spend_logs_ui_reads_are_cancelled_by_postgres_after_30s(monkeypat
 
 @pytest.mark.asyncio
 async def test_spend_logs_ui_cancelled_read_is_reported_as_503_with_a_date_range_hint(monkeypatch: pytest.MonkeyPatch):
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     mock_prisma = MagicMock()
     statement_timeout_reads(mock_prisma, AsyncMock(side_effect=statement_timeout_error()))
@@ -736,12 +736,12 @@ async def test_global_spend_report_returns_the_503_hint_not_its_catch_all_400_wh
 ):
     from fastapi import HTTPException
 
-    from litellm.proxy.spend_tracking.spend_management_endpoints import get_global_spend_report
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import get_global_spend_report
 
     mock_prisma = MagicMock()
     statement_timeout_reads(mock_prisma, AsyncMock(side_effect=statement_timeout_error()))
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
     with pytest.raises(HTTPException) as exc_info:
         await get_global_spend_report(
@@ -760,12 +760,12 @@ async def test_global_spend_report_returns_the_503_hint_not_its_catch_all_400_wh
 
 @pytest.mark.asyncio
 async def test_global_spend_report_reads_are_cancelled_by_postgres_after_30s(monkeypatch: pytest.MonkeyPatch):
-    from litellm.proxy.spend_tracking.spend_management_endpoints import get_global_spend_report
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import get_global_spend_report
 
     mock_prisma = MagicMock()
     transaction = statement_timeout_reads(mock_prisma, AsyncMock(return_value=[]))
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
     await get_global_spend_report(
         start_date="2026-02-01",

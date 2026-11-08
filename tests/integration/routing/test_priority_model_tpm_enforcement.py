@@ -57,8 +57,8 @@ def test_tpm_only_model_returns_429_to_priority_key_once_recorded_tokens_reach_m
         return Reply(body=UPSTREAM_REPLY)
 
     configuration: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    configuration["litellm_settings"] = {
-        **configuration["litellm_settings"],
+    configuration["hangarllm_settings"] = {
+        **configuration["hangarllm_settings"],
         "callbacks": ["dynamic_rate_limiter_v3"],
         "priority_reservation": {"premium": PREMIUM_SHARE},
     }
@@ -99,7 +99,7 @@ def test_tpm_only_model_returns_429_to_priority_key_once_recorded_tokens_reach_m
         served: Final = tuple(responses.get_nowait() for _ in range(responses.qsize()))
         assert all(response.status_code == 200 for response in served[:-1]), [r.status_code for r in served]
         assert len(wire.drain()) == len(served) - 1
-        assert blocked.headers["x-litellm-priority"] == "premium", blocked.headers
+        assert blocked.headers["x-hangarllm-priority"] == "premium", blocked.headers
         assert blocked.headers["rate_limit_type"] == "tokens", blocked.headers
         detail: Final = (
             f"Model capacity reached for {model}. Priority: premium, Rate limit type: tokens, "

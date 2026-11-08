@@ -2,19 +2,19 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.bedrock.image_generation.amazon_nova_canvas_transformation import (
+from hangarllm.llms.bedrock.common_utils import BedrockError
+from hangarllm.llms.bedrock.image_generation.amazon_nova_canvas_transformation import (
     AmazonNovaCanvasConfig,
 )
-from litellm.llms.bedrock.image_generation.amazon_stability1_transformation import (
+from hangarllm.llms.bedrock.image_generation.amazon_stability1_transformation import (
     AmazonStabilityConfig,
 )
-from litellm.llms.bedrock.image_generation.amazon_stability3_transformation import (
+from hangarllm.llms.bedrock.image_generation.amazon_stability3_transformation import (
     AmazonStability3Config,
 )
-from litellm.llms.bedrock.image_generation.cost_calculator import cost_calculator
-from litellm.llms.bedrock.image_generation.image_handler import BedrockImageGeneration
-from litellm.types.utils import ImageObject, ImageResponse
+from hangarllm.llms.bedrock.image_generation.cost_calculator import cost_calculator
+from hangarllm.llms.bedrock.image_generation.image_handler import BedrockImageGeneration
+from hangarllm.types.utils import ImageObject, ImageResponse
 
 
 @pytest.fixture
@@ -360,8 +360,8 @@ def test_cost_calculator_basic():
 
 
 def test_bedrock_image_gen_with_aws_region_name(aws_test_credentials):
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm import image_generation
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm import image_generation
 
     client = HTTPHandler()
 

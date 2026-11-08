@@ -15,8 +15,8 @@ from prisma import Prisma
 from psycopg import sql
 from pydantic import BaseModel, ConfigDict, Field
 
-from litellm.proxy.spend_tracking.session_page import read_session_page
-from litellm.proxy.spend_tracking.spend_management_endpoints import _fetch_session_representatives
+from hangarllm.proxy.spend_tracking.session_page import read_session_page
+from hangarllm.proxy.spend_tracking.spend_management_endpoints import _fetch_session_representatives
 from tests.integration._support.client import Gateway
 from tests.integration._support.database import write_rows
 
@@ -111,10 +111,10 @@ def seeded(gateway: Gateway) -> Iterator[_Seeded]:
     ]
     with gateway.scenario() as scenario:
         scenario.cleanups.callback(
-            write_rows, 'DELETE FROM "LiteLLM_SpendLogs" WHERE request_id LIKE %s', (f"{prefix}%",)
+            write_rows, 'DELETE FROM "HangarLLM_SpendLogs" WHERE request_id LIKE %s', (f"{prefix}%",)
         )
         write_rows(
-            'INSERT INTO "LiteLLM_SpendLogs" (request_id, call_type, api_key, "startTime", "endTime", model, '
+            'INSERT INTO "HangarLLM_SpendLogs" (request_id, call_type, api_key, "startTime", "endTime", model, '
             "session_id, status) SELECT request_id, 'acompletion', api_key, start_time, start_time, model, session_id, "
             "status FROM jsonb_to_recordset(%s::jsonb) AS seeded(request_id text, session_id text, api_key text, "
             "start_time timestamp, status text, model text)",
@@ -266,14 +266,14 @@ def _calls(calls: tuple[_Call, ...]) -> tuple[sql.SQL, tuple[object, ...]]:
 
 @asynccontextmanager
 async def _spend_logs_copy(insert: sql.SQL, args: tuple[object, ...]) -> AsyncIterator[Prisma]:
-    """A private schema holding a copy of the migrated `LiteLLM_SpendLogs` with its indexes, seeded by `insert`."""
+    """A private schema holding a copy of the migrated `HangarLLM_SpendLogs` with its indexes, seeded by `insert`."""
     schema: Final = f"integration_{uuid.uuid4().hex}"
     url: Final = os.environ["DATABASE_URL"]
-    table: Final = sql.Identifier(schema, "LiteLLM_SpendLogs")
+    table: Final = sql.Identifier(schema, "HangarLLM_SpendLogs")
     with psycopg.connect(url, autocommit=True) as setup:
         setup.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
         try:
-            setup.execute(sql.SQL('CREATE TABLE {} (LIKE "LiteLLM_SpendLogs" INCLUDING ALL)').format(table))
+            setup.execute(sql.SQL('CREATE TABLE {} (LIKE "HangarLLM_SpendLogs" INCLUDING ALL)').format(table))
             setup.execute(insert.format(table=table), args)
             setup.execute(sql.SQL("ANALYZE {}").format(table))
             parsed: Final = urlsplit(url)
@@ -300,7 +300,7 @@ class _PlanNode(BaseModel):
     def spend_log_rows_scanned(self) -> int:
         own: Final = (
             (self.actual_rows + self.rows_removed_by_filter) * self.actual_loops
-            if self.relation_name == "LiteLLM_SpendLogs"
+            if self.relation_name == "HangarLLM_SpendLogs"
             else 0
         )
         return round(own) + sum(child.spend_log_rows_scanned() for child in self.plans)
@@ -313,7 +313,7 @@ class _Explained(BaseModel):
 
 
 class _ExplainedReads:
-    """Runs each read through Prisma, first under EXPLAIN ANALYZE to count the `LiteLLM_SpendLogs` rows it scans."""
+    """Runs each read through Prisma, first under EXPLAIN ANALYZE to count the `HangarLLM_SpendLogs` rows it scans."""
 
     def __init__(self, database: Prisma) -> None:
         self.database: Final = database

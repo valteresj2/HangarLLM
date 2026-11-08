@@ -347,7 +347,7 @@ def _chaos_config(wire: Wire, directory: Path, model_name: str) -> Path:
         "model_list": [
             {
                 "model_name": model_name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"gemini/{BACKEND}",
                     "api_base": wire.url,
                     "api_key": API_KEY,

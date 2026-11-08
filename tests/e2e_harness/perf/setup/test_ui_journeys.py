@@ -98,10 +98,10 @@ def test_journeys_have_unique_names_and_cover_every_dashboard_surface() -> None:
 
 def _metrics(postgres: str, batch: str) -> str:
     return (
-        "# TYPE litellm_postgres_failed_requests_total counter\n"
-        f'litellm_postgres_failed_requests_total{{call_type="query_raw"}} {postgres}\n'
-        "# TYPE litellm_batch_write_to_db_failed_requests_total counter\n"
-        f'litellm_batch_write_to_db_failed_requests_total{{call_type="batch"}} {batch}\n'
+        "# TYPE hangarllm_postgres_failed_requests_total counter\n"
+        f'hangarllm_postgres_failed_requests_total{{call_type="query_raw"}} {postgres}\n'
+        "# TYPE hangarllm_batch_write_to_db_failed_requests_total counter\n"
+        f'hangarllm_batch_write_to_db_failed_requests_total{{call_type="batch"}} {batch}\n'
     )
 
 
@@ -113,7 +113,7 @@ def test_postgres_failures_include_background_batch_writes() -> None:
 def test_lazy_failure_counters_require_evidence_of_database_activity() -> None:
     assert (
         database_failures(
-            "# TYPE litellm_postgres_total_requests_total counter\nlitellm_postgres_total_requests_total 3\n"
+            "# TYPE hangarllm_postgres_total_requests_total counter\nhangarllm_postgres_total_requests_total 3\n"
         )
         == 0
     )
@@ -160,14 +160,14 @@ def test_volume_properties_name_rows_and_bytes_per_queried_table() -> None:
 
     properties: Final = volume_properties(
         (
-            TableVolume(table="LiteLLM_SpendLogs", rows=850_000_000, bytes=1_000_000_000_000),
-            TableVolume(table="LiteLLM_VerificationToken", rows=5_000, bytes=4_194_304),
+            TableVolume(table="HangarLLM_SpendLogs", rows=850_000_000, bytes=1_000_000_000_000),
+            TableVolume(table="HangarLLM_VerificationToken", rows=5_000, bytes=4_194_304),
         )
     )
 
     assert properties == (
-        ("perf_ui_db_rows_LiteLLM_SpendLogs", 850_000_000),
-        ("perf_ui_db_bytes_LiteLLM_SpendLogs", 1_000_000_000_000),
-        ("perf_ui_db_rows_LiteLLM_VerificationToken", 5_000),
-        ("perf_ui_db_bytes_LiteLLM_VerificationToken", 4_194_304),
+        ("perf_ui_db_rows_HangarLLM_SpendLogs", 850_000_000),
+        ("perf_ui_db_bytes_HangarLLM_SpendLogs", 1_000_000_000_000),
+        ("perf_ui_db_rows_HangarLLM_VerificationToken", 5_000),
+        ("perf_ui_db_bytes_HangarLLM_VerificationToken", 4_194_304),
     )

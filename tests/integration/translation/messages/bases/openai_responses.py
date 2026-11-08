@@ -6,8 +6,8 @@ from integration.translation.templates.openai import OPENAI_RESPONSES_REQUEST_FR
 
 GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "openai/responses/gpt-5.6-sol",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -86,7 +86,7 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
         "user": None,
         "metadata": {},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": "resp_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOm9wZW5haTttb2RlbF9pZDo1ZDQ1NmY1ODlhMDIwNzI4N2M0YzU2NmRhN2NkN2ViNjJlMzZmNGUwMTYxOTE4M2VhMzhiMzdlZGZhNDdlM2EwO3Jlc3BvbnNlX2lkOnJlc3BfMDg3OTgwMGMxNDU1YmEzZDAwNmFjM2YwNDI3YzRjODdkMGE2MzJiMTMwYzhjNDY0ZWE=",
         "type": "message",
         "role": "assistant",
@@ -101,8 +101,8 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={**MESSAGES_REQUEST, "model": "openai/responses/gpt-6.1-sol"},
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={**MESSAGES_REQUEST, "model": "openai/responses/gpt-6.1-sol"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={
         "content-type": "application/json",
@@ -197,7 +197,7 @@ GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 449,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **MESSAGES_BRIDGE_RESPONSE,
         "id": "resp_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOm9wZW5haTttb2RlbF9pZDo3ZGE3NDY3Njc3N2IyZjVkYmQ3MDI1MTI1ZjEzMDdlYWQ0MjM3YTgzN2QxZTJmZDhkY2FkNjhlODM4ODU1Zjg2O3Jlc3BvbnNlX2lkOnJlc3BfMGFmNjdjYjc4YmVhZDJjNjAwNmFkMDIzYTcyNzM0ODdkMGIxNzY4Yjc3ZjY5NTZiNzM=",
         "model": "openai/responses/gpt-6.1-sol",
@@ -205,7 +205,7 @@ GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
         "content": [
             {
                 "type": "redacted_thinking",
-                "data": "litellm_encrypted_reasoning:gAAAAABq0COqmCc2HPj-8NSt1bzfstH4-YXiTtNvZLyVMciprSqFmNbPXwcPXWrps8lsryqoAY5MuRQ_pO9yNIsCVBRlHXitSdObtJRB5Ld7TGQnbUekIsl2TNIFPsnnc8PYSdVrJlcG3FZmykyeSVHblM5F9SaPzHFzOfvCdYQtN52yt2lPhjYailjRidMwkl4KDGQ1BlcR3U29KKxo0020AqMMvsAht5kx5aAFaKfaIum5jctQrjgL8Y99h6sV3gc3LwI0W6ZR2IIqs6e6ADrVIGdVmSpn2GZTHmz6vUFaROU2-UTbVL7QrCy0BUg5CEqjnZ563lqsEYuWOxTVK0RXCPonWwmhfSllKffjLxtGuaq4dtl6v3lGIt-BW3-gJ1WqhtfTDV5VWTAliJhx09kgGhXz7VuxQRQMBSy--M9nBhdNJ1KfkbC0YDUcq5LT_cKh-KZU_-jNWCSQa7hvNJP-aCQ85oL-av-9fT5Wb5ovLUzELiBDooQLH8SalXQgFo-GX_wvSF-IH7byXwCka0F9fyIW6FjmRkirX8h_WF7pLDJeZDO5_8BWbxGOxDI6hEURHW9HLGG-e8S_lp1cVc7i37r-3KNqOwVlnlxEn2hj9TmDvTxRk4yv71AoSuwF8j3Wsh-im1HgmsNf9sdKZIZUTJTdvGCNuf54xXedUEdfoInFspUuiLXj_5KwWpckwJD0y1Fs8oEfTq2Y0Bn3LdBvwrAGgijcwnDsj6nRa2L9oMLrbHROG3xWIuTC6JyKIlVo8o7cGsM6XdxV6P9f3Wc-UgScNzc-fleF3oWzVq2gENtufLiwn9y3z1k_Hb62pbgIV6dmhLepqVH7WAyHajYt9GyxHB_FZbni-_rujbci3-3Jcj451W8PFg0TjhlyUzETBQwv6y6-zORZcbD7TqKe6XnUUGxHEMbPKBCmiIxOIUuOHpNOEjmdQpgOuPR16k_j0YjoA1gJJovIqwB1g6w44nebjzzsky0uRWmIhqeNaIFPPtIUDr05z1ocxgFeHJxum5YAh4d46vUY18dpffRyghwrd1rvIxk2EWW2rmruR4nEDTT405t3RX4kjnhGHuyShSLM_jinQm5LcpLDXUWgRnilpB1RVB8eZUSNYePAhgDRbacr8IC4AvQ7X8xUtcglbDJmMYQZQRFrkGfVoMUcyAkEJamLjccYDFrO5rxUFfyUHmGVxFUY85NW9XCwAFOx7h3606gjN9KVKQPMAg-dUnXbfhc4PCY3iRaS0djErOEugRN6f7iniy8td2YRI2WhPD5O1-qsvTDfiIhymTFq2L0v4f3UEeIa2wnfq4EdnAgla4D14w7T1D1Wg4SiP-dnF0_vKy8md5vlQjpbPGbYJkzB9DBNwJ8qR-7s1jCtZj2fViHuIGwTReI3OXUoeao4FHC8pndoAZbEpbTmax7BEYw7JqlUhIXWF2x8NzeYr-sjBbo1kbzKbtnidxOwrngjU428TzTPEjr9WA9VpmxXNoSOPL7I_qsN8ulnGegsnxQOEIarRK9CE7C8AwtMRMi8lClAFaMwMAoD8jWMNCSEa6mtyv08AikNCt3ij6cW2JszTRO3Qu4lRTsSnta41Qyk16Zc4xEPOs58PhY90t_atHYUWRpydUerE2nvRnPF9eTbQvSe8-iZ0BqkXqdlnVAAIzwOIfVZRua0p8eU3iPlzKteg9F02Jb5HkOsvi2Y4M-ZS5i0Tg4iOeuKHkeiFdZs6EMytIwz6lPGKLhYii6HW0Oe0KU_WQrIVNdXMcs5EWZGqMIdEhf09ZpO3ONcWIYswjgng6W8WMqwplHyHMcjnhzaVbIhs6rsVgTwGJawtbmD5q6aYnJCRq4zI68wzKOe7d6av8jwMGZS-dd8cdHj_XyShws1cWLhLJCaGW_vHKA0i-D1WTDeKSev31IQKCXBSRMB5URPkHu6dNDm1UyDiLGlJBx6iuKTizGeGhb4o2SQ1y1ISKyQRhKuNih0XgY40hn4x-6Scqu6_thPey-4F32BeTnbzNLGQ0wXE--dcIVRbAZMEB7wn7V4mRczG4gTG9ZnqarfZnHMPVUTZ0AxxZ2d_ifef1wQv9aRyKNRVLiBxvSqJtu7NnDMZT_U8mXCc_OIREi9wn-6esDbmxYYeBpNPR6Oq0fbsBbr--A_nVUz99MAAvkSnLhV3zdAHmMgjqNJNCmr2kPtGyle-GqdBx0LYQh4mtc5FdqLZUz9dz6gv_ERua952na3S1UnJr__8zVwofLEPGjiC5_g1nQuVCRE3QVSufMmw4gQL5kdUSuZGEm3RN__6DwAIS_X-E-aBv3utOMs92JWGandVEze8K7p4wQr3gSL5zlepjWHeYPZjiXCnGY=",
+                "data": "hangarllm_encrypted_reasoning:gAAAAABq0COqmCc2HPj-8NSt1bzfstH4-YXiTtNvZLyVMciprSqFmNbPXwcPXWrps8lsryqoAY5MuRQ_pO9yNIsCVBRlHXitSdObtJRB5Ld7TGQnbUekIsl2TNIFPsnnc8PYSdVrJlcG3FZmykyeSVHblM5F9SaPzHFzOfvCdYQtN52yt2lPhjYailjRidMwkl4KDGQ1BlcR3U29KKxo0020AqMMvsAht5kx5aAFaKfaIum5jctQrjgL8Y99h6sV3gc3LwI0W6ZR2IIqs6e6ADrVIGdVmSpn2GZTHmz6vUFaROU2-UTbVL7QrCy0BUg5CEqjnZ563lqsEYuWOxTVK0RXCPonWwmhfSllKffjLxtGuaq4dtl6v3lGIt-BW3-gJ1WqhtfTDV5VWTAliJhx09kgGhXz7VuxQRQMBSy--M9nBhdNJ1KfkbC0YDUcq5LT_cKh-KZU_-jNWCSQa7hvNJP-aCQ85oL-av-9fT5Wb5ovLUzELiBDooQLH8SalXQgFo-GX_wvSF-IH7byXwCka0F9fyIW6FjmRkirX8h_WF7pLDJeZDO5_8BWbxGOxDI6hEURHW9HLGG-e8S_lp1cVc7i37r-3KNqOwVlnlxEn2hj9TmDvTxRk4yv71AoSuwF8j3Wsh-im1HgmsNf9sdKZIZUTJTdvGCNuf54xXedUEdfoInFspUuiLXj_5KwWpckwJD0y1Fs8oEfTq2Y0Bn3LdBvwrAGgijcwnDsj6nRa2L9oMLrbHROG3xWIuTC6JyKIlVo8o7cGsM6XdxV6P9f3Wc-UgScNzc-fleF3oWzVq2gENtufLiwn9y3z1k_Hb62pbgIV6dmhLepqVH7WAyHajYt9GyxHB_FZbni-_rujbci3-3Jcj451W8PFg0TjhlyUzETBQwv6y6-zORZcbD7TqKe6XnUUGxHEMbPKBCmiIxOIUuOHpNOEjmdQpgOuPR16k_j0YjoA1gJJovIqwB1g6w44nebjzzsky0uRWmIhqeNaIFPPtIUDr05z1ocxgFeHJxum5YAh4d46vUY18dpffRyghwrd1rvIxk2EWW2rmruR4nEDTT405t3RX4kjnhGHuyShSLM_jinQm5LcpLDXUWgRnilpB1RVB8eZUSNYePAhgDRbacr8IC4AvQ7X8xUtcglbDJmMYQZQRFrkGfVoMUcyAkEJamLjccYDFrO5rxUFfyUHmGVxFUY85NW9XCwAFOx7h3606gjN9KVKQPMAg-dUnXbfhc4PCY3iRaS0djErOEugRN6f7iniy8td2YRI2WhPD5O1-qsvTDfiIhymTFq2L0v4f3UEeIa2wnfq4EdnAgla4D14w7T1D1Wg4SiP-dnF0_vKy8md5vlQjpbPGbYJkzB9DBNwJ8qR-7s1jCtZj2fViHuIGwTReI3OXUoeao4FHC8pndoAZbEpbTmax7BEYw7JqlUhIXWF2x8NzeYr-sjBbo1kbzKbtnidxOwrngjU428TzTPEjr9WA9VpmxXNoSOPL7I_qsN8ulnGegsnxQOEIarRK9CE7C8AwtMRMi8lClAFaMwMAoD8jWMNCSEa6mtyv08AikNCt3ij6cW2JszTRO3Qu4lRTsSnta41Qyk16Zc4xEPOs58PhY90t_atHYUWRpydUerE2nvRnPF9eTbQvSe8-iZ0BqkXqdlnVAAIzwOIfVZRua0p8eU3iPlzKteg9F02Jb5HkOsvi2Y4M-ZS5i0Tg4iOeuKHkeiFdZs6EMytIwz6lPGKLhYii6HW0Oe0KU_WQrIVNdXMcs5EWZGqMIdEhf09ZpO3ONcWIYswjgng6W8WMqwplHyHMcjnhzaVbIhs6rsVgTwGJawtbmD5q6aYnJCRq4zI68wzKOe7d6av8jwMGZS-dd8cdHj_XyShws1cWLhLJCaGW_vHKA0i-D1WTDeKSev31IQKCXBSRMB5URPkHu6dNDm1UyDiLGlJBx6iuKTizGeGhb4o2SQ1y1ISKyQRhKuNih0XgY40hn4x-6Scqu6_thPey-4F32BeTnbzNLGQ0wXE--dcIVRbAZMEB7wn7V4mRczG4gTG9ZnqarfZnHMPVUTZ0AxxZ2d_ifef1wQv9aRyKNRVLiBxvSqJtu7NnDMZT_U8mXCc_OIREi9wn-6esDbmxYYeBpNPR6Oq0fbsBbr--A_nVUz99MAAvkSnLhV3zdAHmMgjqNJNCmr2kPtGyle-GqdBx0LYQh4mtc5FdqLZUz9dz6gv_ERua952na3S1UnJr__8zVwofLEPGjiC5_g1nQuVCRE3QVSufMmw4gQL5kdUSuZGEm3RN__6DwAIS_X-E-aBv3utOMs92JWGandVEze8K7p4wQr3gSL5zlepjWHeYPZjiXCnGY=",
             },
             {
                 "type": "text",

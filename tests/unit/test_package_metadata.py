@@ -36,8 +36,8 @@ PROXY_SERVER_ONLY_DEPENDENCIES: Final = frozenset(
         "cryptography",
         "apscheduler",
         "rq",
-        "litellm-enterprise",
-        "litellm-proxy-extras",
+        "hangarllm-enterprise",
+        "hangarllm-proxy-extras",
     }
 )
 
@@ -50,10 +50,10 @@ def _requirement_names(requirements: list[str]) -> frozenset[NormalizedName]:
     return frozenset(canonicalize_name(Requirement(requirement).name) for requirement in requirements)
 
 
-def test_importing_litellm_reports_the_declared_release_version() -> None:
-    import litellm
+def test_importing_hangarllm_reports_the_declared_release_version() -> None:
+    import hangarllm
 
-    assert litellm._version.version == PYPROJECT["project"]["version"]
+    assert hangarllm._version.version == PYPROJECT["project"]["version"]
 
 
 def test_every_declared_extra_is_locked_with_its_requirements() -> None:
@@ -61,7 +61,7 @@ def test_every_declared_extra_is_locked_with_its_requirements() -> None:
         canonicalize_name(extra): _requirement_names(requirements)
         for extra, requirements in OPTIONAL_DEPENDENCIES.items()
     }
-    locked: Final = _locked_package("litellm")
+    locked: Final = _locked_package("hangarllm")
     locked_extras: Final = {
         canonicalize_name(extra): frozenset(canonicalize_name(entry["name"]) for entry in entries)
         for extra, entries in locked["optional-dependencies"].items()

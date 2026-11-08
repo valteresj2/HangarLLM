@@ -16,15 +16,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.proxy._types import (
-    LiteLLM_BudgetTable,
-    LiteLLM_OrganizationTable,
-    LiteLLM_TeamTable,
+import hangarllm
+from hangarllm.proxy._types import (
+    HangarLLM_BudgetTable,
+    HangarLLM_OrganizationTable,
+    HangarLLM_TeamTable,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import common_checks
-from litellm.proxy.utils import ProxyLogging
+from hangarllm.proxy.auth.auth_checks import common_checks
+from hangarllm.proxy.utils import ProxyLogging
 
 
 @pytest.mark.asyncio
@@ -38,20 +38,20 @@ async def test_organization_budget_exceeded_blocks_request():
     org_id = "test-org-budget-exceeded"
 
     # Organization with max_budget of 100, but spend is 150
-    org_object = LiteLLM_OrganizationTable(
+    org_object = HangarLLM_OrganizationTable(
         organization_id=org_id,
         budget_id="org-budget-1",
         spend=150.0,  # Over budget!
         models=["gpt-4"],
         created_by="test",
         updated_by="test",
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             max_budget=100.0,  # Budget is 100
         ),
     )
 
     # Team within the organization (team itself is under budget)
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="test-team-1",
         organization_id=org_id,
         max_budget=50.0,  # Team budget is 50
@@ -73,15 +73,15 @@ async def test_organization_budget_exceeded_blocks_request():
     mock_proxy_logging = MagicMock(spec=ProxyLogging)
     mock_proxy_logging.budget_alerts = AsyncMock()
 
-    with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
-        with patch("litellm.proxy.proxy_server.user_api_key_cache") as mock_cache:
+    with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
+        with patch("hangarllm.proxy.proxy_server.user_api_key_cache") as mock_cache:
             with patch(
-                "litellm.proxy.auth.auth_checks.get_org_object", new_callable=AsyncMock
+                "hangarllm.proxy.auth.auth_checks.get_org_object", new_callable=AsyncMock
             ) as mock_get_org:
                 mock_get_org.return_value = org_object
 
                 # BUG: This should raise BudgetExceededError but currently passes
-                with pytest.raises(litellm.BudgetExceededError) as exc_info:
+                with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
                     await common_checks(
                         request_body={"model": "gpt-4"},
                         team_object=team_object,
@@ -116,20 +116,20 @@ async def test_multiple_teams_exceed_organization_budget():
     org_id = "multi-team-org"
 
     # Organization at budget limit
-    org_object = LiteLLM_OrganizationTable(
+    org_object = HangarLLM_OrganizationTable(
         organization_id=org_id,
         budget_id="org-budget-2",
         spend=5000.0,  # At $5000 limit
         models=["gpt-4"],
         created_by="test",
         updated_by="test",
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             max_budget=5000.0,  # Org budget is $5000
         ),
     )
 
     # Team A - under its own budget, but org is almost at limit
-    team_a = LiteLLM_TeamTable(
+    team_a = HangarLLM_TeamTable(
         team_id="team-a",
         organization_id=org_id,
         max_budget=2000.0,
@@ -150,15 +150,15 @@ async def test_multiple_teams_exceed_organization_budget():
     mock_proxy_logging = MagicMock(spec=ProxyLogging)
     mock_proxy_logging.budget_alerts = AsyncMock()
 
-    with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
-        with patch("litellm.proxy.proxy_server.user_api_key_cache") as mock_cache:
+    with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
+        with patch("hangarllm.proxy.proxy_server.user_api_key_cache") as mock_cache:
             with patch(
-                "litellm.proxy.auth.auth_checks.get_org_object", new_callable=AsyncMock
+                "hangarllm.proxy.auth.auth_checks.get_org_object", new_callable=AsyncMock
             ) as mock_get_org:
                 mock_get_org.return_value = org_object
 
                 # Org is at budget limit, should raise BudgetExceededError
-                with pytest.raises(litellm.BudgetExceededError) as exc_info:
+                with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
                     await common_checks(
                         request_body={"model": "gpt-4"},
                         team_object=team_a,
@@ -197,7 +197,7 @@ async def test_organization_budget_fields_are_checked():
     assert valid_token.organization_max_budget == 100.0
     assert valid_token.org_id == "test-org"
 
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="test-team",
         organization_id="test-org",
         max_budget=None,
@@ -212,25 +212,25 @@ async def test_organization_budget_fields_are_checked():
     mock_proxy_logging.budget_alerts = AsyncMock()
 
     # Organization is over budget
-    org_over_budget = LiteLLM_OrganizationTable(
+    org_over_budget = HangarLLM_OrganizationTable(
         organization_id="test-org",
         budget_id="budget-1",
         spend=150.0,  # Over $100 budget
         models=["gpt-4"],
         created_by="test",
         updated_by="test",
-        litellm_budget_table=LiteLLM_BudgetTable(max_budget=100.0),
+        hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=100.0),
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
-        with patch("litellm.proxy.proxy_server.user_api_key_cache") as mock_cache:
+    with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
+        with patch("hangarllm.proxy.proxy_server.user_api_key_cache") as mock_cache:
             with patch(
-                "litellm.proxy.auth.auth_checks.get_org_object", new_callable=AsyncMock
+                "hangarllm.proxy.auth.auth_checks.get_org_object", new_callable=AsyncMock
             ) as mock_get_org:
                 mock_get_org.return_value = org_over_budget
 
                 # Organization is over budget, should raise BudgetExceededError
-                with pytest.raises(litellm.BudgetExceededError) as exc_info:
+                with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
                     await common_checks(
                         request_body={"model": "gpt-4"},
                         team_object=team_object,
@@ -265,7 +265,7 @@ async def test_both_team_and_org_budget_enforced():
     mock_proxy_logging.budget_alerts = AsyncMock()
 
     # Scenario A: Team over budget - should raise BudgetExceededError
-    team_over_budget = LiteLLM_TeamTable(
+    team_over_budget = HangarLLM_TeamTable(
         team_id="team-over",
         max_budget=100.0,
         spend=150.0,  # Over budget
@@ -277,9 +277,9 @@ async def test_both_team_and_org_budget_enforced():
         team_id="team-over",
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
-        with patch("litellm.proxy.proxy_server.user_api_key_cache") as mock_cache:
-            with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
+        with patch("hangarllm.proxy.proxy_server.user_api_key_cache") as mock_cache:
+            with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
                 await common_checks(
                     request_body={"model": "gpt-4"},
                     team_object=team_over_budget,
@@ -296,17 +296,17 @@ async def test_both_team_and_org_budget_enforced():
             assert "Team" in str(exc_info.value.message)
 
     # Scenario B: Org over budget - should also raise BudgetExceededError
-    org_over_budget = LiteLLM_OrganizationTable(
+    org_over_budget = HangarLLM_OrganizationTable(
         organization_id="org-over",
         budget_id="budget-1",
         spend=150.0,  # Over $100 budget
         models=["gpt-4"],
         created_by="test",
         updated_by="test",
-        litellm_budget_table=LiteLLM_BudgetTable(max_budget=100.0),
+        hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=100.0),
     )
 
-    team_under_budget = LiteLLM_TeamTable(
+    team_under_budget = HangarLLM_TeamTable(
         team_id="team-under",
         organization_id="org-over",
         max_budget=50.0,
@@ -321,15 +321,15 @@ async def test_both_team_and_org_budget_enforced():
         organization_max_budget=100.0,
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
-        with patch("litellm.proxy.proxy_server.user_api_key_cache") as mock_cache:
+    with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
+        with patch("hangarllm.proxy.proxy_server.user_api_key_cache") as mock_cache:
             with patch(
-                "litellm.proxy.auth.auth_checks.get_org_object", new_callable=AsyncMock
+                "hangarllm.proxy.auth.auth_checks.get_org_object", new_callable=AsyncMock
             ) as mock_get_org:
                 mock_get_org.return_value = org_over_budget
 
                 # Organization is over budget, should raise BudgetExceededError
-                with pytest.raises(litellm.BudgetExceededError) as exc_info:
+                with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
                     await common_checks(
                         request_body={"model": "gpt-4"},
                         team_object=team_under_budget,

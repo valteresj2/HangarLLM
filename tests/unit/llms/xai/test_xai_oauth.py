@@ -8,23 +8,23 @@ from urllib.parse import parse_qs, urlparse
 from unittest.mock import MagicMock
 
 import httpx
-import litellm
+import hangarllm
 import pytest
 from click.testing import CliRunner
 
-import litellm.llms.xai.oauth as xai_oauth_module
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.llms.xai.oauth import (
+import hangarllm.llms.xai.oauth as xai_oauth_module
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.llms.xai.oauth import (
     XAI_OAUTH_CLIENT_ID,
     XAI_OAUTH_SCOPE,
     XAIOAuthError,
     XAIOAuthAuthenticator,
     XAIOAuthLoginRequiredError,
 )
-from litellm.llms.xai.chat.transformation import XAIChatConfig
-from litellm.llms.xai.responses.transformation import XAIResponsesAPIConfig
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import get_optional_params, validate_environment
+from hangarllm.llms.xai.chat.transformation import XAIChatConfig
+from hangarllm.llms.xai.responses.transformation import XAIResponsesAPIConfig
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.utils import get_optional_params, validate_environment
 
 
 def _write_auth_file(tmp_path, payload):
@@ -556,7 +556,7 @@ def test_get_llm_provider_uses_single_xai_provider(monkeypatch):
 
 
 def test_xai_oauth_alias_is_not_a_provider():
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         get_llm_provider("xai_oauth/grok-4")
 
 
@@ -565,18 +565,18 @@ def test_chat_config_wraps_flagged_oauth_errors_as_authentication_error(
 ):
     monkeypatch.setenv("XAI_OAUTH_TOKEN_DIR", str(tmp_path / "missing"))
 
-    with pytest.raises(litellm.AuthenticationError) as exc_info:
+    with pytest.raises(hangarllm.AuthenticationError) as exc_info:
         XAIChatConfig().validate_environment(
             headers={},
             model="grok-4",
             messages=[],
             optional_params={},
-            litellm_params={"use_xai_oauth": True},
+            hangarllm_params={"use_xai_oauth": True},
             api_key=None,
         )
 
     assert exc_info.value.llm_provider == "xai"
-    assert "litellm xai-oauth login" in str(exc_info.value)
+    assert "hangarllm xai-oauth login" in str(exc_info.value)
 
 
 def test_chat_config_injects_flagged_oauth_token(tmp_path, monkeypatch):
@@ -595,7 +595,7 @@ def test_chat_config_injects_flagged_oauth_token(tmp_path, monkeypatch):
         model="grok-4",
         messages=[],
         optional_params={},
-        litellm_params={"use_xai_oauth": True},
+        hangarllm_params={"use_xai_oauth": True},
         api_key=None,
     )
 
@@ -610,7 +610,7 @@ def test_chat_config_ignores_api_base_override_for_flagged_oauth(monkeypatch):
         api_key=None,
         model="grok-4",
         optional_params={},
-        litellm_params={"use_xai_oauth": True},
+        hangarllm_params={"use_xai_oauth": True},
     )
 
     assert url == "https://api.x.ai/v1/chat/completions"
@@ -634,7 +634,7 @@ def test_chat_config_treats_blank_api_key_as_absent_for_flagged_oauth(
         model="grok-4",
         messages=[],
         optional_params={},
-        litellm_params={"use_xai_oauth": True},
+        hangarllm_params={"use_xai_oauth": True},
         api_key="",
     )
 
@@ -647,7 +647,7 @@ def test_chat_config_allows_api_base_override_with_caller_api_key():
         model="grok-4",
         messages=[],
         optional_params={},
-        litellm_params={"use_xai_oauth": True},
+        hangarllm_params={"use_xai_oauth": True},
         api_key="caller-api-key",
     )
     url = XAIChatConfig().get_complete_url(
@@ -655,7 +655,7 @@ def test_chat_config_allows_api_base_override_with_caller_api_key():
         api_key="caller-api-key",
         model="grok-4",
         optional_params={},
-        litellm_params={"use_xai_oauth": True},
+        hangarllm_params={"use_xai_oauth": True},
     )
 
     assert headers["Authorization"] == "Bearer caller-api-key"
@@ -670,7 +670,7 @@ def test_chat_config_prioritizes_env_api_key_over_oauth_flag(monkeypatch):
         model="grok-4",
         messages=[],
         optional_params={},
-        litellm_params={"use_xai_oauth": True},
+        hangarllm_params={"use_xai_oauth": True},
         api_key=None,
     )
     url = XAIChatConfig().get_complete_url(
@@ -678,7 +678,7 @@ def test_chat_config_prioritizes_env_api_key_over_oauth_flag(monkeypatch):
         api_key=None,
         model="grok-4",
         optional_params={},
-        litellm_params={"use_xai_oauth": True},
+        hangarllm_params={"use_xai_oauth": True},
     )
 
     assert headers["Authorization"] == "Bearer env-api-key"
@@ -695,7 +695,7 @@ def test_validate_environment_still_reports_xai_api_key(monkeypatch):
 
 
 def test_xai_oauth_flag_uses_xai_optional_param_mapping():
-    litellm_params = GenericLiteLLMParams(use_xai_oauth=True)
+    hangarllm_params = GenericHangarLLMParams(use_xai_oauth=True)
     optional_params = get_optional_params(
         model="grok-4",
         custom_llm_provider="xai",
@@ -705,7 +705,7 @@ def test_xai_oauth_flag_uses_xai_optional_param_mapping():
 
     assert optional_params["temperature"] == 0.2
     assert optional_params["max_tokens"] == 8
-    assert litellm_params.use_xai_oauth is True
+    assert hangarllm_params.use_xai_oauth is True
     assert "use_xai_oauth" not in optional_params
 
 
@@ -723,7 +723,7 @@ def test_responses_config_injects_flagged_oauth_bearer_token(tmp_path, monkeypat
     headers = XAIResponsesAPIConfig().validate_environment(
         headers={},
         model="grok-4",
-        litellm_params=GenericLiteLLMParams(use_xai_oauth=True),
+        hangarllm_params=GenericHangarLLMParams(use_xai_oauth=True),
     )
 
     assert headers["Authorization"] == "Bearer responses-token"
@@ -734,26 +734,26 @@ def test_responses_config_endpoint_url_uses_oauth_authenticator(monkeypatch):
     config = XAIResponsesAPIConfig()
 
     assert config.get_complete_url(
-        api_base=None, litellm_params={"use_xai_oauth": True}
+        api_base=None, hangarllm_params={"use_xai_oauth": True}
     ) == ("https://xai.example.com/v1/responses")
     assert (
         config.get_complete_url(
             api_base="https://custom.example.com/v1/",
-            litellm_params={"use_xai_oauth": True},
+            hangarllm_params={"use_xai_oauth": True},
         )
         == "https://xai.example.com/v1/responses"
     )
     assert (
         config.get_complete_url(
             api_base="https://custom.example.com/v1/",
-            litellm_params={"api_key": "", "use_xai_oauth": True},
+            hangarllm_params={"api_key": "", "use_xai_oauth": True},
         )
         == "https://xai.example.com/v1/responses"
     )
     assert (
         config.get_complete_url(
             api_base="https://custom.example.com/v1/",
-            litellm_params={"api_key": "caller-api-key"},
+            hangarllm_params={"api_key": "caller-api-key"},
         )
         == "https://custom.example.com/v1/responses"
     )
@@ -764,11 +764,11 @@ def test_responses_config_wraps_flagged_oauth_errors_as_authentication_error(
 ):
     monkeypatch.setenv("XAI_OAUTH_TOKEN_DIR", str(tmp_path / "missing"))
 
-    with pytest.raises(litellm.AuthenticationError) as exc_info:
+    with pytest.raises(hangarllm.AuthenticationError) as exc_info:
         XAIResponsesAPIConfig().validate_environment(
             headers={},
             model="grok-4",
-            litellm_params=GenericLiteLLMParams(use_xai_oauth=True),
+            hangarllm_params=GenericHangarLLMParams(use_xai_oauth=True),
         )
 
     assert XAIResponsesAPIConfig().custom_llm_provider.value == "xai"
@@ -776,7 +776,7 @@ def test_responses_config_wraps_flagged_oauth_errors_as_authentication_error(
 
 
 def test_proxy_cli_xai_oauth_login_uses_single_authenticator(monkeypatch):
-    from litellm.proxy.proxy_cli import run_server
+    from hangarllm.proxy.proxy_cli import run_server
 
     instances = []
 
@@ -790,7 +790,7 @@ def test_proxy_cli_xai_oauth_login_uses_single_authenticator(monkeypatch):
             return {"expires_at": 1234567890}
 
     monkeypatch.setattr(
-        "litellm.llms.xai.oauth.XAIOAuthAuthenticator", FakeAuthenticator
+        "hangarllm.llms.xai.oauth.XAIOAuthAuthenticator", FakeAuthenticator
     )
 
     result = CliRunner().invoke(run_server, ["xai-oauth", "login"])

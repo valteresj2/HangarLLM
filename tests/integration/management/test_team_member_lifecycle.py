@@ -48,7 +48,7 @@ class _TeamMembership(BaseModel):
     budget_id: str | None = None
     spend: float | None = None
     total_spend: float | None = None
-    litellm_budget_table: _BudgetDetails | None = None
+    hangarllm_budget_table: _BudgetDetails | None = None
 
 
 class _TeamInfo(BaseModel):
@@ -221,30 +221,30 @@ def test_member_delete_revokes_the_removed_members_warmed_key(
         info: Final = _team_info(gateway, team)
         stayer_roster: Final = [_roster_member(stayer, None)]
         assert info.team_info.members_with_roles == [_RosterMember.model_validate(stayer_roster[0])], repr(info)
-        assert read_rows('SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,)) == [
+        assert read_rows('SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,)) == [
             {"members_with_roles": stayer_roster}
         ], deleted.text
         assert (
             read_rows(
-                'SELECT user_id, team_id FROM "LiteLLM_TeamMembership" WHERE team_id = %s AND user_id = %s',
+                'SELECT user_id, team_id FROM "HangarLLM_TeamMembership" WHERE team_id = %s AND user_id = %s',
                 (team, leaver),
             )
             == []
         ), deleted.text
         assert read_rows(
-            'SELECT user_id, team_id FROM "LiteLLM_TeamMembership" WHERE team_id = %s AND user_id = %s',
+            'SELECT user_id, team_id FROM "HangarLLM_TeamMembership" WHERE team_id = %s AND user_id = %s',
             (team, stayer),
         ) == [{"user_id": stayer, "team_id": team}], deleted.text
         leaver_hash: Final = sha256(leaver_key.encode()).hexdigest()
         assert (
             read_rows(
-                'SELECT token FROM "LiteLLM_VerificationToken" WHERE token = %s',
+                'SELECT token FROM "HangarLLM_VerificationToken" WHERE token = %s',
                 (leaver_hash,),
             )
             == []
         ), deleted.text
         assert read_rows(
-            'SELECT token FROM "LiteLLM_DeletedVerificationToken" WHERE token = %s',
+            'SELECT token FROM "HangarLLM_DeletedVerificationToken" WHERE token = %s',
             (leaver_hash,),
         ) == [{"token": leaver_hash}], deleted.text
 
@@ -288,10 +288,10 @@ def test_member_delete_by_email_removes_a_legacy_email_only_roster_entry(
         stayer_roster: Final = _roster_member(stayer, None)
         legacy_roster: Final = {"role": "user", "user_id": None, "user_email": email}
         write_rows(
-            'UPDATE "LiteLLM_TeamTable" SET members_with_roles = %s::jsonb WHERE team_id = %s',
+            'UPDATE "HangarLLM_TeamTable" SET members_with_roles = %s::jsonb WHERE team_id = %s',
             (json.dumps([legacy_roster, stayer_roster]), team),
         )
-        assert read_rows('SELECT teams FROM "LiteLLM_UserTable" WHERE user_id = %s', (user,)) == [{"teams": [team]}], (
+        assert read_rows('SELECT teams FROM "HangarLLM_UserTable" WHERE user_id = %s', (user,)) == [{"teams": [team]}], (
             added.text
         )
         leaver_hash: Final = sha256(leaver_key.encode()).hexdigest()
@@ -300,21 +300,21 @@ def test_member_delete_by_email_removes_a_legacy_email_only_roster_entry(
         assert deleted.status_code == 200, deleted.text
         info: Final = _team_info(gateway, team)
         assert info.team_info.members_with_roles == [_RosterMember.model_validate(stayer_roster)], repr(info)
-        assert read_rows('SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,)) == [
+        assert read_rows('SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,)) == [
             {"members_with_roles": [stayer_roster]}
         ], deleted.text
-        assert read_rows('SELECT teams FROM "LiteLLM_UserTable" WHERE user_id = %s', (user,)) == [{"teams": []}], (
+        assert read_rows('SELECT teams FROM "HangarLLM_UserTable" WHERE user_id = %s', (user,)) == [{"teams": []}], (
             deleted.text
         )
         assert read_rows(
-            'SELECT user_id, team_id FROM "LiteLLM_TeamMembership" WHERE team_id = %s ORDER BY user_id',
+            'SELECT user_id, team_id FROM "HangarLLM_TeamMembership" WHERE team_id = %s ORDER BY user_id',
             (team,),
         ) == [{"user_id": stayer, "team_id": team}], deleted.text
-        assert read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE token = %s', (leaver_hash,)) == [], (
+        assert read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE token = %s', (leaver_hash,)) == [], (
             deleted.text
         )
         assert read_rows(
-            'SELECT token FROM "LiteLLM_DeletedVerificationToken" WHERE token = %s',
+            'SELECT token FROM "HangarLLM_DeletedVerificationToken" WHERE token = %s',
             (leaver_hash,),
         ) == [{"token": leaver_hash}], deleted.text
 
@@ -365,11 +365,11 @@ def test_member_delete_by_case_variant_email_removes_member_and_refuses_warmed_k
         info: Final = _team_info(gateway, team)
         stayer_roster: Final = _roster_member(stayer, None)
         assert info.team_info.members_with_roles == [_RosterMember.model_validate(stayer_roster)], repr(info)
-        assert read_rows('SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,)) == [
+        assert read_rows('SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,)) == [
             {"members_with_roles": [stayer_roster]}
         ], deleted.text
         assert read_rows(
-            'SELECT user_id, team_id FROM "LiteLLM_TeamMembership" WHERE team_id = %s AND user_id = %s',
+            'SELECT user_id, team_id FROM "HangarLLM_TeamMembership" WHERE team_id = %s AND user_id = %s',
             (team, user),
         ) == [], deleted.text
 
@@ -410,14 +410,14 @@ def test_member_update_by_case_variant_email_updates_the_member(
         assert updated.max_budget_in_team == 12, response.text
 
         membership_rows: Final = read_rows(
-            'SELECT user_id, team_id, budget_id FROM "LiteLLM_TeamMembership" WHERE team_id = %s AND user_id = %s',
+            'SELECT user_id, team_id, budget_id FROM "HangarLLM_TeamMembership" WHERE team_id = %s AND user_id = %s',
             (team, user),
         )
         assert len(membership_rows) == 1, membership_rows
         budget_id: Final = membership_rows[0]["budget_id"]
         assert isinstance(budget_id, str), membership_rows
         budget_rows: Final = read_rows(
-            'SELECT budget_id, max_budget FROM "LiteLLM_BudgetTable" WHERE budget_id = %s',
+            'SELECT budget_id, max_budget FROM "HangarLLM_BudgetTable" WHERE budget_id = %s',
             (budget_id,),
         )
         assert budget_rows == [{"budget_id": budget_id, "max_budget": 12.0}], budget_rows
@@ -426,8 +426,8 @@ def test_member_update_by_case_variant_email_updates_the_member(
         assert info.team_memberships is not None, repr(info)
         updated_membership: Final = next(member for member in info.team_memberships if member.user_id == user)
         assert updated_membership.budget_id == budget_id, repr(updated_membership)
-        assert updated_membership.litellm_budget_table is not None, repr(updated_membership)
-        assert updated_membership.litellm_budget_table.max_budget == 12, repr(updated_membership)
+        assert updated_membership.hangarllm_budget_table is not None, repr(updated_membership)
+        assert updated_membership.hangarllm_budget_table.max_budget == 12, repr(updated_membership)
 
 
 def test_member_add_by_email_provisions_a_new_user_and_resolves_an_existing_one(
@@ -448,7 +448,7 @@ def test_member_add_by_email_provisions_a_new_user_and_resolves_an_existing_one(
         existing_response: Final = _MemberAddResponse.model_validate_json(existing_added.text)
         assert tuple(user.user_id for user in existing_response.updated_users) == (existing_user,), existing_added.text
         assert read_rows(
-            'SELECT user_id, user_email FROM "LiteLLM_UserTable" WHERE LOWER(user_email) = LOWER(%s)',
+            'SELECT user_id, user_email FROM "HangarLLM_UserTable" WHERE LOWER(user_email) = LOWER(%s)',
             (existing_email,),
         ) == [{"user_id": existing_user, "user_email": existing_email}], existing_added.text
 
@@ -465,7 +465,7 @@ def test_member_add_by_email_provisions_a_new_user_and_resolves_an_existing_one(
         assert provisioned.user_email == new_email, new_added.text
         scenario.cleanups.callback(scenario.delete_user, provisioned.user_id)
         assert read_rows(
-            'SELECT user_id, user_email, teams FROM "LiteLLM_UserTable" WHERE user_email = %s',
+            'SELECT user_id, user_email, teams FROM "HangarLLM_UserTable" WHERE user_email = %s',
             (new_email,),
         ) == [{"user_id": provisioned.user_id, "user_email": new_email, "teams": [team]}], new_added.text
         info: Final = _team_info(gateway, team)
@@ -507,8 +507,8 @@ def test_member_add_list_mixing_id_and_email_applies_budget_and_allowed_models(
         assert tuple(member.user_id for member in response.updated_team_memberships) == (user_one, user_two), added.text
         assert read_rows(
             "SELECT tm.user_id, b.max_budget, b.allowed_models "
-            'FROM "LiteLLM_TeamMembership" tm '
-            'JOIN "LiteLLM_BudgetTable" b ON b.budget_id = tm.budget_id '
+            'FROM "HangarLLM_TeamMembership" tm '
+            'JOIN "HangarLLM_BudgetTable" b ON b.budget_id = tm.budget_id '
             "WHERE tm.team_id = %s ORDER BY tm.user_id",
             (team,),
         ) == [
@@ -521,11 +521,11 @@ def test_member_add_list_mixing_id_and_email_applies_budget_and_allowed_models(
                 (
                     (
                         membership.user_id,
-                        membership.litellm_budget_table.max_budget
-                        if membership.litellm_budget_table is not None
+                        membership.hangarllm_budget_table.max_budget
+                        if membership.hangarllm_budget_table is not None
                         else None,
-                        membership.litellm_budget_table.allowed_models
-                        if membership.litellm_budget_table is not None
+                        membership.hangarllm_budget_table.allowed_models
+                        if membership.hangarllm_budget_table is not None
                         else None,
                     )
                     for membership in info.team_memberships or ()
@@ -586,7 +586,7 @@ def test_bulk_member_add_adds_every_listed_member_and_reports_failures(
         )
         assert added.status_code == 200, added.text
         provisioned_rows: Final = read_rows(
-            'SELECT user_id FROM "LiteLLM_UserTable" WHERE user_email = %s',
+            'SELECT user_id FROM "HangarLLM_UserTable" WHERE user_email = %s',
             (email_five,),
         )
         assert len(provisioned_rows) == 1, added.text
@@ -605,22 +605,22 @@ def test_bulk_member_add_adds_every_listed_member_and_reports_failures(
             _BulkAddResult(user_email=email_five, success=True),
         ], added.text
         assert read_rows(
-            'SELECT user_id, team_id FROM "LiteLLM_TeamMembership" WHERE team_id = %s ORDER BY user_id',
+            'SELECT user_id, team_id FROM "HangarLLM_TeamMembership" WHERE team_id = %s ORDER BY user_id',
             (team,),
         ) == [
             {"user_id": user_id, "team_id": team}
             for user_id in sorted((user_one, user_two, user_three, user_four, user_five))
         ], added.text
         assert read_rows(
-            'SELECT m.user_id, b.max_budget FROM "LiteLLM_TeamMembership" m '
-            'JOIN "LiteLLM_BudgetTable" b ON b.budget_id = m.budget_id WHERE m.team_id = %s ORDER BY m.user_id',
+            'SELECT m.user_id, b.max_budget FROM "HangarLLM_TeamMembership" m '
+            'JOIN "HangarLLM_BudgetTable" b ON b.budget_id = m.budget_id WHERE m.team_id = %s ORDER BY m.user_id',
             (team,),
         ) == [
             {"user_id": user_id, "max_budget": 1.0}
             for user_id in sorted((user_one, user_two, user_three, user_four, user_five))
         ], added.text
         assert read_rows(
-            'SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+            'SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s',
             (team,),
         ) == [
             {
@@ -635,7 +635,7 @@ def test_bulk_member_add_adds_every_listed_member_and_reports_failures(
         ], added.text
 
         write_rows(
-            'UPDATE "LiteLLM_TeamMembership" SET spend = 2 WHERE team_id = %s AND user_id = %s',
+            'UPDATE "HangarLLM_TeamMembership" SET spend = 2 WHERE team_id = %s AND user_id = %s',
             (team, user_three),
         )
         keys: Final = tuple(_key(scenario, team_id=team, user_id=user) for user in (user_one, user_two, user_three))
@@ -657,7 +657,7 @@ def test_bulk_member_add_adds_every_listed_member_and_reports_failures(
         assert tuple(result.success for result in failed.results) == (False,) * 5, duplicate.text
         assert all(result.error is not None for result in failed.results), duplicate.text
         assert read_rows(
-            'SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+            'SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s',
             (team,),
         ) == [
             {
@@ -701,7 +701,7 @@ def test_bulk_member_add_adds_every_listed_member_and_reports_failures(
         denied_response: Final = _HTTPErrorResponse.model_validate_json(member_denied.text)
         assert "User not proxy admin OR team admin" in denied_response.detail.error, member_denied.text
         assert read_rows(
-            'SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+            'SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s',
             (team,),
         ) == [
             {
@@ -737,14 +737,14 @@ def test_bulk_member_add_all_users_is_proxy_admin_only_and_adds_every_user(
                 error="`all_users=true` is restricted to PROXY_ADMIN. Org/team admins must specify explicit member lists."
             )
         ), denied.text
-        assert read_rows('SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,)) == [
+        assert read_rows('SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,)) == [
             {"members_with_roles": []}
         ], denied.text
-        assert read_rows('SELECT user_id FROM "LiteLLM_TeamMembership" WHERE team_id = %s', (team,)) == [], denied.text
+        assert read_rows('SELECT user_id FROM "HangarLLM_TeamMembership" WHERE team_id = %s', (team,)) == [], denied.text
 
         users: Final = tuple(
             (string_value(row["user_id"]), row["user_email"])
-            for row in read_rows('SELECT user_id, user_email FROM "LiteLLM_UserTable" ORDER BY user_id', ())
+            for row in read_rows('SELECT user_id, user_email FROM "HangarLLM_UserTable" ORDER BY user_id', ())
         )
         assert caller in {user_id for user_id, _ in users}, repr(users)
         added: Final = gateway.request("POST", "/team/bulk_member_add", {"team_id": team, "all_users": True})
@@ -759,10 +759,10 @@ def test_bulk_member_add_all_users_is_proxy_admin_only_and_adds_every_user(
             key=lambda result: result[0] or "",
         ) == [(user_id, user_email, True) for user_id, user_email in users], added.text
         assert read_rows(
-            'SELECT user_id FROM "LiteLLM_TeamMembership" WHERE team_id = %s ORDER BY user_id',
+            'SELECT user_id FROM "HangarLLM_TeamMembership" WHERE team_id = %s ORDER BY user_id',
             (team,),
         ) == [{"user_id": user_id} for user_id, _ in users], added.text
-        roster: Final = read_rows('SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,))
+        roster: Final = read_rows('SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,))
         assert len(roster) == 1, added.text
         roster_members: Final = roster[0]["members_with_roles"]
         assert isinstance(roster_members, list), repr(roster)
@@ -841,14 +841,14 @@ def test_bulk_delete_removes_exactly_the_named_members_and_revokes_their_access(
             _RosterMember(role="user", user_id=stayer, user_email=None)
         ], repr(team_info)
         assert read_rows(
-            'SELECT user_id, team_id FROM "LiteLLM_TeamMembership" WHERE team_id = %s ORDER BY user_id',
+            'SELECT user_id, team_id FROM "HangarLLM_TeamMembership" WHERE team_id = %s ORDER BY user_id',
             (team,),
         ) == [{"user_id": stayer, "team_id": team}], deleted.text
         for removed_key in (admin_key, member_key):
             removed_hash: Final = sha256(removed_key.encode()).hexdigest()
             assert (
                 read_rows(
-                    'SELECT token FROM "LiteLLM_VerificationToken" WHERE token = %s',
+                    'SELECT token FROM "HangarLLM_VerificationToken" WHERE token = %s',
                     (removed_hash,),
                 )
                 == []
@@ -921,7 +921,7 @@ def test_bulk_delete_by_case_variant_email_removes_member_and_refuses_warmed_key
         info: Final = _team_info(gateway, team)
         assert info.team_info.members_with_roles == [], repr(info)
         assert read_rows(
-            'SELECT user_id, team_id FROM "LiteLLM_TeamMembership" WHERE team_id = %s AND user_id = %s',
+            'SELECT user_id, team_id FROM "HangarLLM_TeamMembership" WHERE team_id = %s AND user_id = %s',
             (team, user),
         ) == [], deleted.text
 

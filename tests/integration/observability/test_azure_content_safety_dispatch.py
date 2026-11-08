@@ -66,9 +66,9 @@ def _model(scenario: Scenario, provider: Wire, model: str = "openai/gpt-4o-mini"
 
 
 def _guardrail_entry(response: httpx.Response) -> dict[str, JsonValue]:
-    request_id: Final = response.headers["x-litellm-call-id"]
+    request_id: Final = response.headers["x-hangarllm-call-id"]
     rows: Final = eventually(
-        lambda: read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s', (request_id,)),
+        lambda: read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s', (request_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -81,7 +81,7 @@ def _guardrail_entry(response: httpx.Response) -> dict[str, JsonValue]:
 
 def _spend_metadata(request_id: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s', (request_id,)),
+        lambda: read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s', (request_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -373,7 +373,7 @@ def test_h4_tuple_benign_chat_stream_reaches_provider_and_spend(
         assert done, text
         assert _azure_texts(azure) == (prompt,), text
         assert provider_texts(provider) == (prompt,), text
-        spend_metadata: Final = _spend_metadata(headers["x-litellm-call-id"])
+        spend_metadata: Final = _spend_metadata(headers["x-hangarllm-call-id"])
         entries: Final = spend_metadata["guardrail_information"]
         assert isinstance(entries, list) and len(entries) == 1, text
         assert object_value(entries[0])["guardrail_status"] == "success", text
@@ -500,7 +500,7 @@ def test_h9_responses_benign_stream_is_scanned_and_served(
         assert "permitted response" in text, text
         assert _azure_texts(azure) == (prompt,), text
         assert provider_texts(provider) == (prompt,), text
-        spend_metadata: Final = _spend_metadata(headers["x-litellm-call-id"])
+        spend_metadata: Final = _spend_metadata(headers["x-hangarllm-call-id"])
         entries: Final = spend_metadata["guardrail_information"]
         assert isinstance(entries, list) and len(entries) == 1, text
         assert object_value(entries[0])["guardrail_status"] == "success", text
@@ -1254,7 +1254,7 @@ def test_e4_cache_disabled_twin_requests_have_distinct_spend_rows(
         assert all(response.status_code == 200 for response in responses), tuple(
             response.text for response in responses
         )
-        assert len(set(response.headers["x-litellm-call-id"] for response in responses)) == 3
+        assert len(set(response.headers["x-hangarllm-call-id"] for response in responses)) == 3
         assert _azure_texts(azure) == (prompt, prompt, prompt), responses[-1].text
         assert provider_texts(provider) == (prompt, prompt, prompt), responses[-1].text
         assert all(_guardrail_entry(response)["guardrail_status"] == "success" for response in responses), (

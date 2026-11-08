@@ -32,7 +32,7 @@ _GATED_LOGGER: Final = """
 import os
 import re
 import httpx
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_logger import CustomLogger
 
 class ShutdownLogger(CustomLogger):
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
@@ -53,7 +53,7 @@ def _tag_shutdown_config(directory: Path, upstream: str, redis_buffer: bool, *, 
                 "model_list": [
                     {
                         "model_name": "shutdown-model",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-4o-mini",
                             "api_base": upstream + "/v1",
                             "api_key": "synthetic-key",
@@ -63,13 +63,13 @@ def _tag_shutdown_config(directory: Path, upstream: str, redis_buffer: bool, *, 
                     }
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "proxy_batch_write_at": 3600,
                     "use_redis_transaction_buffer": redis_buffer,
                     "disable_model_info_refresh": True,
                 },
-                "litellm_settings": {
+                "hangarllm_settings": {
                     "cache": True,
                     "cache_params": {"type": "redis", "host": "os.environ/REDIS_HOST", "port": "os.environ/REDIS_PORT"},
                     "callbacks": ["shutdown_callbacks.logger"] if gated else [],
@@ -96,17 +96,17 @@ def _tagged_chat(gateway: Gateway, key: str, tags: tuple[str, str]) -> None:
 
 def _assert_shutdown_accounting(key: str, tags: tuple[str, str], requests: int) -> None:
     hashed: Final = hashlib.sha256(key.encode()).hexdigest()
-    for table, count in (("LiteLLM_SpendLogs", "count(*)"), ("LiteLLM_DailyUserSpend", "sum(api_requests)")):
+    for table, count in (("HangarLLM_SpendLogs", "count(*)"), ("HangarLLM_DailyUserSpend", "sum(api_requests)")):
         rows: Final = read_rows(
             f'SELECT ({count})::int AS requests, sum(spend) AS spend FROM "{table}" WHERE api_key=%s', (hashed,)
         )
         assert rows[0]["requests"] == requests, (table, rows)
         assert rows[0]["spend"] == pytest.approx(requests * 0.05, abs=1e-9), (table, rows)
-    key_rows: Final = read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (hashed,))
+    key_rows: Final = read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (hashed,))
     assert key_rows[0]["spend"] == pytest.approx(requests * 0.05, abs=1e-9)
     for tag in tags:
         tag_rows: Final = read_rows(
-            'SELECT sum(api_requests)::int AS requests, sum(spend) AS spend FROM "LiteLLM_DailyTagSpend" WHERE api_key=%s AND tag=%s',
+            'SELECT sum(api_requests)::int AS requests, sum(spend) AS spend FROM "HangarLLM_DailyTagSpend" WHERE api_key=%s AND tag=%s',
             (hashed, tag),
         )
         assert tag_rows[0]["requests"] == requests, (tag, tag_rows)
@@ -118,7 +118,7 @@ def test_tagged_request_survives_shutdown_before_the_tag_timer(
     gateway: Gateway, tmp_path: Path, redis_buffer: bool
 ) -> None:
     tags: Final = (f"shutdown-a-{uuid.uuid4().hex}", f"shutdown-b-{uuid.uuid4().hex}")
-    overrides: Final = {"DATABASE_URL": os.environ["DATABASE_URL"], "LITELLM_LOG": "DEBUG"}
+    overrides: Final = {"DATABASE_URL": os.environ["DATABASE_URL"], "HANGARLLM_LOG": "DEBUG"}
     with wire_server(_provider) as wire:
         config: Final = _tag_shutdown_config(tmp_path, wire.url, redis_buffer)
         with owned_proxy_process(gateway, tmp_path, overrides, config=config) as owned:
@@ -157,7 +157,7 @@ def test_callback_backlog_is_accounted_before_shutdown_disconnects(
                 "LOGGING_WORKER_MAX_QUEUE_SIZE": "2" if overflow else "50000",
                 "SHUTDOWN_CALLBACK_URL": logger.url,
                 "GRACEFUL_SHUTDOWN_TIMEOUT": "15",
-                "LITELLM_LOG": "DEBUG",
+                "HANGARLLM_LOG": "DEBUG",
             },
             config=config,
         ) as owned:
@@ -207,7 +207,7 @@ def test_sigterm_http_drain_consumes_callback_budget(gateway: Gateway, tmp_path:
                     "DATABASE_URL": os.environ["DATABASE_URL"],
                     "SHUTDOWN_CALLBACK_URL": logger.url,
                     "GRACEFUL_SHUTDOWN_TIMEOUT": "30",
-                    "LITELLM_LOG": "DEBUG",
+                    "HANGARLLM_LOG": "DEBUG",
                 },
                 config=config,
                 extra_arguments=("--run_gunicorn",) if gunicorn else (),
@@ -272,7 +272,7 @@ def _committing_daily_user_spend() -> int:
         "SELECT count(*)::int AS committing FROM pg_stat_activity "
         "WHERE query='COMMIT' AND state='active' AND wait_event='PgSleep' AND pid IN "
         "(SELECT pid FROM pg_locks WHERE relation = %s::regclass AND mode='RowExclusiveLock')",
-        ('"LiteLLM_DailyUserSpend"',),
+        ('"HangarLLM_DailyUserSpend"',),
     )
     committing: Final = rows[0]["committing"]
     assert isinstance(committing, int)
@@ -295,7 +295,7 @@ def _install_slow_commit(user_id: str, fails_once: bool) -> str:
         )
         connection.execute(
             sql.SQL(
-                'CREATE CONSTRAINT TRIGGER {} AFTER INSERT OR UPDATE ON "LiteLLM_DailyUserSpend" '
+                'CREATE CONSTRAINT TRIGGER {} AFTER INSERT OR UPDATE ON "HangarLLM_DailyUserSpend" '
                 "DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (NEW.user_id = {}) EXECUTE FUNCTION {}()"
             ).format(sql.Identifier(suffix), sql.Literal(user_id), sql.Identifier(suffix))
         )
@@ -305,7 +305,7 @@ def _install_slow_commit(user_id: str, fails_once: bool) -> str:
 def _drop_slow_commit(suffix: str) -> None:
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as connection:
         connection.execute(
-            sql.SQL('DROP TRIGGER IF EXISTS {} ON "LiteLLM_DailyUserSpend"').format(sql.Identifier(suffix))
+            sql.SQL('DROP TRIGGER IF EXISTS {} ON "HangarLLM_DailyUserSpend"').format(sql.Identifier(suffix))
         )
         connection.execute(sql.SQL("DROP FUNCTION IF EXISTS {}()").format(sql.Identifier(suffix)))
         connection.execute(sql.SQL("DROP SEQUENCE IF EXISTS {}").format(sql.Identifier(suffix)))
@@ -342,10 +342,10 @@ class _Shutdown:
         assert self.owned.gateway.request("POST", "/v1/chat/completions", body, key=self.key).status_code == 200
 
     def daily_user_requests(self) -> int:
-        return _api_requests("LiteLLM_DailyUserSpend", "user_id", self.owner)
+        return _api_requests("HangarLLM_DailyUserSpend", "user_id", self.owner)
 
     def spend_logs(self) -> int:
-        rows: Final = read_rows('SELECT count(*)::int AS total FROM "LiteLLM_SpendLogs" WHERE "user"=%s', (self.owner,))
+        rows: Final = read_rows('SELECT count(*)::int AS total FROM "HangarLLM_SpendLogs" WHERE "user"=%s', (self.owner,))
         total: Final = rows[0]["total"]
         assert isinstance(total, int)
         return total
@@ -374,7 +374,7 @@ class _Shutdown:
     def start_blocked_model_insert(self) -> threading.Thread:
         body: Final = {
             "model_name": f"integration-blocked-{uuid.uuid4().hex}",
-            "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "integration-provider-key"},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "integration-provider-key"},
             "model_info": {},
         }
 
@@ -424,7 +424,7 @@ def _proxy_with_one_seeded_row(
             tmp_path,
             {
                 "DATABASE_URL": os.environ["DATABASE_URL"],
-                "LITELLM_LOG": "DEBUG",
+                "HANGARLLM_LOG": "DEBUG",
                 "GRACEFUL_SHUTDOWN_TIMEOUT": "1",
                 "SCHEDULED_JOB_SHUTDOWN_FINISH_TIMEOUT_SECONDS": "1",
                 "SCHEDULED_JOB_SHUTDOWN_CANCEL_TIMEOUT_SECONDS": str(cancel_timeout_seconds),
@@ -445,14 +445,14 @@ def _proxy_with_one_seeded_row(
     if settle_seconds:
         eventually(
             lambda: (
-                _api_requests("LiteLLM_DailyUserSpend", "user_id", owner),
-                _api_requests("LiteLLM_DailyTeamSpend", "team_id", team),
+                _api_requests("HangarLLM_DailyUserSpend", "user_id", owner),
+                _api_requests("HangarLLM_DailyTeamSpend", "team_id", team),
             ),
             lambda totals: totals == (written, written),
             seconds=settle_seconds,
         )
-    assert _api_requests("LiteLLM_DailyUserSpend", "user_id", owner) == written
-    assert _api_requests("LiteLLM_DailyTeamSpend", "team_id", team) == written
+    assert _api_requests("HangarLLM_DailyUserSpend", "user_id", owner) == written
+    assert _api_requests("HangarLLM_DailyTeamSpend", "team_id", team) == written
 
 
 @pytest.mark.covers("quota_management.spend_tracking.shutdown_cancel_keeps_in_flight_daily_batch")
@@ -464,14 +464,14 @@ def test_daily_spend_batch_cancelled_while_waiting_for_a_pool_connection_is_writ
         psycopg.connect(os.environ["DATABASE_URL"]) as models,
         psycopg.connect(os.environ["DATABASE_URL"]) as memberships,
     ):
-        models.execute('LOCK TABLE "LiteLLM_ProxyModelTable" IN EXCLUSIVE MODE')
+        models.execute('LOCK TABLE "HangarLLM_ProxyModelTable" IN EXCLUSIVE MODE')
         first: Final = shutdown.start_blocked_model_insert()
-        eventually(lambda: _waiting_on("LiteLLM_ProxyModelTable"), lambda waiting: waiting == 1, seconds=30)
-        shutdown.chat_while_spend_update_is_blocked(memberships, "LiteLLM_TeamMembership")
+        eventually(lambda: _waiting_on("HangarLLM_ProxyModelTable"), lambda waiting: waiting == 1, seconds=30)
+        shutdown.chat_while_spend_update_is_blocked(memberships, "HangarLLM_TeamMembership")
         second: Final = shutdown.start_blocked_model_insert()
         eventually(shutdown.other_requests_in_flight, lambda in_flight: in_flight == 2, seconds=30)
         memberships.rollback()
-        eventually(lambda: _waiting_on("LiteLLM_ProxyModelTable"), lambda waiting: waiting == 2, seconds=30)
+        eventually(lambda: _waiting_on("HangarLLM_ProxyModelTable"), lambda waiting: waiting == 2, seconds=30)
         shutdown.terminate_once(lambda: shutdown.logged(BATCH_DRAINED_LOG_LINE), models.rollback)
         first.join(timeout=30)
         second.join(timeout=30)
@@ -486,11 +486,11 @@ def test_daily_spend_batch_cancelled_while_waiting_for_a_row_lock_is_written_exa
         psycopg.connect(os.environ["DATABASE_URL"]) as holder,
         psycopg.connect(os.environ["DATABASE_URL"]) as memberships,
     ):
-        holder.execute('SELECT 1 FROM "LiteLLM_DailyUserSpend" WHERE user_id=%s FOR UPDATE', (shutdown.owner,))
-        shutdown.chat_while_spend_update_is_blocked(memberships, "LiteLLM_TeamMembership")
+        holder.execute('SELECT 1 FROM "HangarLLM_DailyUserSpend" WHERE user_id=%s FOR UPDATE', (shutdown.owner,))
+        shutdown.chat_while_spend_update_is_blocked(memberships, "HangarLLM_TeamMembership")
         memberships.rollback()
         shutdown.terminate_once(
-            lambda: shutdown.logged(BATCH_DRAINED_LOG_LINE) and _waiting_on("LiteLLM_DailyUserSpend") == 1,
+            lambda: shutdown.logged(BATCH_DRAINED_LOG_LINE) and _waiting_on("HangarLLM_DailyUserSpend") == 1,
             holder.rollback,
         )
 
@@ -515,7 +515,7 @@ def test_daily_spend_batch_cancelled_while_postgres_is_committing_it_is_written_
     ):
         suffix: Final = _install_slow_commit(shutdown.owner, fails_once=commit_fails_once)
         try:
-            shutdown.chat_while_spend_update_is_blocked(memberships, "LiteLLM_TeamMembership")
+            shutdown.chat_while_spend_update_is_blocked(memberships, "HangarLLM_TeamMembership")
             memberships.rollback()
             shutdown.terminate_once(
                 lambda: shutdown.logged(BATCH_DRAINED_LOG_LINE) and _committing_daily_user_spend() == 1,

@@ -6,12 +6,12 @@ import pytest
 import yaml
 
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.google_endpoints.endpoints import google_generate_content
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.google_endpoints.endpoints import google_generate_content
 from fastapi import Request, Response
 from fastapi.datastructures import Headers
-from litellm.proxy.proxy_server import initialize
-from litellm.utils import ModelResponse
+from hangarllm.proxy.proxy_server import initialize
+from hangarllm.utils import ModelResponse
 
 
 @pytest.fixture
@@ -83,7 +83,7 @@ async def test_google_generate_content_with_slashes_in_model_name(
         "model_list": [
             {
                 "model_name": "bedrock/claude-sonnet-3.7",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/anthropic.claude-3-sonnet-20240229-v1:0",
                 },
             }
@@ -98,7 +98,7 @@ async def test_google_generate_content_with_slashes_in_model_name(
         await initialize(config=config_fp)
 
         with patch(
-            "litellm.proxy.proxy_server.llm_router.agenerate_content",
+            "hangarllm.proxy.proxy_server.llm_router.agenerate_content",
             new_callable=AsyncMock,
         ) as mock_agenerate_content:
             mock_agenerate_content.return_value = ModelResponse()

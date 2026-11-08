@@ -13,7 +13,7 @@ _API_KEY: Final = "synthetic-openai-key"
 _PROMPT_TOKENS: Final = 1000
 _COMPLETION_TOKENS: Final = 500
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
-_PACKAGED_PRICES: Final = Path(__file__).resolve().parents[3] / "litellm" / "model_prices_and_context_window_backup.json"
+_PACKAGED_PRICES: Final = Path(__file__).resolve().parents[3] / "hangarllm" / "model_prices_and_context_window_backup.json"
 _REPLY: Final = json.dumps(
     {
         "id": "chatcmpl-bundled-price",
@@ -53,7 +53,7 @@ def test_a_deployment_with_no_configured_price_is_charged_at_the_packaged_cost_m
             {"model": model, "messages": [{"role": "user", "content": "synthetic priced request"}]},
         )
         assert response.status_code == 200, response.text
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(
             _PROMPT_TOKENS * input_rate + _COMPLETION_TOKENS * output_rate, rel=1e-9
         )
         assert posted_targets(wire) == ("/v1/chat/completions",)

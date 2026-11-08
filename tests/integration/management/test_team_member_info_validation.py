@@ -6,7 +6,7 @@ reached via /team/member_add.
 PROXY_ADMIN is the caller so the upstream `_validate_team_member_add_permissions`
 gate never short-circuits the payload check. Each scenario asserts BOTH the
 HTTP status and the DB end-state — for accepted cases, the
-LiteLLM_TeamMembership row reflects the resolved user_id (the regression
+HangarLLM_TeamMembership row reflects the resolved user_id (the regression
 shape: a payload that silently lands the membership against the WRONG
 user_id is invisible from response-body alone).
 """
@@ -37,7 +37,7 @@ async def test_member_add_both_none_rejected(gateway_client, db, resources, acto
     # (422). Either shape proves the empty-Member payload is rejected before
     # any membership row is written — pin both.
     assert resp.status_code in (400, 422), resp.text
-    rows = await db.db.litellm_teammembership.find_many(where={"team_id": team_id})
+    rows = await db.db.hangarllm_teammembership.find_many(where={"team_id": team_id})
     assert all(row.user_id == "default_user_id" for row in rows), "empty-Member payload leaked a membership row"
 
 
@@ -71,7 +71,7 @@ async def test_member_add_email_id_mismatch_rejected(
     )
     assert resp.status_code == 400, resp.text
     assert "do not belong to the same user" in resp.text, resp.text
-    rows = await db.db.litellm_teammembership.find_many(where={"team_id": team_id})
+    rows = await db.db.hangarllm_teammembership.find_many(where={"team_id": team_id})
     assert not any(row.user_id in {real_user_id, other_user_id} for row in rows), "mismatch payload leaked a membership row"
 
 
@@ -98,12 +98,12 @@ async def test_member_add_email_only_resolves_user_id(
         },
     )
     assert resp.status_code == 200, resp.text
-    # litellm_teammembership rows are only written when a per-member budget
+    # hangarllm_teammembership rows are only written when a per-member budget
     # is assigned; the default member-add path stores membership in the
     # team's members_with_roles JSON. Re-read that and assert the resolved
     # user_id landed — the regression shape is "email resolved to the WRONG
     # user_id and was silently written to members_with_roles".
-    team_row = await db.db.litellm_teamtable.find_unique(where={"team_id": team_id})
+    team_row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": team_id})
     assert team_row is not None
     member_user_ids = [m.get("user_id") for m in team_row.members_with_roles]
     assert (
@@ -122,7 +122,7 @@ async def test_member_add_unknown_user_id_upserted(
     team_id = await create_scratch_team(db, team_id=resources.tag("team"))
     new_user_id = f"{resources.prefix}-fresh"
     # Sanity — user does not exist yet.
-    pre = await db.db.litellm_usertable.find_unique(where={"user_id": new_user_id})
+    pre = await db.db.hangarllm_usertable.find_unique(where={"user_id": new_user_id})
     assert pre is None
     seeder = actors.keys[Actor.PROXY_ADMIN].cleartext
     resp = await gateway_client.post(
@@ -134,7 +134,7 @@ async def test_member_add_unknown_user_id_upserted(
         },
     )
     assert resp.status_code == 200, resp.text
-    post = await db.db.litellm_usertable.find_unique(where={"user_id": new_user_id})
+    post = await db.db.hangarllm_usertable.find_unique(where={"user_id": new_user_id})
     assert post is not None, "user_id was not upserted"
     # The user row was created with NULL email (the helper returned the
     # member as-is, no email lookup happened because the user didn't exist).
@@ -155,7 +155,7 @@ async def test_member_add_duplicate_email_rejected(
     email = f"{resources.prefix}-dup@example.com"
     first = await create_scratch_user(db, resources.prefix, suffix="dup1", user_email=email)
     write_rows(
-        'INSERT INTO "LiteLLM_UserTable" (user_id, user_email, user_role, models, metadata) '
+        'INSERT INTO "HangarLLM_UserTable" (user_id, user_email, user_role, models, metadata) '
         "VALUES (%s, %s, 'internal_user', '{}', '{}')",
         (resources.tag("dup2"), email),
     )
@@ -171,7 +171,7 @@ async def test_member_add_duplicate_email_rejected(
     )
     assert resp.status_code == 400, resp.text
     assert "Multiple users found" in resp.text, resp.text
-    rows = await db.db.litellm_teammembership.find_many(
+    rows = await db.db.hangarllm_teammembership.find_many(
         where={"team_id": team_id, "user_id": {"in": [first, resources.tag("dup2")]}}
     )
     assert rows == [], "duplicate-email payload leaked a membership row"

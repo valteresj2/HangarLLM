@@ -47,13 +47,13 @@ def _write_config(path: Path, provider_url: str) -> Path:
                 "model_list": [
                     {
                         "model_name": _GROUP,
-                        "litellm_params": {"model": "hosted_vllm/Qwen/Qwen3-0.6B", "api_base": provider_url},
+                        "hangarllm_params": {"model": "hosted_vllm/Qwen/Qwen3-0.6B", "api_base": provider_url},
                         "model_info": {"id": deployment_id},
                     }
                     for deployment_id in _DEPLOYMENTS
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "disable_model_info_refresh": True,
                 },
@@ -85,6 +85,6 @@ def test_least_busy_spreads_a_burst_of_decisions_calls_across_the_group(tmp_path
     ):
         responses: Final = tuple(pool.map(lambda _: _decide(proxy), range(_BURST)))
     assert [response.status_code for response in responses] == [200] * _BURST, [r.text for r in responses]
-    assert Counter(response.headers["x-litellm-model-id"] for response in responses) == Counter(
+    assert Counter(response.headers["x-hangarllm-model-id"] for response in responses) == Counter(
         {deployment_id: _BURST // len(_DEPLOYMENTS) for deployment_id in _DEPLOYMENTS}
     )

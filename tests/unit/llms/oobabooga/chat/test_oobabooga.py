@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 import httpx
 import respx
 
-import litellm
-from litellm.llms.oobabooga.chat import oobabooga
+import hangarllm
+from hangarllm.llms.oobabooga.chat import oobabooga
 
 MOCK_COMPLETION_RESPONSE = {
     "choices": [{"message": {"role": "assistant", "content": "hi there"}}],
@@ -26,11 +26,11 @@ def test_model_name_with_https_substring_uses_api_base():
     api_base = "https://legit.example"
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.HTTPHandler.post"
+        "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post"
     ) as mock_post:
         mock_post.return_value = _mock_post_response()
 
-        litellm.completion(
+        hangarllm.completion(
             model="oobabooga/my-https-model",
             messages=[{"role": "user", "content": "hello"}],
             api_base=api_base,
@@ -43,11 +43,11 @@ def test_model_name_with_https_substring_uses_api_base():
 
 def test_url_valued_model_still_targets_that_url():
     with patch(
-        "litellm.llms.custom_httpx.http_handler.HTTPHandler.post"
+        "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post"
     ) as mock_post:
         mock_post.return_value = _mock_post_response()
 
-        litellm.completion(
+        hangarllm.completion(
             model="oobabooga/https://sdk-user.example",
             messages=[{"role": "user", "content": "hello"}],
         )
@@ -69,13 +69,13 @@ def test_stream_keeps_unicode_line_separators_inside_a_data_line(respx_mock: res
         model="my-model",
         messages=[{"role": "user", "content": "hello"}],
         api_base="https://ooba.example",
-        model_response=litellm.ModelResponse(),
+        model_response=hangarllm.ModelResponse(),
         print_verbose=print,
         encoding=None,
         api_key=None,
         logging_obj=MagicMock(),
         optional_params={"stream": True},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert [line for line in lines if line] == [data_line, "data: [DONE]"]

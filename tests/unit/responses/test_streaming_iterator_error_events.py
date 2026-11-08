@@ -2,7 +2,7 @@
 Regression: in-stream error events (type="error", type="response.failed") must
 raise instead of being returned as benign chunks, mirroring chat streaming
 semantics (_handle_stream_fallback_error). The event's code, type and status go
-through litellm.exception_type, so each event raises the same typed exception
+through hangarllm.exception_type, so each event raises the same typed exception
 the non-streaming path raises for that provider error: non-retriable 4xx
 (except 429) raise that typed exception directly, so a context-length event
 surfaces as ContextWindowExceededError(400) with no MidStreamFallbackError
@@ -30,15 +30,15 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-from litellm.litellm_core_utils.litellm_logging import _get_provider_request_id
-from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.responses.streaming_iterator import (
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+from hangarllm.hangarllm_core_utils.hangarllm_logging import _get_provider_request_id
+from hangarllm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.responses.streaming_iterator import (
     _ERROR_CODE_HTTP_STATUS,
     BaseResponsesAPIStreamingIterator,
     ResponsesAPIStreamingIterator,
@@ -46,9 +46,9 @@ from litellm.responses.streaming_iterator import (
     SyncResponsesAPIStreamingIterator,
     _status_code_for_error_fields,
 )
-from litellm.utils import ProviderConfigManager
-from litellm.types.utils import StandardLoggingPayload
-from litellm.types.llms.openai import (
+from hangarllm.utils import ProviderConfigManager
+from hangarllm.types.utils import StandardLoggingPayload
+from hangarllm.types.llms.openai import (
     ErrorEvent,
     ErrorEventError,
     ResponseAPIUsage,
@@ -57,8 +57,8 @@ from litellm.types.llms.openai import (
 
 
 def _make_iterator() -> BaseResponsesAPIStreamingIterator:
-    mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
-    mock_logging_obj.model_call_details = {"litellm_params": {}}
+    mock_logging_obj = Mock(spec=HangarLLMLoggingObj)
+    mock_logging_obj.model_call_details = {"hangarllm_params": {}}
     mock_config = Mock(spec=BaseResponsesAPIConfig)
     mock_response = Mock()
     mock_response.headers = {}
@@ -126,8 +126,8 @@ def _flex_outage_sse(kind: str) -> str:
 async def test_streamed_flex_outage_raises_rate_limit_like_the_non_streamed_path(
     kind: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     async_client: Final = AsyncHTTPHandler(
         transport=httpx.MockTransport(
             lambda request: httpx.Response(
@@ -136,7 +136,7 @@ async def test_streamed_flex_outage_raises_rate_limit_like_the_non_streamed_path
         )
     )
     try:
-        stream: Final = await litellm.aresponses(
+        stream: Final = await hangarllm.aresponses(
             model="openai/gpt-5",
             input="hi",
             service_tier="flex",
@@ -149,7 +149,7 @@ async def test_streamed_flex_outage_raises_rate_limit_like_the_non_streamed_path
     finally:
         await async_client.close()
     assert raised.value.status_code == 429, raised.value
-    assert isinstance(raised.value.original_exception, litellm.RateLimitError), raised.value.original_exception
+    assert isinstance(raised.value.original_exception, hangarllm.RateLimitError), raised.value.original_exception
     assert "Flex processing is temporarily unavailable" in str(raised.value.original_exception)
 
 
@@ -163,13 +163,13 @@ def test_stream_error_preserves_provider_request_id(provider: str, header: str |
     response: Final = httpx.Response(
         200, headers={**stream_headers, header: "provider-request-id"} if header else stream_headers
     )
-    logging: Final = LiteLLMLoggingObj(
+    logging: Final = HangarLLMLoggingObj(
         model="test-model",
         messages=[],
         stream=True,
         call_type="responses",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="test-call",
+        hangarllm_call_id="test-call",
         function_id="test-function",
     )
     iterator: Final = BaseResponsesAPIStreamingIterator(
@@ -183,9 +183,9 @@ def test_stream_error_preserves_provider_request_id(provider: str, header: str |
     expected_headers: Final = {header.lower(): "provider-request-id"} if header else {}
     mapped: Final = iterator._map_error_event_exception({"type": code, "code": code, "message": "failure"})
     assert _get_provider_request_id(mapped) == expected_id
-    assert dict(getattr(mapped, "litellm_response_headers", None) or {}) == expected_headers
+    assert dict(getattr(mapped, "hangarllm_response_headers", None) or {}) == expected_headers
     expected_status: Final = 503 if provider == "bedrock" and status == 500 else status
-    with pytest.raises((litellm.BadRequestError, MidStreamFallbackError)) as raised:
+    with pytest.raises((hangarllm.BadRequestError, MidStreamFallbackError)) as raised:
         iterator._maybe_raise_for_error_event(_make_error_chunk(code, code, "failure"))
     assert raised.value.status_code == expected_status
     assert _get_provider_request_id(raised.value) == expected_id
@@ -205,7 +205,7 @@ def test_maybe_raise_for_error_event_wraps_unknown_error_in_mid_stream_fallback(
     with pytest.raises(MidStreamFallbackError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     assert exc_info.value.status_code == 500
-    assert isinstance(exc_info.value.original_exception, litellm.InternalServerError)
+    assert isinstance(exc_info.value.original_exception, hangarllm.InternalServerError)
     assert exc_info.value.original_exception.status_code == 500
 
 
@@ -218,7 +218,7 @@ def test_maybe_raise_for_error_event_maps_rate_limit_code_to_429_mid_stream_fall
     assert exc_info.value.status_code == 429
     assert exc_info.value.generated_content == ""
     assert exc_info.value.is_pre_first_chunk is True
-    assert isinstance(exc_info.value.original_exception, litellm.RateLimitError)
+    assert isinstance(exc_info.value.original_exception, hangarllm.RateLimitError)
     assert exc_info.value.original_exception.status_code == 429
 
 
@@ -226,7 +226,7 @@ def test_maybe_raise_for_error_event_maps_invalid_request_type_to_400():
     """Client errors classified via the `type` field must raise BadRequestError directly (no fallback)."""
     iterator = _make_iterator()
     chunk = _make_error_chunk("invalid_request_error", "invalid_prompt", "bad request")
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     assert exc_info.value.status_code == 400
     assert not isinstance(exc_info.value, MidStreamFallbackError)
@@ -238,7 +238,7 @@ def test_maybe_raise_for_error_event_maps_context_length_code_to_400():
     chunk = Mock()
     chunk.type = "error"
     chunk.error = {"code": "context_length_exceeded", "message": "too long"}
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     assert exc_info.value.status_code == 400
     assert not isinstance(exc_info.value, MidStreamFallbackError)
@@ -257,7 +257,7 @@ def test_maybe_raise_for_error_event_raises_context_window_exceeded_directly(mes
     fallback, preserving the direct-SDK 400 contract from issue #15785."""
     iterator: Final = _make_iterator()
     chunk: Final = _make_error_chunk("invalid_request_error", "context_length_exceeded", message)
-    with pytest.raises(litellm.ContextWindowExceededError) as exc_info:
+    with pytest.raises(hangarllm.ContextWindowExceededError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     assert exc_info.value.status_code == 400
     assert not isinstance(exc_info.value, MidStreamFallbackError)
@@ -279,7 +279,7 @@ def test_maybe_raise_for_error_event_wraps_content_policy_violation_for_content_
     chunk = _make_error_chunk("invalid_request_error", "content_policy_violation", CONTENT_POLICY_MESSAGE)
     with pytest.raises(MidStreamFallbackError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
-    assert isinstance(exc_info.value.original_exception, litellm.ContentPolicyViolationError)
+    assert isinstance(exc_info.value.original_exception, hangarllm.ContentPolicyViolationError)
     assert exc_info.value.original_exception.status_code == 400
     assert exc_info.value.status_code == 400
     assert exc_info.value.is_pre_first_chunk is True
@@ -293,20 +293,20 @@ def test_maybe_raise_for_response_failed_event_wraps_content_policy_violation():
     )
     with pytest.raises(MidStreamFallbackError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
-    assert isinstance(exc_info.value.original_exception, litellm.ContentPolicyViolationError)
+    assert isinstance(exc_info.value.original_exception, hangarllm.ContentPolicyViolationError)
 
 
 @pytest.mark.parametrize(
     "error_type,error_code,expected_exception",
     [
-        ("invalid_request_error", "content_policy_violation", litellm.ContentPolicyViolationError),
-        ("invalid_request_error", "cyber_policy", litellm.ContentPolicyViolationError),
-        ("tokens", "rate_limit_exceeded", litellm.RateLimitError),
-        ("invalid_request_error", "insufficient_quota", litellm.RateLimitError),
-        ("server_error", "internal_error", litellm.InternalServerError),
-        ("invalid_request_error", "invalid_prompt", litellm.BadRequestError),
-        ("invalid_request_error", "model_not_found", litellm.NotFoundError),
-        ("server_error", "vector_store_timeout", litellm.Timeout),
+        ("invalid_request_error", "content_policy_violation", hangarllm.ContentPolicyViolationError),
+        ("invalid_request_error", "cyber_policy", hangarllm.ContentPolicyViolationError),
+        ("tokens", "rate_limit_exceeded", hangarllm.RateLimitError),
+        ("invalid_request_error", "insufficient_quota", hangarllm.RateLimitError),
+        ("server_error", "internal_error", hangarllm.InternalServerError),
+        ("invalid_request_error", "invalid_prompt", hangarllm.BadRequestError),
+        ("invalid_request_error", "model_not_found", hangarllm.NotFoundError),
+        ("server_error", "vector_store_timeout", hangarllm.Timeout),
     ],
 )
 def test_error_event_raises_the_same_typed_exception_as_the_non_streaming_path(
@@ -330,7 +330,7 @@ def test_maybe_raise_for_error_event_maps_insufficient_quota_to_429():
     with pytest.raises(MidStreamFallbackError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     assert exc_info.value.status_code == 429
-    assert isinstance(exc_info.value.original_exception, litellm.RateLimitError)
+    assert isinstance(exc_info.value.original_exception, hangarllm.RateLimitError)
 
 
 def test_maybe_raise_for_error_event_passes_through_normal_chunk():
@@ -359,8 +359,8 @@ def _make_async_iterator_with_events(events: list) -> ResponsesAPIStreamingItera
     mock_response = Mock()
     mock_response.headers = {}
     mock_response.aiter_bytes = mock_aiter_bytes
-    mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
-    mock_logging_obj.model_call_details = {"litellm_params": {}}
+    mock_logging_obj = Mock(spec=HangarLLMLoggingObj)
+    mock_logging_obj.model_call_details = {"hangarllm_params": {}}
     mock_logging_obj.completion_start_time = None
     mock_config = Mock(spec=BaseResponsesAPIConfig)
 
@@ -404,7 +404,7 @@ async def test_async_iterator_raises_mid_stream_fallback_on_rate_limit_error_eve
     assert exc_info.value.status_code == 429
     assert exc_info.value.is_pre_first_chunk is True
     assert exc_info.value.generated_content == ""
-    assert isinstance(exc_info.value.original_exception, litellm.RateLimitError)
+    assert isinstance(exc_info.value.original_exception, hangarllm.RateLimitError)
     assert exc_info.value.original_exception.status_code == 429
 
 
@@ -433,7 +433,7 @@ async def test_async_iterator_content_policy_violation_after_first_chunk_carries
 
     with pytest.raises(MidStreamFallbackError) as exc_info:
         await anext(stream)
-    assert isinstance(exc_info.value.original_exception, litellm.ContentPolicyViolationError)
+    assert isinstance(exc_info.value.original_exception, hangarllm.ContentPolicyViolationError)
     assert exc_info.value.is_pre_first_chunk is False
     assert exc_info.value.generated_content == "partial "
 
@@ -489,7 +489,7 @@ def test_response_failed_numeric_code_maps_to_its_http_status(code: int | str):
     with pytest.raises(MidStreamFallbackError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     assert exc_info.value.status_code == 429
-    assert isinstance(exc_info.value.original_exception, litellm.RateLimitError)
+    assert isinstance(exc_info.value.original_exception, hangarllm.RateLimitError)
 
 
 @pytest.mark.parametrize("code", ["cyber_policy", "unrecognized_failure"])
@@ -504,7 +504,7 @@ def test_response_failed_keeps_upstream_code_and_uses_content_policy_fallback_fo
     with pytest.raises(MidStreamFallbackError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     mapped = exc_info.value.original_exception
-    expected = litellm.ContentPolicyViolationError if code == "cyber_policy" else litellm.InternalServerError
+    expected = hangarllm.ContentPolicyViolationError if code == "cyber_policy" else hangarllm.InternalServerError
     assert isinstance(mapped, expected)
     assert mapped.code == code
     assert mapped.body == {"message": upstream_message, "type": None, "code": code}
@@ -539,12 +539,12 @@ def test_handle_logging_failed_response_maps_rate_limit_to_429():
         {"type": "tokens", "code": "rate_limit_exceeded", "message": "throttled"}
     )
     with (
-        patch.object(import_module("litellm.responses.streaming_iterator"), "run_async_function") as mock_run_async,
-        patch.object(import_module("litellm.responses.streaming_iterator"), "executor"),
+        patch.object(import_module("hangarllm.responses.streaming_iterator"), "run_async_function") as mock_run_async,
+        patch.object(import_module("hangarllm.responses.streaming_iterator"), "executor"),
     ):
         iterator._handle_logging_failed_response()
     logged_exception = mock_run_async.call_args.kwargs["exception"]
-    assert isinstance(logged_exception, litellm.RateLimitError)
+    assert isinstance(logged_exception, hangarllm.RateLimitError)
     assert logged_exception.status_code == 429
     assert "throttled" in str(logged_exception)
 
@@ -556,12 +556,12 @@ def test_handle_logging_failed_response_maps_type_field_to_400():
         {"type": "invalid_request_error", "code": "invalid_prompt", "message": "bad prompt"}
     )
     with (
-        patch.object(import_module("litellm.responses.streaming_iterator"), "run_async_function") as mock_run_async,
-        patch.object(import_module("litellm.responses.streaming_iterator"), "executor"),
+        patch.object(import_module("hangarllm.responses.streaming_iterator"), "run_async_function") as mock_run_async,
+        patch.object(import_module("hangarllm.responses.streaming_iterator"), "executor"),
     ):
         iterator._handle_logging_failed_response()
     logged_exception = mock_run_async.call_args.kwargs["exception"]
-    assert isinstance(logged_exception, litellm.BadRequestError)
+    assert isinstance(logged_exception, hangarllm.BadRequestError)
     assert logged_exception.status_code == 400
 
 
@@ -573,12 +573,12 @@ def test_handle_logging_failed_response_logs_content_policy_violation():
         {"type": "invalid_request_error", "code": "content_policy_violation", "message": CONTENT_POLICY_MESSAGE}
     )
     with (
-        patch.object(import_module("litellm.responses.streaming_iterator"), "run_async_function") as mock_run_async,
-        patch.object(import_module("litellm.responses.streaming_iterator"), "executor"),
+        patch.object(import_module("hangarllm.responses.streaming_iterator"), "run_async_function") as mock_run_async,
+        patch.object(import_module("hangarllm.responses.streaming_iterator"), "executor"),
     ):
         iterator._handle_logging_failed_response()
     logged_exception = mock_run_async.call_args.kwargs["exception"]
-    assert isinstance(logged_exception, litellm.ContentPolicyViolationError)
+    assert isinstance(logged_exception, hangarllm.ContentPolicyViolationError)
     assert logged_exception.status_code == 400
     assert CONTENT_POLICY_MESSAGE in str(logged_exception)
 
@@ -594,12 +594,12 @@ def test_handle_logging_failed_response_records_usage_and_cost():
     iterator.completed_response = chunk
     iterator.logging_obj.response_cost_calculator.return_value = 0.0042
     with (
-        patch.object(import_module("litellm.responses.streaming_iterator"), "run_async_function"),
-        patch.object(import_module("litellm.responses.streaming_iterator"), "executor"),
+        patch.object(import_module("hangarllm.responses.streaming_iterator"), "run_async_function"),
+        patch.object(import_module("hangarllm.responses.streaming_iterator"), "executor"),
     ):
         iterator._handle_logging_failed_response()
     combined_usage = iterator.logging_obj.model_call_details["combined_usage_object"]
-    assert isinstance(combined_usage, litellm.Usage)
+    assert isinstance(combined_usage, hangarllm.Usage)
     assert combined_usage.prompt_tokens == 10
     assert combined_usage.completion_tokens == 5
     assert combined_usage.total_tokens == 15
@@ -629,20 +629,20 @@ async def _first_failure_row(recorder: _FailureRecorder) -> StandardLoggingPaylo
 @pytest.mark.asyncio
 async def test_failed_stream_bills_only_its_own_usage_over_an_earlier_attempts_stash():
     recorder: Final = _FailureRecorder()
-    logging_obj: Final = LiteLLMLoggingObj(
+    logging_obj: Final = HangarLLMLoggingObj(
         model="gpt-5.6",
         messages=[],
         stream=True,
         call_type="aresponses",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="responses-failed-over-stash",
+        hangarllm_call_id="responses-failed-over-stash",
         function_id="responses-failed-over-stash",
         dynamic_async_failure_callbacks=[recorder],
     )
     logging_obj.update_environment_variables(
-        model="gpt-5.6", optional_params={}, litellm_params=get_litellm_params(custom_llm_provider="openai")
+        model="gpt-5.6", optional_params={}, hangarllm_params=get_hangarllm_params(custom_llm_provider="openai")
     )
-    logging_obj.model_call_details["combined_usage_object"] = litellm.Usage(
+    logging_obj.model_call_details["combined_usage_object"] = hangarllm.Usage(
         prompt_tokens=100, completion_tokens=50, total_tokens=150
     )
     logging_obj.model_call_details["response_cost"] = 0.5
@@ -676,7 +676,7 @@ async def test_failed_stream_bills_only_its_own_usage_over_an_earlier_attempts_s
         await anext(aiter(iterator))
 
     row: Final = await _first_failure_row(recorder)
-    prompt_cost, completion_cost = litellm.cost_per_token(
+    prompt_cost, completion_cost = hangarllm.cost_per_token(
         model="gpt-5.6", prompt_tokens=10, completion_tokens=5, custom_llm_provider="openai"
     )
     assert (row["prompt_tokens"], row["completion_tokens"]) == (10, 5)
@@ -689,8 +689,8 @@ def test_handle_logging_failed_response_without_usage_skips_recording():
         {"type": "server_error", "code": "server_error", "message": "boom"}
     )
     with (
-        patch.object(import_module("litellm.responses.streaming_iterator"), "run_async_function"),
-        patch.object(import_module("litellm.responses.streaming_iterator"), "executor"),
+        patch.object(import_module("hangarllm.responses.streaming_iterator"), "run_async_function"),
+        patch.object(import_module("hangarllm.responses.streaming_iterator"), "executor"),
     ):
         iterator._handle_logging_failed_response()
     assert "combined_usage_object" not in iterator.logging_obj.model_call_details
@@ -708,8 +708,8 @@ def test_sync_iterator_raises_mid_stream_fallback_on_rate_limit_error_event():
     mock_response = Mock()
     mock_response.headers = {}
     mock_response.iter_bytes.return_value = iter([sse_bytes])
-    mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
-    mock_logging_obj.model_call_details = {"litellm_params": {}}
+    mock_logging_obj = Mock(spec=HangarLLMLoggingObj)
+    mock_logging_obj.model_call_details = {"hangarllm_params": {}}
     mock_logging_obj.completion_start_time = None
     mock_config = Mock(spec=BaseResponsesAPIConfig)
 
@@ -730,7 +730,7 @@ def test_sync_iterator_raises_mid_stream_fallback_on_rate_limit_error_event():
         for _ in iterator:
             pass
     assert exc_info.value.status_code == 429
-    assert isinstance(exc_info.value.original_exception, litellm.RateLimitError)
+    assert isinstance(exc_info.value.original_exception, hangarllm.RateLimitError)
 
 
 def test_every_openai_sdk_response_error_code_has_explicit_status_mapping():
@@ -789,7 +789,7 @@ def test_maybe_raise_for_response_failed_event_maps_image_code_to_400():
     chunk = Mock()
     chunk.type = "response.failed"
     chunk.response = mock_response_obj
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     assert exc_info.value.status_code == 400
     assert not isinstance(exc_info.value, MidStreamFallbackError)
@@ -806,9 +806,9 @@ def test_maybe_raise_for_error_event_maps_vector_store_timeout_to_retriable_504(
 @pytest.mark.parametrize(
     ("code", "status_code", "exception_type"),
     [
-        ("rate_limit_exceeded", 429, litellm.RateLimitError),
-        ("server_error", 500, litellm.InternalServerError),
-        (429, 429, litellm.RateLimitError),
+        ("rate_limit_exceeded", 429, hangarllm.RateLimitError),
+        ("server_error", 500, hangarllm.InternalServerError),
+        (429, 429, hangarllm.RateLimitError),
     ],
 )
 def test_openai_top_level_error_event_keeps_the_provider_code_and_message(
@@ -842,20 +842,20 @@ _AZURE_RESPONSES_FAILED_EVENT: Final = {
 _AZURE_RESPONSES_WS_URL: Final = "wss://responses-mid-stream.openai.azure.com/openai/v1/responses?api-version=preview"
 
 
-def _azure_responses_logging_obj(logged_api_base: str, routed_api_base: str | None) -> LiteLLMLoggingObj:
-    logging_obj: Final = LiteLLMLoggingObj(
+def _azure_responses_logging_obj(logged_api_base: str, routed_api_base: str | None) -> HangarLLMLoggingObj:
+    logging_obj: Final = HangarLLMLoggingObj(
         model="gpt-5.4-mini",
         messages=[],
         stream=True,
         call_type="aresponses",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="responses-mid-stream",
+        hangarllm_call_id="responses-mid-stream",
         function_id="responses-mid-stream",
     )
     logging_obj.update_environment_variables(
         model="gpt-5.4-mini",
         optional_params={},
-        litellm_params=get_litellm_params(
+        hangarllm_params=get_hangarllm_params(
             api_base=logged_api_base,
             custom_llm_provider="azure",
             metadata={
@@ -869,7 +869,7 @@ def _azure_responses_logging_obj(logged_api_base: str, routed_api_base: str | No
 
 
 def _assert_names_the_azure_deployment(exception: BaseException, api_base: str = _AZURE_RESPONSES_API_BASE) -> None:
-    debug_info: Final = getattr(exception, "litellm_debug_info", None)
+    debug_info: Final = getattr(exception, "hangarllm_debug_info", None)
     assert isinstance(debug_info, str)
     assert f"API Base: `{api_base}`" in debug_info
     assert "model_group: `gpt-5.4-mini-azure`" in debug_info

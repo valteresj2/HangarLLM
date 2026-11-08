@@ -32,7 +32,7 @@ const issue = (number: number, title: string, overrides: Partial<Issue> = {}): I
 
 const notice = (candidates: readonly number[], createdAt: string, overrides: Partial<Comment> = {}): Comment => ({
   id: 900,
-  body: `<!-- litellm:potential-duplicate candidates=${candidates.join(",")}, -->\n**Potential duplicate detected**`,
+  body: `<!-- hangarllm:potential-duplicate candidates=${candidates.join(",")}, -->\n**Potential duplicate detected**`,
   created_at: createdAt,
   user: { type: "Bot", login: "github-actions[bot]" },
   ...overrides,
@@ -45,7 +45,7 @@ const humanComment = (createdAt: string, body = "It is not the same thing", logi
   user: { type: "User", login },
 });
 
-const config: SweepConfig = { repo: "BerriAI/litellm", graceDays: 3, dryRun: false, now: NOW };
+const config: SweepConfig = { repo: "valteresj2/HangarLLM", graceDays: 3, dryRun: false, now: NOW };
 
 describe("normalizeTitle", () => {
   test("drops the template prefix, case, and punctuation", () => {
@@ -56,7 +56,7 @@ describe("normalizeTitle", () => {
 
 describe("candidateNumbers", () => {
   test("reads only the marker field, keeps older issues, sorted ascending and deduplicated", () => {
-    const body = "<!-- litellm:potential-duplicate candidates=40,10,30,10, -->\n- #1 - see #1 (100% similar)";
+    const body = "<!-- hangarllm:potential-duplicate candidates=40,10,30,10, -->\n- #1 - see #1 (100% similar)";
     expect(candidateNumbers(body, 35)).toEqual([10, 30]);
   });
 
@@ -176,14 +176,14 @@ describe("sweepIssue", () => {
           writes.push(`${method} ${path} ${JSON.stringify(body)}`);
           return {} as T;
         }
-        if (path.startsWith("/repos/BerriAI/litellm/issues/35/comments")) {
+        if (path.startsWith("/repos/valteresj2/HangarLLM/issues/35/comments")) {
           return comments as T;
         }
-        const reactionsPath = path.match(/^\/repos\/BerriAI\/litellm\/issues\/comments\/(\d+)\/reactions/);
+        const reactionsPath = path.match(/^\/repos\/BerriAI\/hangarllm\/issues\/comments\/(\d+)\/reactions/);
         if (reactionsPath) {
           return (reactionsByNotice[Number(reactionsPath[1])] ?? []) as T;
         }
-        if (path === "/repos/BerriAI/litellm/issues/10") {
+        if (path === "/repos/valteresj2/HangarLLM/issues/10") {
           return original as T;
         }
         throw new Error(`unexpected GET ${path}`);
@@ -211,9 +211,9 @@ describe("sweepIssue", () => {
     const verdict = await sweepIssue(api, config, reporter);
     expect(verdict).toEqual({ kind: "close", duplicateOf: 10 });
     expect(writes.map((write) => write.split(" ").slice(0, 2).join(" "))).toEqual([
-      "POST /repos/BerriAI/litellm/issues/35/comments",
-      "POST /repos/BerriAI/litellm/issues/35/labels",
-      "PATCH /repos/BerriAI/litellm/issues/35",
+      "POST /repos/valteresj2/HangarLLM/issues/35/comments",
+      "POST /repos/valteresj2/HangarLLM/issues/35/labels",
+      "PATCH /repos/valteresj2/HangarLLM/issues/35",
     ]);
     expect(writes[0]).toContain("duplicate of #10");
     expect(writes[0]).toContain("unanswered for 3 days");
@@ -279,10 +279,10 @@ describe("sweepClosedIssue", () => {
           writes.push(`${method} ${path} ${JSON.stringify(body)}`);
           return {} as T;
         }
-        if (path.startsWith("/repos/BerriAI/litellm/issues/35/comments")) {
+        if (path.startsWith("/repos/valteresj2/HangarLLM/issues/35/comments")) {
           return comments as T;
         }
-        if (path === "/repos/BerriAI/litellm/issues/35") {
+        if (path === "/repos/valteresj2/HangarLLM/issues/35") {
           return issueBody as T;
         }
         throw new Error(`unexpected GET ${path}`);
@@ -304,9 +304,9 @@ describe("sweepClosedIssue", () => {
     const verdict = await sweepClosedIssue(api, config, 35);
     expect(verdict).toEqual({ kind: "reopen" });
     expect(writes).toEqual([
-      "DELETE /repos/BerriAI/litellm/issues/35/labels/duplicate undefined",
-      'PATCH /repos/BerriAI/litellm/issues/35 {"state":"open"}',
-      `POST /repos/BerriAI/litellm/issues/35/comments {"body":"${REOPEN_COMMENT}"}`,
+      "DELETE /repos/valteresj2/HangarLLM/issues/35/labels/duplicate undefined",
+      'PATCH /repos/valteresj2/HangarLLM/issues/35 {"state":"open"}',
+      `POST /repos/valteresj2/HangarLLM/issues/35/comments {"body":"${REOPEN_COMMENT}"}`,
     ]);
   });
 
@@ -320,8 +320,8 @@ describe("sweepClosedIssue", () => {
 
 describe("readConfig", () => {
   test("defaults to a real run with a 3-day grace period", () => {
-    const parsed = readConfig({ GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "BerriAI/litellm" }, NOW);
-    expect(parsed).toEqual({ token: "t", repo: "BerriAI/litellm", graceDays: 3, dryRun: false, now: NOW });
+    const parsed = readConfig({ GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "valteresj2/HangarLLM" }, NOW);
+    expect(parsed).toEqual({ token: "t", repo: "valteresj2/HangarLLM", graceDays: 3, dryRun: false, now: NOW });
   });
 
   test("honors DRY_RUN and GRACE_PERIOD_DAYS overrides", () => {
@@ -340,7 +340,7 @@ describe("readConfig", () => {
 
   test("refuses a missing token, a malformed repository, or a bad grace period", () => {
     expect(() => readConfig({ GITHUB_REPOSITORY: "o/r" }, NOW)).toThrow("GITHUB_TOKEN");
-    expect(() => readConfig({ GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "litellm" }, NOW)).toThrow("owner/repo");
+    expect(() => readConfig({ GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "hangarllm" }, NOW)).toThrow("owner/repo");
     expect(() => readConfig({ GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "o/r", GRACE_PERIOD_DAYS: "-1" }, NOW)).toThrow(
       "GRACE_PERIOD_DAYS",
     );

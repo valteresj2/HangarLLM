@@ -11,10 +11,10 @@ import httpx
 import pytest
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.proxy.common_utils.reset_budget_job import ResetBudgetJob
-from litellm.proxy.utils import PrismaClient, ProxyLogging
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.proxy.common_utils.reset_budget_job import ResetBudgetJob
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging
 from tests.integration._support.client import Gateway, Scenario, eventually, list_value, object_value, string_value
 from tests.integration._support.database import read_rows, write_rows
 from tests.integration._support.provider import PROVIDER_URL, SharedProvider
@@ -60,7 +60,7 @@ def _member_with_budget(gateway: Gateway, scenario: Scenario, team_id: str, *, m
 
 def _seed_membership(user_id: str, team_id: str, *, spend: float, total_spend: float) -> None:
     write_rows(
-        'UPDATE "LiteLLM_TeamMembership" SET spend = %s::float8, total_spend = %s::float8 '
+        'UPDATE "HangarLLM_TeamMembership" SET spend = %s::float8, total_spend = %s::float8 '
         "WHERE user_id = %s AND team_id = %s",
         (str(spend), str(total_spend), user_id, team_id),
     )
@@ -68,7 +68,7 @@ def _seed_membership(user_id: str, team_id: str, *, spend: float, total_spend: f
 
 def _membership(user_id: str, team_id: str) -> tuple[float, float]:
     rows: Final = read_rows(
-        'SELECT spend, total_spend FROM "LiteLLM_TeamMembership" WHERE user_id = %s AND team_id = %s',
+        'SELECT spend, total_spend FROM "HangarLLM_TeamMembership" WHERE user_id = %s AND team_id = %s',
         (user_id, team_id),
     )
     assert len(rows) == 1, rows
@@ -213,8 +213,8 @@ def test_an_admin_reset_racing_a_flush_ends_with_the_lifetime_equal_to_old_cycle
 
 def _expire_member_budget(user_id: str, team_id: str, *, budget_duration: str) -> None:
     write_rows(
-        "UPDATE \"LiteLLM_BudgetTable\" SET budget_duration = %s, budget_reset_at = NOW() - INTERVAL '1 hour' "
-        'WHERE budget_id = (SELECT budget_id FROM "LiteLLM_TeamMembership" WHERE user_id = %s AND team_id = %s)',
+        "UPDATE \"HangarLLM_BudgetTable\" SET budget_duration = %s, budget_reset_at = NOW() - INTERVAL '1 hour' "
+        'WHERE budget_id = (SELECT budget_id FROM "HangarLLM_TeamMembership" WHERE user_id = %s AND team_id = %s)',
         (budget_duration, user_id, team_id),
     )
 
@@ -227,7 +227,7 @@ async def _run_scheduled_reset() -> None:
     try:
         await ResetBudgetJob(
             ProxyLogging(user_api_key_cache=DualCache()), client
-        ).reset_budget_for_litellm_budget_table()
+        ).reset_budget_for_hangarllm_budget_table()
     finally:
         await client.db.disconnect()
 
@@ -240,7 +240,7 @@ async def _run_scheduled_reset() -> None:
 def test_a_scheduled_reset_lifts_the_legacy_total_before_zeroing_or_carrying_the_cycle_spend(
     gateway: Gateway, monkeypatch: pytest.MonkeyPatch, spend: float, max_budget: float, carried: float
 ) -> None:
-    monkeypatch.setattr(litellm, "budget_rollover", True)
+    monkeypatch.setattr(hangarllm, "budget_rollover", True)
     with gateway.scenario() as scenario:
         team_id: Final = scenario.team()
         legacy: Final = _member_with_budget(gateway, scenario, team_id, max_budget=max_budget)

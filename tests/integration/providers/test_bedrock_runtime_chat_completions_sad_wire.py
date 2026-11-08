@@ -85,7 +85,7 @@ def _error_message(response: httpx.Response) -> str:
 
 
 def _call_id(response: httpx.Response) -> str:
-    return response.headers["x-litellm-call-id"]
+    return response.headers["x-hangarllm-call-id"]
 
 
 def _body(request: Request) -> dict[str, JsonValue]:
@@ -105,7 +105,7 @@ def _only_request(wire: Wire, marker: str) -> Request:
 
 def _spend_rows(identity: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT request_id, model_group, status, cache_hit, spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+        'SELECT request_id, model_group, status, cache_hit, spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
         (identity,),
     )
 
@@ -143,7 +143,7 @@ def _allowlist_config(wire: Wire, tmp_path: Path) -> Path:
                 "model_list": [
                     {
                         "model_name": _ALLOWLISTED_MODEL,
-                        "litellm_params": {**GPT_DEPLOYMENT, "aws_bedrock_runtime_endpoint": wire.url},
+                        "hangarllm_params": {**GPT_DEPLOYMENT, "aws_bedrock_runtime_endpoint": wire.url},
                     }
                 ],
                 "general_settings": {
@@ -229,7 +229,7 @@ def test_response_cache_twin_serves_the_second_request_without_a_second_wire_cal
         _only_request(wire, marker)
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id, cache_hit, spend FROM "LiteLLM_SpendLogs" WHERE starts_with(request_id, %s)'
+                'SELECT request_id, cache_hit, spend FROM "HangarLLM_SpendLogs" WHERE starts_with(request_id, %s)'
                 " ORDER BY request_id",
                 (identity,),
             ),
@@ -294,7 +294,7 @@ def test_bad_key_on_the_long_version_model_is_refused_before_any_route(gateway: 
         refused_rows: Final = eventually(
             lambda: read_rows(
                 "SELECT request_id, status, spend, metadata->'error_information'->>'error_code' AS error_code"
-                ' FROM "LiteLLM_SpendLogs" WHERE model_group=%s AND api_key=%s',
+                ' FROM "HangarLLM_SpendLogs" WHERE model_group=%s AND api_key=%s',
                 (model, sha256(BAD_KEY.encode()).hexdigest()),
             ),
             lambda found: len(found) == 1,
@@ -308,7 +308,7 @@ def test_bad_key_on_the_long_version_model_is_refused_before_any_route(gateway: 
         control: Final = _chat(gateway, model, control_marker)
         control_id: Final = string_value(_payload(control)["id"])
         _assert_row(control_id, model, "success")
-        landed: Final = read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,))
+        landed: Final = read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,))
         assert {row["request_id"] for row in landed} == {control_id, refused_rows[0]["request_id"]}, landed
         received: Final = wire.drain()
         assert [marker_of(request) for request in received] == [control_marker], _routes(received)
@@ -341,7 +341,7 @@ def test_non_string_reasoning_effort_is_refused_before_any_wire_request(gateway:
         response: Final = _chat(gateway, model, marker, reasoning_effort=effort)
         assert response.status_code == 400, response.text
         message: Final = _error_message(response)
-        assert message.startswith("litellm.UnsupportedParamsError"), response.text
+        assert message.startswith("hangarllm.UnsupportedParamsError"), response.text
         assert "reasoning_effort as a string" in message and "drop_params" in message, response.text
         _assert_row(_call_id(response), model, "failure")
         assert _routes(wire.drain()) == []
@@ -383,7 +383,7 @@ def test_string_temperature_is_refused_before_any_wire_request(gateway: Gateway)
         response: Final = _chat(gateway, model, marker, temperature="0.2")
         assert response.status_code == 400, response.text
         message: Final = _error_message(response)
-        assert message.startswith("litellm.UnsupportedParamsError") and "['temperature']" in message, response.text
+        assert message.startswith("hangarllm.UnsupportedParamsError") and "['temperature']" in message, response.text
         _assert_row(_call_id(response), model, "failure")
         assert _routes(wire.drain()) == []
 
@@ -437,7 +437,7 @@ def test_absent_reasoning_effort_is_forwarded_as_absent_on_every_repeat(
         assert [forwarded_effort(request) for request in received] == [None, None, None], [_body(r) for r in received]
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE request_id IN (%s, %s, %s)', ids
+                'SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE request_id IN (%s, %s, %s)', ids
             ),
             lambda found: len(found) == 3,
             seconds=70,

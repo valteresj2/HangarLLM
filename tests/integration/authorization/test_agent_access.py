@@ -95,7 +95,7 @@ def _register_agent(
     def cleanup() -> None:
         deleted: Final = gateway.request("DELETE", f"/v1/agents/{identity}")
         assert deleted.status_code == 200, deleted.text
-        assert read_rows('SELECT agent_id FROM "LiteLLM_AgentsTable" WHERE agent_id=%s', (identity,)) == []
+        assert read_rows('SELECT agent_id FROM "HangarLLM_AgentsTable" WHERE agent_id=%s', (identity,)) == []
 
     scenario.cleanups.callback(cleanup)
     return identity
@@ -147,7 +147,7 @@ def test_agent_permissions_on_keys_teams_and_access_groups_gate_a2a_send_and_car
             assert deleted.status_code == 204, deleted.text
             assert (
                 read_rows(
-                    'SELECT access_group_id FROM "LiteLLM_AccessGroupTable" WHERE access_group_id=%s', (group_id,)
+                    'SELECT access_group_id FROM "HangarLLM_AccessGroupTable" WHERE access_group_id=%s', (group_id,)
                 )
                 == []
             )
@@ -155,7 +155,7 @@ def test_agent_permissions_on_keys_teams_and_access_groups_gate_a2a_send_and_car
         scenario.cleanups.callback(delete_group)
         tag: Final = marker + "-tag"
         write_rows(
-            'UPDATE "LiteLLM_AgentsTable" SET agent_access_groups = ARRAY[%s] WHERE agent_id = %s', (tag, allowed)
+            'UPDATE "HangarLLM_AgentsTable" SET agent_access_groups = ARRAY[%s] WHERE agent_id = %s', (tag, allowed)
         )
         callers: Final = {
             "key grant": scenario.key(object_permission={"agents": [allowed]}),

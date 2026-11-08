@@ -78,7 +78,7 @@ def proxy(
             gateway,
             directory,
             {
-                "LITELLM_OTEL_V2": "1",
+                "HANGARLLM_OTEL_V2": "1",
                 "OTEL_BSP_SCHEDULE_DELAY": "300",
                 "OTEL_EXPORTER": "otlp_http",
                 "OTEL_ENDPOINT": audit_sinks.operator,
@@ -148,7 +148,7 @@ def _one_failed_call(spans: tuple[Span, ...]) -> bool:
     return (
         _settled(spans)
         and len([span for span in spans if OPERATION in span["attributes"]]) == 1
-        and "litellm_request" not in {span["name"] for span in spans}
+        and "hangarllm_request" not in {span["name"] for span in spans}
     )
 
 

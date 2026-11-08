@@ -57,8 +57,8 @@ def _private_gateway(
             {
                 **stock,
                 "general_settings": {**object_value(stock["general_settings"]), "store_prompts_in_spend_logs": True},
-                "litellm_settings": {
-                    **object_value(stock["litellm_settings"]),
+                "hangarllm_settings": {
+                    **object_value(stock["hangarllm_settings"]),
                     "cost_margin_config": {
                         "hosted_vllm": {"fixed_amount": FIXED_MARGIN},
                         "deepseek": {"fixed_amount": FIXED_MARGIN},
@@ -67,7 +67,7 @@ def _private_gateway(
                 "guardrails": [
                     {
                         "guardrail_name": STREAM_BLOCK,
-                        "litellm_params": {"guardrail": f"{STREAM_BLOCK_MODULE}.BlockGuard", "mode": "post_call"},
+                        "hangarllm_params": {"guardrail": f"{STREAM_BLOCK_MODULE}.BlockGuard", "mode": "post_call"},
                     },
                     *guardrails,
                 ],
@@ -111,7 +111,7 @@ CONTENT_FILTER: Final = f"mcp-llm-content-filter-{uuid.uuid4().hex[:8]}"
 def _guarded_llm_gateway(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[Gateway, Mapping[str, str]]]:
     round_usage: Final[Mapping[str, JsonValue]] = {
         "guardrail_name": ROUND_USAGE_GUARDRAIL,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "integration._support.hook_count_probe.UsageRecordingPostCallGuardrail",
             "mode": "post_call",
             "default_on": True,
@@ -119,8 +119,8 @@ def _guarded_llm_gateway(tmp_path_factory: pytest.TempPathFactory) -> Iterator[t
     }
     content_filter: Final[Mapping[str, JsonValue]] = {
         "guardrail_name": CONTENT_FILTER,
-        "litellm_params": {
-            "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+            "guardrail": "hangarllm_content_filter",
             "mode": "post_call",
             "default_on": False,
             "blocked_words": [{"keyword": "forbidden-keeper", "action": "BLOCK"}],
@@ -141,7 +141,7 @@ Surface = Literal["chat", "responses", "messages", "messages_bridge", "responses
 SURFACES: Final[tuple[Surface, ...]] = ("chat", "responses", "messages", "messages_bridge")
 ADD: Final = {"a": 2, "b": 3}
 ANSWER: Final = "the sum is 5"
-GATEWAY_REF: Final = {"type": "mcp", "server_url": "litellm_proxy", "server_label": "litellm"}
+GATEWAY_REF: Final = {"type": "mcp", "server_url": "hangarllm_proxy", "server_label": "hangarllm"}
 AUTO: Final = {**GATEWAY_REF, "require_approval": "never"}
 OUTAGE: Final = "bridge-outage"
 DIRECT: Final = "answer-without-tools"
@@ -151,7 +151,7 @@ STREAM_BLOCK_MODULE: Final = "mcp_stream_block"
 STREAM_BLOCK_DETAIL: Final = "blocked by output policy"
 STREAM_BLOCK_SOURCE: Final = (
     "from fastapi import HTTPException\n\n"
-    "from litellm.integrations.custom_guardrail import CustomGuardrail\n\n\n"
+    "from hangarllm.integrations.custom_guardrail import CustomGuardrail\n\n\n"
     "class BlockGuard(CustomGuardrail):\n"
     "    async def async_post_call_streaming_iterator_hook(self, user_api_key_dict, response, request_data):\n"
     "        async for _ in response:\n"
@@ -698,7 +698,7 @@ def test_toolset_gateway_url_serves_a_team_granted_toolset_to_a_key_without_its_
         sibling_id: Final = create_toolset(rig.scenario, ((rig.server_id, "multiply"),))
         team_id: Final = rig.scenario.team(object_permission={"mcp_toolsets": [toolset_id, sibling_id]})
         key: Final = rig.scenario.key(team_id=team_id)
-        response: Final = rig.send(key, [{**AUTO, "server_url": f"litellm_proxy/mcp/{toolset_name}"}])
+        response: Final = rig.send(key, [{**AUTO, "server_url": f"hangarllm_proxy/mcp/{toolset_name}"}])
         assert response.status_code == 200, response.text
         requests: Final = rig.upstream_tools()
         assert requests, "model was never called"
@@ -712,7 +712,7 @@ def test_server_scoped_gateway_url_exposes_only_that_servers_tools(gateway: Gate
         other: Final = "oth" + uuid.uuid4().hex[:8]
         other_id: Final = register_mcp(rig.scenario, other_peer, other)
         key: Final = rig.scenario.key(object_permission={"mcp_servers": [rig.server_id, other_id]})
-        response: Final = rig.send(key, [{**AUTO, "server_url": f"litellm_proxy/mcp/{rig.alias}"}])
+        response: Final = rig.send(key, [{**AUTO, "server_url": f"hangarllm_proxy/mcp/{rig.alias}"}])
         assert response.status_code == 200, response.text
         requests: Final = rig.upstream_tools()
         assert requests, "model was never called"
@@ -873,7 +873,7 @@ def test_streaming_chat_through_a_toolset_gateway_url_serves_a_team_key_without_
         toolset_name: Final = "ts" + uuid.uuid4().hex[:8]
         toolset_id: Final = create_toolset(rig.scenario, ((rig.server_id, "add"),), toolset_name=toolset_name)
         key: Final = rig.scenario.key(team_id=rig.scenario.team(object_permission={"mcp_toolsets": [toolset_id]}))
-        response: Final = rig.send(key, [{**AUTO, "server_url": f"litellm_proxy/mcp/{toolset_name}"}], stream=True)
+        response: Final = rig.send(key, [{**AUTO, "server_url": f"hangarllm_proxy/mcp/{toolset_name}"}], stream=True)
         assert response.status_code == 200, response.text
         chunks: Final = tuple(
             json.loads(line.removeprefix("data: "))
@@ -897,7 +897,7 @@ def test_toolset_gateway_url_gives_a_key_of_an_ungranted_team_no_tools_and_never
         toolset_name: Final = "ts" + uuid.uuid4().hex[:8]
         create_toolset(rig.scenario, ((rig.server_id, "add"),), toolset_name=toolset_name)
         key: Final = rig.scenario.key(team_id=rig.scenario.team())
-        response: Final = rig.send(key, [{**AUTO, "server_url": f"litellm_proxy/mcp/{toolset_name}"}])
+        response: Final = rig.send(key, [{**AUTO, "server_url": f"hangarllm_proxy/mcp/{toolset_name}"}])
         assert _peer_add_calls(rig.peer) == (), "denied caller reached the peer"
         assert all(rig.tool not in names for names in rig.upstream_tools()), rig.upstream_tools()
         assert response.status_code in (200, 400, 401, 403), response.text
@@ -946,7 +946,7 @@ def _spend_rows(call_id: str, call_type: str, status: str) -> list[dict[str, Jso
     return eventually(
         lambda: read_rows(
             "SELECT request_id, spend, prompt_tokens, completion_tokens, session_id "
-            'FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s AND call_type=%s AND status=%s',
+            'FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s AND call_type=%s AND status=%s',
             (call_id, call_type, status),
         ),
         lambda found: len(found) >= 1,
@@ -955,7 +955,7 @@ def _spend_rows(call_id: str, call_type: str, status: str) -> list[dict[str, Jso
 
 
 def _session_call_types(session_id: str) -> frozenset[str]:
-    rows: Final = read_rows('SELECT call_type FROM "LiteLLM_SpendLogs" WHERE session_id=%s', (session_id,))
+    rows: Final = read_rows('SELECT call_type FROM "HangarLLM_SpendLogs" WHERE session_id=%s', (session_id,))
     return frozenset(str(row["call_type"]) for row in rows)
 
 
@@ -980,7 +980,7 @@ def test_nonstream_responses_auto_execute_logs_the_answer_and_bills_both_rounds(
         assert response.status_code == 200, response.text
         body: Final = JSON_OBJECT.validate_json(response.content)
         assert rig.final_text(body) == ANSWER, response.text
-        rows: Final = _spend_rows(response.headers["x-litellm-call-id"], "aresponses", "success")
+        rows: Final = _spend_rows(response.headers["x-hangarllm-call-id"], "aresponses", "success")
         assert len(rows) == 1, rows
         row: Final = rows[0]
         assert row["request_id"] == body["id"], row
@@ -990,7 +990,7 @@ def test_nonstream_responses_auto_execute_logs_the_answer_and_bills_both_rounds(
         ), row
         assert object_value(body["usage"])["input_tokens"] == row["prompt_tokens"], body
         assert float(str(row["spend"])) == pytest.approx(_price(FIRST_ROUND, FOLLOW_UP_ROUND)), row
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(float(str(row["spend"])))
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(float(str(row["spend"])))
         session_id: Final = string_value(row["session_id"])
         eventually(
             lambda: _session_call_types(session_id),
@@ -1006,7 +1006,7 @@ def test_nonstream_chat_auto_execute_logs_the_answer_and_bills_both_rounds(gatew
         assert response.status_code == 200, response.text
         body: Final = JSON_OBJECT.validate_json(response.content)
         assert rig.final_text(body) == ANSWER, response.text
-        rows: Final = _spend_rows(response.headers["x-litellm-call-id"], "acompletion", "success")
+        rows: Final = _spend_rows(response.headers["x-hangarllm-call-id"], "acompletion", "success")
         assert len(rows) == 1, rows
         row: Final = rows[0]
         assert row["request_id"] == body["id"], row
@@ -1016,7 +1016,7 @@ def test_nonstream_chat_auto_execute_logs_the_answer_and_bills_both_rounds(gatew
         ), row
         assert object_value(body["usage"])["prompt_tokens"] == row["prompt_tokens"], body
         assert float(str(row["spend"])) == pytest.approx(_price(FIRST_ROUND, FOLLOW_UP_ROUND)), row
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(float(str(row["spend"])))
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(float(str(row["spend"])))
 
 
 def test_nonstream_chat_auto_execute_without_a_tool_call_bills_the_one_call_it_made(gateway: Gateway) -> None:
@@ -1027,11 +1027,11 @@ def test_nonstream_chat_auto_execute_without_a_tool_call_bills_the_one_call_it_m
         body: Final = JSON_OBJECT.validate_json(response.content)
         assert rig.final_text(body) == ANSWER, response.text
         assert len(rig.upstream_tools()) == 1 and _peer_add_calls(rig.peer) == ()
-        rows: Final = _spend_rows(response.headers["x-litellm-call-id"], "acompletion", "success")
+        rows: Final = _spend_rows(response.headers["x-hangarllm-call-id"], "acompletion", "success")
         assert len(rows) == 1 and rows[0]["request_id"] == body["id"], rows
         assert (rows[0]["prompt_tokens"], rows[0]["completion_tokens"]) == FIRST_ROUND, rows
         assert float(str(rows[0]["spend"])) == pytest.approx(_price(FIRST_ROUND)), rows
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(float(str(rows[0]["spend"])))
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(float(str(rows[0]["spend"])))
 
 
 def test_nonstream_chat_auto_execute_charges_the_fixed_margin_once(gateway: Gateway) -> None:
@@ -1040,10 +1040,10 @@ def test_nonstream_chat_auto_execute_charges_the_fixed_margin_once(gateway: Gate
         response: Final = rig.send(_granted_key(rig), [AUTO])
         assert response.status_code == 200, response.text
         assert len(rig.upstream_tools()) == 2
-        rows: Final = _spend_rows(response.headers["x-litellm-call-id"], "acompletion", "success")
+        rows: Final = _spend_rows(response.headers["x-hangarllm-call-id"], "acompletion", "success")
         assert len(rows) == 1, rows
         assert float(str(rows[0]["spend"])) == pytest.approx(_price(FIRST_ROUND, FOLLOW_UP_ROUND) + FIXED_MARGIN), rows
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(float(str(rows[0]["spend"])))
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(float(str(rows[0]["spend"])))
 
 
 def test_nonstream_chat_auto_execute_whose_calls_both_come_from_the_response_cache_bills_nothing(
@@ -1059,9 +1059,9 @@ def test_nonstream_chat_auto_execute_whose_calls_both_come_from_the_response_cac
         assert cached.status_code == 200, cached.text
         assert rig.final_text(JSON_OBJECT.validate_json(cached.content)) == ANSWER, cached.text
         assert rig.upstream_tools() == () and len(_peer_add_calls(rig.peer)) == 1
-        rows: Final = _spend_rows(cached.headers["x-litellm-call-id"], "acompletion", "success")
+        rows: Final = _spend_rows(cached.headers["x-hangarllm-call-id"], "acompletion", "success")
         assert all(float(str(row["spend"])) == 0.0 for row in rows), rows
-        assert float(cached.headers["x-litellm-response-cost"]) == 0.0
+        assert float(cached.headers["x-hangarllm-response-cost"]) == 0.0
 
 
 @pytest.mark.parametrize(("surface", "call_type"), (("responses", "aresponses"), ("chat", "acompletion")))
@@ -1072,13 +1072,13 @@ def test_nonstream_failed_follow_up_bills_round_one_on_the_failure_row(
     with _rig(gateway, surface, billing=billing, prices=PRICES) as rig:
         response: Final = rig.send(_granted_key(rig), [AUTO])
         assert response.status_code == 500 and FOLLOW_UP_OUTAGE in response.text, response.text
-        call_id: Final = response.headers["x-litellm-call-id"]
+        call_id: Final = response.headers["x-hangarllm-call-id"]
         rows: Final = _spend_rows(call_id, call_type, "failure")
         assert len(rows) == 1, rows
         assert float(str(rows[0]["spend"])) == pytest.approx(_price(FIRST_ROUND)), rows
         assert (
             read_rows(
-                'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s AND call_type=%s AND status=%s',
+                'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s AND call_type=%s AND status=%s',
                 (call_id, call_type, "success"),
             )
             == []
@@ -1105,7 +1105,7 @@ def test_streaming_chat_auto_execute_logs_the_answer_and_bills_both_rounds(gatew
         assert text == ANSWER, response.text
         usages: Final = tuple(chunk["usage"] for chunk in chunks if chunk.get("usage"))
         assert usages, response.text
-        rows: Final = _spend_rows(response.headers["x-litellm-call-id"], "acompletion", "success")
+        rows: Final = _spend_rows(response.headers["x-hangarllm-call-id"], "acompletion", "success")
         assert len(rows) == 1, rows
         row: Final = rows[0]
         assert row["request_id"] == chunks[0]["id"], (row, chunks[0])
@@ -1127,7 +1127,7 @@ def test_streaming_chat_auto_execute_whose_follow_up_fails_bills_round_one_once(
     with _rig(gateway, "chat", billing=billing, prices=PRICES) as rig:
         response: Final = rig.send(_granted_key(rig), [AUTO], stream=True, stream_options={"include_usage": True})
         assert FOLLOW_UP_OUTAGE in response.text, response.text
-        call_id: Final = response.headers["x-litellm-call-id"]
+        call_id: Final = response.headers["x-hangarllm-call-id"]
         succeeded: Final = _spend_rows(call_id, "acompletion", "success")
         assert len(succeeded) == 1, succeeded
         assert (succeeded[0]["prompt_tokens"], succeeded[0]["completion_tokens"]) == FIRST_ROUND, succeeded
@@ -1143,7 +1143,7 @@ def _guardrail_information(metadata: JsonValue) -> tuple[JsonValue, ...]:
 
 def _round_usage_seen_by_the_guardrail(call_id: str) -> list[JsonValue]:
     rows: Final = read_rows(
-        'SELECT metadata FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s AND call_type=%s AND status=%s',
+        'SELECT metadata FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s AND call_type=%s AND status=%s',
         (call_id, "acompletion", "success"),
     )
     entries: Final = tuple(chain.from_iterable(_guardrail_information(row["metadata"]) for row in rows))
@@ -1161,7 +1161,7 @@ def test_streaming_chat_auto_execute_whose_follow_up_fails_runs_the_post_call_gu
     with _rig(guarded_gateway, "chat", billing=billing, prices=PRICES) as rig:
         response: Final = rig.send(_granted_key(rig), [AUTO], stream=True, stream_options={"include_usage": True})
         assert FOLLOW_UP_OUTAGE in response.text, response.text
-        call_id: Final = response.headers["x-litellm-call-id"]
+        call_id: Final = response.headers["x-hangarllm-call-id"]
         succeeded: Final = _spend_rows(call_id, "acompletion", "success")
         assert len(succeeded) == 1, succeeded
         assert (succeeded[0]["prompt_tokens"], succeeded[0]["completion_tokens"]) == FIRST_ROUND, succeeded
@@ -1173,7 +1173,7 @@ def test_streaming_chat_auto_execute_whose_follow_up_fails_runs_the_post_call_gu
 def _chat_rows(call_id: str, statuses: Sequence[str]) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT status, metadata FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s AND call_type=%s',
+            'SELECT status, metadata FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s AND call_type=%s',
             (call_id, "acompletion"),
         ),
         lambda found: _statuses(found) == sorted(statuses),
@@ -1202,7 +1202,7 @@ def test_streaming_chat_auto_execute_whose_follow_up_fails_counts_its_post_call_
             guardrails=[CONTENT_FILTER],
         )
         assert FOLLOW_UP_OUTAGE in response.text, response.text
-        rows: Final = _chat_rows(response.headers["x-litellm-call-id"], ("success", "failure"))
+        rows: Final = _chat_rows(response.headers["x-hangarllm-call-id"], ("success", "failure"))
         filtered: Final = tuple(
             (row["status"], entry.get("guardrail_status")) for row in rows for entry in _entries_of(CONTENT_FILTER, row)
         )
@@ -1214,7 +1214,7 @@ def test_streaming_chat_auto_execute_whose_follow_up_fails_counts_its_post_call_
         )
         counted: Final = eventually(
             lambda: read_rows(
-                'SELECT requests_evaluated, flagged_count FROM "LiteLLM_DailyGuardrailMetrics" WHERE guardrail_id=%s',
+                'SELECT requests_evaluated, flagged_count FROM "HangarLLM_DailyGuardrailMetrics" WHERE guardrail_id=%s',
                 (guardrail_id,),
             ),
             lambda found: bool(found),
@@ -1243,7 +1243,7 @@ def test_streaming_chat_auto_execute_answered_in_one_round_ends_with_the_usage_i
             str(chunk["choices"][0]["delta"].get("content") or "") for chunk in chunks if chunk.get("choices")
         )
         assert text == ANSWER, response.text
-        rows: Final = _spend_rows(response.headers["x-litellm-call-id"], "acompletion", "success")
+        rows: Final = _spend_rows(response.headers["x-hangarllm-call-id"], "acompletion", "success")
         assert len(rows) == 1 and (rows[0]["prompt_tokens"], rows[0]["completion_tokens"]) == FIRST_ROUND, rows
         usage_at: Final = tuple(index for index, chunk in enumerate(chunks) if chunk.get("usage"))
         if not include_usage:
@@ -1278,7 +1278,7 @@ def _upstream_rounds(rig: Rig) -> tuple[int, int]:
 def _billed_rows(call_id: str, call_type: str, billed: float) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT status, spend FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s AND call_type=%s',
+            'SELECT status, spend FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s AND call_type=%s',
             (call_id, call_type),
         ),
         lambda found: sum(float(str(row["spend"])) for row in found) >= billed * (1 - 1e-6),
@@ -1297,7 +1297,7 @@ def test_nonstream_follow_up_failing_on_every_retry_bills_each_attempts_first_ro
         first_rounds, follow_ups = _upstream_rounds(rig)
         assert first_rounds == follow_ups > 1, (first_rounds, follow_ups)
         paid: Final = _price(*(FIRST_ROUND,) * first_rounds)
-        rows: Final = _billed_rows(response.headers["x-litellm-call-id"], call_type, paid)
+        rows: Final = _billed_rows(response.headers["x-hangarllm-call-id"], call_type, paid)
         assert [row["status"] for row in rows] == ["failure"], rows
         assert float(str(rows[0]["spend"])) == pytest.approx(paid), rows
 
@@ -1305,7 +1305,7 @@ def test_nonstream_follow_up_failing_on_every_retry_bills_each_attempts_first_ro
 def _tool_rows(call_id: str, expected: int) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE call_type=%s AND strpos(request_id, %s) = 1',
+            'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE call_type=%s AND strpos(request_id, %s) = 1',
             ("call_mcp_tool", call_id),
         ),
         lambda found: len(found) >= expected,
@@ -1325,7 +1325,7 @@ def test_every_auto_executed_tool_call_lands_its_own_spend_row_under_the_request
         response: Final = rig.send(_granted_key(rig), [AUTO], stream=stream)
         assert response.status_code == 200, response.text
         assert [_add_call_arguments(call) for call in _peer_add_calls(rig.peer)] == [ADD, ADD]
-        call_id: Final = response.headers["x-litellm-call-id"]
+        call_id: Final = response.headers["x-hangarllm-call-id"]
         request_ids: Final = frozenset(str(row["request_id"]) for row in _tool_rows(call_id, 2))
         assert len(request_ids) == 2 and all(request_id.startswith(f"{call_id}_") for request_id in request_ids), (
             call_id,
@@ -1348,7 +1348,7 @@ def test_bridged_next_turn_replays_the_mcp_turn_answer(gateway: Gateway) -> None
         assert first.status_code == 200, first.text
         first_id: Final = string_value(JSON_OBJECT.validate_json(first.content)["id"])
         eventually(
-            lambda: read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (first_id,)),
+            lambda: read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (first_id,)),
             lambda found: len(found) == 1,
             seconds=70,
         )
@@ -1387,7 +1387,7 @@ def _model_rows(call_id: str, settled: Callable[[list[dict[str, JsonValue]]], bo
     return eventually(
         lambda: read_rows(
             "SELECT request_id, status, spend, prompt_tokens, completion_tokens "
-            'FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s AND call_type NOT IN (%s, %s)',
+            'FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s AND call_type NOT IN (%s, %s)',
             (call_id, "call_mcp_tool", "list_mcp_tools"),
         ),
         settled,
@@ -1445,7 +1445,7 @@ def test_streaming_responses_auto_execute_bills_every_round_once_on_one_success_
         assert len(rig.upstream_tools()) == len(rounds)
         assert len(_peer_add_calls(rig.peer)) == tool_rounds
         expected: Final = _price(*rounds) + FIXED_MARGIN
-        rows: Final = _model_rows(response.headers["x-litellm-call-id"], _bills_at_least(expected))
+        rows: Final = _model_rows(response.headers["x-hangarllm-call-id"], _bills_at_least(expected))
         assert [row["status"] for row in rows] == ["success"], rows
         row: Final = rows[0]
         assert (row["prompt_tokens"], row["completion_tokens"]) == (
@@ -1468,7 +1468,7 @@ def test_streaming_responses_rejected_follow_up_bills_round_one_once(
         assert ANSWER not in response.text, response.text
         assert len(rig.upstream_tools()) == 2
         expected: Final = _price(FIRST_ROUND) + FIXED_MARGIN
-        rows: Final = _model_rows(response.headers["x-litellm-call-id"], _bills_at_least(expected))
+        rows: Final = _model_rows(response.headers["x-hangarllm-call-id"], _bills_at_least(expected))
         assert _billed(rows) == pytest.approx(expected), rows
 
 
@@ -1488,7 +1488,7 @@ def test_streaming_responses_follow_up_broken_mid_stream_bills_round_one_once_an
         assert ANSWER not in response.text, response.text
         assert len(rig.upstream_tools()) == 2
         round_one: Final = _price(FIRST_ROUND) + FIXED_MARGIN
-        rows: Final = _model_rows(response.headers["x-litellm-call-id"], _logs_a_failure_billing(round_one))
+        rows: Final = _model_rows(response.headers["x-hangarllm-call-id"], _logs_a_failure_billing(round_one))
         assert _statuses(rows) == ["failure", "success"], rows
         (success,) = (row for row in rows if row["status"] == "success")
         (failure,) = (row for row in rows if row["status"] == "failure")
@@ -1510,7 +1510,7 @@ def test_streaming_chat_follow_up_broken_mid_answer_bills_round_one_and_its_part
         assert ANSWER not in response.text, response.text
         assert len(rig.upstream_tools()) == 2
         round_one: Final = _price(FIRST_ROUND) + FIXED_MARGIN
-        rows: Final = _model_rows(response.headers["x-litellm-call-id"], _logs_a_failure_billing(round_one))
+        rows: Final = _model_rows(response.headers["x-hangarllm-call-id"], _logs_a_failure_billing(round_one))
         assert _statuses(rows) == ["failure", "success"], rows
         (success,) = (row for row in rows if row["status"] == "success")
         (failure,) = (row for row in rows if row["status"] == "failure")
@@ -1531,7 +1531,7 @@ def test_streaming_responses_blocked_by_a_post_call_guardrail_bills_every_round_
         one_round: Final = rig.send(key, [], prompt=f"{DIRECT} {rig.alias}", stream=True, guardrails=[STREAM_BLOCK])
         assert STREAM_BLOCK_DETAIL in one_round.text, one_round.text
         one_round_rows: Final = _model_rows(
-            one_round.headers["x-litellm-call-id"], _logs_a_failure_billing(_price(FIRST_ROUND) + FIXED_MARGIN)
+            one_round.headers["x-hangarllm-call-id"], _logs_a_failure_billing(_price(FIRST_ROUND) + FIXED_MARGIN)
         )
         assert _statuses(one_round_rows) == ["failure"], one_round_rows
         rig.wire.drain()
@@ -1539,7 +1539,7 @@ def test_streaming_responses_blocked_by_a_post_call_guardrail_bills_every_round_
         assert STREAM_BLOCK_DETAIL in response.text, response.text
         assert len(rig.upstream_tools()) == 2 and len(_peer_add_calls(rig.peer)) == 1
         expected: Final = _price(FIRST_ROUND, FOLLOW_UP_ROUND) + FIXED_MARGIN
-        rows: Final = _model_rows(response.headers["x-litellm-call-id"], _logs_a_failure_billing(expected))
+        rows: Final = _model_rows(response.headers["x-hangarllm-call-id"], _logs_a_failure_billing(expected))
         assert _statuses(rows) == _statuses(one_round_rows), (rows, one_round_rows)
         assert _billed(rows) == pytest.approx(expected), rows
 
@@ -1586,7 +1586,7 @@ def test_streaming_responses_hung_up_during_the_tool_call_bills_each_served_roun
             timeout=90,
         ) as hung_up:
             assert hung_up.status_code == 200
-            call_id: Final = hung_up.headers["x-litellm-call-id"]
+            call_id: Final = hung_up.headers["x-hangarllm-call-id"]
             eventually(lambda: _peer_add_calls(rig.peer), lambda found: len(found) == 1, seconds=30)
         eventually(lambda: _answers_directly(rig, key), lambda status: status == 200, seconds=60)
         posted: Final = tuple(
@@ -1611,13 +1611,13 @@ def test_streaming_responses_repeated_from_the_response_cache_bills_nothing(
         paid: Final = rig.send(key, [AUTO], stream=True)
         assert paid.status_code == 200 and rig.final_text(_completed(paid)) == ANSWER, paid.text
         paid_price: Final = _price(FIRST_ROUND, FOLLOW_UP_ROUND) + FIXED_MARGIN
-        _model_rows(paid.headers["x-litellm-call-id"], _bills_at_least(paid_price))
+        _model_rows(paid.headers["x-hangarllm-call-id"], _bills_at_least(paid_price))
         assert len(rig.upstream_tools()) == 2
         cached: Final = rig.send(key, [AUTO], stream=True)
         assert cached.status_code == 200 and rig.final_text(_completed(cached)) == ANSWER, cached.text
         assert rig.upstream_tools() == ()
         rows: Final = _model_rows(
-            cached.headers["x-litellm-call-id"], lambda found: "success" in {row["status"] for row in found}
+            cached.headers["x-hangarllm-call-id"], lambda found: "success" in {row["status"] for row in found}
         )
         assert "success" in {row["status"] for row in rows} and _billed(rows) == 0.0, rows
 
@@ -1629,7 +1629,7 @@ def test_bridged_next_turn_after_a_streamed_mcp_turn_replays_its_answer(gateway:
         first: Final = rig.send(key, [AUTO], stream=True)
         assert first.status_code == 200, first.text
         first_id: Final = string_value(_completed(first)["id"])
-        _model_rows(first.headers["x-litellm-call-id"], _bills_at_least(_price(FIRST_ROUND, FOLLOW_UP_ROUND)))
+        _model_rows(first.headers["x-hangarllm-call-id"], _bills_at_least(_price(FIRST_ROUND, FOLLOW_UP_ROUND)))
         rig.wire.drain()
         second: Final = rig.send(key, [AUTO], previous_response_id=first_id, cache={"no-cache": True})
         assert second.status_code == 200, second.text
@@ -1663,7 +1663,7 @@ REPORT: Final[tuple[str, dict[str, JsonValue]]] = (
     {"type": "object", "properties": {"query": {"type": "string"}, "format": {}}},
 )
 RELOAD_FAST: Final = {"PROXY_CONFIG_RELOAD_INTERVAL_SECONDS": "5"}
-CALL_ID: Final = "x-litellm-call-id"
+CALL_ID: Final = "x-hangarllm-call-id"
 T = TypeVar("T")
 Definition = tuple[str, str, JsonValue]
 Echo = tuple[JsonValue, JsonValue]
@@ -1694,8 +1694,8 @@ def hooked(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Hooked]:
             "on_flagged_action": "monitor",
         }
         guardrails: Final = [
-            {"guardrail_name": "bridge-echo-" + uuid.uuid4().hex[:8], "litellm_params": echo},
-            {"guardrail_name": "bridge-sink-" + uuid.uuid4().hex[:8], "litellm_params": pillar},
+            {"guardrail_name": "bridge-echo-" + uuid.uuid4().hex[:8], "hangarllm_params": echo},
+            {"guardrail_name": "bridge-sink-" + uuid.uuid4().hex[:8], "hangarllm_params": pillar},
         ]
         path: Final = directory / "config.yaml"
         path.write_text(yaml.safe_dump({**base, "guardrails": guardrails}))
@@ -1766,8 +1766,8 @@ class BridgeRig:
 
 AUTO_MCP: Final[Mcp] = {
     "type": "mcp",
-    "server_label": "litellm",
-    "server_url": "litellm_proxy",
+    "server_label": "hangarllm",
+    "server_url": "hangarllm_proxy",
     "require_approval": "never",
 }
 
@@ -1957,7 +1957,7 @@ def _both_workers(gateway: Gateway) -> frozenset[int]:
 
 
 def _master_listing(rig: BridgeRig, client: httpx.Client) -> frozenset[str]:
-    headers: Final = {"x-litellm-api-key": rig.hooked.proxy.key}
+    headers: Final = {"x-hangarllm-api-key": rig.hooked.proxy.key}
     response: Final = client.get("/mcp-rest/tools/list", headers=headers, params={"server_id": rig.server_id})
     tools: Final = JSON_OBJECT.validate_json(response.content).get("tools") if response.status_code == 200 else None
     return frozenset(str(object_value(tool)["name"]) for tool in tools) if isinstance(tools, list) else frozenset()
@@ -1965,14 +1965,14 @@ def _master_listing(rig: BridgeRig, client: httpx.Client) -> frozenset[str]:
 
 def _direct_probe(rig: BridgeRig, key: str, name: str, client: httpx.Client) -> Echo:
     body: Final = {"server_id": rig.server_id, "name": rig.tool(name), "arguments": {"query": HOOK_PROBE}}
-    response: Final = client.post("/mcp-rest/tools/call", headers={"x-litellm-api-key": key}, json=body)
+    response: Final = client.post("/mcp-rest/tools/call", headers={"x-hangarllm-api-key": key}, json=body)
     return _echoed(JSON_VALUE.validate_json(response.content))
 
 
 def _spend_row(key: str, call_id: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT api_key, call_type, status, cache_hit FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s', (call_id,)
+            'SELECT api_key, call_type, status, cache_hit FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s', (call_id,)
         ),
         lambda found: len(found) >= 1,
         seconds=70,

@@ -10,7 +10,7 @@ constructs a ``UserAPIKeyAuth`` from them. The fix has two parts:
 2. Only identity fields may be mapped from those headers. Without the
    identity-only allowlist any field could be mapped — including
    ``user_role``, which Pydantic coerces from the string
-   ``"proxy_admin"`` into ``LitellmUserRoles.PROXY_ADMIN``.
+   ``"proxy_admin"`` into ``HangarllmUserRoles.PROXY_ADMIN``.
 """
 
 
@@ -19,8 +19,8 @@ from fastapi import Request
 from starlette.datastructures import Headers
 
 
-from litellm.proxy._types import LitellmUserRoles
-from litellm.proxy.auth.oauth2_proxy_hook import (
+from hangarllm.proxy._types import HangarllmUserRoles
+from hangarllm.proxy.auth.oauth2_proxy_hook import (
     ALLOWED_OAUTH2_PROXY_FIELDS,
     handle_oauth2_proxy_request,
 )
@@ -45,7 +45,7 @@ def configure_proxy(monkeypatch):
     of one test. Defaults to a single identity mapping and localhost as
     a trusted proxy.
     """
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     def _configure(*, mappings=None, trusted_proxy_ranges=("127.0.0.1/32",)):
         if mappings is None:
@@ -171,7 +171,7 @@ async def test_user_role_header_forgery_attack_is_blocked(configure_proxy):
     request = _request_with_headers(
         {
             "x-user-id": "attacker",
-            "x-user-role": LitellmUserRoles.PROXY_ADMIN.value,
+            "x-user-role": HangarllmUserRoles.PROXY_ADMIN.value,
         }
     )
 

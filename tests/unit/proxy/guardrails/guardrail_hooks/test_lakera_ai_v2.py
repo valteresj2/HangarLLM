@@ -1,7 +1,7 @@
 """
 Tests for Lakera AI v2 guardrail hook (post-call and shared behavior).
 
-PR checklist requires at least one test in tests/test_litellm/.
+PR checklist requires at least one test in tests/test_hangarllm/.
 Additional tests live in tests/guardrails_tests/test_lakera_v2.py.
 """
 
@@ -14,19 +14,19 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.llms.base_llm.guardrail_translation.utils import (
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.llms.base_llm.guardrail_translation.utils import (
     filter_messages_by_skip_flags,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import (
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import (
     LakeraAIGuardrail,
     _build_lakera_inspection_messages,
     humanize_lakera_block_reasons,
 )
-from litellm.types.guardrails import LitellmParams, Mode
-from litellm.types.utils import ModelResponse
+from hangarllm.types.guardrails import HangarllmParams, Mode
+from hangarllm.types.utils import ModelResponse
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -85,8 +85,8 @@ TOOL_MSG = {"role": "tool", "content": "tool result", "tool_call_id": "1"}
 
 
 class TestBuildLakeraInspectionMessages:
-    """Bugbot/veria-ai findings on BerriAI/litellm#34940: the Responses-API
-    instructions field must be inspected (litellm later converts it into the
+    """Bugbot/veria-ai findings on valteresj2/HangarLLM#34940: the Responses-API
+    instructions field must be inspected (hangarllm later converts it into the
     model's leading system message), placed first to match that ordering, and
     kept local to Lakera rather than the shared _content_utils helper so
     other guardrails aren't exposed to a field their own masking write-back
@@ -116,7 +116,7 @@ class TestFilterSkippedMessages:
         assert was_skipped is True
 
     def test_keeps_system_when_flag_false_and_no_global_default(self, monkeypatch):
-        monkeypatch.setattr(litellm, "skip_system_message_in_guardrail", False)
+        monkeypatch.setattr(hangarllm, "skip_system_message_in_guardrail", False)
         guardrail = LakeraAIGuardrail(api_key="test_key", skip_system_message_in_guardrail=False)
         filtered, was_skipped = guardrail._filter_skipped_messages([SYSTEM_MSG, USER_MSG])
         assert list(filtered) == [SYSTEM_MSG, USER_MSG]
@@ -139,7 +139,7 @@ class TestFilterSkippedMessages:
         assert was_skipped is True
 
     def test_global_default_used_when_per_instance_flag_is_none(self, monkeypatch):
-        monkeypatch.setattr(litellm, "skip_system_message_in_guardrail", True)
+        monkeypatch.setattr(hangarllm, "skip_system_message_in_guardrail", True)
         guardrail = LakeraAIGuardrail(api_key="test_key")
         assert guardrail.skip_system_message_in_guardrail is None
         filtered, was_skipped = guardrail._filter_skipped_messages([SYSTEM_MSG, USER_MSG])
@@ -155,7 +155,7 @@ class TestFilterSkippedMessages:
 
 class TestSharedFilterMessagesBySkipFlagsUtil:
     def test_importable_directly_from_shared_utils_module(self):
-        from litellm.llms.base_llm.guardrail_translation import utils as guardrail_utils
+        from hangarllm.llms.base_llm.guardrail_translation import utils as guardrail_utils
 
         assert guardrail_utils.filter_messages_by_skip_flags is filter_messages_by_skip_flags
 
@@ -163,7 +163,7 @@ class TestSharedFilterMessagesBySkipFlagsUtil:
         guardrail = LakeraAIGuardrail(api_key="test_key", skip_system_message_in_guardrail=True)
         sentinel = ([USER_MSG], True)
         with patch(  # test-quality-ok: asserts delegation to the specific shared collaborator, not an HTTP boundary
-            "litellm.proxy.guardrails.guardrail_hooks.lakera_ai_v2.filter_messages_by_skip_flags",
+            "hangarllm.proxy.guardrails.guardrail_hooks.lakera_ai_v2.filter_messages_by_skip_flags",
             return_value=sentinel,
         ) as mock_shared:
             result = guardrail._filter_skipped_messages([SYSTEM_MSG, USER_MSG])
@@ -243,7 +243,7 @@ class TestAsyncModerationHookWiring:
 
     async def test_includes_responses_instructions_in_lakera_request(self):
         """
-        Veria-ai finding on BerriAI/litellm#34940: async_moderation_hook (the
+        Veria-ai finding on valteresj2/HangarLLM#34940: async_moderation_hook (the
         during_call path) called the raw build_inspection_messages helper
         directly instead of the Lakera-local _build_lakera_inspection_messages
         wrapper, so a Responses-API instructions field bypassed inspection on
@@ -423,7 +423,7 @@ class TestPiiMaskingSafetyGuard:
 
     async def test_pii_only_violation_on_tool_message_masks_while_preserving_tool_call_id(self):
         """
-        Regression (maintainer finding on BerriAI/litellm#34940): mask-in-place must
+        Regression (maintainer finding on valteresj2/HangarLLM#34940): mask-in-place must
         not degrade to blocking just because the masked message carries fields beyond
         role/content. It must patch content in place on a copy of the original message,
         preserving tool_call_id, rather than reconstructing from a role/content-only dict."""
@@ -447,7 +447,7 @@ class TestPiiMaskingSafetyGuard:
 
     async def test_pii_only_violation_preserves_tool_calls_none_and_name_and_cache_control(self):
         """
-        Regression (maintainer finding on BerriAI/litellm#34940): a message carrying
+        Regression (maintainer finding on valteresj2/HangarLLM#34940): a message carrying
         tool_calls=None, name, or cache_control must not force a hard block either --
         those fields must survive untouched on the masked message."""
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="mask")
@@ -497,7 +497,7 @@ class TestPiiMaskingSafetyGuard:
         with (
             patch.object(guardrail, "call_v2_guard", new_callable=AsyncMock) as mock_call,
             patch(  # test-quality-ok: asserts the wholesale write-back path is never reached for this unsafe case
-                "litellm.proxy.guardrails.guardrail_hooks.lakera_ai_v2.apply_redacted_messages_back"
+                "hangarllm.proxy.guardrails.guardrail_hooks.lakera_ai_v2.apply_redacted_messages_back"
             ) as mock_apply_redacted,
         ):
             mock_call.return_value = (PII_ONLY_LAKERA_RESPONSE, {})
@@ -512,7 +512,7 @@ class TestPiiMaskingSafetyGuard:
 
     async def test_pii_only_violation_with_responses_instructions_blocks_instead_of_masking(self):
         """
-        Veria-ai finding on BerriAI/litellm#34940: the Responses-API
+        Veria-ai finding on valteresj2/HangarLLM#34940: the Responses-API
         "instructions" field is now inspected (build_inspection_messages
         includes it as a synthetic system message), but
         apply_redacted_messages_back has no path to rewrite
@@ -529,7 +529,7 @@ class TestPiiMaskingSafetyGuard:
         with (
             patch.object(guardrail, "call_v2_guard", new_callable=AsyncMock) as mock_call,
             patch(  # test-quality-ok: asserts the wholesale write-back path is never reached for this unsafe case
-                "litellm.proxy.guardrails.guardrail_hooks.lakera_ai_v2.apply_redacted_messages_back"
+                "hangarllm.proxy.guardrails.guardrail_hooks.lakera_ai_v2.apply_redacted_messages_back"
             ) as mock_apply_redacted,
         ):
             mock_call.return_value = (PII_ONLY_LAKERA_RESPONSE, {})
@@ -546,7 +546,7 @@ class TestPiiMaskingSafetyGuard:
         self,
     ):
         """
-        Bugbot finding on BerriAI/litellm#34940: _has_responses_instructions
+        Bugbot finding on valteresj2/HangarLLM#34940: _has_responses_instructions
         unconditionally treated a non-empty data["instructions"] as unsafe to
         mask, even when skip_system_message_in_guardrail excludes the
         instructions-derived synthetic system message from what Lakera ever
@@ -574,7 +574,7 @@ class TestPiiMaskingSafetyGuard:
 
     async def test_pii_only_violation_with_skipped_system_message_masks_and_leaves_system_message_untouched(self):
         """
-        Regression (maintainer finding on BerriAI/litellm#34940): setting
+        Regression (maintainer finding on valteresj2/HangarLLM#34940): setting
         skip_system_message_in_guardrail must not flip every Lakera request to
         hard-block. The skipped system message is out of Lakera's scope entirely
         and must be left untouched; only the in-scope user message gets masked."""
@@ -715,7 +715,7 @@ class TestPiiMaskingSafetyGuard:
         """Drive the monitor path and hand back the result plus the ERROR records it logged."""
         with (
             patch.object(guardrail, "call_v2_guard", new_callable=AsyncMock) as mock_call,
-            caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"),
+            caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"),
         ):
             mock_call.return_value = (lakera_response, {})
             result = await guardrail.async_pre_call_hook(
@@ -833,7 +833,7 @@ class TestPiiMaskingSafetyGuard:
 
     async def test_pii_only_violation_with_uppercase_skipped_role_masks_without_raising(self):
         """
-        Greptile finding on BerriAI/litellm#34940: filter_messages_by_skip_flags
+        Greptile finding on valteresj2/HangarLLM#34940: filter_messages_by_skip_flags
         normalizes role casing (via _message_role's .lower()), but the scope-index
         helper compared roles case-sensitively. A "System"-cased role survived the
         scope-index filter while the shared filter correctly excluded it from what's
@@ -883,7 +883,7 @@ class TestPiiMaskingSafetyGuard:
 
     async def test_moderation_hook_pii_only_violation_blocks_since_masking_cannot_reach_dispatch(self):
         """
-        Greptile finding (P1, security) on BerriAI/litellm#34940: during_call runs
+        Greptile finding (P1, security) on valteresj2/HangarLLM#34940: during_call runs
         concurrently with the LLM dispatch, and in the common path the provider
         call already binds its messages kwarg before this coroutine's masking
         network round trip even begins -- masking here can never reliably reach
@@ -956,7 +956,7 @@ class TestAdvisorySystemMessageValidation:
     """advisory_system_message must be validated eagerly at construction time,
     not lazily the first time a real request gets flagged -- but only when
     on_flagged='inject_system_message' actually reads it. Maintainer finding
-    on BerriAI/litellm#34940: this check previously ran unconditionally, so a
+    on valteresj2/HangarLLM#34940: this check previously ran unconditionally, so a
     leftover/typo'd advisory_system_message on a guardrail configured
     on_flagged='block' (which never calls _build_advisory_message at all)
     disabled the entire guardrail for a field it never uses."""
@@ -998,7 +998,7 @@ class TestAdvisorySystemMessageValidation:
             )
 
     def test_malformed_template_with_block_mode_constructs_without_error(self):
-        """Maintainer finding on BerriAI/litellm#34940: on_flagged='block' never
+        """Maintainer finding on valteresj2/HangarLLM#34940: on_flagged='block' never
         reads advisory_system_message, so a malformed/leftover value there must
         not disable the guardrail -- it's dead config, not a real error."""
         guardrail = LakeraAIGuardrail(
@@ -1017,15 +1017,15 @@ class TestAdvisorySystemMessageValidation:
         introduces a malformed advisory_system_message must succeed, not be
         rejected for a field the new on_flagged value never reads."""
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="inject_system_message")
-        updated_params = LitellmParams(
+        updated_params = HangarllmParams(
             guardrail="lakera_v2", mode="pre_call", on_flagged="block", advisory_system_message="No placeholder here."
         )
-        guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+        guardrail.update_in_memory_hangarllm_params(hangarllm_params=updated_params)
         assert guardrail.on_flagged == "block"
 
 
 class TestAdvisoryModeDuringCallDegradesGracefully:
-    """Maintainer finding on BerriAI/litellm#34940: rejecting on_flagged=
+    """Maintainer finding on valteresj2/HangarLLM#34940: rejecting on_flagged=
     'inject_system_message' + mode='during_call' at construction time disabled
     the entire guardrail (via init_guardrails_v2's catch-and-skip) for a
     combination async_moderation_hook already handles safely at runtime --
@@ -1067,25 +1067,25 @@ class TestAdvisoryModeDuringCallDegradesGracefully:
 
     def test_in_memory_update_reintroducing_the_combo_is_allowed(self):
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="block", event_hook="during_call")
-        updated_params = LitellmParams(guardrail="lakera_v2", mode="during_call", on_flagged="inject_system_message")
-        guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+        updated_params = HangarllmParams(guardrail="lakera_v2", mode="during_call", on_flagged="inject_system_message")
+        guardrail.update_in_memory_hangarllm_params(hangarllm_params=updated_params)
         assert guardrail.on_flagged == "inject_system_message"
 
     def test_in_memory_update_moving_off_during_call_in_the_same_update_is_allowed(self):
-        """Bugbot finding on BerriAI/litellm#34940: validation checked the live,
+        """Bugbot finding on valteresj2/HangarLLM#34940: validation checked the live,
         pre-update self.event_hook rather than the prospective new mode carried
         by this same update. A hot-reload that moves a during_call guardrail to
         pre_call AND turns on inject_system_message in one update is a valid
         target state and must not be rejected just because the instance was
         still during_call the instant before this update applied."""
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="block", event_hook="during_call")
-        updated_params = LitellmParams(guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message")
-        guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+        updated_params = HangarllmParams(guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message")
+        guardrail.update_in_memory_hangarllm_params(hangarllm_params=updated_params)
         assert guardrail.on_flagged == "inject_system_message"
 
     def test_in_memory_update_actually_moves_dispatch_off_during_call(self):
         """
-        Veria-ai finding on BerriAI/litellm#34940: LitellmParams has no field
+        Veria-ai finding on valteresj2/HangarLLM#34940: HangarllmParams has no field
         literally named "event_hook" (it's "mode"), so the base setattr writes
         a new self.mode attribute rather than updating self.event_hook, which
         dispatch actually reads. Validation alone accepting the update is not
@@ -1093,13 +1093,13 @@ class TestAdvisoryModeDuringCallDegradesGracefully:
         keeps dispatching as during_call after a "successful" update believed
         to have moved it to pre_call."""
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="block", event_hook="during_call")
-        updated_params = LitellmParams(guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message")
-        guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+        updated_params = HangarllmParams(guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message")
+        guardrail.update_in_memory_hangarllm_params(hangarllm_params=updated_params)
         assert guardrail.event_hook == "pre_call"
 
 
 class TestAdvisoryModeRequiresPayloadAndBreakdown:
-    """Veria-ai finding on BerriAI/litellm#34940: the mixed-violation masking
+    """Veria-ai finding on valteresj2/HangarLLM#34940: the mixed-violation masking
     safety net (mask any detected PII before appending the advisory note) only
     works when Lakera's response carries both breakdown (to detect a PII hit
     at all) and payload (the location data to mask by). payload=False or
@@ -1138,40 +1138,40 @@ class TestAdvisoryModeRequiresPayloadAndBreakdown:
 
     def test_in_memory_update_reintroducing_payload_false_raises(self):
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="block", payload=False)
-        updated_params = LitellmParams(
+        updated_params = HangarllmParams(
             guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message", payload=False
         )
         with pytest.raises(ValueError, match="requires payload=True and breakdown=True"):
-            guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+            guardrail.update_in_memory_hangarllm_params(hangarllm_params=updated_params)
         assert guardrail.on_flagged == "block", "a rejected update must leave the live instance untouched"
 
     def test_in_memory_update_leaving_payload_unspecified_resets_to_the_model_default(self):
-        """LitellmParams.payload defaults to True (not None/unset), so an update
+        """HangarllmParams.payload defaults to True (not None/unset), so an update
         that doesn't mention payload at all still carries payload=True through
         the base setattr -- it does not preserve the live instance's prior
         False value. That's a valid transition, not a bug: it's the same
         pydantic-default behavior every other field on this update already has."""
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="block", payload=False)
-        updated_params = LitellmParams(guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message")
-        guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+        updated_params = HangarllmParams(guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message")
+        guardrail.update_in_memory_hangarllm_params(hangarllm_params=updated_params)
         assert guardrail.on_flagged == "inject_system_message"
         assert guardrail.payload is True
 
     def test_in_memory_update_disabling_breakdown_on_an_advisory_instance_raises(self):
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="inject_system_message")
-        updated_params = LitellmParams(
+        updated_params = HangarllmParams(
             guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message", breakdown=False
         )
         with pytest.raises(ValueError, match="requires payload=True and breakdown=True"):
-            guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+            guardrail.update_in_memory_hangarllm_params(hangarllm_params=updated_params)
         assert guardrail.breakdown is True, "a rejected update must leave the live instance untouched"
 
     def test_in_memory_update_enabling_both_while_flipping_on_flagged_is_allowed(self):
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="block", payload=False, breakdown=False)
-        updated_params = LitellmParams(
+        updated_params = HangarllmParams(
             guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message", payload=True, breakdown=True
         )
-        guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+        guardrail.update_in_memory_hangarllm_params(hangarllm_params=updated_params)
         assert guardrail.on_flagged == "inject_system_message"
 
 
@@ -1338,7 +1338,7 @@ class TestAdvisoryModeWiring:
     @pytest.mark.asyncio
     async def test_pre_call_pii_only_flag_masks_instead_of_appending_advisory(self):
         """
-        Regression (maintainer finding on BerriAI/litellm#34940): advisory mode must
+        Regression (maintainer finding on valteresj2/HangarLLM#34940): advisory mode must
         not ship raw unmasked PII to the model just because inject_system_message is
         configured. A PII-only violation gets masked in place, same as block/monitor
         mode, with no advisory note appended -- masking already resolved the concern.
@@ -1373,7 +1373,7 @@ class TestAdvisoryModeWiring:
     @pytest.mark.asyncio
     async def test_pre_call_mixed_violation_masks_pii_before_appending_advisory(self):
         """
-        Bugbot finding on BerriAI/litellm#34940: a mixed violation (PII plus a
+        Bugbot finding on valteresj2/HangarLLM#34940: a mixed violation (PII plus a
         non-PII flag like prompt injection) isn't PII-only, so it fell straight
         through to the advisory branch with the raw PII still in place. It must
         mask the maskable PII first, then still append the advisory note for the
@@ -1413,7 +1413,7 @@ class TestAdvisoryModeWiring:
     @pytest.mark.asyncio
     async def test_pre_call_blocks_instead_of_advisory_when_pii_is_not_maskable(self):
         """
-        Bugbot finding on BerriAI/litellm#34940: a PII-only or mixed violation on
+        Bugbot finding on valteresj2/HangarLLM#34940: a PII-only or mixed violation on
         input that can't be safely masked (combined messages+input, multimodal
         content) fell through to the advisory branch with raw, unredacted content.
         It must degrade to blocking instead, same as block mode already does for
@@ -1450,7 +1450,7 @@ class TestAdvisoryModeWiring:
     @pytest.mark.asyncio
     async def test_pre_call_delivers_advisory_for_non_pii_violation_on_non_maskable_input(self):
         """
-        Bugbot finding on BerriAI/litellm#34940: blocking on non-maskable input
+        Bugbot finding on valteresj2/HangarLLM#34940: blocking on non-maskable input
         (combined messages+input, multimodal, Responses instructions) must only
         apply when there's PII in the mix. A violation with no PII at all (e.g.
         prompt injection) needs no masking, so the advisory should still be
@@ -1545,7 +1545,7 @@ class TestAdvisoryModeWiring:
     @pytest.mark.asyncio
     async def test_moderation_hook_pure_prompt_injection_does_not_reassign_messages(self):
         """
-        Bugbot finding on BerriAI/litellm#34940: unlike async_pre_call_hook (gated
+        Bugbot finding on valteresj2/HangarLLM#34940: unlike async_pre_call_hook (gated
         behind _breakdown_has_pii_violation), the during_call mixed-violation branch
         unconditionally called _mask_pii_in_messages + the preserving-fields merge
         even for a violation with zero PII, rebuilding and reassigning
@@ -1579,7 +1579,7 @@ class TestAdvisoryModeWiring:
     @pytest.mark.asyncio
     async def test_moderation_hook_pii_only_flag_blocks_since_masking_cannot_reach_dispatch(self):
         """
-        Greptile finding (P1, security) on BerriAI/litellm#34940: during_call's
+        Greptile finding (P1, security) on valteresj2/HangarLLM#34940: during_call's
         provider dispatch already binds its messages kwarg before this coroutine's
         masking network round trip even begins in the common path, so masking a
         PII-only violation here can never reliably protect the real outbound
@@ -1643,7 +1643,7 @@ class TestAdvisoryModeWiring:
     @pytest.mark.asyncio
     async def test_moderation_hook_blocks_instead_of_advisory_when_pii_is_not_maskable(self):
         """
-        Greptile finding (P1, security) on BerriAI/litellm#34940: a PII violation
+        Greptile finding (P1, security) on valteresj2/HangarLLM#34940: a PII violation
         on input that can't be safely masked (combined messages+input) fell
         through to the during_call no-op branch and let raw, unredacted PII reach
         the model with no protection at all. async_pre_call_hook already degrades
@@ -1723,11 +1723,11 @@ def _vcr_outcome_gate(request, vcr):
     record_vcr_outcome(request, vcr)
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Saves and restores litellm callback/global state so tests don't leak
+    Saves and restores hangarllm callback/global state so tests don't leak
     side effects. Works safely under pytest-xdist parallel execution.
     """
     original_state = {}
@@ -1738,52 +1738,52 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("set_verbose", "cache", "num_retries"):
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in ("success_callback", "failure_callback", "_async_success_callback", "_async_failure_callback"):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     yield
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
 
 @pytest.fixture(scope="module")
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception:
             pass
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_lakera_pre_call_hook_for_pii_masking():
     """Test for Lakera guardrail pre-call hook for PII masking"""
     # Setup the guardrail with specific entities config
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
     lakera_guardrail = LakeraAIGuardrail(
         api_key="test_key",
         on_flagged="mask",
@@ -1854,7 +1854,7 @@ async def test_lakera_pre_call_hook_for_pii_masking():
         assert "[MASKED CREDIT_CARD]" in user_message
         assert "[MASKED EMAIL]" in user_message
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_lakera_blocks_non_pii_violations():
     """Test that Lakera guardrail blocks requests with non-PII violations like hate speech, violence, etc."""
@@ -1951,7 +1951,7 @@ async def test_lakera_blocks_non_pii_violations():
         assert "Violated guardrail policy" in str(exc_info.value.detail)
         assert "lakera_guardrail_response" in exc_info.value.detail
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_lakera_only_pii_violations_are_masked():
     """Test that Lakera guardrail only masks PII violations and doesn't block the request."""
@@ -2011,7 +2011,7 @@ async def test_lakera_only_pii_violations_are_masked():
         assert result is not None
         assert "messages" in result
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_lakera_blocks_flagged_content_with_user_scenario():
     """
@@ -2205,7 +2205,7 @@ async def test_lakera_blocks_flagged_content_with_user_scenario():
         assert lakera_response["metadata"]["request_uuid"] == "b7cd4c8a-28aa-4285-a245-2befee514dbf"
         assert len(lakera_response["breakdown"]) == 16  # All the breakdown items from the user's scenario
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_lakera_monitor_mode_allows_flagged_content():
     """Test that monitor mode logs violations but allows requests to proceed."""
@@ -2253,7 +2253,7 @@ async def test_lakera_monitor_mode_allows_flagged_content():
         assert result is not None
         assert "messages" in result
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_lakera_block_mode_raises_exception():
     """Test that block mode (default) raises HTTPException for violations."""
@@ -2298,7 +2298,7 @@ async def test_lakera_block_mode_raises_exception():
 
         assert exc_info.value.status_code == 400
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_lakera_monitor_mode_during_call():
     """Test monitor mode works with during_call (moderation_hook)."""
@@ -2334,7 +2334,7 @@ async def test_lakera_monitor_mode_during_call():
 
         assert result is not None
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_lakera_post_call_blocks_flagged_content():
     """Post-call hook should block when violations are flagged."""
@@ -2377,7 +2377,7 @@ async def test_lakera_post_call_blocks_flagged_content():
 
         assert exc_info.value.status_code == 400
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_lakera_post_call_allows_clean_content():
     """Post-call hook should allow when not flagged."""
@@ -2414,7 +2414,7 @@ async def test_lakera_post_call_allows_clean_content():
 
         assert result is llm_response
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_lakera_post_call_masks_pii_and_allows():
     """Post-call hook should mask PII-only violations and allow response."""

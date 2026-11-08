@@ -21,7 +21,7 @@ from models import (
     GuardrailCreateResponse,
     KeyDeleteBody,
     KeyGenerateBody,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     ModelDeleteBody,
 )
 from spend_e2e_client import SpendClient
@@ -47,7 +47,7 @@ def _register_bedrock_guardrail(
             json=GuardrailCreateBody(
                 guardrail=BedrockGuardrailSpec(
                     guardrail_name=name,
-                    litellm_params=BedrockGuardrailParams(
+                    hangarllm_params=BedrockGuardrailParams(
                         guardrailIdentifier=identifier,
                         guardrailVersion=version,
                     ),
@@ -88,7 +88,7 @@ def _register_model(client: SpendClient, resources: ResourceManager, prefix: str
     model: Final = f"{prefix}-{unique_marker()}"
     model_id: Final = client.proxy.create_model(
         model,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=BACKEND_MODEL,
             api_key="os.environ/OPENAI_API_KEY",
             input_cost_per_token=INPUT_RATE,
@@ -172,7 +172,7 @@ class TestGuardrailCostSpend:
         model: Final = _register_model(client, strict_resources, "guardrail-priced")
         result: Final = _guarded_chat(client, scoped_key, model, name)
         assert result.ok, f"guarded request failed with {result.status_code}: {result.body[:400]}"
-        assert name in {value.strip() for value in result.headers.get("x-litellm-applied-guardrails", "").split(",")}
+        assert name in {value.strip() for value in result.headers.get("x-hangarllm-applied-guardrails", "").split(",")}
 
         chat: Final = ChatResponse.model_validate_json(result.body)
         assert chat.id and chat.usage

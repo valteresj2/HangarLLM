@@ -6,10 +6,10 @@ without keeping a copy:
 - D1: ``api_key`` in the request body.
 - D2: ``x-api-key`` forwarded with ``general_settings.forward_llm_provider_auth_headers``.
 - D3: an ``x-goog-api-key`` client header forwarded with
-  ``litellm_settings.model_group_settings.forward_client_headers_to_llm_api`` (with
+  ``hangarllm_settings.model_group_settings.forward_client_headers_to_llm_api`` (with
   ``forward_llm_provider_auth_headers`` on, which lets a provider auth header through).
 - D4: an Anthropic OAuth token (``Authorization: Bearer sk-ant-oat...``) sent next to
-  ``x-litellm-api-key``, forwarded to an Anthropic deployment.
+  ``x-hangarllm-api-key``, forwarded to an Anthropic deployment.
 
 A test is one slot on one route. It sends three requests carrying the same canary: one the
 provider answers, one it rejects with a 4xx and one it fails with a 5xx, because failure logging
@@ -124,7 +124,7 @@ def _forward_provider_auth(config: dict[str, object]) -> None:
 
 def _forward_client_headers(config: dict[str, object]) -> None:
     _forward_provider_auth(config)
-    settings: Final = config["litellm_settings"]
+    settings: Final = config["hangarllm_settings"]
     assert isinstance(settings, dict)
     settings["model_group_settings"] = {"forward_client_headers_to_llm_api": [OPENAI_MODEL]}
 
@@ -167,7 +167,7 @@ REQUEST_SLOTS: Final = MappingProxyType(
             ANTHROPIC_MODEL,
             ANTHROPIC_ROUTES,
             _no_body,
-            lambda value, key: {"Authorization": f"Bearer {value.value}", "x-litellm-api-key": key},
+            lambda value, key: {"Authorization": f"Bearer {value.value}", "x-hangarllm-api-key": key},
             _authorization,
             _bearer,
             _no_setting,
@@ -321,7 +321,7 @@ def _configure(slot: RequestSlot) -> Callable[[dict[str, object], str], None]:
             (
                 {
                     "model_name": OPENAI_MODEL,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_base": provider_url + "/v1",
                         "api_key": DEPLOYMENT_KEY,
@@ -329,7 +329,7 @@ def _configure(slot: RequestSlot) -> Callable[[dict[str, object], str], None]:
                 },
                 {
                     "model_name": ANTHROPIC_MODEL,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "anthropic/claude-sonnet-4-5",
                         "api_base": provider_url,
                         "api_key": DEPLOYMENT_KEY,
@@ -389,7 +389,7 @@ def _spend_rows(marker: Canary) -> list[dict[str, object]]:
     return [
         dict(row)
         for row in read_rows(
-            'SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE proxy_server_request::text LIKE %s',
+            'SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE proxy_server_request::text LIKE %s',
             (f"%{marker.core}%",),
         )
     ]
@@ -485,7 +485,7 @@ def test_request_credential_reaches_only_the_provider(
         assert_marker_seen(
             report,
             {
-                "S1": "LiteLLM_SpendLogs.proxy_server_request",
+                "S1": "HangarLLM_SpendLogs.proxy_server_request",
                 "S2": f"GET /spend/logs/ui/{quote(request_id, safe='')} as admin -> 200",
                 "S4": f"{GENERIC_SINK}[",
             },

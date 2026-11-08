@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.xai.batches.transformation import (
+from hangarllm.llms.xai.batches.transformation import (
     XAIBatch,
     XAIBatchesError,
     XAIBatchList,
@@ -12,11 +12,11 @@ from litellm.llms.xai.batches.transformation import (
     get_xai_api_base,
     results_to_openai_jsonl,
     to_create_batch_body,
-    to_litellm_batch,
+    to_hangarllm_batch,
     to_openai_batch_list,
     xai_batches_url,
 )
-from litellm.types.llms.openai import CreateBatchRequest
+from hangarllm.types.llms.openai import CreateBatchRequest
 
 SEPT_23_2026_UTC: Final = 1790121600
 
@@ -38,7 +38,7 @@ def _xai_batch(**overrides: object) -> XAIBatch:
 
 
 def test_completed_batch_exposes_batch_id_as_output_file_and_maps_counts() -> None:
-    batch: Final = to_litellm_batch(_xai_batch())
+    batch: Final = to_hangarllm_batch(_xai_batch())
 
     assert batch.model_dump(exclude_none=True) == {
         "id": "batch_9bdf",
@@ -56,7 +56,7 @@ def test_completed_batch_exposes_batch_id_as_output_file_and_maps_counts() -> No
 
 
 def test_pending_requests_mean_in_progress_and_no_output_file() -> None:
-    batch: Final = to_litellm_batch(
+    batch: Final = to_hangarllm_batch(
         _xai_batch(state={"num_requests": 3, "num_pending": 1, "num_success": 1, "num_error": 1, "num_cancelled": 0})
     )
 
@@ -66,11 +66,11 @@ def test_pending_requests_mean_in_progress_and_no_output_file() -> None:
 
 
 def test_empty_batch_is_still_validating() -> None:
-    assert to_litellm_batch(_xai_batch(state={})).status == "validating"
+    assert to_hangarllm_batch(_xai_batch(state={})).status == "validating"
 
 
 def test_batch_cancelled_by_xai_validation_is_failed_with_the_message() -> None:
-    batch: Final = to_litellm_batch(
+    batch: Final = to_hangarllm_batch(
         _xai_batch(
             state={},
             cancel_time="2026-09-23T10:00:00Z",
@@ -86,7 +86,7 @@ def test_batch_cancelled_by_xai_validation_is_failed_with_the_message() -> None:
 
 
 def test_batch_cancelled_by_caller_is_cancelled() -> None:
-    batch: Final = to_litellm_batch(_xai_batch(cancel_time="2026-09-23"))
+    batch: Final = to_hangarllm_batch(_xai_batch(cancel_time="2026-09-23"))
 
     assert (batch.status, batch.cancelled_at, batch.errors) == ("cancelled", SEPT_23_2026_UTC, None)
 
@@ -106,7 +106,7 @@ def test_create_body_accepts_image_and_video_endpoints(endpoint: str) -> None:
         CreateBatchRequest(completion_window="24h", endpoint=endpoint, input_file_id="file_07")
     )
 
-    assert dict(body) == {"name": "litellm-batch", "input_file_id": "file_07"}
+    assert dict(body) == {"name": "hangarllm-batch", "input_file_id": "file_07"}
 
 
 def test_create_body_uses_input_file_id_and_metadata_name() -> None:
@@ -190,7 +190,7 @@ def test_result_unwraps_the_single_response_key_into_the_openai_body(
 
 
 def test_retrieve_and_list_report_chat_because_xai_has_no_batch_endpoint() -> None:
-    retrieved: Final = to_litellm_batch(_xai_batch())
+    retrieved: Final = to_hangarllm_batch(_xai_batch())
     listed: Final = to_openai_batch_list(XAIBatchList.model_validate({"batches": [_xai_batch().model_dump()]}))
 
     assert retrieved.endpoint == "/v1/chat/completions"

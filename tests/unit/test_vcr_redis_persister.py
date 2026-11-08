@@ -11,7 +11,7 @@ from vcr.persisters.filesystem import CassetteNotFoundError
 from vcr.request import Request
 from vcr.serializers import yamlserializer
 
-import litellm
+import hangarllm
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 from tests._vcr_redis_persister import (  # noqa: E402
     CASSETTE_TTL_SECONDS,
@@ -103,7 +103,7 @@ def test_load_does_not_refresh_ttl_so_cassettes_lapse_after_write():
 
 def test_redis_key_normalizes_path_passed_by_pytest_recording():
     raw = "tests/llm_translation/cassettes/test_anthropic/test_streaming.yaml"
-    assert redis_key_for(raw) == "litellm:vcr:cassette:tests/llm_translation/test_anthropic/test_streaming"
+    assert redis_key_for(raw) == "hangarllm:vcr:cassette:tests/llm_translation/test_anthropic/test_streaming"
 
 
 def test_redis_key_is_stable_across_working_directories(tmp_path, monkeypatch):
@@ -123,7 +123,7 @@ def test_redis_key_is_stable_across_working_directories(tmp_path, monkeypatch):
     key_from_tmp = redis_key_for(abs_cassette)
 
     assert key_from_root == key_from_subdir == key_from_tmp
-    assert key_from_root == "litellm:vcr:cassette:tests/llm_translation/test_anthropic/test_streaming"
+    assert key_from_root == "hangarllm:vcr:cassette:tests/llm_translation/test_anthropic/test_streaming"
 
 
 class _FlakyRedis:
@@ -451,7 +451,7 @@ def event_loop():
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown(event_loop):
-    import litellm
+    import hangarllm
 
     original_state = {}
     for attr in (
@@ -461,21 +461,21 @@ def setup_and_teardown(event_loop):
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     asyncio.set_event_loop(event_loop)
     yield
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     pending = asyncio.all_tasks(event_loop)
     for task in pending:
         task.cancel()
@@ -484,15 +484,15 @@ def setup_and_teardown(event_loop):
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
-    "cohere_key": getattr(litellm, "cohere_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
+    "cohere_key": getattr(hangarllm, "cohere_key", None),
 }

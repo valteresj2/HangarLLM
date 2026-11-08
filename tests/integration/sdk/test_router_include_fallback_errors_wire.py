@@ -17,11 +17,11 @@ from integration._support.openai_wire import chat_reply
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm import CustomStreamWrapper, Router
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionUserMessage
-from litellm.types.utils import Choices, ModelResponse, ModelResponseStream
+import hangarllm
+from hangarllm import CustomStreamWrapper, Router
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.types.llms.openai import AllMessageValues, ChatCompletionUserMessage
+from hangarllm.types.utils import Choices, ModelResponse, ModelResponseStream
 
 _MODEL: Final = "gpt-5.4"
 _API_KEY: Final = "synthetic-fallback-errors-key"
@@ -82,7 +82,7 @@ def _peer(request: Request) -> Reply:
 def _deployment(name: str, wire: Wire, **extra: JsonValue) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"openai/{_MODEL}",
             "api_base": f"{wire.url}/{name}",
             "api_key": _API_KEY,
@@ -154,7 +154,7 @@ def _cache_hit(response: object) -> bool:
 
 
 def _error_messages(headers: Mapping[str, object]) -> tuple[str, ...]:
-    raw: Final = headers.get("x-litellm-fallback-errors")
+    raw: Final = headers.get("x-hangarllm-fallback-errors")
     if raw is None:
         return ()
     return tuple(str(error["message"]) for error in _ERRORS.validate_json(str(raw)))
@@ -200,7 +200,7 @@ def _outcome(wire: Wire, served: _Served) -> _Outcome:
     posted: Final = _posted(wire)
     return _Outcome(
         text=served.text,
-        attempted=served.headers.get("x-litellm-attempted-fallbacks"),
+        attempted=served.headers.get("x-hangarllm-attempted-fallbacks"),
         errors=_error_messages(served.headers),
         hit=_hit(posted),
         leaks=_leaks(posted),
@@ -307,10 +307,10 @@ def test_sync_logger_kwargs_carry_the_flag_exactly_as_the_async_ones_do(monkeypa
     async_recorder: Final = _Recorder()
     with wire_server(_peer) as wire:
         router: Final = _router(wire)
-        monkeypatch.setattr(litellm, "callbacks", [sync_recorder])
+        monkeypatch.setattr(hangarllm, "callbacks", [sync_recorder])
         _complete(router, "serving", stream=False, include_fallback_errors=True)
         assert sync_recorder.fired.wait(_CALLBACK_WINDOW)
-        monkeypatch.setattr(litellm, "callbacks", [async_recorder])
+        monkeypatch.setattr(hangarllm, "callbacks", [async_recorder])
         asyncio.run(_acomplete_and_await_the_logger(router, async_recorder))
         posted: Final = _posted(wire)
     assert _leaks(posted) == (), posted
@@ -329,7 +329,7 @@ def test_silent_model_shadow_traffic_carries_neither_router_only_key() -> None:
 
 
 def test_a_cache_hit_repeats_the_answer_without_a_wire_request(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", None)
+    monkeypatch.setattr(hangarllm, "cache", None)
     with wire_server(_peer) as wire:
         router: Final = _router(wire, cache_responses=True)
         nonce: Final = uuid.uuid4().hex
@@ -356,7 +356,7 @@ def test_a_sync_burst_lands_every_prompt_once_on_each_side_of_the_fallback() -> 
             served: Final = tuple(pool.map(partial(_flagged, router), nonces))
         posted: Final = _posted(wire)
     assert tuple(item.text for item in served) == (f"{_ANSWER} backup",) * _BURST, served
-    assert tuple(item.headers.get("x-litellm-attempted-fallbacks") for item in served) == (1,) * _BURST, served
+    assert tuple(item.headers.get("x-hangarllm-attempted-fallbacks") for item in served) == (1,) * _BURST, served
     assert _leaks(posted) == (), posted
     assert _nonces_at(posted, "primary") == tuple(sorted(nonces)), posted
     assert _nonces_at(posted, "backup") == tuple(sorted(nonces)), posted

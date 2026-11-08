@@ -6,7 +6,7 @@ from integration._support.wire import Reply, Request, wire_server
 
 MODEL: Final = "triton/my-triton-model"
 TOKEN: Final = "scripted-triton-key"
-INPUT: Final = ["good morning from litellm"]
+INPUT: Final = ["good morning from hangarllm"]
 OUTPUT: Final = [0.1, 0.2]
 RESPONSE: Final = json.dumps(
     {

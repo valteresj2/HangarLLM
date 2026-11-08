@@ -2,7 +2,7 @@
 Tests for OpenAI gpt-image-1 cost calculator
 
 This tests the fix for GitHub issue #13847:
-https://github.com/BerriAI/litellm/issues/13847
+upstream issue 13847
 
 gpt-image-1 uses token-based pricing:
 - Text Input: $5.00/1M tokens
@@ -12,8 +12,8 @@ gpt-image-1 uses token-based pricing:
 
 import pytest
 
-import litellm
-from litellm.types.utils import (
+import hangarllm
+from hangarllm.types.utils import (
     ImageObject,
     ImageResponse,
     ImageUsage,
@@ -23,15 +23,15 @@ from litellm.types.utils import (
 
 @pytest.fixture(autouse=True)
 def _use_local_model_cost_map(monkeypatch):
-    original_model_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
-    litellm.get_model_info.cache_clear()
+    original_model_cost = hangarllm.model_cost
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
+    hangarllm.get_model_info.cache_clear()
     try:
         yield
     finally:
-        litellm.model_cost = original_model_cost
-        litellm.get_model_info.cache_clear()
+        hangarllm.model_cost = original_model_cost
+        hangarllm.get_model_info.cache_clear()
 
 
 class TestGPTImageCostCalculator:
@@ -39,7 +39,7 @@ class TestGPTImageCostCalculator:
 
     def test_gpt_image_1_cost_no_usage(self):
         """Test that cost returns 0 when no usage data is available"""
-        from litellm.llms.openai.image_generation.cost_calculator import cost_calculator
+        from hangarllm.llms.openai.image_generation.cost_calculator import cost_calculator
 
         image_response = ImageResponse(
             created=1234567890,
@@ -69,7 +69,7 @@ class TestGPTImageCostCalculator:
     def test_gpt_image_1_bills_deployment_output_cost_per_image_without_usage_tokens(
         self, usage: ImageUsage | None
     ) -> None:
-        from litellm.llms.openai.image_generation.cost_calculator import cost_calculator
+        from hangarllm.llms.openai.image_generation.cost_calculator import cost_calculator
 
         image_response = ImageResponse(
             created=1234567890,
@@ -109,7 +109,7 @@ class TestCompletionCostIntegration:
 class TestGPTImage2OutputImageTokensNoBreakdown:
     """
     Regression test: the OpenAI Images endpoints (/v1/images/generations and
-    /v1/images/edits) return usage with NO output token breakdown — litellm's
+    /v1/images/edits) return usage with NO output token breakdown — hangarllm's
     ImageUsage has no ``output_tokens_details`` field. Before the fix, the
     generated-image OUTPUT tokens were priced at the text rate
     (``output_cost_per_token`` = $10/1M for gpt-image-2) instead of the image rate

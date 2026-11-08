@@ -54,7 +54,7 @@ def _one_call(peer: McpPeer) -> dict[str, object]:
 
 def _plaintext_rows(identity: str, secret: str) -> list[dict[str, object]]:
     return read_rows(
-        'SELECT server_id FROM "LiteLLM_MCPServerTable" WHERE server_id = %s '
+        'SELECT server_id FROM "HangarLLM_MCPServerTable" WHERE server_id = %s '
         "AND (credentials::text LIKE %s OR static_headers::text LIKE %s)",
         (identity, f"%{secret}%", f"%{secret}%"),
     )
@@ -158,7 +158,7 @@ def test_caller_headers_for_other_servers_and_unknown_headers_never_reach_the_pe
     ("auth_type", "per_server_header"),
     (("none", True), ("true_passthrough", False)),
 )
-def test_callers_own_litellm_key_never_reaches_the_peer_over_rest(
+def test_callers_own_hangarllm_key_never_reaches_the_peer_over_rest(
     gateway: Gateway, auth_type: str, per_server_header: bool
 ) -> None:
     with mcp_peer() as peer, gateway.scenario() as scenario:
@@ -166,7 +166,7 @@ def test_callers_own_litellm_key_never_reaches_the_peer_over_rest(
         identity: Final = register_mcp(scenario, peer, alias, auth_type=auth_type)
         key: Final = scenario.key(object_permission={"mcp_servers": [identity]})
         caller_headers: Final = {
-            "x-litellm-api-key": f"Bearer {key}",
+            "x-hangarllm-api-key": f"Bearer {key}",
             (f"x-mcp-{alias}-authorization" if per_server_header else "Authorization"): f"Bearer {key}",
         }
         peer.drain()
@@ -198,7 +198,7 @@ def test_empty_primary_header_does_not_expose_authorization_key(gateway: Gateway
             entry,
             alias,
             headers={
-                "x-litellm-api-key": "",
+                "x-hangarllm-api-key": "",
                 "Authorization": f"Bearer {key}",
                 f"x-mcp-{alias}-authorization": f"Bearer {key}",
                 "x-upstream-token": key,
@@ -225,7 +225,7 @@ def test_extra_headers_cannot_forward_gateway_admission_key(gateway: Gateway, en
     with mcp_peer() as peer, gateway.scenario() as scenario:
         alias: Final = "cred" + uuid.uuid4().hex[:8]
         identity: Final = register_mcp(
-            scenario, peer, alias, extra_headers=["X-LiteLLM-API-Key", "x-tenant"],
+            scenario, peer, alias, extra_headers=["X-HangarLLM-API-Key", "x-tenant"],
         )
         key: Final = scenario.key(object_permission={"mcp_servers": [identity]})
         caller: Final = McpCaller(gateway, key, entry, alias, headers={"x-tenant": "tenant-control"})
@@ -249,7 +249,7 @@ def test_openapi_extra_headers_cannot_forward_gateway_admission_key(gateway: Gat
     with openapi_peer() as peer, gateway.scenario() as scenario:
         alias: Final = "cred" + uuid.uuid4().hex[:8]
         identity: Final = register_mcp(
-            scenario, peer, alias, extra_headers=["X-LiteLLM-API-Key", "x-tenant"],
+            scenario, peer, alias, extra_headers=["X-HangarLLM-API-Key", "x-tenant"],
         )
         key: Final = scenario.key(object_permission={"mcp_servers": [identity]})
         caller: Final = McpCaller(gateway, key, entry, alias, headers={"x-tenant": "tenant-control"})
@@ -307,17 +307,17 @@ def test_byok_server_uses_the_calling_users_stored_credential_and_fails_closed_w
         stored: Final = gateway.client.post(
             f"/v1/mcp/server/{identity}/user-credential",
             json={"credential": secret},
-            headers={"x-litellm-api-key": owner_key},
+            headers={"x-hangarllm-api-key": owner_key},
         )
         assert stored.status_code in (200, 201), stored.text
         scenario.cleanups.callback(
             gateway.client.delete,
             f"/v1/mcp/server/{identity}/user-credential",
-            headers={"x-litellm-api-key": owner_key},
+            headers={"x-hangarllm-api-key": owner_key},
         )
         assert (
             read_rows(
-                'SELECT credential_b64 FROM "LiteLLM_MCPUserCredentials" WHERE server_id = %s AND credential_b64 LIKE %s',
+                'SELECT credential_b64 FROM "HangarLLM_MCPUserCredentials" WHERE server_id = %s AND credential_b64 LIKE %s',
                 (identity, f"%{secret}%"),
             )
             == []
@@ -331,7 +331,7 @@ def test_byok_server_uses_the_calling_users_stored_credential_and_fails_closed_w
         assert denied.status_code == 401, denied.text
         assert tool_calls(peer.drain()) == ()
         removed: Final = gateway.client.delete(
-            f"/v1/mcp/server/{identity}/user-credential", headers={"x-litellm-api-key": owner_key}
+            f"/v1/mcp/server/{identity}/user-credential", headers={"x-hangarllm-api-key": owner_key}
         )
         assert removed.status_code in (200, 204), removed.text
         eventually(lambda: call_tool(gateway, owner_key, identity, name, ADD), lambda value: value.status_code == 401)
@@ -365,18 +365,18 @@ def test_oauth2_byok_listing_sends_the_minted_token_not_the_users_stored_secret(
         stored: Final = gateway.client.post(
             f"/v1/mcp/server/{identity}/user-credential",
             json={"credential": secret},
-            headers={"x-litellm-api-key": owner_key},
+            headers={"x-hangarllm-api-key": owner_key},
         )
         assert stored.status_code in (200, 201), stored.text
         scenario.cleanups.callback(
             gateway.client.delete,
             f"/v1/mcp/server/{identity}/user-credential",
-            headers={"x-litellm-api-key": owner_key},
+            headers={"x-hangarllm-api-key": owner_key},
         )
         peer.drain()
         auth.drain()
         response: Final = gateway.client.get(
-            "/mcp-rest/tools/list", params={"server_id": identity}, headers={"x-litellm-api-key": owner_key}
+            "/mcp-rest/tools/list", params={"server_id": identity}, headers={"x-hangarllm-api-key": owner_key}
         )
         assert response.status_code == 200, response.text
         assert "add" in {tool["name"] for tool in response.json()["tools"]}, response.text
@@ -404,17 +404,17 @@ def test_byok_rest_listing_sends_the_servers_static_credential_not_the_users_sto
         stored: Final = gateway.client.post(
             f"/v1/mcp/server/{identity}/user-credential",
             json={"credential": secret},
-            headers={"x-litellm-api-key": owner_key},
+            headers={"x-hangarllm-api-key": owner_key},
         )
         assert stored.status_code in (200, 201), stored.text
         scenario.cleanups.callback(
             gateway.client.delete,
             f"/v1/mcp/server/{identity}/user-credential",
-            headers={"x-litellm-api-key": owner_key},
+            headers={"x-hangarllm-api-key": owner_key},
         )
         peer.drain()
         response: Final = gateway.client.get(
-            "/mcp-rest/tools/list", params={"server_id": identity}, headers={"x-litellm-api-key": owner_key}
+            "/mcp-rest/tools/list", params={"server_id": identity}, headers={"x-hangarllm-api-key": owner_key}
         )
         assert response.status_code == 200, response.text
         assert "add" in {tool["name"] for tool in response.json()["tools"]}, response.text
@@ -436,7 +436,7 @@ def test_deprecated_string_x_mcp_auth_lists_a_byok_server_for_a_key_without_a_us
         response: Final = gateway.client.get(
             "/mcp-rest/tools/list",
             params={"server_id": identity},
-            headers={"x-litellm-api-key": key, "x-mcp-auth": "Bearer hdr"},
+            headers={"x-hangarllm-api-key": key, "x-mcp-auth": "Bearer hdr"},
         )
         assert response.status_code == 200, response.text
         names: Final = {tool["name"] for tool in response.json()["tools"]}
@@ -460,7 +460,7 @@ _GUARDRAIL_CODE: Final = (
 _ECHO_GUARDRAIL_YAML: Final = (
     "guardrails:\n"
     "  - guardrail_name: catalog-echo\n"
-    "    litellm_params:\n"
+    "    hangarllm_params:\n"
     "      guardrail: custom_code\n"
     "      mode: pre_mcp_call\n"
     "      default_on: true\n"
@@ -511,11 +511,11 @@ def _sent_header(request: dict[str, object], name: str) -> str | None:
 
 def _store_byok_credential(scenario: Scenario, identity: str, key: str, secret: str) -> None:
     stored: Final = scenario.gateway.client.post(
-        f"/v1/mcp/server/{identity}/user-credential", json={"credential": secret}, headers={"x-litellm-api-key": key}
+        f"/v1/mcp/server/{identity}/user-credential", json={"credential": secret}, headers={"x-hangarllm-api-key": key}
     )
     assert stored.status_code in (200, 201), stored.text
     scenario.cleanups.callback(
-        scenario.gateway.client.delete, f"/v1/mcp/server/{identity}/user-credential", headers={"x-litellm-api-key": key}
+        scenario.gateway.client.delete, f"/v1/mcp/server/{identity}/user-credential", headers={"x-hangarllm-api-key": key}
     )
 
 
@@ -692,7 +692,7 @@ def test_oauth_passthrough_probe_uses_server_token_without_admission_key(
         probes: Final = tuple(
             request
             for request in observed
-            if TypeAdapter(dict[str, object]).validate_python(request["body"]).get("id") == "litellm-mcp-auth-probe"
+            if TypeAdapter(dict[str, object]).validate_python(request["body"]).get("id") == "hangarllm-mcp-auth-probe"
         )
         assert probes, "expected an upstream initialize authentication probe"
         assert all(_header(probe, b"authorization") == forwarded for probe in probes)

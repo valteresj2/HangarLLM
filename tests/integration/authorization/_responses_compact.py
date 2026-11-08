@@ -37,7 +37,7 @@ COMPACT_USAGE: Final[Mapping[str, JsonValue]] = MappingProxyType(
 )
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 PROXY_WORKERS: Final = max(1, int(os.environ.get("INTEGRATION_PROXY_WORKERS", "1")))
-SPEND_MARKER_HEADER: Final = "x-litellm-spend-logs-metadata"
+SPEND_MARKER_HEADER: Final = "x-hangarllm-spend-logs-metadata"
 _DISABLE_HINT: Final = (
     "To disable this security feature, set general_settings::disable_responses_id_security to True "
     "in the config.yaml file."
@@ -344,7 +344,7 @@ def spend_rows(key: str) -> tuple[Mapping[str, JsonValue], ...]:
     return tuple(
         read_rows(
             "SELECT request_id, status, call_type, metadata->'spend_logs_metadata'->>'marker' AS marker "
-            'FROM "LiteLLM_SpendLogs" WHERE api_key = %s',
+            'FROM "HangarLLM_SpendLogs" WHERE api_key = %s',
             (sha256(key.encode()).hexdigest(),),
         )
     )

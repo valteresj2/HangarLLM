@@ -1,27 +1,27 @@
 #!/usr/bin/env bash
-# LiteLLM Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/BerriAI/litellm/main/scripts/install.sh | sh
+# HangarLLM Installer
+# Usage: curl -fsSL https://raw.githubusercontent.com/valteresj2/HangarLLM/main/scripts/install.sh | sh
 #
 # Needs only curl: uv is bootstrapped if missing, and uv provisions a compatible
 # Python itself (reusing a suitable system one, else downloading a managed build).
 #
 # To install from an unreleased branch, tag, or commit instead of the latest PyPI
-# release, set LITELLM_CLI_REF:
-#   curl -fsSL https://raw.githubusercontent.com/BerriAI/litellm/<branch>/scripts/install.sh | \
-#     LITELLM_CLI_REF=<branch> sh
+# release, set HANGARLLM_CLI_REF:
+#   curl -fsSL https://raw.githubusercontent.com/valteresj2/HangarLLM/<branch>/scripts/install.sh | \
+#     HANGARLLM_CLI_REF=<branch> sh
 #
 # NOTE: set -e without pipefail for POSIX sh compatibility (dash on Ubuntu/Debian
 # ignores the shebang when invoked as `sh` and does not support `pipefail`).
 set -eu
 
-# NOTE: before merging, this must stay as "litellm[proxy]" to install from PyPI.
-# LITELLM_CLI_REF opts into installing from a branch, tag, or commit instead (for
+# NOTE: before merging, this must stay as "hangarllm[proxy]" to install from PyPI.
+# HANGARLLM_CLI_REF opts into installing from a branch, tag, or commit instead (for
 # example, to QA lite autoroute against an unreleased branch, which needs this proxy
-# runtime, not the thin litellm[cli] install).
-if [ -n "${LITELLM_CLI_REF:-}" ]; then
-  LITELLM_PACKAGE="litellm[proxy] @ git+https://github.com/BerriAI/litellm.git@${LITELLM_CLI_REF}"
+# runtime, not the thin hangarllm[cli] install).
+if [ -n "${HANGARLLM_CLI_REF:-}" ]; then
+  HANGARLLM_PACKAGE="hangarllm[proxy] @ git+https://github.com/valteresj2/HangarLLM.git@${HANGARLLM_CLI_REF}"
 else
-  LITELLM_PACKAGE="litellm[proxy]"
+  HANGARLLM_PACKAGE="hangarllm[proxy]"
 fi
 UV_VERSION="0.10.9"
 
@@ -50,7 +50,7 @@ cat << 'EOF'
   ███████╗██║   ██║   ███████╗███████╗███████╗██║ ╚═╝ ██║
   ╚══════╝╚═╝   ╚═╝   ╚══════╝╚══════╝╚══════╝╚═╝     ╚═╝
 EOF
-printf "  ${BOLD}LiteLLM Installer${RESET}  ${GREY}— unified gateway for 100+ LLM providers${RESET}\n\n"
+printf "  ${BOLD}HangarLLM Installer${RESET}  ${GREY}— unified gateway for 100+ LLM providers${RESET}\n\n"
 
 # ── OS detection ───────────────────────────────────────────────────────────
 OS="$(uname -s)"
@@ -59,7 +59,7 @@ ARCH="$(uname -m)"
 case "$OS" in
   Darwin)  PLATFORM="macOS ($ARCH)" ;;
   Linux)   PLATFORM="Linux ($ARCH)" ;;
-  *)       die "Unsupported OS: $OS. LiteLLM supports macOS and Linux." ;;
+  *)       die "Unsupported OS: $OS. HangarLLM supports macOS and Linux." ;;
 esac
 
 info "Platform: $PLATFORM"
@@ -93,10 +93,10 @@ fi
 
 # ── install ────────────────────────────────────────────────────────────────
 echo ""
-if [ -n "${LITELLM_CLI_REF:-}" ]; then
-  header "Installing litellm[proxy] from ${LITELLM_CLI_REF}…"
+if [ -n "${HANGARLLM_CLI_REF:-}" ]; then
+  header "Installing hangarllm[proxy] from ${HANGARLLM_CLI_REF}…"
 else
-  header "Installing litellm[proxy]…"
+  header "Installing hangarllm[proxy]…"
 fi
 echo ""
 
@@ -104,27 +104,27 @@ echo ""
 # interpreter before resolving, so an unconstrained request accepts a too-old system
 # Python (stock macOS ships 3.9) and fails resolution instead of downloading a
 # managed one. --python-preference system still reuses a compatible system Python.
-"$UV_BIN" tool install --python '>=3.10,<3.15' --python-preference system --force "${LITELLM_PACKAGE}" \
-  || die "uv tool install failed. Try manually: $UV_BIN tool install --python '>=3.10,<3.15' '${LITELLM_PACKAGE}'"
+"$UV_BIN" tool install --python '>=3.10,<3.15' --python-preference system --force "${HANGARLLM_PACKAGE}" \
+  || die "uv tool install failed. Try manually: $UV_BIN tool install --python '>=3.10,<3.15' '${HANGARLLM_PACKAGE}'"
 
-# ── find the litellm binary installed by uv tool ───────────────────────────
+# ── find the hangarllm binary installed by uv tool ───────────────────────────
 SCRIPTS_DIR="$("$UV_BIN" tool dir --bin)"
-LITELLM_BIN="${SCRIPTS_DIR}/litellm"
+HANGARLLM_BIN="${SCRIPTS_DIR}/hangarllm"
 
-if [ ! -x "$LITELLM_BIN" ]; then
-  die "litellm binary not found after install. Try: $UV_BIN tool install '${LITELLM_PACKAGE}'"
+if [ ! -x "$HANGARLLM_BIN" ]; then
+  die "hangarllm binary not found after install. Try: $UV_BIN tool install '${HANGARLLM_PACKAGE}'"
 fi
 
 # ── success banner ─────────────────────────────────────────────────────────
 echo ""
-success "LiteLLM installed"
+success "HangarLLM installed"
 
-installed_ver="$("$LITELLM_BIN" --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
+installed_ver="$("$HANGARLLM_BIN" --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
 [ -n "$installed_ver" ] && info "Version: $installed_ver"
 
 # ── PATH hint ──────────────────────────────────────────────────────────────
-if ! command -v litellm >/dev/null 2>&1; then
-  info "Note: add litellm to your PATH:  export PATH=\"\$PATH:${SCRIPTS_DIR}\""
+if ! command -v hangarllm >/dev/null 2>&1; then
+  info "Note: add hangarllm to your PATH:  export PATH=\"\$PATH:${SCRIPTS_DIR}\""
 fi
 
 # ── launch setup wizard ────────────────────────────────────────────────────
@@ -140,17 +140,17 @@ if [ -z "$answer" ] || [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
   echo ""
   # Use /dev/tty for interactive input when available (stdin is a pipe from curl)
   if [ -r /dev/tty ]; then
-    exec "$LITELLM_BIN" --setup </dev/tty
+    exec "$HANGARLLM_BIN" --setup </dev/tty
   else
-    exec "$LITELLM_BIN" --setup
+    exec "$HANGARLLM_BIN" --setup
   fi
 else
   echo ""
   header "Quick start:"
   echo ""
-  info "  litellm --setup          # interactive wizard"
-  info "  litellm --model gpt-4o   # single-model quickstart"
+  info "  hangarllm --setup          # interactive wizard"
+  info "  hangarllm --model gpt-4o   # single-model quickstart"
   echo ""
-  info "Docs: https://docs.litellm.ai"
+  info "Docs: https://github.com/valteresj2/HangarLLM#readme"
   echo ""
 fi

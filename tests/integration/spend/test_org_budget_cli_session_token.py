@@ -7,12 +7,12 @@ import pytest
 from integration._support.client import Gateway, eventually, string_value
 from integration._support.database import read_rows
 
-from litellm.proxy._types import LiteLLM_UserTable
-from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
+from hangarllm.proxy._types import HangarLLM_UserTable
+from hangarllm.proxy.auth.auth_checks import ExperimentalUIJWTToken
 
 
 def _cli_session_token(user_id: str, team_id: str) -> str:
-    cli_user: Final = LiteLLM_UserTable(user_id=user_id, user_role="internal_user", teams=[team_id], models=[])
+    cli_user: Final = HangarLLM_UserTable(user_id=user_id, user_role="internal_user", teams=[team_id], models=[])
     return ExperimentalUIJWTToken.get_cli_jwt_auth_token(user_info=cli_user, team_id=team_id, team_alias="cli-team")
 
 
@@ -20,7 +20,7 @@ def _cli_session_token(user_id: str, team_id: str) -> str:
 def test_cli_session_token_without_org_id_charges_and_caps_the_team_organization(
     gateway: Gateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", os.environ.get("LITELLM_SALT_KEY", "sk-integration-salt"))
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", os.environ.get("HANGARLLM_SALT_KEY", "sk-integration-salt"))
     with (
         gateway.scenario() as scenario,
         httpx.Client(base_url=gateway.upstream_url, timeout=5, trust_env=False) as upstream,
@@ -54,7 +54,7 @@ def test_cli_session_token_without_org_id_charges_and_caps_the_team_organization
         upstream.delete("/__observations").raise_for_status()
         logged: Final = eventually(
             lambda: read_rows(
-                'SELECT organization_id, team_id, spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                'SELECT organization_id, team_id, spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                 (first.json()["id"],),
             ),
             lambda values: len(values) == 1,
@@ -64,7 +64,7 @@ def test_cli_session_token_without_org_id_charges_and_caps_the_team_organization
             (org_id, team_id, pytest.approx(0.06))
         ]
         charged: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_OrganizationTable" WHERE organization_id=%s', (org_id,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_OrganizationTable" WHERE organization_id=%s', (org_id,)),
             lambda values: len(values) == 1 and float(values[0]["spend"]) >= 0.06,
             seconds=70,
         )

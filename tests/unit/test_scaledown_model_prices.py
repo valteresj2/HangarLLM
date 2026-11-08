@@ -2,8 +2,8 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.types.utils import Usage
+import hangarllm
+from hangarllm.types.utils import Usage
 
 SCALEDOWN_MODELS: Final = (
     "scaledown/classify",
@@ -20,9 +20,9 @@ INPUT_COST_PER_MILLION_TOKENS: Final = 0.05
 
 @pytest.mark.parametrize("model", SCALEDOWN_MODELS)
 def test_scaledown_model_is_priced_on_input_tokens_only(model: str) -> None:
-    entry: Final = litellm.model_cost[model]
+    entry: Final = hangarllm.model_cost[model]
 
-    assert entry["litellm_provider"] == "scaledown"
+    assert entry["hangarllm_provider"] == "scaledown"
     assert entry["mode"] == "chat"
     assert entry["input_cost_per_token"] * 1_000_000 == pytest.approx(INPUT_COST_PER_MILLION_TOKENS)
     assert entry["output_cost_per_token"] == 0.0
@@ -30,7 +30,7 @@ def test_scaledown_model_is_priced_on_input_tokens_only(model: str) -> None:
 
 @pytest.mark.parametrize("model", SCALEDOWN_MODELS)
 def test_scaledown_cost_ignores_output_tokens(model: str) -> None:
-    prompt_cost, completion_cost = litellm.cost_per_token(
+    prompt_cost, completion_cost = hangarllm.cost_per_token(
         model=model,
         custom_llm_provider="scaledown",
         usage_object=Usage(prompt_tokens=1_000_000, completion_tokens=500_000),
@@ -41,6 +41,6 @@ def test_scaledown_cost_ignores_output_tokens(model: str) -> None:
 
 
 def test_every_scaledown_entry_in_the_cost_map_is_covered_here() -> None:
-    in_map: Final = {key for key in litellm.model_cost if key.startswith("scaledown/")}
+    in_map: Final = {key for key in hangarllm.model_cost if key.startswith("scaledown/")}
 
     assert in_map == set(SCALEDOWN_MODELS)

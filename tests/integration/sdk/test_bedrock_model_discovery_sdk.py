@@ -26,12 +26,12 @@ REGION: Final = "us-east-1"
 IDS: Final = TypeAdapter(list[str])
 SCRIPT: Final = """
 import json, sys
-import litellm
-from litellm.types.router import LiteLLM_Params
+import hangarllm
+from hangarllm.types.router import HangarLLM_Params
 arguments = json.loads(sys.argv[1])
-params = LiteLLM_Params(**arguments["litellm_params"]) if arguments["litellm_params"] is not None else None
-models = litellm.get_valid_models(
-    check_provider_endpoint=True, custom_llm_provider=arguments["provider"], litellm_params=params
+params = HangarLLM_Params(**arguments["hangarllm_params"]) if arguments["hangarllm_params"] is not None else None
+models = hangarllm.get_valid_models(
+    check_provider_endpoint=True, custom_llm_provider=arguments["provider"], hangarllm_params=params
 )
 print(json.dumps(sorted(models)))
 """
@@ -48,7 +48,7 @@ def _sdk_listing(
     cwd: Path,
     *,
     provider: str | None,
-    litellm_params: Mapping[str, JsonValue] | None,
+    hangarllm_params: Mapping[str, JsonValue] | None,
     process_env: Mapping[str, str] | None = None,
 ) -> Sequence[str]:
     environment: Final = {
@@ -57,11 +57,11 @@ def _sdk_listing(
         "AWS_CONFIG_FILE": str(cwd / "empty-aws-config"),
         "AWS_SHARED_CREDENTIALS_FILE": str(cwd / "empty-aws-config"),
         "AWS_EC2_METADATA_DISABLED": "true",
-        "LITELLM_LOCAL_MODEL_COST_MAP": "True",
+        "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
         **(process_env or {}),
     }
     (cwd / "empty-aws-config").write_text("")
-    arguments: Final = json.dumps({"provider": provider, "litellm_params": litellm_params})
+    arguments: Final = json.dumps({"provider": provider, "hangarllm_params": hangarllm_params})
     completed: Final = subprocess.run(
         [sys.executable, "-P", "-c", SCRIPT, arguments], cwd=cwd, env=environment, capture_output=True, text=True
     )
@@ -80,7 +80,7 @@ def test_sdk_get_valid_models_lists_the_account_through_the_deployment_credentia
             plane,
             tmp_path,
             provider="bedrock",
-            litellm_params={
+            hangarllm_params={
                 "model": "bedrock/*",
                 "aws_access_key_id": key,
                 "aws_secret_access_key": secret,
@@ -103,7 +103,7 @@ def test_sdk_get_valid_models_with_only_aws_environment_never_infers_bedrock(
             plane,
             tmp_path,
             provider=None,
-            litellm_params=None,
+            hangarllm_params=None,
             process_env={"AWS_ACCESS_KEY_ID": key, "AWS_SECRET_ACCESS_KEY": secret, "AWS_REGION_NAME": REGION},
         )
     assert not any(name.startswith("bedrock/") for name in listed), listed
@@ -121,7 +121,7 @@ def test_sdk_get_valid_models_infers_bedrock_from_its_api_key_and_lists_with_the
             plane,
             tmp_path,
             provider=None,
-            litellm_params=None,
+            hangarllm_params=None,
             process_env={"BEDROCK_API_KEY": token, "AWS_BEARER_TOKEN_BEDROCK": token, "AWS_REGION_NAME": REGION},
         )
     assert frozenset(name for name in listed if marker in name) == catalog.vendor_ids(), listed

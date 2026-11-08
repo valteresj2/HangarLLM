@@ -14,30 +14,30 @@ from fastapi import HTTPException
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict, Unpack
 
-import litellm
-from litellm.constants import (
+import hangarllm
+from hangarllm.constants import (
     BEDROCK_REALTIME_SDK_SUPPORTED_RANGE,
     REALTIME_SESSION_ENDED_ABNORMALLY_KEY,
     REALTIME_SESSION_SUCCESS_LOGGED_KEY,
     WEBSOCKET_CLOSE_REASON_MAX_BYTES,
 )
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.litellm_core_utils.realtime_errors import websocket_close_reason
-from litellm.litellm_core_utils.realtime_guardrails import BLOCKED_TOOL_OUTPUT
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.bedrock.realtime.handler import (
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.hangarllm_core_utils.realtime_errors import websocket_close_reason
+from hangarllm.hangarllm_core_utils.realtime_guardrails import BLOCKED_TOOL_OUTPUT
+from hangarllm.llms.bedrock.common_utils import BedrockError
+from hangarllm.llms.bedrock.realtime.handler import (
     GUARDRAIL_UNAVAILABLE_MESSAGE,
     BedrockRealtime,
     BedrockRealtimeGuardrails,
     SessionEndSignals,
 )
-from litellm.llms.bedrock.realtime.transformation import BedrockRealtimeConfig
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-from litellm.realtime_api import main as realtime_main
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import (
+from hangarllm.llms.bedrock.realtime.transformation import BedrockRealtimeConfig
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+from hangarllm.realtime_api import main as realtime_main
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import (
     GenericGuardrailAPIInputs,
     StandardLoggingPayload,
     StandardLoggingPayloadErrorInformation,
@@ -73,7 +73,7 @@ _STANDARD_LOGGING_PAYLOAD_ADAPTER: Final = TypeAdapter(StandardLoggingPayload)
 
 
 def _spend_row(
-    logging_obj: "FakeLogging | LiteLLMLogging",
+    logging_obj: "FakeLogging | HangarLLMLogging",
 ) -> tuple[Literal["success", "failure"], StandardLoggingPayloadErrorInformation | None]:
     return _spend_row_of(logging_obj.model_call_details)
 
@@ -218,7 +218,7 @@ class RecordingRealtimeHandler:
 
 class FakeLogging:
     def __init__(self, trace_id="trace-nova-sonic"):
-        self.litellm_trace_id = trace_id
+        self.hangarllm_trace_id = trace_id
         self.model_call_details = {}
 
     def attempt_scoped_copy(self):
@@ -703,7 +703,7 @@ class TestBedrockRealtimeHandler:
 
     @pytest.mark.asyncio
     async def test_logged_event_types_star_collects_every_forwarded_event(self, monkeypatch):
-        monkeypatch.setattr(litellm, "logged_real_time_event_types", "*")
+        monkeypatch.setattr(hangarllm, "logged_real_time_event_types", "*")
         handler = BedrockRealtime()
         stream = ScriptedBedrockStream(
             [
@@ -733,7 +733,7 @@ class TestBedrockRealtimeHandler:
 
     @pytest.mark.asyncio
     async def test_trailing_usage_after_last_done_is_dispatched_for_spend(self, stub_aws_sdk_client, monkeypatch):
-        import litellm.llms.bedrock.realtime.handler as handler_module
+        import hangarllm.llms.bedrock.realtime.handler as handler_module
 
         dispatched = {}
 
@@ -1001,7 +1001,7 @@ class TestBedrockRealtimeProviderFailurePropagation:
 
     @pytest.fixture
     def spend_dispatch(self, monkeypatch):
-        import litellm.llms.bedrock.realtime.handler as handler_module
+        import hangarllm.llms.bedrock.realtime.handler as handler_module
 
         dispatched = {}
 
@@ -1062,14 +1062,14 @@ class TestBedrockRealtimeProviderFailurePropagation:
             )
 
         assert replay.value.status_code == 400, "a committed session must not be silently restarted on a fallback"
-        assert not litellm.should_retry(replay.value.status_code), "the router must not retry the replay refusal"
+        assert not hangarllm.should_retry(replay.value.status_code), "the router must not retry the replay refusal"
         assert "Nova Sonic stream broke" in replay.value.message, "the router surfaces the last attempt's error"
 
         other_provider: Final = RecordingRealtimeHandler()
         monkeypatch.setattr(realtime_main, "openai_realtime", other_provider)
         with pytest.raises(BedrockError) as fallback:
             await realtime_main._arealtime.__wrapped__(
-                model="openai/gpt-realtime", websocket=websocket, litellm_logging_obj=FakeLogging()
+                model="openai/gpt-realtime", websocket=websocket, hangarllm_logging_obj=FakeLogging()
             )
 
         assert fallback.value.status_code == 400, "a fallback to another provider must not start a second session"
@@ -1085,7 +1085,7 @@ class TestBedrockRealtimeProviderFailurePropagation:
         guardrail: Final = AwaitingGuardrail(
             "hunter2", guardrail_name="remote", event_hook=GuardrailEventHooks.pre_call, default_on=True
         )
-        monkeypatch.setattr(litellm, "callbacks", [guardrail] if guardrail_awaits_its_backend else [])
+        monkeypatch.setattr(hangarllm, "callbacks", [guardrail] if guardrail_awaits_its_backend else [])
         handler = BedrockRealtime()
         websocket = RealtimeClientWS([self.USER_TEXT])
         healthy_stream = SessionBoundBedrockStream()
@@ -1166,7 +1166,7 @@ class TestBedrockRealtimeProviderFailurePropagation:
         stub_aws_sdk_client["streams"] = [stream]
         logging_obj: Final = spend_dispatch["logging_obj"]
         request_metadata: Final = {"user_api_key": "hashed-key"}
-        logging_obj.model_call_details["litellm_params"] = {"litellm_metadata": request_metadata}
+        logging_obj.model_call_details["hangarllm_params"] = {"hangarllm_metadata": request_metadata}
 
         with pytest.raises(BedrockError) as failure:
             await handler.async_realtime(
@@ -1262,21 +1262,21 @@ class TestBedrockRealtimeProviderFailurePropagation:
     ):
         stub_aws_sdk_client["streams"] = [ScriptedBedrockStream(self.TEXT_TURN)]
         recorder: Final = LoggedEventRecorder()
-        logging_obj: Final = LiteLLMLogging(
+        logging_obj: Final = HangarLLMLogging(
             model="amazon.nova-sonic-v1:0",
             messages=[],
             stream=False,
             call_type="_arealtime",
             start_time=datetime.now(),
-            litellm_call_id="nova-sonic-drop",
+            hangarllm_call_id="nova-sonic-drop",
             function_id="nova-sonic-drop",
             dynamic_async_success_callbacks=[recorder],
         )
         logging_obj.update_from_kwargs(
-            kwargs={"litellm_metadata": {"user_api_key": "hashed-key"}},
+            kwargs={"hangarllm_metadata": {"user_api_key": "hashed-key"}},
             model="amazon.nova-sonic-v1:0",
             optional_params={},
-            litellm_params={"_arealtime": True},
+            hangarllm_params={"_arealtime": True},
             custom_llm_provider="bedrock",
         )
 
@@ -1311,22 +1311,22 @@ class TestBedrockRealtimeProviderFailurePropagation:
         stub_aws_sdk_client["streams"] = [ScriptedBedrockStream((*self.TEXT_TURN, usage_event))]
         held: Final = HeldSuccessLogger()
         recorder: Final = LoggedEventRecorder()
-        logging_obj: Final = LiteLLMLogging(
+        logging_obj: Final = HangarLLMLogging(
             model="amazon.nova-2-5-sonic",
             messages=[],
             stream=False,
             call_type="_arealtime",
             start_time=datetime.now(),
-            litellm_call_id="nova-sonic-drop-order",
+            hangarllm_call_id="nova-sonic-drop-order",
             function_id="nova-sonic-drop-order",
             dynamic_async_success_callbacks=[held, recorder],
             dynamic_async_failure_callbacks=[recorder],
         )
         logging_obj.update_from_kwargs(
-            kwargs={"litellm_metadata": {"user_api_key": "hashed-key"}},
+            kwargs={"hangarllm_metadata": {"user_api_key": "hashed-key"}},
             model="amazon.nova-2-5-sonic",
             optional_params={},
-            litellm_params={"_arealtime": True},
+            hangarllm_params={"_arealtime": True},
             custom_llm_provider="bedrock",
         )
 
@@ -1359,7 +1359,7 @@ class TestBedrockRealtimeProviderFailurePropagation:
     ):
         stub_aws_sdk_client["streams"] = [ScriptedBedrockStream(self.TEXT_TURN)]
         logging_obj: Final = spend_dispatch["logging_obj"]
-        logging_obj.model_call_details["litellm_params"] = {"litellm_metadata": None, "metadata": {}}
+        logging_obj.model_call_details["hangarllm_params"] = {"hangarllm_metadata": None, "metadata": {}}
 
         with pytest.raises(BedrockError) as failure:
             await BedrockRealtime().async_realtime(
@@ -1384,7 +1384,7 @@ class TestBedrockRealtimeProviderFailurePropagation:
     ):
         stub_aws_sdk_client["streams"] = [ScriptedBedrockStream((), receiver_type=receiver_type)]
         logging_obj: Final = spend_dispatch["logging_obj"]
-        logging_obj.model_call_details["litellm_params"] = {"litellm_metadata": {"user_api_key": "hashed-key"}}
+        logging_obj.model_call_details["hangarllm_params"] = {"hangarllm_metadata": {"user_api_key": "hashed-key"}}
 
         with pytest.raises(BedrockError) as failure:
             await BedrockRealtime().async_realtime(
@@ -1405,8 +1405,8 @@ class TestBedrockRealtimeProviderFailurePropagation:
         stream: Final = SessionBoundBedrockStream(self.TEXT_TURN, input_stream_type=SlowClosingInputStream)
         stub_aws_sdk_client["streams"] = [stream]
         websocket: Final = RealtimeClientWS([self.SESSION_UPDATE])
-        spend_dispatch["logging_obj"].model_call_details["litellm_params"] = {
-            "litellm_metadata": {"user_api_key": "hashed-key"}
+        spend_dispatch["logging_obj"].model_call_details["hangarllm_params"] = {
+            "hangarllm_metadata": {"user_api_key": "hashed-key"}
         }
 
         await asyncio.wait_for(
@@ -1508,10 +1508,10 @@ class TestBedrockRealtimeProviderFailurePropagation:
 
 
 class TestBedrockRealtimeAwsAuth:
-    """AWS auth params passed via litellm_params must reach the Smithy client config (LIT-3923 regression)"""
+    """AWS auth params passed via hangarllm_params must reach the Smithy client config (LIT-3923 regression)"""
 
     @pytest.mark.asyncio
-    async def test_static_credentials_from_litellm_params_reach_smithy_config(self, stub_aws_sdk_client):
+    async def test_static_credentials_from_hangarllm_params_reach_smithy_config(self, stub_aws_sdk_client):
         handler = BedrockRealtime()
         websocket = RealtimeClientWS()
 
@@ -1520,17 +1520,17 @@ class TestBedrockRealtimeAwsAuth:
             websocket=websocket,
             logging_obj=FakeLogging(),
             aws_region_name="us-east-1",
-            aws_access_key_id="litellm-params-access-key",
-            aws_secret_access_key="litellm-params-secret-key",
-            aws_session_token="litellm-params-session-token",
+            aws_access_key_id="hangarllm-params-access-key",
+            aws_secret_access_key="hangarllm-params-secret-key",
+            aws_session_token="hangarllm-params-session-token",
         )
 
         config_kwargs = stub_aws_sdk_client["config_kwargs"]
         resolver = config_kwargs["aws_credentials_identity_resolver"]
         assert isinstance(resolver, FakeStaticCredentialsResolver)
-        assert resolver.identity.access_key_id == "litellm-params-access-key"
-        assert resolver.identity.secret_access_key == "litellm-params-secret-key"
-        assert resolver.identity.session_token == "litellm-params-session-token"
+        assert resolver.identity.access_key_id == "hangarllm-params-access-key"
+        assert resolver.identity.secret_access_key == "hangarllm-params-secret-key"
+        assert resolver.identity.session_token == "hangarllm-params-session-token"
         assert config_kwargs["region"] == "us-east-1"
         assert config_kwargs["endpoint_uri"] == "https://bedrock-runtime.us-east-1.amazonaws.com"
         assert isinstance(config_kwargs["transport"], FakeAWSCRTHTTPClient)
@@ -1688,11 +1688,11 @@ class TestBedrockRealtimeSdkImportErrors:
 
         message = str(exc_info.value)
         assert message.startswith("Missing aws_sdk_bedrock_runtime")
-        assert "litellm[bedrock-realtime]" in message
+        assert "hangarllm[bedrock-realtime]" in message
         assert "is installed but" not in message
         close_reason = message.encode()[:WEBSOCKET_CLOSE_REASON_MAX_BYTES].decode()
         assert BEDROCK_REALTIME_SDK_SUPPORTED_RANGE in close_reason
-        assert "pip install 'litellm[bedrock-realtime]'" in close_reason
+        assert "pip install 'hangarllm[bedrock-realtime]'" in close_reason
 
     @pytest.mark.asyncio
     async def test_incompatible_sdk_names_installed_version_and_supported_range(self, monkeypatch):
@@ -1743,7 +1743,7 @@ class BlockedWordGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLogging | None = None,
+        logging_obj: HangarLLMLogging | None = None,
     ) -> GenericGuardrailAPIInputs:
         self.checked.append((tuple(inputs["texts"]), request_data.get("user_api_key_dict")))
         if any(self.blocked_word in text for text in inputs["texts"]):
@@ -1757,7 +1757,7 @@ class MaskingGuardrail(BlockedWordGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLogging | None = None,
+        logging_obj: HangarLLMLogging | None = None,
     ) -> GenericGuardrailAPIInputs:
         return {**inputs, "texts": [text.replace(self.blocked_word, "[MASKED]") for text in inputs["texts"]]}
 
@@ -1768,7 +1768,7 @@ class AwaitingGuardrail(BlockedWordGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLogging | None = None,
+        logging_obj: HangarLLMLogging | None = None,
     ) -> GenericGuardrailAPIInputs:
         await asyncio.sleep(0.05)
         return await super().apply_guardrail(inputs, request_data, input_type, logging_obj)
@@ -1784,7 +1784,7 @@ class CrashingGuardrail(BlockedWordGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLogging | None = None,
+        logging_obj: HangarLLMLogging | None = None,
     ) -> GenericGuardrailAPIInputs:
         raise RuntimeError("guardrail backend down")
 
@@ -2273,7 +2273,7 @@ class TestBedrockRealtimeGuardrails:
                 pass
 
         guardrail: Final = self._guardrail(default_on=False)
-        monkeypatch.setattr(litellm, "callbacks", [guardrail])
+        monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
         stream: Final = ScriptedBedrockStream([], receiver_type=DrainedThenOpenBedrockReceiver)
         stub_aws_sdk_client["streams"] = [stream]
         user_api_key_dict: Final = object()
@@ -2283,7 +2283,7 @@ class TestBedrockRealtimeGuardrails:
             realtime_main._arealtime.__wrapped__(
                 model=f"bedrock/{self.MODEL}",
                 websocket=client_ws,
-                litellm_logging_obj=ProxyLogging(),
+                hangarllm_logging_obj=ProxyLogging(),
                 aws_region_name="us-east-1",
                 aws_access_key_id="k",
                 aws_secret_access_key="s",
@@ -2306,7 +2306,7 @@ class TestBedrockRealtimeGuardrails:
                 pass
 
         guardrail: Final = self._guardrail()
-        monkeypatch.setattr(litellm, "callbacks", [guardrail])
+        monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
         stream: Final = ScriptedBedrockStream([], receiver_type=DrainedThenOpenBedrockReceiver)
         stub_aws_sdk_client["streams"] = [stream]
         client_ws: Final = DisconnectingClientWS([self._user_text(self.BLOCKED_TEXT)])
@@ -2315,7 +2315,7 @@ class TestBedrockRealtimeGuardrails:
             realtime_main._arealtime.__wrapped__(
                 model=f"bedrock/{self.MODEL}",
                 websocket=client_ws,
-                litellm_logging_obj=ProxyLogging(),
+                hangarllm_logging_obj=ProxyLogging(),
                 aws_region_name="us-east-1",
                 aws_access_key_id="k",
                 aws_secret_access_key="s",

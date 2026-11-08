@@ -6,7 +6,7 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 from tests.unit.llms.sail.helpers import SAIL_API_BASE, SpendCapture, chat_completion_body
 
 
@@ -15,19 +15,19 @@ def sail_env(local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch) -> Ite
     monkeypatch.setenv("SAIL_API_KEY", "sail-test-key")
     monkeypatch.delenv("SAIL_API_BASE", raising=False)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "disable_aiohttp_transport",
         True,
     )
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.fixture
 def spend_capture(monkeypatch: pytest.MonkeyPatch) -> SpendCapture:
     capture: Final = SpendCapture(call_id=f"sail-{uuid.uuid4()}")
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
     return capture
 
 

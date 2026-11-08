@@ -1,4 +1,4 @@
-from litellm import completion, completion_cost
+from hangarllm import completion, completion_cost
 import time
 import click
 from tqdm import tqdm
@@ -8,20 +8,20 @@ import os
 
 
 # Define the list of models to benchmark
-# select any LLM listed here: https://docs.litellm.ai/docs/providers
+# select any LLM listed here: https://github.com/valteresj2/HangarLLM#readme
 models = ["gpt-3.5-turbo", "claude-2"]
 
 # Enter LLM API keys
-# https://docs.litellm.ai/docs/providers
+# https://github.com/valteresj2/HangarLLM#readme
 os.environ["OPENAI_API_KEY"] = ""
 os.environ["ANTHROPIC_API_KEY"] = ""
 
 # List of questions to benchmark (replace with your questions)
-questions = ["When will BerriAI IPO?", "When will LiteLLM hit $100M ARR?"]
+questions = ["When will BerriAI IPO?", "When will HangarLLM hit $100M ARR?"]
 
 # Enter your system prompt here
 system_prompt = """
-You are LiteLLMs helpful assistant
+You are HangarLLMs helpful assistant
 """
 
 

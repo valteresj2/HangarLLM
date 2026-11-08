@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pydantic import JsonValue
 
-from litellm.proxy.management_helpers.team_list_sorting import UnsupportedTeamFilter, _where_sql, sorted_team_ids
+from hangarllm.proxy.management_helpers.team_list_sorting import UnsupportedTeamFilter, _where_sql, sorted_team_ids
 
 
 @pytest.mark.parametrize(

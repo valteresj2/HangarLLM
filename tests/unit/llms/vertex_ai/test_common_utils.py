@@ -11,11 +11,11 @@ import yaml
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm import Router
-from litellm.constants import INITIAL_RETRY_DELAY, MAX_RETRY_DELAY
-from litellm.llms.vertex_ai.common_utils import get_gemini_url, get_vertex_base_url
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+import hangarllm
+from hangarllm import Router
+from hangarllm.constants import INITIAL_RETRY_DELAY, MAX_RETRY_DELAY
+from hangarllm.llms.vertex_ai.common_utils import get_gemini_url, get_vertex_base_url
+from hangarllm.llms.vertex_ai.vertex_llm_base import VertexBase
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 CONFIG_PATH: Final = Path(__file__).parent / "google_genai_proxy_test_config.yaml"
@@ -38,7 +38,7 @@ MINIMUM_BACKOFF_SECONDS: Final = sum(
 
 class _Deployment(TypedDict):
     model_name: ReadOnly[str]
-    litellm_params: ReadOnly[dict[str, str]]
+    hangarllm_params: ReadOnly[dict[str, str]]
 
 
 class _ProxyConfig(TypedDict):
@@ -50,9 +50,9 @@ def _ci_proxy_config() -> _ProxyConfig:
     return TypeAdapter(_ProxyConfig).validate_python(yaml.safe_load(CONFIG_PATH.read_text()))
 
 
-def _litellm_params(config: _ProxyConfig, model_name: str) -> dict[str, str]:
+def _hangarllm_params(config: _ProxyConfig, model_name: str) -> dict[str, str]:
     return next(
-        deployment["litellm_params"] for deployment in config["model_list"] if deployment["model_name"] == model_name
+        deployment["hangarllm_params"] for deployment in config["model_list"] if deployment["model_name"] == model_name
     )
 
 
@@ -62,7 +62,7 @@ def _router_from_ci_proxy_config() -> Router:
         model_list=[
             {
                 "model_name": GEMINI_DEPLOYMENT,
-                "litellm_params": {**_litellm_params(config, GEMINI_DEPLOYMENT), "api_key": "test"},
+                "hangarllm_params": {**_hangarllm_params(config, GEMINI_DEPLOYMENT), "api_key": "test"},
             }
         ],
         retry_policy=config["router_settings"]["retry_policy"],
@@ -71,7 +71,7 @@ def _router_from_ci_proxy_config() -> Router:
 
 def test_ci_proxy_config_sends_vertex_calls_to_the_global_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("VERTEXAI_LOCATION", "us-east5")
-    location: Final = VertexBase.safe_get_vertex_ai_location(_litellm_params(_ci_proxy_config(), VERTEX_DEPLOYMENT))
+    location: Final = VertexBase.safe_get_vertex_ai_location(_hangarllm_params(_ci_proxy_config(), VERTEX_DEPLOYMENT))
 
     assert location == "global"
     assert get_vertex_base_url(location) == VERTEX_GLOBAL_BASE_URL
@@ -81,8 +81,8 @@ def test_ci_proxy_config_sends_vertex_calls_to_the_global_endpoint(monkeypatch: 
 async def test_ci_proxy_config_rides_out_consecutive_429s_with_backoff(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     route: Final = respx_mock.post(GEMINI_GENERATE_CONTENT_URL).mock(
         side_effect=[httpx.Response(429, json=RESOURCE_EXHAUSTED)] * CONSECUTIVE_RATE_LIMITS
         + [httpx.Response(200, json=PONG)]
@@ -109,10 +109,10 @@ def _vcr_outcome_gate(request, vcr):
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown(request):
     """
-    This fixture reloads litellm before every function. To speed up testing by removing callbacks being chained.
+    This fixture reloads hangarllm before every function. To speed up testing by removing callbacks being chained.
     """
     if "google_genai_proxy_url" not in request.fixturenames:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
     loop = asyncio.get_event_loop_policy().new_event_loop()
     asyncio.set_event_loop(loop)
     yield

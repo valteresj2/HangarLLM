@@ -11,11 +11,11 @@ import pytest
 import pytest_asyncio
 from prisma import Prisma
 
-from litellm.proxy._types import DBSpendUpdateTransactions
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
-from litellm.proxy.management_helpers.model_allowlist_rename_sync import sync_model_allowlists_for_renamed_model
-from litellm.repositories import unit_of_work
+from hangarllm.proxy._types import DBSpendUpdateTransactions
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+from hangarllm.proxy.management_helpers.model_allowlist_rename_sync import sync_model_allowlists_for_renamed_model
+from hangarllm.repositories import unit_of_work
 from tests.integration._support.database import scratch_database
 
 _ROOT: Final = Path(__file__).resolve().parents[3]
@@ -34,19 +34,19 @@ _CHARGES: Final = DBSpendUpdateTransactions(
     model_access_group_list_transactions={"group": 1.0},
 )
 _SEED: Final = (
-    "INSERT INTO \"LiteLLM_BudgetTable\" (budget_id, created_by, updated_by) VALUES ('budget', 't', 't')",
-    'INSERT INTO "LiteLLM_OrganizationTable" (organization_id, organization_alias, budget_id, created_by, updated_by) '
+    "INSERT INTO \"HangarLLM_BudgetTable\" (budget_id, created_by, updated_by) VALUES ('budget', 't', 't')",
+    'INSERT INTO "HangarLLM_OrganizationTable" (organization_id, organization_alias, budget_id, created_by, updated_by) '
     "VALUES ('org', 'org', 'budget', 't', 't')",
-    "INSERT INTO \"LiteLLM_UserTable\" (user_id) VALUES ('user')",
-    'INSERT INTO "LiteLLM_TeamTable" (team_id, members_with_roles) '
+    "INSERT INTO \"HangarLLM_UserTable\" (user_id) VALUES ('user')",
+    'INSERT INTO "HangarLLM_TeamTable" (team_id, members_with_roles) '
     """VALUES ('team', '[{"user_id": "user", "role": "user"}]')""",
-    "INSERT INTO \"LiteLLM_TeamMembership\" (team_id, user_id, budget_id) VALUES ('team', 'user', 'budget')",
-    "INSERT INTO \"LiteLLM_OrganizationMembership\" (organization_id, user_id) VALUES ('org', 'user')",
-    f"INSERT INTO \"LiteLLM_VerificationToken\" (token, budget_id) VALUES ('{_KEY}', 'budget')",
-    "INSERT INTO \"LiteLLM_ProjectTable\" (project_id, budget_id, created_by, updated_by) "
+    "INSERT INTO \"HangarLLM_TeamMembership\" (team_id, user_id, budget_id) VALUES ('team', 'user', 'budget')",
+    "INSERT INTO \"HangarLLM_OrganizationMembership\" (organization_id, user_id) VALUES ('org', 'user')",
+    f"INSERT INTO \"HangarLLM_VerificationToken\" (token, budget_id) VALUES ('{_KEY}', 'budget')",
+    "INSERT INTO \"HangarLLM_ProjectTable\" (project_id, budget_id, created_by, updated_by) "
     "VALUES ('project', 'budget', 't', 't')",
-    "INSERT INTO \"LiteLLM_TagTable\" (tag_name, budget_id) VALUES ('tag', 'budget')",
-    "INSERT INTO \"LiteLLM_ModelAccessGroupBudgetTable\" (access_group_name, budget_id) VALUES ('group', 'budget')",
+    "INSERT INTO \"HangarLLM_TagTable\" (tag_name, budget_id) VALUES ('tag', 'budget')",
+    "INSERT INTO \"HangarLLM_ModelAccessGroupBudgetTable\" (access_group_name, budget_id) VALUES ('group', 'budget')",
 )
 
 
@@ -98,9 +98,9 @@ async def _ledger_waits_for_a_lock(url: str) -> None:
 def _spend(url: str) -> Sequence[object]:
     with psycopg.connect(url) as connection:
         return connection.execute(
-            'SELECT (SELECT spend FROM "LiteLLM_UserTable"), (SELECT spend FROM "LiteLLM_TeamTable"), '
-            '(SELECT spend FROM "LiteLLM_TeamMembership"), (SELECT spend FROM "LiteLLM_VerificationToken"), '
-            '(SELECT spend FROM "LiteLLM_OrganizationTable"), (SELECT spend FROM "LiteLLM_ProjectTable")'
+            'SELECT (SELECT spend FROM "HangarLLM_UserTable"), (SELECT spend FROM "HangarLLM_TeamTable"), '
+            '(SELECT spend FROM "HangarLLM_TeamMembership"), (SELECT spend FROM "HangarLLM_VerificationToken"), '
+            '(SELECT spend FROM "HangarLLM_OrganizationTable"), (SELECT spend FROM "HangarLLM_ProjectTable")'
         ).fetchone() or ()
 
 
@@ -112,16 +112,16 @@ def _roster_first(connection: psycopg.Connection[tuple[object, ...]]) -> None:
 
 
 def _roster_rest(connection: psycopg.Connection[tuple[object, ...]]) -> None:
-    connection.execute("SELECT 1 FROM \"LiteLLM_UserTable\" WHERE user_id = 'user' FOR UPDATE")
-    connection.execute("UPDATE \"LiteLLM_TeamTable\" SET members_with_roles = members_with_roles WHERE team_id = 'team'")
+    connection.execute("SELECT 1 FROM \"HangarLLM_UserTable\" WHERE user_id = 'user' FOR UPDATE")
+    connection.execute("UPDATE \"HangarLLM_TeamTable\" SET members_with_roles = members_with_roles WHERE team_id = 'team'")
 
 
 def _access_group_first(connection: psycopg.Connection[tuple[object, ...]]) -> None:
-    connection.execute("UPDATE \"LiteLLM_TeamTable\" SET access_group_ids = ARRAY['ag'] WHERE team_id = 'team'")
+    connection.execute("UPDATE \"HangarLLM_TeamTable\" SET access_group_ids = ARRAY['ag'] WHERE team_id = 'team'")
 
 
 def _access_group_rest(connection: psycopg.Connection[tuple[object, ...]]) -> None:
-    connection.execute(f"UPDATE \"LiteLLM_VerificationToken\" SET access_group_ids = ARRAY['ag'] WHERE token = '{_KEY}'")
+    connection.execute(f"UPDATE \"HangarLLM_VerificationToken\" SET access_group_ids = ARRAY['ag'] WHERE token = '{_KEY}'")
 
 
 def _cascade_first(connection: psycopg.Connection[tuple[object, ...]]) -> None:
@@ -137,7 +137,7 @@ def _cascade_rest(connection: psycopg.Connection[tuple[object, ...]]) -> None:
         unit_of_work._LOCK_BUDGET_ACCESS_GROUPS_SQL,
     ):
         connection.execute(statement.replace("$1", "%s"), (["budget"],))
-    connection.execute("UPDATE \"LiteLLM_TagTable\" SET spend = 0 WHERE budget_id = 'budget'")
+    connection.execute("UPDATE \"HangarLLM_TagTable\" SET spend = 0 WHERE budget_id = 'budget'")
 
 
 @pytest.mark.parametrize(
@@ -179,12 +179,12 @@ async def test_a_model_rename_waits_for_a_roster_change_instead_of_deadlocking(d
     """The roster change holds the team lock and the user row, so the rename must wait before it locks the team
     row the roster change updates next."""
     with psycopg.connect(database, autocommit=True) as seed:
-        seed.execute("UPDATE \"LiteLLM_TeamTable\" SET models = ARRAY['old-model']")
-        seed.execute("UPDATE \"LiteLLM_UserTable\" SET models = ARRAY['old-model']")
+        seed.execute("UPDATE \"HangarLLM_TeamTable\" SET models = ARRAY['old-model']")
+        seed.execute("UPDATE \"HangarLLM_UserTable\" SET models = ARRAY['old-model']")
     with psycopg.connect(database) as writer:
         writer.execute("SET lock_timeout = '10s'")
         _roster_first(writer)
-        writer.execute("SELECT 1 FROM \"LiteLLM_UserTable\" WHERE user_id = 'user' FOR UPDATE")
+        writer.execute("SELECT 1 FROM \"HangarLLM_UserTable\" WHERE user_id = 'user' FOR UPDATE")
         rename: Final = asyncio.create_task(_rename(ledger))
         await _ledger_waits_for_a_lock(database)
         await asyncio.to_thread(_roster_rest, writer)
@@ -193,5 +193,5 @@ async def test_a_model_rename_waits_for_a_roster_change_instead_of_deadlocking(d
 
     with psycopg.connect(database) as connection:
         assert connection.execute(
-            'SELECT (SELECT models FROM "LiteLLM_TeamTable"), (SELECT models FROM "LiteLLM_UserTable")'
+            'SELECT (SELECT models FROM "HangarLLM_TeamTable"), (SELECT models FROM "HangarLLM_UserTable")'
         ).fetchone() == (["new-model"], ["new-model"])

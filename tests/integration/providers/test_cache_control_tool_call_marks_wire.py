@@ -59,7 +59,7 @@ from openai.types.responses import ResponseInputParam
 from openai.types.responses import ToolParam as ResponsesToolParam
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.utils import get_prompt_cache_min_tokens
+from hangarllm.utils import get_prompt_cache_min_tokens
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
@@ -87,9 +87,9 @@ _OPENAI_REPLY: Final = json.dumps(
 
 def _uncapped_cache_config(directory: Path) -> Path:
     lane: Final = object_value(yaml.safe_load(_LANE_CONFIG.read_text()))
-    settings: Final = object_value(lane["litellm_settings"])
+    settings: Final = object_value(lane["hangarllm_settings"])
     cache_params: Final = object_value(settings["cache_params"])
-    config: Final = {**lane, "litellm_settings": {**settings, "cache_params": {**cache_params, "max_messages": None}}}
+    config: Final = {**lane, "hangarllm_settings": {**settings, "cache_params": {**cache_params, "max_messages": None}}}
     path: Final = directory / "proxy_config_uncapped_cache.yaml"
     path.write_text(yaml.safe_dump(config, sort_keys=False))
     return path
@@ -879,7 +879,7 @@ def test_points_null_or_empty_forward_only_the_client_marks(gateway: Gateway, po
 
 def _cache_hit_rows(response_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        """SELECT request_id, metadata->>'litellm_gateway_injected_cache' AS injected FROM "LiteLLM_SpendLogs" """
+        """SELECT request_id, metadata->>'hangarllm_gateway_injected_cache' AS injected FROM "HangarLLM_SpendLogs" """
         "WHERE request_id LIKE %s",
         (f"{response_id}_cache_hit%",),
     )
@@ -972,7 +972,7 @@ async def test_points_update_mid_burst_keeps_every_request_within_the_cap(gatewa
             "/model/update",
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"anthropic/{ANTHROPIC_MODEL}",
                     "api_base": wire.url,
                     "api_key": PROVIDER_KEY,

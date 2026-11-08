@@ -5,10 +5,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 import respx
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.integrations.agentops.agentops import AgentOps, AgentOpsConfig
-from litellm.llms.custom_httpx.http_handler import get_httpx_client
+import hangarllm
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.integrations.agentops.agentops import AgentOps, AgentOpsConfig
+from hangarllm.llms.custom_httpx.http_handler import get_httpx_client
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ def test_agentops_config_defaults():
     assert config.auth_endpoint == "https://api.agentops.ai/v3/auth/token"
 
 
-@patch("litellm.integrations.agentops.agentops.AgentOps._fetch_auth_token")
+@patch("hangarllm.integrations.agentops.agentops.AgentOps._fetch_auth_token")
 def test_fetch_auth_token_success(mock_fetch_auth_token, mock_auth_response):
     """Test successful JWT token fetch"""
     mock_fetch_auth_token.return_value = mock_auth_response
@@ -71,7 +71,7 @@ def test_fetch_auth_token_success(mock_fetch_auth_token, mock_auth_response):
     )
 
 
-@patch("litellm.integrations.agentops.agentops.AgentOps._fetch_auth_token")
+@patch("hangarllm.integrations.agentops.agentops.AgentOps._fetch_auth_token")
 def test_fetch_auth_token_failure(mock_fetch_auth_token):
     """Test failed JWT token fetch"""
     mock_fetch_auth_token.side_effect = Exception(
@@ -85,7 +85,7 @@ def test_fetch_auth_token_failure(mock_fetch_auth_token):
     assert "project.id" not in agentops.resource_attributes
 
 
-@patch("litellm.integrations.agentops.agentops.AgentOps._fetch_auth_token")
+@patch("hangarllm.integrations.agentops.agentops.AgentOps._fetch_auth_token")
 def test_agentops_initialization(
     mock_fetch_auth_token, agentops_config, mock_auth_response
 ):
@@ -120,7 +120,7 @@ def test_agentops_initialization_no_auth():
 def test_auth_fetch_leaves_the_shared_sync_client_open_for_other_callers(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
     auth_endpoint: Final = "https://agentops.example/v3/auth/token"
     respx_mock.post(auth_endpoint).respond(json={"token": "jwt", "project_id": "project-1"})
     client_another_caller_is_using: Final = get_httpx_client().client

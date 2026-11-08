@@ -5,29 +5,29 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import Request
 
-import litellm
-from litellm.proxy import proxy_server
-from litellm.proxy._types import (
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_UserTable,
-    LitellmUserRoles,
+import hangarllm
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import (
+    HangarLLM_TeamTableCachedObj,
+    HangarLLM_UserTable,
+    HangarllmUserRoles,
     ModelAccessDeniedProxyException,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth import auth_checks
-from litellm.proxy.auth.auth_checks import can_key_call_resolved_model, common_checks
-from litellm.proxy.utils import get_available_models_for_user
+from hangarllm.proxy.auth import auth_checks
+from hangarllm.proxy.auth.auth_checks import can_key_call_resolved_model, common_checks
+from hangarllm.proxy.utils import get_available_models_for_user
 
-_TEAMS: Final[Mapping[str, LiteLLM_TeamTableCachedObj]] = {
-    "team-a": LiteLLM_TeamTableCachedObj(team_id="team-a", models=["gpt-a", "shared"]),
-    "team-b": LiteLLM_TeamTableCachedObj(team_id="team-b", models=["gpt-b", "shared"]),
-    "team-open": LiteLLM_TeamTableCachedObj(team_id="team-open", models=[]),
-    "team-blocked": LiteLLM_TeamTableCachedObj(team_id="team-blocked", models=["gpt-a"], blocked=True),
+_TEAMS: Final[Mapping[str, HangarLLM_TeamTableCachedObj]] = {
+    "team-a": HangarLLM_TeamTableCachedObj(team_id="team-a", models=["gpt-a", "shared"]),
+    "team-b": HangarLLM_TeamTableCachedObj(team_id="team-b", models=["gpt-b", "shared"]),
+    "team-open": HangarLLM_TeamTableCachedObj(team_id="team-open", models=[]),
+    "team-blocked": HangarLLM_TeamTableCachedObj(team_id="team-blocked", models=["gpt-a"], blocked=True),
 }
 
-_ROUTER: Final = litellm.Router(
+_ROUTER: Final = hangarllm.Router(
     model_list=[
-        {"model_name": name, "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-fake"}}
+        {"model_name": name, "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-fake"}}
         for name in ("gpt-a", "gpt-b", "shared", "gpt-c")
     ]
 )
@@ -35,7 +35,7 @@ _ROUTER: Final = litellm.Router(
 
 @pytest.fixture
 def teams(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTableCachedObj:
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTableCachedObj:
         if team_id not in _TEAMS:
             raise Exception(f"team {team_id} lookup failed")
         return _TEAMS[team_id]
@@ -49,12 +49,12 @@ def teams(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
 
 def _enable(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "personal_key_model_access_from_teams", True)
+    monkeypatch.setattr(hangarllm, "personal_key_model_access_from_teams", True)
 
 
 async def _common_checks(
     model: str | list[str],
-    user: LiteLLM_UserTable | None,
+    user: HangarLLM_UserTable | None,
     token: UserAPIKeyAuth,
     fallbacks: tuple[str, ...] = (),
 ) -> bool:
@@ -88,7 +88,7 @@ async def test_personal_key_inherits_the_union_of_its_owner_team_models(
     monkeypatch: pytest.MonkeyPatch, teams: None, model: str, allowed: bool
 ) -> None:
     _enable(monkeypatch)
-    user: Final = LiteLLM_UserTable(user_id="u1", teams=["team-a", "team-b"])
+    user: Final = HangarLLM_UserTable(user_id="u1", teams=["team-a", "team-b"])
     token: Final = UserAPIKeyAuth(token="k1", user_id="u1")
 
     if allowed:
@@ -103,7 +103,7 @@ async def test_personal_key_without_teams_gets_no_models(monkeypatch: pytest.Mon
     _enable(monkeypatch)
     with pytest.raises(ModelAccessDeniedProxyException):
         await _common_checks(
-            "gpt-a", LiteLLM_UserTable(user_id="u1", teams=[]), UserAPIKeyAuth(token="k1", user_id="u1")
+            "gpt-a", HangarLLM_UserTable(user_id="u1", teams=[]), UserAPIKeyAuth(token="k1", user_id="u1")
         )
 
 
@@ -117,22 +117,22 @@ async def test_personal_key_denied_when_owner_not_loaded(monkeypatch: pytest.Mon
 @pytest.mark.asyncio
 async def test_proxy_admin_personal_key_is_not_capped(monkeypatch: pytest.MonkeyPatch, teams: None) -> None:
     _enable(monkeypatch)
-    user: Final = LiteLLM_UserTable(user_id="admin", teams=[], user_role=LitellmUserRoles.PROXY_ADMIN.value)
-    token: Final = UserAPIKeyAuth(token="k1", user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN)
+    user: Final = HangarLLM_UserTable(user_id="admin", teams=[], user_role=HangarllmUserRoles.PROXY_ADMIN.value)
+    token: Final = UserAPIKeyAuth(token="k1", user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN)
     assert await _common_checks("gpt-c", user, token) is True
 
 
 @pytest.mark.asyncio
 async def test_personal_key_unrestricted_when_flag_off(monkeypatch: pytest.MonkeyPatch, teams: None) -> None:
-    monkeypatch.setattr(litellm, "personal_key_model_access_from_teams", False)
-    user: Final = LiteLLM_UserTable(user_id="u1", teams=[])
+    monkeypatch.setattr(hangarllm, "personal_key_model_access_from_teams", False)
+    user: Final = HangarLLM_UserTable(user_id="u1", teams=[])
     assert await _common_checks("gpt-c", user, UserAPIKeyAuth(token="k1", user_id="u1")) is True
 
 
 @pytest.mark.asyncio
 async def test_personal_key_fallbacks_are_capped_by_owner_teams(monkeypatch: pytest.MonkeyPatch, teams: None) -> None:
     _enable(monkeypatch)
-    owner: Final = LiteLLM_UserTable(user_id="u1", teams=["team-a"])
+    owner: Final = HangarLLM_UserTable(user_id="u1", teams=["team-a"])
     token: Final = UserAPIKeyAuth(token="k1", user_id="u1")
 
     with pytest.raises(ModelAccessDeniedProxyException) as exc_info:
@@ -146,7 +146,7 @@ async def test_personal_key_list_models_can_be_allowed_by_different_teams(
     monkeypatch: pytest.MonkeyPatch, teams: None
 ) -> None:
     _enable(monkeypatch)
-    owner: Final = LiteLLM_UserTable(user_id="u1", teams=["team-a", "team-b"])
+    owner: Final = HangarLLM_UserTable(user_id="u1", teams=["team-a", "team-b"])
     token: Final = UserAPIKeyAuth(token="k1", user_id="u1")
 
     assert await _common_checks(["gpt-a", "gpt-b"], owner, token) is True
@@ -157,7 +157,7 @@ async def test_personal_key_list_models_denies_the_unavailable_model(
     monkeypatch: pytest.MonkeyPatch, teams: None
 ) -> None:
     _enable(monkeypatch)
-    owner: Final = LiteLLM_UserTable(user_id="u1", teams=["team-a", "team-b"])
+    owner: Final = HangarLLM_UserTable(user_id="u1", teams=["team-a", "team-b"])
     token: Final = UserAPIKeyAuth(token="k1", user_id="u1")
 
     with pytest.raises(ModelAccessDeniedProxyException) as exc_info:
@@ -169,8 +169,8 @@ async def test_personal_key_list_models_denies_the_unavailable_model(
 
 @pytest.mark.asyncio
 async def test_personal_key_fallbacks_are_unchanged_when_flag_off(monkeypatch: pytest.MonkeyPatch, teams: None) -> None:
-    monkeypatch.setattr(litellm, "personal_key_model_access_from_teams", False)
-    owner: Final = LiteLLM_UserTable(user_id="u1", teams=["team-a"])
+    monkeypatch.setattr(hangarllm, "personal_key_model_access_from_teams", False)
+    owner: Final = HangarLLM_UserTable(user_id="u1", teams=["team-a"])
     token: Final = UserAPIKeyAuth(token="k1", user_id="u1")
     assert await _common_checks("gpt-a", owner, token, fallbacks=("gpt-c",)) is True
 
@@ -180,7 +180,7 @@ async def test_personal_key_fallbacks_load_each_owner_team_once(monkeypatch: pyt
     _enable(monkeypatch)
     get_team: Final = AsyncMock(wraps=auth_checks.get_team_object)
     monkeypatch.setattr(auth_checks, "get_team_object", get_team)
-    owner: Final = LiteLLM_UserTable(user_id="u1", teams=["team-a", "team-b"])
+    owner: Final = HangarLLM_UserTable(user_id="u1", teams=["team-a", "team-b"])
     token: Final = UserAPIKeyAuth(token="k1", user_id="u1")
 
     assert await _common_checks("gpt-a", owner, token, fallbacks=("shared", "gpt-a")) is True
@@ -190,7 +190,7 @@ async def test_personal_key_fallbacks_load_each_owner_team_once(monkeypatch: pyt
 @pytest.mark.asyncio
 async def test_team_key_is_not_capped_by_owner_teams(monkeypatch: pytest.MonkeyPatch, teams: None) -> None:
     _enable(monkeypatch)
-    user: Final = LiteLLM_UserTable(user_id="u1", teams=[])
+    user: Final = HangarLLM_UserTable(user_id="u1", teams=[])
     token: Final = UserAPIKeyAuth(token="k1", user_id="u1", team_id="team-open")
     assert await _common_checks("gpt-c", user, token, fallbacks=("gpt-c",)) is True
 
@@ -209,7 +209,7 @@ async def test_unloadable_or_blocked_team_grants_nothing(
     monkeypatch: pytest.MonkeyPatch, teams: None, teams_of_user: list[str], allowed: bool
 ) -> None:
     _enable(monkeypatch)
-    user: Final = LiteLLM_UserTable(user_id="u1", teams=teams_of_user)
+    user: Final = HangarLLM_UserTable(user_id="u1", teams=teams_of_user)
     token: Final = UserAPIKeyAuth(token="k1", user_id="u1")
     if allowed:
         assert await _common_checks("gpt-a", user, token) is True
@@ -222,17 +222,17 @@ async def test_unloadable_or_blocked_team_grants_nothing(
 async def test_membership_change_applies_to_existing_key(monkeypatch: pytest.MonkeyPatch, teams: None) -> None:
     _enable(monkeypatch)
     token: Final = UserAPIKeyAuth(token="k1", user_id="u1")
-    assert await _common_checks("gpt-a", LiteLLM_UserTable(user_id="u1", teams=["team-a"]), token) is True
+    assert await _common_checks("gpt-a", HangarLLM_UserTable(user_id="u1", teams=["team-a"]), token) is True
     with pytest.raises(ModelAccessDeniedProxyException):
-        await _common_checks("gpt-a", LiteLLM_UserTable(user_id="u1", teams=["team-b"]), token)
+        await _common_checks("gpt-a", HangarLLM_UserTable(user_id="u1", teams=["team-b"]), token)
 
 
 @pytest.mark.asyncio
 async def test_resolved_model_check_caps_personal_key(monkeypatch: pytest.MonkeyPatch, teams: None) -> None:
     _enable(monkeypatch)
-    owner: Final = LiteLLM_UserTable(user_id="u1", teams=["team-a"])
+    owner: Final = HangarLLM_UserTable(user_id="u1", teams=["team-a"])
 
-    async def _get_user_object(**_: object) -> LiteLLM_UserTable:
+    async def _get_user_object(**_: object) -> HangarLLM_UserTable:
         return owner
 
     monkeypatch.setattr(auth_checks, "get_user_object", _get_user_object)
@@ -251,15 +251,15 @@ async def test_resolved_model_check_denies_when_personal_key_owner_lookup_fails(
     monkeypatch.setattr(proxy_server, "prisma_client", None)
     token: Final = UserAPIKeyAuth(token="k1", user_id="u-no-db")
     await proxy_server.user_api_key_cache.async_delete_cache("u-no-db")
-    assert await proxy_server.user_api_key_cache.async_get_cache(key="u-no-db", model_type=LiteLLM_UserTable) is None
+    assert await proxy_server.user_api_key_cache.async_get_cache(key="u-no-db", model_type=HangarLLM_UserTable) is None
 
     with pytest.raises(ModelAccessDeniedProxyException) as exc_info:
         await can_key_call_resolved_model(model="gpt-a", llm_model_list=None, valid_token=token, llm_router=_ROUTER)
     assert str(exc_info.value.code) == "403"
 
 
-async def _list_models(monkeypatch: pytest.MonkeyPatch, owner: LiteLLM_UserTable, token: UserAPIKeyAuth) -> list[str]:
-    async def _get_user_object(**_: object) -> LiteLLM_UserTable:
+async def _list_models(monkeypatch: pytest.MonkeyPatch, owner: HangarLLM_UserTable, token: UserAPIKeyAuth) -> list[str]:
+    async def _get_user_object(**_: object) -> HangarLLM_UserTable:
         return owner
 
     monkeypatch.setattr(auth_checks, "get_user_object", _get_user_object)
@@ -286,7 +286,7 @@ async def test_model_listing_matches_team_derived_access(
     monkeypatch: pytest.MonkeyPatch, teams: None, key_models: list[str], expected: set[str]
 ) -> None:
     _enable(monkeypatch)
-    owner: Final = LiteLLM_UserTable(user_id="u1", teams=["team-a", "team-b"])
+    owner: Final = HangarLLM_UserTable(user_id="u1", teams=["team-a", "team-b"])
     listed: Final = await _list_models(monkeypatch, owner, UserAPIKeyAuth(token="k1", user_id="u1", models=key_models))
     assert set(listed) == expected
 
@@ -294,14 +294,14 @@ async def test_model_listing_matches_team_derived_access(
 @pytest.mark.asyncio
 async def test_model_listing_empty_without_teams(monkeypatch: pytest.MonkeyPatch, teams: None) -> None:
     _enable(monkeypatch)
-    owner: Final = LiteLLM_UserTable(user_id="u1", teams=[])
+    owner: Final = HangarLLM_UserTable(user_id="u1", teams=[])
     assert await _list_models(monkeypatch, owner, UserAPIKeyAuth(token="k1", user_id="u1")) == []
 
 
 @pytest.mark.asyncio
 async def test_model_listing_unchanged_when_flag_off(monkeypatch: pytest.MonkeyPatch, teams: None) -> None:
-    monkeypatch.setattr(litellm, "personal_key_model_access_from_teams", False)
-    owner: Final = LiteLLM_UserTable(user_id="u1", teams=[])
+    monkeypatch.setattr(hangarllm, "personal_key_model_access_from_teams", False)
+    owner: Final = HangarLLM_UserTable(user_id="u1", teams=[])
     listed: Final = await _list_models(monkeypatch, owner, UserAPIKeyAuth(token="k1", user_id="u1"))
     assert set(listed) == {"gpt-a", "gpt-b", "shared", "gpt-c"}
 
@@ -311,7 +311,7 @@ async def test_model_listing_loads_each_team_once(monkeypatch: pytest.MonkeyPatc
     _enable(monkeypatch)
     get_team: Final = AsyncMock(wraps=auth_checks.get_team_object)
     monkeypatch.setattr(auth_checks, "get_team_object", get_team)
-    owner: Final = LiteLLM_UserTable(user_id="u1", teams=["team-a", "team-b", "team-a"])
+    owner: Final = HangarLLM_UserTable(user_id="u1", teams=["team-a", "team-b", "team-a"])
     listed: Final = await _list_models(monkeypatch, owner, UserAPIKeyAuth(token="k1", user_id="u1"))
     assert set(listed) == {"gpt-a", "gpt-b", "shared"}
     assert sorted(call.kwargs["team_id"] for call in get_team.call_args_list) == ["team-a", "team-b"]
@@ -322,20 +322,20 @@ async def test_team_check_error_grants_nothing_for_that_team(monkeypatch: pytest
     _enable(monkeypatch)
     check_team: Final = auth_checks.can_team_access_model
 
-    async def _failing_for_team_b(model: str, team_object: LiteLLM_TeamTableCachedObj, **_: object) -> bool:
+    async def _failing_for_team_b(model: str, team_object: HangarLLM_TeamTableCachedObj, **_: object) -> bool:
         if team_object.team_id == "team-b":
             raise RuntimeError("access group lookup failed")
         return await check_team(model=model, team_object=team_object, llm_router=_ROUTER)
 
     monkeypatch.setattr(auth_checks, "can_team_access_model", _failing_for_team_b)
-    owner: Final = LiteLLM_UserTable(user_id="u1", teams=["team-a", "team-b"])
+    owner: Final = HangarLLM_UserTable(user_id="u1", teams=["team-a", "team-b"])
     token: Final = UserAPIKeyAuth(token="k1", user_id="u1")
     assert await _common_checks("gpt-a", owner, token) is True
     with pytest.raises(ModelAccessDeniedProxyException):
         await _common_checks("gpt-b", owner, token)
 
 
-async def _owner_lookup_fails(**_: object) -> LiteLLM_UserTable:
+async def _owner_lookup_fails(**_: object) -> HangarLLM_UserTable:
     raise RuntimeError("database unavailable")
 
 

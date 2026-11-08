@@ -80,7 +80,7 @@ from openai._legacy_response import LegacyAPIResponse
 from openai.types.responses import Response
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
+from hangarllm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
 
 
 def _sdk_read(raw: LegacyAPIResponse[Response]) -> Read:
@@ -100,7 +100,7 @@ def _forged_metadata_flow(scenario: Scenario, key: str, model: str) -> tuple[str
     }
     response_id: Final = create_background_response(scenario, key, model)
     return response_id, tuple(
-        read_response(scenario.gateway, key, response_id, {"metadata": forged, "litellm_metadata": forged})
+        read_response(scenario.gateway, key, response_id, {"metadata": forged, "hangarllm_metadata": forged})
         for _ in range(READS)
     )
 
@@ -204,9 +204,9 @@ def _billed_by_the_poll_alone(
             "input": PROMPT,
             "background": True,
             "store": False,
-            "litellm_metadata": {"tags": [body_tag]},
+            "hangarllm_metadata": {"tags": [body_tag]},
         },
-        headers={"x-litellm-tags": header_tag},
+        headers={"x-hangarllm-tags": header_tag},
     )
     eventually(
         lambda: [row["status"] for row in managed_rows(response_id)],
@@ -473,7 +473,7 @@ def test_a_response_whose_instructions_carry_a_nul_is_tracked_and_billed_once(ga
         assert reads in (settling_reads("completed", READS), free_reads("completed", READS))
         assert_charged_exactly(lambda: key_spend(key), PRICE)
         stored: Final = read_rows(
-            "SELECT file_object->>'instructions' AS instructions FROM \"LiteLLM_ManagedObjectTable\" "
+            "SELECT file_object->>'instructions' AS instructions FROM \"HangarLLM_ManagedObjectTable\" "
             "WHERE unified_object_id = %s",
             (response_id,),
         )
@@ -495,7 +495,7 @@ def test_a_request_tag_carrying_a_nul_is_stored_without_it_and_lands_on_the_bill
                 "input": PROMPT,
                 "background": True,
                 "store": False,
-                "litellm_metadata": {"tags": [f"audit-nul\u0000{suffix}"]},
+                "hangarllm_metadata": {"tags": [f"audit-nul\u0000{suffix}"]},
             },
         )
         reads: Final = tuple(read_response(gateway, key, response_id) for _ in range(2))
@@ -560,7 +560,7 @@ def test_a_row_stored_before_the_upgrade_bills_the_creating_team_and_user_once(g
         created_id: Final = create_background_response(scenario, key, upstream.model)
         response_id: Final = created_id if read_by == "create_id" else _id_a_read_returned(gateway, key, created_id)
         write_rows(
-            'UPDATE "LiteLLM_ManagedObjectTable" SET model_object_id = unified_object_id, api_key = NULL, '
+            'UPDATE "HangarLLM_ManagedObjectTable" SET model_object_id = unified_object_id, api_key = NULL, '
             "request_tags = NULL WHERE unified_object_id = %s",
             (created_id,),
         )
@@ -581,7 +581,7 @@ def test_reads_of_a_response_whose_row_already_settled_are_free(gateway: Gateway
         upstream: Final = scripted_upstream(scenario, background_routes("queued"))
         response_id: Final = create_background_response(scenario, key, upstream.model)
         write_rows(
-            'UPDATE "LiteLLM_ManagedObjectTable" SET status = %s WHERE unified_object_id = %s',
+            'UPDATE "HangarLLM_ManagedObjectTable" SET status = %s WHERE unified_object_id = %s',
             (settled_status, response_id),
         )
         upstream.script(background_routes("completed"))
@@ -640,12 +640,12 @@ def test_a_background_create_answered_at_once_and_its_cached_twin_bill_the_creat
 
 
 def _end_user_spend(end_user: str) -> float:
-    rows: Final = read_rows('SELECT spend FROM "LiteLLM_EndUserTable" WHERE user_id = %s', (end_user,))
+    rows: Final = read_rows('SELECT spend FROM "HangarLLM_EndUserTable" WHERE user_id = %s', (end_user,))
     return number(rows[0]["spend"]) if rows else 0.0
 
 
 def _charged_end_users(model_id: str) -> list[JsonValue]:
-    rows: Final = read_rows('SELECT end_user FROM "LiteLLM_SpendLogs" WHERE model_id = %s AND spend > 0', (model_id,))
+    rows: Final = read_rows('SELECT end_user FROM "HangarLLM_SpendLogs" WHERE model_id = %s AND spend > 0', (model_id,))
     return [row["end_user"] for row in rows]
 
 
@@ -670,7 +670,7 @@ def test_a_background_response_bills_the_end_user_who_created_it_once(gateway: G
 
 
 def _project_spend(project_id: str) -> float:
-    rows: Final = read_rows('SELECT spend FROM "LiteLLM_ProjectTable" WHERE project_id = %s', (project_id,))
+    rows: Final = read_rows('SELECT spend FROM "HangarLLM_ProjectTable" WHERE project_id = %s', (project_id,))
     return number(rows[0]["spend"])
 
 
@@ -753,7 +753,7 @@ def test_the_read_that_settles_a_background_response_splits_its_charge_into_inpu
         settling: Final = gateway.request("GET", f"/v1/responses/{response_id}", key=key)
         later: Final = tuple(read_response(gateway, key, response_id) for _ in range(READS - 1))
         assert read_of(settling) == Read("completed", "pong", pytest.approx(PRICE))
-        split: Final = tuple(float(settling.headers[f"x-litellm-response-cost-{part}"]) for part in ("input", "output"))
+        split: Final = tuple(float(settling.headers[f"x-hangarllm-response-cost-{part}"]) for part in ("input", "output"))
         assert split == pytest.approx((INPUT_TOKENS * INPUT_COST_PER_TOKEN, OUTPUT_TOKENS * OUTPUT_COST_PER_TOKEN))
         assert later == free_reads("completed", READS - 1)
         assert_charged_exactly(lambda: key_spend(key), PRICE)
@@ -768,7 +768,7 @@ def _answered_at_once(scenario: Scenario, key: str) -> tuple[Upstream, str]:
 def _stored_output(response_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
         "SELECT file_object->'output' AS output, position('pong' in file_object::text) > 0 AS holds_text "
-        'FROM "LiteLLM_ManagedObjectTable" WHERE unified_object_id = %s',
+        'FROM "HangarLLM_ManagedObjectTable" WHERE unified_object_id = %s',
         (response_id,),
     )
 
@@ -792,7 +792,7 @@ def test_a_stored_background_response_keeps_none_of_the_model_output(gateway: Ga
 def _model_usage(upstream: Upstream) -> tuple[float, int]:
     rows: Final = read_rows(
         "SELECT COALESCE(SUM(spend), 0) AS spend, COALESCE(SUM(request_count), 0)::bigint AS requests "
-        'FROM "LiteLLM_DailyModelUsage" WHERE model_group IN (%s, %s)',
+        'FROM "HangarLLM_DailyModelUsage" WHERE model_group IN (%s, %s)',
         (upstream.model, upstream.model_id),
     )
     requests: Final = rows[0]["requests"]
@@ -823,7 +823,7 @@ BASE_MODEL: Final = "gpt-4o-mini"
 BASE_MODEL_ONLY: Final[Mapping[str, JsonValue]] = {"base_model": BASE_MODEL}
 BASE_MODEL_IN: Final[Mapping[str, tuple[Mapping[str, JsonValue] | None, Mapping[str, JsonValue]]]] = {
     "model_info": (BASE_MODEL_ONLY, {}),
-    "litellm_params": (None, BASE_MODEL_ONLY),
+    "hangarllm_params": (None, BASE_MODEL_ONLY),
 }
 
 
@@ -831,7 +831,7 @@ def _unpriced_upstream(
     scenario: Scenario,
     unpriced: str,
     model_info: Mapping[str, JsonValue] | None,
-    litellm_params: Mapping[str, JsonValue],
+    hangarllm_params: Mapping[str, JsonValue],
 ) -> Upstream:
     foreground: Final = json_reply(response_body("completed", background=False, model=unpriced))
     return scripted_upstream(
@@ -841,7 +841,7 @@ def _unpriced_upstream(
         model=f"openai/{unpriced}",
         input_cost_per_token=None,
         output_cost_per_token=None,
-        **litellm_params,
+        **hangarllm_params,
     )
 
 
@@ -892,7 +892,7 @@ def test_a_client_cannot_make_a_background_create_free_by_forging_the_managed_ma
                 "background": True,
                 "store": False,
                 "metadata": forged,
-                "litellm_metadata": forged,
+                "hangarllm_metadata": forged,
             },
             key=key,
         )
@@ -1050,7 +1050,7 @@ def _generated_key(scenario: Scenario, **fields: JsonValue) -> str:
 
 
 def _delete_team_if_present(gateway: Gateway, team_id: str) -> None:
-    if gateway.rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,)):
+    if gateway.rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,)):
         gateway.post("/team/delete", {"team_ids": [team_id]})
 
 

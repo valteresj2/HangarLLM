@@ -1,7 +1,7 @@
 services:
   # Hardened stack: for testing the proxy under non-root, read-only, proxy-enforced constraints.
   # Keep this file focused on hardening/QA scenarios; leave the main docker-compose.yml for default dev usage.
-  litellm:
+  hangarllm:
     build:
       context: .
       dockerfile: docker/Dockerfile.non_root
@@ -22,10 +22,10 @@ services:
     volumes:
       - ./proxy_server_config.yaml:/app/config.yaml:ro
     environment:
-      LITELLM_NON_ROOT: "true"
+      HANGARLLM_NON_ROOT: "true"
       PRISMA_BINARY_CACHE_DIR: "/app/cache/prisma-python/binaries"
       XDG_CACHE_HOME: "/app/cache"
-      LITELLM_MIGRATION_DIR: "/app/migrations"
+      HANGARLLM_MIGRATION_DIR: "/app/migrations"
       HTTP_PROXY: "http://squid:3128"
       HTTPS_PROXY: "http://squid:3128"
       NO_PROXY: "localhost,127.0.0.1,db"

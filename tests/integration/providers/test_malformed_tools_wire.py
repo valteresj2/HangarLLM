@@ -46,7 +46,7 @@ _CLAUDE_BACKEND: Final = "claude-haiku-4-5"
 _GEMINI_BACKEND: Final = "gemini-2.5-flash"
 _PROVIDER_KEY: Final = "scripted-malformed-tools-key"
 _COUNT: Final = 37
-_PROVIDER_SOURCE: Final[Mapping[str, JsonValue]] = MappingProxyType({"litellm_count_source": "provider"})
+_PROVIDER_SOURCE: Final[Mapping[str, JsonValue]] = MappingProxyType({"hangarllm_count_source": "provider"})
 _CONFIG_STORE: Final = "vs_integration_config_store"
 _OTHER_STORE: Final = "vs_malformed_tools_other_store"
 _CLAUDE_CODE_AGENT: Final = "claude-cli/2.1.0 (external, cli)"
@@ -79,7 +79,7 @@ _MARKER: Final = re.compile(r"marker-([0-9a-f]{32})")
 _PROXY_WORKERS: Final = max(1, int(os.environ.get("INTEGRATION_PROXY_WORKERS", "1")))
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _SPEND_ROWS: Final = (
-    'SELECT call_type, status, cache_hit FROM "LiteLLM_SpendLogs" WHERE request_id = %s OR litellm_call_id = %s'
+    'SELECT call_type, status, cache_hit FROM "HangarLLM_SpendLogs" WHERE request_id = %s OR hangarllm_call_id = %s'
 )
 _NOT_A_LIST: Final = "tools: Input should be a valid list"
 _NOT_AN_OBJECT: Final = "tools.0: Input should be a valid dictionary"
@@ -197,7 +197,7 @@ class _Rig:
 
 def _deployment_ids(scenario: Scenario, name: str, deployments: tuple[dict[str, JsonValue], ...]) -> tuple[str, ...]:
     created: Final = tuple(
-        scenario.gateway.post("/model/new", {"model_name": name, "litellm_params": params, "model_info": {}})
+        scenario.gateway.post("/model/new", {"model_name": name, "hangarllm_params": params, "model_info": {}})
         for params in deployments
     )
     identities: Final = tuple(string_value(object_value(deployment["model_info"])["id"]) for deployment in created)
@@ -485,7 +485,7 @@ def _send(
 ) -> httpx.Response:
     chosen: Final = model or family.model(rig)
     headers: Final = {
-        **({"x-litellm-call-id": call_id} if call_id else {}),
+        **({"x-hangarllm-call-id": call_id} if call_id else {}),
         **({"user-agent": user_agent} if user_agent else {}),
     }
     return rig.gateway.request(
@@ -1009,7 +1009,7 @@ def test_a_malformed_tools_rejection_logs_one_failure_row_with_its_call_type(
             "POST",
             "/v1beta/interactions",
             {"model": rig.gemini, "input": [{"type": "text", "text": marker}], "tools": 5},
-            headers={"x-litellm-call-id": call_id},
+            headers={"x-hangarllm-call-id": call_id},
         )
     )
     _assert_rejected(response, _NOT_A_LIST)
@@ -1040,7 +1040,7 @@ def test_a_provider_401_with_well_formed_tools_logs_its_endpoint_call_type(
             "tools": [{"type": "function", "name": "get_weather", "parameters": _WEATHER_SCHEMA}],
         },
     }
-    response: Final = rig.gateway.request("POST", path, payloads[body], headers={"x-litellm-call-id": call_id})
+    response: Final = rig.gateway.request("POST", path, payloads[body], headers={"x-hangarllm-call-id": call_id})
     assert response.status_code == 401, response.text
     assert len(_delivered(rig, marker)) == 1
     row: Final = _logged_once(call_id)
@@ -1463,7 +1463,7 @@ def test_a_compact_rejection_logs_one_failure_row_as_compact(
         "POST",
         "/v1/responses/compact",
         {"model": rig.openai, "input": compact_input(marker), "tools": 5},
-        headers={"x-litellm-call-id": call_id},
+        headers={"x-hangarllm-call-id": call_id},
     )
     _assert_rejected(response, _NOT_A_LIST)
     assert _delivered(rig, marker) == ()
@@ -1522,7 +1522,7 @@ def test_a_rate_limited_request_logs_one_failure_row_with_its_endpoint_call_type
         limited.path(rig),
         limited.body(rig, marker),
         key=limited_key,
-        headers={"x-litellm-call-id": call_id},
+        headers={"x-hangarllm-call-id": call_id},
     )
     assert response.status_code == 429, response.text
     assert _delivered(rig, marker) == ()
@@ -1552,7 +1552,7 @@ def test_a_rate_limited_image_edit_logs_one_failure_row_as_an_image_edit(rig: _R
         "/v1/images/edits",
         data={"model": rig.openai, "prompt": marker},
         files={"image": ("edit.png", b"\x89PNG\r\n\x1a\n", "image/png")},
-        headers={"Authorization": f"Bearer {limited_key}", "x-litellm-call-id": call_id},
+        headers={"Authorization": f"Bearer {limited_key}", "x-hangarllm-call-id": call_id},
     )
     assert response.status_code == 429, response.text
     assert _delivered(rig, marker) == ()
@@ -1740,7 +1740,7 @@ class _OwnedSetup:
 
 
 def _router_defaults(defaults: dict[str, JsonValue]) -> _OwnedSetup:
-    return _OwnedSetup(router_settings=lambda suffix: {"default_litellm_params": defaults})
+    return _OwnedSetup(router_settings=lambda suffix: {"default_hangarllm_params": defaults})
 
 
 def _owned_config(path: Path, wire: str, suffix: str, setup: _OwnedSetup) -> Path:
@@ -1751,7 +1751,7 @@ def _owned_config(path: Path, wire: str, suffix: str, setup: _OwnedSetup) -> Pat
                     *(
                         {
                             "model_name": _owned_name(suffix, variant, provider),
-                            "litellm_params": {**deployment(wire), **extra},
+                            "hangarllm_params": {**deployment(wire), **extra},
                             "model_info": {"id": _owned_id(suffix, variant, provider)},
                         }
                         for (variant, extra), (provider, deployment) in product(
@@ -1761,7 +1761,7 @@ def _owned_config(path: Path, wire: str, suffix: str, setup: _OwnedSetup) -> Pat
                     *setup.extra_models(wire, suffix),
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     **setup.general,
                 },
@@ -1962,9 +1962,9 @@ def test_a_user_config_router_decides_which_malformed_tools_drop(
     name: Final = f"malformed-tools-user-config-{uuid.uuid4().hex}"
     user_config: Final[dict[str, JsonValue]] = {
         "model_list": [
-            {"model_name": name, "litellm_params": {**_PROVIDERS["openai"](client_side.rig.wire.url), **deployment}}
+            {"model_name": name, "hangarllm_params": {**_PROVIDERS["openai"](client_side.rig.wire.url), **deployment}}
         ],
-        "default_litellm_params": defaults,
+        "default_hangarllm_params": defaults,
     }
     response: Final = checked.send(
         client_side.rig, name, marker, {"tools": [checked.tool, checked.bad_entry], "user_config": user_config}
@@ -2363,7 +2363,7 @@ def _direct(suffix: str) -> str:
 
 def _down_models(wire: str, suffix: str) -> tuple[dict[str, JsonValue], ...]:
     return tuple(
-        {"model_name": _owned_name(suffix, "down", provider), "litellm_params": _PROVIDERS[provider](f"{wire}/down")}
+        {"model_name": _owned_name(suffix, "down", provider), "hangarllm_params": _PROVIDERS[provider](f"{wire}/down")}
         for provider in ("openai", "anthropic")
     )
 
@@ -2374,7 +2374,7 @@ def _rerouting_models(wire: str, suffix: str) -> tuple[dict[str, JsonValue], ...
         *_down_models(wire, suffix),
         {
             "model_name": _owned_name(suffix, "auto", "openai"),
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "auto_router/complexity_router",
                 "complexity_router_default_model": lists_tools,
                 "complexity_router_config": {
@@ -2384,7 +2384,7 @@ def _rerouting_models(wire: str, suffix: str) -> tuple[dict[str, JsonValue], ...
         },
         {
             "model_name": _owned_name(suffix, "direct", "openai"),
-            "litellm_params": {
+            "hangarllm_params": {
                 **_PROVIDERS["openai"](wire),
                 "model": f"openai/{_direct(suffix)}",
                 "additional_drop_params": ["tools"],
@@ -2392,7 +2392,7 @@ def _rerouting_models(wire: str, suffix: str) -> tuple[dict[str, JsonValue], ...
         },
         {
             "model_name": f"{_wildcard(suffix)}/*",
-            "litellm_params": {**_PROVIDERS["openai"](wire), "model": "openai/*", "additional_drop_params": ["tools"]},
+            "hangarllm_params": {**_PROVIDERS["openai"](wire), "model": "openai/*", "additional_drop_params": ["tools"]},
         },
     )
 
@@ -2574,7 +2574,7 @@ def test_a_user_config_model_named_like_a_proxy_group_drops_tools_its_own_list_n
         "model_list": [
             {
                 "model_name": name,
-                "litellm_params": {
+                "hangarllm_params": {
                     **_PROVIDERS["openai"](client_side.rig.wire.url),
                     "additional_drop_params": ["tools"],
                 },
@@ -2597,7 +2597,7 @@ _GUARDED_NAMES: Final = ("chat", "messages", "responses", "generate_content")
 _EACH_GUARDED: Final = pytest.mark.parametrize(
     "checked", tuple(_CHECKED[name] for name in _GUARDED_NAMES), ids=_GUARDED_NAMES
 )
-_GUARDRAIL_VENDOR_PATH: Final = "/beta/litellm_basic_guardrail_api"
+_GUARDRAIL_VENDOR_PATH: Final = "/beta/hangarllm_basic_guardrail_api"
 
 
 @dataclass(frozen=True, slots=True)
@@ -2612,17 +2612,17 @@ def _guarded_config(path: Path, wire: str, vendor: str, models: Mapping[str, str
         json.dumps(
             {
                 "model_list": [
-                    {"model_name": name, "litellm_params": _PROVIDERS[provider](wire)}
+                    {"model_name": name, "hangarllm_params": _PROVIDERS[provider](wire)}
                     for provider, name in models.items()
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                 },
                 "guardrails": [
                     {
                         "guardrail_name": "malformed-tools-vendor",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "guardrail": "generic_guardrail_api",
                             "mode": "pre_call",
                             "default_on": True,

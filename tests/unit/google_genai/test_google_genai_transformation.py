@@ -6,9 +6,9 @@ Test to verify the Google GenAI transformation logic for generateContent paramet
 
 import pytest
 
-from litellm.llms.gemini.google_genai.transformation import GoogleGenAIConfig
-from litellm.responses.litellm_completion_transformation.transformation import (
-    LiteLLMCompletionResponsesConfig,
+from hangarllm.llms.gemini.google_genai.transformation import GoogleGenAIConfig
+from hangarllm.responses.hangarllm_completion_transformation.transformation import (
+    HangarLLMCompletionResponsesConfig,
 )
 
 
@@ -159,14 +159,14 @@ def test_map_generate_content_optional_params_response_mime_type():
 
 def test_responses_api_reasoning_dict_format():
     """Test that reasoning parameter with dict format is mapped to reasoning_effort"""
-    from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
+    from hangarllm.types.llms.openai import ResponsesAPIOptionalRequestParams
 
     responses_api_request: ResponsesAPIOptionalRequestParams = {
         "reasoning": {"effort": "high"},
         "temperature": 1.0,
     }
 
-    result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+    result = HangarLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
         model="gemini/2.5-pro",
         input="Hello, what is the capital of France?",
         responses_api_request=responses_api_request,
@@ -179,14 +179,14 @@ def test_responses_api_reasoning_dict_format():
 
 def test_responses_api_reasoning_string_format():
     """Test that reasoning parameter with string format is mapped to reasoning_effort"""
-    from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
+    from hangarllm.types.llms.openai import ResponsesAPIOptionalRequestParams
 
     responses_api_request: ResponsesAPIOptionalRequestParams = {
         "reasoning": "medium",  # Could be a string directly
         "temperature": 1.0,
     }
 
-    result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+    result = HangarLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
         model="gemini/2.5-pro",
         input="Hello, what is the capital of France?",
         responses_api_request=responses_api_request,
@@ -199,13 +199,13 @@ def test_responses_api_reasoning_string_format():
 
 def test_responses_api_reasoning_low_effort():
     """Test that low reasoning effort is correctly mapped"""
-    from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
+    from hangarllm.types.llms.openai import ResponsesAPIOptionalRequestParams
 
     responses_api_request: ResponsesAPIOptionalRequestParams = {
         "reasoning": {"effort": "low"},
     }
 
-    result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+    result = HangarLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
         model="gemini/2.5-pro",
         input="Test",
         responses_api_request=responses_api_request,
@@ -217,13 +217,13 @@ def test_responses_api_reasoning_low_effort():
 
 def test_responses_api_no_reasoning():
     """Test that no reasoning_effort is included when reasoning is not provided"""
-    from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
+    from hangarllm.types.llms.openai import ResponsesAPIOptionalRequestParams
 
     responses_api_request: ResponsesAPIOptionalRequestParams = {
         "temperature": 1.0,
     }
 
-    result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+    result = HangarLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
         model="gemini/2.5-pro",
         input="Test",
         responses_api_request=responses_api_request,
@@ -488,7 +488,7 @@ def test_response_schema_normalization_parity_across_chat_and_native_paths():
     """
     from copy import deepcopy
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -565,7 +565,7 @@ def test_validate_environment_with_dict_api_key():
     is returned as {"x-goog-api-key": "sk-test"} and should be merged into
     headers instead of being set as a header value.
 
-    Regression test for: https://github.com/BerriAI/litellm/issues/xxxxx
+    Regression test for: https://github.com/valteresj2/HangarLLM/issues/xxxxx
     """
     config = GoogleGenAIConfig()
 
@@ -576,7 +576,7 @@ def test_validate_environment_with_dict_api_key():
         api_key=auth_header_dict,
         headers=None,
         model="gemini-2.5-pro",
-        litellm_params={},
+        hangarllm_params={},
     )
 
     # The dict should be merged into headers, not set as a value
@@ -603,7 +603,7 @@ def test_validate_environment_with_string_api_key():
     api_key_string = "sk-test-key-456"
 
     result = config.validate_environment(
-        api_key=api_key_string, headers=None, model="gemini-2.5-pro", litellm_params={}
+        api_key=api_key_string, headers=None, model="gemini-2.5-pro", hangarllm_params={}
     )
 
     # The string should be set as the header value
@@ -627,7 +627,7 @@ def test_validate_environment_with_extra_headers():
         api_key=auth_header_dict,
         headers=extra_headers,
         model="gemini-2.5-pro",
-        litellm_params={},
+        hangarllm_params={},
     )
 
     # Both the auth dict and extra headers should be merged

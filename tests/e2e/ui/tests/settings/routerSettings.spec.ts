@@ -8,7 +8,7 @@ import { openPlayground, selectModel, sendMessage } from "../../helpers/playgrou
 // Type-only import of the OpenAPI-generated backend schema, erased at runtime by
 // esbuild. It types the round-trips below so mistakes surface in the editor; the live
 // test against the real proxy is what actually enforces the contract.
-import type { components } from "../../../../../ui/litellm-dashboard/src/lib/http/schema";
+import type { components } from "../../../../../ui/hangarllm-dashboard/src/lib/http/schema";
 
 // These tests mutate the proxy's shared router_settings, and the Loadbalancing save
 // echoes the whole settings object, so they must not run concurrently.
@@ -248,7 +248,7 @@ test.describe("Router Settings - Fallbacks serve the request", () => {
       headers: ADMIN_AUTH,
       data: {
         model_name: BROKEN_PRIMARY,
-        litellm_params: {
+        hangarllm_params: {
           model: "openai/broken",
           api_base: "http://127.0.0.1:9/v1",
           api_key: "fake",

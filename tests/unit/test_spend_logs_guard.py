@@ -19,17 +19,17 @@ SCHEMA: Final = (
     '  provider = "prisma-client-py"\n'
     "}\n"
     "\n"
-    "model LiteLLM_TeamTable {\n"
+    "model HangarLLM_TeamTable {\n"
     "  team_id String @id\n"
     "}\n"
     "\n"
-    "model LiteLLM_SpendLogs {\n"
+    "model HangarLLM_SpendLogs {\n"
     "  request_id String @id\n"
     "  api_key    String\n"
-    '  @@index([api_key], map: "LiteLLM_SpendLogs_api_key_idx")\n'
+    '  @@index([api_key], map: "HangarLLM_SpendLogs_api_key_idx")\n'
     "}\n"
     "\n"
-    "model LiteLLM_UserTable {\n"
+    "model HangarLLM_UserTable {\n"
     "  user_id String @id\n"
     "}\n"
 )
@@ -63,7 +63,7 @@ class TestModelBlock:
         assert guard.model_block(SCHEMA) == range(9, 14)
 
     def test_a_schema_without_the_model_has_an_empty_block(self):
-        assert guard.model_block(SCHEMA.replace("LiteLLM_SpendLogs", "LiteLLM_ErrorLogs")) == range(0)
+        assert guard.model_block(SCHEMA.replace("HangarLLM_SpendLogs", "HangarLLM_ErrorLogs")) == range(0)
 
 
 class TestSpendLogHits:
@@ -81,7 +81,7 @@ class TestSpendLogHits:
 
     def test_the_whole_model_appearing_or_disappearing_is_a_hit(self):
         without: Final = SCHEMA.replace(
-            SCHEMA[SCHEMA.index("model LiteLLM_SpendLogs") : SCHEMA.index("model LiteLLM_UserTable")], ""
+            SCHEMA[SCHEMA.index("model HangarLLM_SpendLogs") : SCHEMA.index("model HangarLLM_UserTable")], ""
         )
         body: Final = tuple(SCHEMA.splitlines()[8:14])
         added: Final = _diff("schema.prisma", _hunk(8, 0, 9, 6, *(f"+{line}" for line in body)))
@@ -90,10 +90,10 @@ class TestSpendLogHits:
         assert len(guard.spend_log_hits(removed, _blocks("schema.prisma", head=without))) == 5
 
     def test_a_line_naming_the_table_in_another_model_is_not_a_hit(self):
-        head: Final = _with_line(SCHEMA, 6, "  spend_logs LiteLLM_SpendLogs[]")
+        head: Final = _with_line(SCHEMA, 6, "  spend_logs HangarLLM_SpendLogs[]")
         diff: Final = _diff(
             "schema.prisma",
-            _hunk(6, 0, 7, 1, "+  spend_logs LiteLLM_SpendLogs[]"),
+            _hunk(6, 0, 7, 1, "+  spend_logs HangarLLM_SpendLogs[]"),
             _hunk(16, 1, 17, 0, "-  user_id String @id"),
         )
         assert guard.spend_log_hits(diff, _blocks("schema.prisma", head=head)) == ()
@@ -108,7 +108,7 @@ class TestSpendLogHits:
         assert guard.spend_log_hits(diff, _blocks("schema.prisma", head=head)) == ("schema.prisma: +new_col String?",)
 
     def test_an_added_migration_line_is_a_hit_in_any_case_and_a_removed_one_is_not(self):
-        path: Final = "litellm-proxy-extras/litellm_proxy_extras/migrations/20260101000000_x/migration.sql"
+        path: Final = "hangarllm-proxy-extras/hangarllm_proxy_extras/migrations/20260101000000_x/migration.sql"
         diff: Final = _diff(
             path,
             _hunk(
@@ -116,39 +116,39 @@ class TestSpendLogHits:
                 1,
                 3,
                 1,
-                '-DROP INDEX "LiteLLM_SpendLogs_old_idx";',
-                '+CREATE INDEX "i" ON "litellm_spendlogs"("api_key");',
+                '-DROP INDEX "HangarLLM_SpendLogs_old_idx";',
+                '+CREATE INDEX "i" ON "hangarllm_spendlogs"("api_key");',
             ),
         )
         assert guard.spend_log_hits(diff, _NO_BLOCKS) == (
-            f'{path}: +CREATE INDEX "i" ON "litellm_spendlogs"("api_key");',
+            f'{path}: +CREATE INDEX "i" ON "hangarllm_spendlogs"("api_key");',
         )
 
     def test_another_table_in_a_migration_or_an_unwatched_file_is_not_a_hit(self):
-        path: Final = "litellm-proxy-extras/litellm_proxy_extras/migrations/20260101000000_x/migration.sql"
+        path: Final = "hangarllm-proxy-extras/hangarllm_proxy_extras/migrations/20260101000000_x/migration.sql"
         other: Final = _added(
-            path, 'ALTER TABLE "LiteLLM_TeamTable" ADD COLUMN "x" TEXT; -- not MyLiteLLM_SpendLogs', 5
+            path, 'ALTER TABLE "HangarLLM_TeamTable" ADD COLUMN "x" TEXT; -- not MyHangarLLM_SpendLogs', 5
         )
-        elsewhere: Final = _added("litellm/proxy/utils.py", 'table = "LiteLLM_SpendLogs"', 5)
+        elsewhere: Final = _added("hangarllm/proxy/utils.py", 'table = "HangarLLM_SpendLogs"', 5)
         assert guard.spend_log_hits(other + elsewhere, _NO_BLOCKS) == ()
 
     def test_a_table_whose_name_only_starts_with_the_watched_one_is_not_a_hit(self):
-        index: Final = '  @@index([team_id], map: "LiteLLM_SpendLogs_team_id_idx")'
-        head: Final = _with_line(_with_line(SCHEMA, 18, "model LiteLLM_SpendLogsArchive {"), 12, index)
+        index: Final = '  @@index([team_id], map: "HangarLLM_SpendLogs_team_id_idx")'
+        head: Final = _with_line(_with_line(SCHEMA, 18, "model HangarLLM_SpendLogsArchive {"), 12, index)
         diff: Final = _diff(
             "schema.prisma",
             _hunk(12, 0, 13, 1, f"+{index}"),
-            _hunk(18, 0, 20, 1, "+model LiteLLM_SpendLogsArchive {"),
+            _hunk(18, 0, 20, 1, "+model HangarLLM_SpendLogsArchive {"),
         )
         assert guard.spend_log_hits(diff, _blocks("schema.prisma", head=head)) == (
-            'schema.prisma: +@@index([team_id], map: "LiteLLM_SpendLogs_team_id_idx")',
+            'schema.prisma: +@@index([team_id], map: "HangarLLM_SpendLogs_team_id_idx")',
         )
 
     def test_two_files_in_one_diff_are_attributed_to_their_own_path(self):
         head: Final = _with_line(SCHEMA, 9, "  a String")
-        diff: Final = _added("litellm/proxy/schema.prisma", "  a String") + _added("schema.prisma", "  b String", 2)
-        blocks: Final = _blocks("litellm/proxy/schema.prisma", head=head) | _blocks("schema.prisma")
-        assert guard.spend_log_hits(diff, blocks) == ("litellm/proxy/schema.prisma: +a String",)
+        diff: Final = _added("hangarllm/proxy/schema.prisma", "  a String") + _added("schema.prisma", "  b String", 2)
+        blocks: Final = _blocks("hangarllm/proxy/schema.prisma", head=head) | _blocks("schema.prisma")
+        assert guard.spend_log_hits(diff, blocks) == ("hangarllm/proxy/schema.prisma: +a String",)
 
 
 def _review(login: str, state: str, commit_id: str | None = "head") -> guard.Review:
@@ -203,7 +203,7 @@ class TestLatestApproval:
 
 
 class TestApprovalCovers:
-    _HITS: Final = ("schema.prisma: a LiteLLM_SpendLogs", "schema.prisma: b LiteLLM_SpendLogs")
+    _HITS: Final = ("schema.prisma: a HangarLLM_SpendLogs", "schema.prisma: b HangarLLM_SpendLogs")
 
     def test_an_approval_on_the_head_covers_it_without_reading_the_approved_commit(self):
         def unreadable(commit: str) -> None:

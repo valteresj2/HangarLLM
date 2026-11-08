@@ -289,7 +289,7 @@ def _deployment(
     model_name: Final = name or f"capability-flag-{uuid.uuid4().hex}"
     body: Final[dict[str, JsonValue]] = {
         "model_name": model_name,
-        "litellm_params": {"api_key": _PROVIDER_KEY, **params},
+        "hangarllm_params": {"api_key": _PROVIDER_KEY, **params},
         "model_info": dict(model_info or {}),
     }
     created: Final = scenario.gateway.post("/model/new", body)
@@ -444,9 +444,9 @@ def test_test_connection_probes_flagged_params_with_the_unflagged_probe(gateway:
         "api_base": f"{vendor.wire.url}/v1",
         "api_key": _PROVIDER_KEY,
     }
-    flagged: Final = gateway.post("/health/test_connection", {"mode": "chat", "litellm_params": {**params, **_VISION}})
+    flagged: Final = gateway.post("/health/test_connection", {"mode": "chat", "hangarllm_params": {**params, **_VISION}})
     (flagged_probe,) = vendor.outbound()
-    unflagged: Final = gateway.post("/health/test_connection", {"mode": "chat", "litellm_params": params})
+    unflagged: Final = gateway.post("/health/test_connection", {"mode": "chat", "hangarllm_params": params})
     (unflagged_probe,) = vendor.outbound()
     assert (flagged["status"], unflagged["status"]) == ("success", "success"), (flagged, unflagged)
     assert _flags(_body(flagged_probe)) == (), flagged_probe.body
@@ -464,7 +464,7 @@ def test_any_flag_value_sends_the_control_request(gateway: Gateway, vendor: _Ven
         _assert_sends_the_control_request(vendor, _chat(gateway), flagged, control)
 
 
-def test_a_flag_in_litellm_params_and_model_info_keeps_the_model_info_value(gateway: Gateway, vendor: _Vendor) -> None:
+def test_a_flag_in_hangarllm_params_and_model_info_keeps_the_model_info_value(gateway: Gateway, vendor: _Vendor) -> None:
     with gateway.scenario() as scenario:
         flagged: Final = _deployment(
             scenario, {**_family("openai", vendor.wire), **_VISION}, {"supports_vision": False}
@@ -475,7 +475,7 @@ def test_a_flag_in_litellm_params_and_model_info_keeps_the_model_info_value(gate
     assert model_info["supports_vision"] is False, model_info
 
 
-@pytest.mark.parametrize("key", ["supports_litellm_qa_unknown", "supports_system_prompt"])
+@pytest.mark.parametrize("key", ["supports_hangarllm_qa_unknown", "supports_system_prompt"])
 def test_an_undeclared_or_provider_supports_key_still_reaches_the_vendor(
     gateway: Gateway, vendor: _Vendor, key: str
 ) -> None:
@@ -522,9 +522,9 @@ def test_model_info_lists_the_served_params_without_the_flag(gateway: Gateway, p
     with gateway.scenario() as scenario:
         flagged: Final = _deployment(scenario, {**_idle(gateway), **_VISION})
         entry: Final = _entry(gateway, path, flagged, {"search": flagged} if by_name else None)
-    litellm_params: Final = object_value(entry["litellm_params"])
-    assert litellm_params["model"] == _OPENAI_MODEL, litellm_params
-    assert "supports_vision" not in litellm_params, litellm_params
+    hangarllm_params: Final = object_value(entry["hangarllm_params"])
+    assert hangarllm_params["model"] == _OPENAI_MODEL, hangarllm_params
+    assert "supports_vision" not in hangarllm_params, hangarllm_params
 
 
 def test_model_group_info_reports_a_flagged_group_like_a_plain_one(gateway: Gateway) -> None:
@@ -575,7 +575,7 @@ def test_three_identical_requests_to_a_flagged_deployment_each_log_once(gateway:
         received: Final = vendor.outbound()
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id IN (%s, %s, %s)', identities
+                'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id IN (%s, %s, %s)', identities
             ),
             lambda found: sorted(str(row["request_id"]) for row in found) == sorted(identities),
             seconds=70,
@@ -591,7 +591,7 @@ def _rpm_on_fresh_connections(gateway: Gateway, name: str) -> tuple[JsonValue, .
         response: Final = _fresh_request(gateway, "GET", "/model/info", None)
         entries: Final = list_value(_JSON.validate_json(response.content)["data"])
         (entry,) = tuple(object_value(item) for item in entries if object_value(item)["model_name"] == name)
-        return object_value(entry["litellm_params"]).get("rpm")
+        return object_value(entry["hangarllm_params"]).get("rpm")
 
     return tuple(read() for _ in range(8))
 
@@ -603,7 +603,7 @@ def test_a_flag_patched_onto_a_db_deployment_never_reaches_the_vendor(gateway: G
         response: Final = gateway.request(
             "PATCH",
             f"/model/{_model_id(gateway, patched)}/update",
-            {"litellm_params": {"supports_vision": True, "rpm": 7}},
+            {"hangarllm_params": {"supports_vision": True, "rpm": 7}},
         )
         assert response.status_code == 200, response.text
         eventually(lambda: _rpm_on_fresh_connections(gateway, patched), lambda seen: seen == (7,) * 8, seconds=60)
@@ -621,7 +621,7 @@ def test_updates_during_a_burst_never_send_the_flag(gateway: Gateway, vendor: _V
             answers: Final = tuple(pool.submit(send, flagged, marker) for marker in markers)
             updates: Final = tuple(
                 gateway.request(
-                    "PATCH", f"/model/{model_id}/update", {"litellm_params": {"rpm": rpm, "supports_vision": True}}
+                    "PATCH", f"/model/{model_id}/update", {"hangarllm_params": {"rpm": rpm, "supports_vision": True}}
                 ).status_code
                 for rpm in (11, 12, 13)
             )
@@ -637,7 +637,7 @@ def _config_with_flagged_model(directory: Path, name: str, wire: Wire) -> Path:
     base: Final = _JSON.validate_python(yaml.safe_load(_PROXY_CONFIG.read_text()))
     flagged: Final[dict[str, JsonValue]] = {
         "model_name": name,
-        "litellm_params": {"model": _OPENAI_MODEL, "api_key": _PROVIDER_KEY, "api_base": f"{wire.url}/v1", **_VISION},
+        "hangarllm_params": {"model": _OPENAI_MODEL, "api_key": _PROVIDER_KEY, "api_base": f"{wire.url}/v1", **_VISION},
     }
     path: Final = directory / "capability_flags_config.yaml"
     path.write_text(yaml.safe_dump({**base, "model_list": [*list_value(base["model_list"]), flagged]}))

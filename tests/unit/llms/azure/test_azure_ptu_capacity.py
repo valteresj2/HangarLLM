@@ -4,7 +4,7 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.azure.ptu_capacity import (
+from hangarllm.llms.azure.ptu_capacity import (
     AZURE_PTU_CAPACITY,
     PTUCapacity,
     azure_ptu_capacity,
@@ -49,22 +49,22 @@ def test_every_row_serves_its_input_tpm_for_an_hour():
 def test_a_deployment_prefers_its_declared_base_model_over_its_deployment_name():
     deployment: Final = {
         "model_info": {"base_model": "azure/gpt-4.1"},
-        "litellm_params": {"model": "azure/gpt-4o"},
+        "hangarllm_params": {"model": "azure/gpt-4o"},
     }
     assert deployment_ptu_capacity(deployment) is _GPT41
 
 
-def test_a_deployment_falls_back_to_its_litellm_model_when_no_base_model_is_declared():
-    assert deployment_ptu_capacity({"litellm_params": {"model": "azure/gpt-4o"}}) is AZURE_PTU_CAPACITY["gpt-4o"]
+def test_a_deployment_falls_back_to_its_hangarllm_model_when_no_base_model_is_declared():
+    assert deployment_ptu_capacity({"hangarllm_params": {"model": "azure/gpt-4o"}}) is AZURE_PTU_CAPACITY["gpt-4o"]
     assert (
-        deployment_ptu_capacity({"model_info": {"base_model": ""}, "litellm_params": {"model": "azure/gpt-4o"}})
+        deployment_ptu_capacity({"model_info": {"base_model": ""}, "hangarllm_params": {"model": "azure/gpt-4o"}})
         is (AZURE_PTU_CAPACITY["gpt-4o"])
     )
 
 
 def test_a_deployment_with_no_recognisable_model_has_no_row():
-    assert deployment_ptu_capacity({"litellm_params": {"model": "azure/team-a-ptu"}}) is None
-    assert deployment_ptu_capacity({"model_info": None, "litellm_params": None}) is None
+    assert deployment_ptu_capacity({"hangarllm_params": {"model": "azure/team-a-ptu"}}) is None
+    assert deployment_ptu_capacity({"model_info": None, "hangarllm_params": None}) is None
     assert deployment_ptu_capacity({}) is None
 
 
@@ -93,14 +93,14 @@ def test_one_ptu_hour_is_one_ptus_input_tpm_served_for_sixty_minutes():
 @pytest.mark.parametrize(
     ("deployment", "expected"),
     [
-        ({"litellm_params": {"model": "azure/gpt-4.1"}}, True),
-        ({"litellm_params": {"model": "azure_ai/gpt-4.1"}}, True),
-        ({"litellm_params": {"model": "my-ptu-deployment", "custom_llm_provider": "azure"}}, True),
-        ({"litellm_params": {"model": "azure/gpt-4.1", "custom_llm_provider": "openai"}}, False),
-        ({"litellm_params": {"model": "gpt-4.1"}}, False),
+        ({"hangarllm_params": {"model": "azure/gpt-4.1"}}, True),
+        ({"hangarllm_params": {"model": "azure_ai/gpt-4.1"}}, True),
+        ({"hangarllm_params": {"model": "my-ptu-deployment", "custom_llm_provider": "azure"}}, True),
+        ({"hangarllm_params": {"model": "azure/gpt-4.1", "custom_llm_provider": "openai"}}, False),
+        ({"hangarllm_params": {"model": "gpt-4.1"}}, False),
         ({"model_info": {"base_model": "azure/gpt-4.1"}}, False),
     ],
-    ids=["azure prefix", "azure_ai prefix", "azure provider", "provider over prefix", "no prefix", "no litellm_params"],
+    ids=["azure prefix", "azure_ai prefix", "azure provider", "provider over prefix", "no prefix", "no hangarllm_params"],
 )
 def test_a_deployment_is_azure_by_its_provider_first_and_its_model_prefix_otherwise(deployment, expected):
     assert is_azure_deployment(deployment) is expected

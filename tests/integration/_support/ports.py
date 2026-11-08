@@ -10,7 +10,7 @@ from typing import Final
 FIRST_PORT: Final = 10_000
 LAST_PORT: Final = 32_767
 BLOCK_SIZE: Final = 200
-LOCK_DIRECTORY: Final = Path(tempfile.gettempdir()) / "litellm-integration-ports"
+LOCK_DIRECTORY: Final = Path(tempfile.gettempdir()) / "hangarllm-integration-ports"
 
 
 def _blocks() -> Iterator[range]:

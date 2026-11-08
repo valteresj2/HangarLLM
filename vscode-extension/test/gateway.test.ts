@@ -74,16 +74,16 @@ const sse = (response: ServerResponse, events: readonly object[]): void => {
 
 describe("gateway URLs", () => {
   it("accepts the gateway root with or without a trailing slash or /v1", () => {
-    expect(gatewayRoot("https://litellm.example.com/")).toBe("https://litellm.example.com");
-    expect(gatewayRoot("https://litellm.example.com/v1")).toBe("https://litellm.example.com");
+    expect(gatewayRoot("https://hangarllm.example.com/")).toBe("https://hangarllm.example.com");
+    expect(gatewayRoot("https://hangarllm.example.com/v1")).toBe("https://hangarllm.example.com");
     expect(gatewayRoot(" http://localhost:4000 ")).toBe("http://localhost:4000");
-    expect(modelGroupInfoUrl("https://litellm.example.com")).toBe("https://litellm.example.com/model_group/info");
-    expect(openAiBaseUrl("https://litellm.example.com")).toBe("https://litellm.example.com/v1");
+    expect(modelGroupInfoUrl("https://hangarllm.example.com")).toBe("https://hangarllm.example.com/model_group/info");
+    expect(openAiBaseUrl("https://hangarllm.example.com")).toBe("https://hangarllm.example.com/v1");
   });
 
   it("rejects anything that is not an http or https URL", () => {
-    expect(gatewayRoot("litellm.example.com")).toBeUndefined();
-    expect(gatewayRoot("ftp://litellm.example.com")).toBeUndefined();
+    expect(gatewayRoot("hangarllm.example.com")).toBeUndefined();
+    expect(gatewayRoot("ftp://hangarllm.example.com")).toBeUndefined();
     expect(gatewayRoot("")).toBeUndefined();
   });
 });

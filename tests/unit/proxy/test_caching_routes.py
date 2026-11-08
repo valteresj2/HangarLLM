@@ -6,11 +6,11 @@ from pydantic import ValidationError
 
 
 
-import litellm
-from litellm.caching import RedisCache
-from litellm.caching.caching import Cache
-from litellm.proxy.caching_routes import _extract_cache_params
-from litellm.proxy.proxy_server import app
+import hangarllm
+from hangarllm.caching import RedisCache
+from hangarllm.caching.caching import Cache
+from hangarllm.proxy.caching_routes import _extract_cache_params
+from hangarllm.proxy.proxy_server import app
 
 client = TestClient(app)
 
@@ -34,7 +34,7 @@ def mock_redis_success(mocker):
         password="hello",
     )
 
-    mocker.patch.object(litellm, "cache", mock_cache)
+    mocker.patch.object(hangarllm, "cache", mock_cache)
     return mock_cache
 
 
@@ -48,7 +48,7 @@ def mock_redis_failure(mocker):
     mock_cache.type = "redis"
     mock_cache.ping = mock_ping
 
-    mocker.patch.object(litellm, "cache", mock_cache)
+    mocker.patch.object(hangarllm, "cache", mock_cache)
     return mock_cache
 
 
@@ -82,10 +82,10 @@ def test_cache_ping_with_complex_objects(mock_redis_success, mocker):
     data = response.json()
     print("data=", json.dumps(data, indent=4))
     assert data["status"] == "healthy"
-    assert "litellm_cache_params" in data
+    assert "hangarllm_cache_params" in data
 
     # Verify complex objects were converted to strings
-    cache_params = json.loads(data["litellm_cache_params"])
+    cache_params = json.loads(data["hangarllm_cache_params"])
     assert isinstance(cache_params, dict)
 
 
@@ -119,7 +119,7 @@ def test_cache_ping_failure(mock_redis_failure):
     assert "message" in error
     error_details = json.loads(error["message"])
     assert "message" in error_details
-    assert "litellm_cache_params" in error_details
+    assert "hangarllm_cache_params" in error_details
     assert "health_check_cache_params" in error_details
 
     # Verify generic static message (exception text must not leak to clients)
@@ -160,8 +160,8 @@ def test_cache_ping_no_cache_initialized():
     (e.g. message moving to a different field, or extra internal details leaking)
     are caught immediately.
     """
-    original_cache = litellm.cache
-    litellm.cache = None
+    original_cache = hangarllm.cache
+    hangarllm.cache = None
 
     try:
         response = client.get(
@@ -175,10 +175,10 @@ def test_cache_ping_no_cache_initialized():
         assert "error" in data
         error_details = json.loads(data["error"]["message"])
         assert (
-            error_details["message"] == "Cache not initialized. litellm.cache is None"
+            error_details["message"] == "Cache not initialized. hangarllm.cache is None"
         )
     finally:
-        litellm.cache = original_cache
+        hangarllm.cache = original_cache
 
 
 def test_cache_ping_no_cache_does_not_expose_internals():
@@ -188,8 +188,8 @@ def test_cache_ping_no_cache_does_not_expose_internals():
     response is {"error": {"message": "...", ...}} — same envelope as other 503s from
     this endpoint — with no tracebacks, source paths, or extra fields leaking.
     """
-    original_cache = litellm.cache
-    litellm.cache = None
+    original_cache = hangarllm.cache
+    hangarllm.cache = None
 
     try:
         response = client.get(
@@ -211,16 +211,16 @@ def test_cache_ping_no_cache_does_not_expose_internals():
         assert "error" in data, f"Expected ProxyException envelope, got: {data}"
         error_details = json.loads(data["error"]["message"])
         assert (
-            error_details["message"] == "Cache not initialized. litellm.cache is None"
+            error_details["message"] == "Cache not initialized. hangarllm.cache is None"
         )
     finally:
-        litellm.cache = original_cache
+        hangarllm.cache = original_cache
 
 
 def test_cache_ping_health_check_includes_only_cache_attributes(mock_redis_success):
     """
-    Ensure that the /cache/ping endpoint only pulls HealthCheckCacheParams from litellm.cache.cache,
-    and not from other attributes on litellm.cache.
+    Ensure that the /cache/ping endpoint only pulls HealthCheckCacheParams from hangarllm.cache.cache,
+    and not from other attributes on hangarllm.cache.
     """
     # Add an unrelated field directly to the cache mock; it should NOT appear in health_check_cache_params
     mock_redis_success.some_unrelated_field = "should-not-appear-in-health-check"
@@ -236,7 +236,7 @@ def test_cache_ping_health_check_includes_only_cache_attributes(mock_redis_succe
     data = response.json()
     print("/cache/ping response data=", json.dumps(data, indent=4))
     health_check_cache_params = data.get("health_check_cache_params", {})
-    # The unrelated field we attached at the top-level of litellm.cache should *not* be present
+    # The unrelated field we attached at the top-level of hangarllm.cache should *not* be present
     assert (
         "some_unrelated_field" not in health_check_cache_params
     ), "Found an unexpected field from the mock_redis_success object in health_check_cache_params"
@@ -244,7 +244,7 @@ def test_cache_ping_health_check_includes_only_cache_attributes(mock_redis_succe
     # The field we attached to 'mock_redis_success.cache' should be present and correctly reported
     assert (
         "redis_kwargs" in health_check_cache_params
-    ), "Expected field on `litellm.cache.cache` was not found in health_check_cache_params"
+    ), "Expected field on `hangarllm.cache.cache` was not found in health_check_cache_params"
     assert health_check_cache_params["redis_kwargs"] == {
         "host": "localhost",
         "port": 6379,
@@ -291,7 +291,7 @@ def mock_redis_client_list_restricted(mocker):
     mock_cache.cache.client_list = mock_client_list
     mock_cache.cache.info = mock_info
 
-    mocker.patch.object(litellm, "cache", mock_cache)
+    mocker.patch.object(hangarllm, "cache", mock_cache)
     return mock_cache
 
 
@@ -318,14 +318,14 @@ def mock_redis_client_list_success(mocker):
     mock_cache.cache.client_list = mock_client_list
     mock_cache.cache.info = mock_info
 
-    mocker.patch.object(litellm, "cache", mock_cache)
+    mocker.patch.object(hangarllm, "cache", mock_cache)
     return mock_cache
 
 
 def test_cache_redis_info_no_cache():
     """Test /cache/redis/info when no cache is initialized"""
-    original_cache = litellm.cache
-    litellm.cache = None
+    original_cache = hangarllm.cache
+    hangarllm.cache = None
 
     response = client.get(
         "/cache/redis/info", headers={"Authorization": "Bearer sk-9876"}
@@ -336,13 +336,13 @@ def test_cache_redis_info_no_cache():
     assert "Cache not initialized" in data["detail"]
 
     # Restore original cache
-    litellm.cache = original_cache
+    hangarllm.cache = original_cache
 
 
 def _use_redis_backed_cache(monkeypatch, backend_attributes):
     cache = Cache(type="redis", host="localhost", port=6379, password="hello")
     vars(cache.cache).update(backend_attributes)
-    monkeypatch.setattr(litellm, "cache", cache)
+    monkeypatch.setattr(hangarllm, "cache", cache)
 
 
 @pytest.mark.parametrize(
@@ -387,7 +387,7 @@ def test_extract_cache_params_reports_every_malformed_backend_field(monkeypatch)
 
 
 def test_extract_cache_params_is_empty_when_no_cache_is_configured(monkeypatch):
-    monkeypatch.setattr(litellm, "cache", None)
+    monkeypatch.setattr(hangarllm, "cache", None)
 
     assert _extract_cache_params() == {}
 
@@ -404,7 +404,7 @@ def mock_redis_delete(mocker):
     mock_cache = mocker.MagicMock()
     mock_cache.type = "redis"
     mock_cache.delete_cache_keys = mocker.AsyncMock()
-    mocker.patch.object(litellm, "cache", mock_cache)
+    mocker.patch.object(hangarllm, "cache", mock_cache)
     return mock_cache
 
 

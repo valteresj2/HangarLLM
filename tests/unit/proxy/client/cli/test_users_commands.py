@@ -5,7 +5,7 @@ from click.testing import CliRunner
 
 
 
-from litellm.proxy.client.cli import cli
+from hangarllm.proxy.client.cli import cli
 
 
 @pytest.fixture
@@ -18,8 +18,8 @@ def mock_env():
     with patch.dict(
         "os.environ",
         {
-            "LITELLM_PROXY_URL": "http://localhost:4000",
-            "LITELLM_PROXY_API_KEY": "sk-test",
+            "HANGARLLM_PROXY_URL": "http://localhost:4000",
+            "HANGARLLM_PROXY_API_KEY": "sk-test",
         },
     ):
         yield
@@ -28,7 +28,7 @@ def mock_env():
 @pytest.fixture
 def mock_users_client():
     with patch(
-        "litellm.proxy.client.cli.commands.users.UsersManagementClient"
+        "hangarllm.proxy.client.cli.commands.users.UsersManagementClient"
     ) as MockClient:
         yield MockClient
 

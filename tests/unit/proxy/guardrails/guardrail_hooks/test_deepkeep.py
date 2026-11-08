@@ -6,18 +6,18 @@ import pytest
 import respx
 from httpx import Request, Response
 
-import litellm
-from litellm.exceptions import GuardrailRaisedException
-from litellm.proxy.guardrails.guardrail_hooks.deepkeep.deepkeep import (
+import hangarllm
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.proxy.guardrails.guardrail_hooks.deepkeep.deepkeep import (
     DeepKeepGuardrail,
     DeepKeepGuardrailAPIError,
     DeepKeepGuardrailMissingSecrets,
 )
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
+from hangarllm.proxy.guardrails.init_guardrails import init_guardrails_v2
 
 
 def test_deepkeep_guard_config(monkeypatch: pytest.MonkeyPatch):
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from hangarllm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
 
     monkeypatch.setattr(IN_MEMORY_GUARDRAIL_HANDLER, "IN_MEMORY_GUARDRAILS", {})
     monkeypatch.setattr(IN_MEMORY_GUARDRAIL_HANDLER, "guardrail_id_to_custom_guardrail", {})
@@ -30,7 +30,7 @@ def test_deepkeep_guard_config(monkeypatch: pytest.MonkeyPatch):
         all_guardrails=[
             {
                 "guardrail_name": "deepkeep-firewall",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "deepkeep",
                     "mode": "pre_call",
                     "default_on": True,
@@ -44,8 +44,8 @@ def test_deepkeep_guard_config(monkeypatch: pytest.MonkeyPatch):
     guardrails: Final = tuple(IN_MEMORY_GUARDRAIL_HANDLER.IN_MEMORY_GUARDRAILS.values())
     assert len(guardrails) == 1
     assert guardrails[0]["guardrail_name"] == "deepkeep-firewall"
-    assert guardrails[0]["litellm_params"]["guardrail"] == "deepkeep"
-    assert guardrails[0]["litellm_params"]["mode"] == "pre_call"
+    assert guardrails[0]["hangarllm_params"]["guardrail"] == "deepkeep"
+    assert guardrails[0]["hangarllm_params"]["mode"] == "pre_call"
 
 
 def test_deepkeep_guard_config_no_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -58,7 +58,7 @@ def test_deepkeep_guard_config_no_api_key(monkeypatch: pytest.MonkeyPatch) -> No
             all_guardrails=[
                 {
                     "guardrail_name": "deepkeep-firewall",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "deepkeep",
                         "mode": "pre_call",
                         "default_on": True,
@@ -80,7 +80,7 @@ def test_deepkeep_guard_config_no_firewall_id(monkeypatch: pytest.MonkeyPatch) -
             all_guardrails=[
                 {
                     "guardrail_name": "deepkeep-firewall",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "deepkeep",
                         "mode": "pre_call",
                         "default_on": True,
@@ -101,7 +101,7 @@ def test_deepkeep_guard_config_no_api_base(monkeypatch: pytest.MonkeyPatch) -> N
             all_guardrails=[
                 {
                     "guardrail_name": "deepkeep-firewall",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "deepkeep",
                         "mode": "pre_call",
                         "default_on": True,
@@ -171,7 +171,7 @@ class TestDeepKeepGuardrail:
         assert guardrail.firewall_id == "fw-123"
         assert (
             guardrail.api_base
-            == "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api"
+            == "https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api"
         )
 
     def test_initialization_with_env_vars(self, monkeypatch: pytest.MonkeyPatch):
@@ -192,14 +192,14 @@ class TestDeepKeepGuardrail:
         """should not double-append the endpoint path."""
         guardrail = DeepKeepGuardrail(
             api_key="test-key",
-            api_base="https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+            api_base="https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api",
             firewall_id="fw-123",
             guardrail_name="test",
             event_hook="pre_call",
         )
         assert (
             guardrail.api_base
-            == "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api"
+            == "https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api"
         )
 
     @pytest.mark.asyncio
@@ -223,7 +223,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api",
             ),
         )
 
@@ -273,7 +273,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api",
             ),
         )
 
@@ -313,7 +313,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api",
             ),
         )
 
@@ -352,7 +352,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api",
             ),
         )
 
@@ -595,7 +595,7 @@ class TestDeepKeepGuardrail:
             json={"action": "NONE", "blocked_reason": None, "texts": None, "images": None},
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api",
             ),
         )
 
@@ -646,7 +646,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api",
             ),
         )
 
@@ -686,7 +686,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api",
             ),
         )
 
@@ -730,7 +730,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api",
             ),
         )
 
@@ -783,7 +783,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api",
             ),
         )
 
@@ -831,7 +831,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api",
             ),
         )
 
@@ -877,7 +877,7 @@ async def test_empty_texts():
         status_code=200,
         request=Request(
             method="POST",
-            url="https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+            url="https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api",
         ),
     )
 
@@ -905,7 +905,7 @@ async def test_empty_texts():
 async def test_callback_blocked(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     deepkeep_guardrail: Final = DeepKeepGuardrail(
         api_key="test-key",
         api_base="https://test.deepkeep.ai",
@@ -915,7 +915,7 @@ async def test_callback_blocked(
         default_on=True,
     )
     route: Final = respx_mock.post(
-        "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api"
+        "https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api"
     ).respond(
         json={
             "action": "BLOCKED",
@@ -941,7 +941,7 @@ async def test_callback_blocked(
 async def test_callback_guardrail_intervened(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     deepkeep_guardrail: Final = DeepKeepGuardrail(
         api_key="test-key",
         api_base="https://test.deepkeep.ai",
@@ -951,7 +951,7 @@ async def test_callback_guardrail_intervened(
         default_on=True,
     )
     route: Final = respx_mock.post(
-        "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api"
+        "https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api"
     ).respond(
         json={
             "action": "GUARDRAIL_INTERVENED",
@@ -1076,7 +1076,7 @@ async def test_firewall_id_sent_in_payload():
         status_code=200,
         request=Request(
             method="POST",
-            url="https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+            url="https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api",
         ),
     )
 
@@ -1129,7 +1129,7 @@ async def test_post_call_response_direction():
         status_code=200,
         request=Request(
             method="POST",
-            url="https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+            url="https://test.deepkeep.ai/v3/openai/beta/hangarllm_basic_guardrail_api",
         ),
     )
 

@@ -7,21 +7,21 @@ import httpx
 
 
 class Config:
-    """Configuration for LiteLLM Gateway connection"""
+    """Configuration for HangarLLM Gateway connection"""
 
-    # LiteLLM proxy URL (default to local instance)
-    LITELLM_PROXY_URL = os.getenv("LITELLM_PROXY_URL", "http://localhost:4000")
+    # HangarLLM proxy URL (default to local instance)
+    HANGARLLM_PROXY_URL = os.getenv("HANGARLLM_PROXY_URL", "http://localhost:4000")
 
-    # LiteLLM API key (master key or virtual key)
-    LITELLM_API_KEY = os.environ["LITELLM_API_KEY"]
+    # HangarLLM API key (master key or virtual key)
+    HANGARLLM_API_KEY = os.environ["HANGARLLM_API_KEY"]
 
-    # Model name as configured in LiteLLM (e.g., "bedrock-claude-sonnet-4", "gpt-4", etc.)
-    LITELLM_MODEL = os.getenv("LITELLM_MODEL", "bedrock-claude-sonnet-4.5")
+    # Model name as configured in HangarLLM (e.g., "bedrock-claude-sonnet-4", "gpt-4", etc.)
+    HANGARLLM_MODEL = os.getenv("HANGARLLM_MODEL", "bedrock-claude-sonnet-4.5")
 
 
 async def fetch_available_models(base_url: str, api_key: str) -> list[str]:
     """
-    Fetch available models from LiteLLM proxy /models endpoint
+    Fetch available models from HangarLLM proxy /models endpoint
     """
     try:
         async with httpx.AsyncClient() as client:
@@ -46,14 +46,14 @@ async def fetch_available_models(base_url: str, api_key: str) -> list[str]:
         ]
 
 
-def setup_litellm_env(config: Config):
+def setup_hangarllm_env(config: Config):
     """
-    Configure environment variables to point Agent SDK to LiteLLM
+    Configure environment variables to point Agent SDK to HangarLLM
     """
-    litellm_base_url = config.LITELLM_PROXY_URL.rstrip("/")
-    os.environ["ANTHROPIC_BASE_URL"] = litellm_base_url
-    os.environ["ANTHROPIC_API_KEY"] = config.LITELLM_API_KEY
-    return litellm_base_url
+    hangarllm_base_url = config.HANGARLLM_PROXY_URL.rstrip("/")
+    os.environ["ANTHROPIC_BASE_URL"] = hangarllm_base_url
+    os.environ["ANTHROPIC_API_KEY"] = config.HANGARLLM_API_KEY
+    return hangarllm_base_url
 
 
 def print_header(base_url: str, current_model: str, has_mcp: bool = False):
@@ -62,7 +62,7 @@ def print_header(base_url: str, current_model: str, has_mcp: bool = False):
     """
     mcp_indicator = " + MCP" if has_mcp else ""
     print("=" * 70)
-    print(f"🤖 Claude Agent SDK with LiteLLM Gateway{mcp_indicator} - Interactive Chat")
+    print(f"🤖 Claude Agent SDK with HangarLLM Gateway{mcp_indicator} - Interactive Chat")
     print("=" * 70)
     print(f"🚀 Connected to: {base_url}")
     print(f"📦 Current model: {current_model}")
@@ -161,4 +161,4 @@ async def stream_response(client, user_input: str):
 
     except Exception as e:
         print(f"\r\n❌ Error: {e}")
-        print("Please check your LiteLLM gateway is running and configured correctly.")
+        print("Please check your HangarLLM gateway is running and configured correctly.")

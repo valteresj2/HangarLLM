@@ -14,7 +14,7 @@ from e2e_config import POLL_INTERVAL, POLL_TIMEOUT, unique_marker
 from e2e_http import NoBody, Success, UnknownApiError, unwrap
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from responses_helpers import AZURE_OPENAI_BACKEND, azure_openai_params
 from openai.types.responses import (
     ResponseCompletedEvent,
@@ -83,7 +83,7 @@ class TestResponsesRetrieve:
         model = f"e2e-resp-store-{unique_marker()}"
         model_id = proxy.create_model(
             model,
-            LiteLLMParamsBody(model=OPENAI_MINI_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
+            HangarLLMParamsBody(model=OPENAI_MINI_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
         )
         resources.defer(lambda: proxy.delete_model(model_id))
         key = resources.key()
@@ -161,7 +161,7 @@ def _register_response_deployment(
     params: Final = (
         azure_openai_params()
         if deployment == "azure"
-        else LiteLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
+        else HangarLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
     )
     model_id: Final = proxy.create_model(model, params)
     resources.defer(lambda: proxy.delete_model(model_id))

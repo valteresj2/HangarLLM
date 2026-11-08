@@ -2,10 +2,10 @@
 Unit tests for the context_management polyfill dispatcher.
 """
 
-from litellm.llms.anthropic.messages.context_management import (
+from hangarllm.llms.anthropic.messages.context_management import (
     apply_context_management,
 )
-from litellm.llms.anthropic.messages.convertible_blocks import drop_non_string_tool_result_texts
+from hangarllm.llms.anthropic.messages.convertible_blocks import drop_non_string_tool_result_texts
 
 MODEL = "xai/grok-4"
 
@@ -132,7 +132,7 @@ async def test_malformed_edit_entries_are_skipped():
 
 async def test_sync_editor_counts_tokens_off_the_event_loop():
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.hangarllm_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,

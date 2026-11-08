@@ -11,16 +11,16 @@ from unittest.mock import Mock, patch
 
 import httpx
 import pytest
-from litellm.exceptions import UnsupportedParamsError
+from hangarllm.exceptions import UnsupportedParamsError
 
-import litellm
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.llms.vertex_ai.videos.transformation import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.llms.vertex_ai.videos.transformation import (
     VertexAIVideoConfig,
     _convert_image_to_vertex_format,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.main import VideoObject
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.videos.main import VideoObject
 
 VEO_31_LITE_VERTEX_MODEL = "vertex_ai/veo-3.1-lite-generate-001"
 ROOT_MODEL_COST_PATH = (
@@ -28,7 +28,7 @@ ROOT_MODEL_COST_PATH = (
 )
 BACKUP_MODEL_COST_PATH = (
     Path(__file__).parents[5]
-    / "litellm"
+    / "hangarllm"
     / "model_prices_and_context_window_backup.json"
 )
 ModelCostMap = Mapping[str, Mapping[str, object]]
@@ -63,13 +63,13 @@ class TestVertexAIVideoConfig:
         mock_get_access_token.return_value = ("mock-access-token", "test-project")
 
         headers = {}
-        litellm_params = {"vertex_project": "test-project"}
+        hangarllm_params = {"vertex_project": "test-project"}
 
         result = self.config.validate_environment(
             headers=headers,
             model="veo-002",
             api_key=None,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         # Should add Authorization header
@@ -79,13 +79,13 @@ class TestVertexAIVideoConfig:
 
     def test_get_complete_url(self):
         """Test URL construction for Vertex AI video generation."""
-        litellm_params = {
+        hangarllm_params = {
             "vertex_project": "test-project",
             "vertex_location": "us-central1",
         }
 
         url = self.config.get_complete_url(
-            model="vertex_ai/veo-002", api_base=None, litellm_params=litellm_params
+            model="vertex_ai/veo-002", api_base=None, hangarllm_params=hangarllm_params
         )
 
         expected = "https://us-central1-aiplatform.googleapis.com/v1/projects/test-project/locations/us-central1/publishers/google/models/veo-002"
@@ -95,7 +95,7 @@ class TestVertexAIVideoConfig:
 
     def test_get_complete_url_with_custom_api_base(self):
         """Test URL construction with custom API base."""
-        litellm_params = {
+        hangarllm_params = {
             "vertex_project": "test-project",
             "vertex_location": "us-west1",
         }
@@ -103,7 +103,7 @@ class TestVertexAIVideoConfig:
         url = self.config.get_complete_url(
             model="veo-002",
             api_base="https://custom-endpoint.example.com",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         assert url.startswith("https://custom-endpoint.example.com")
@@ -116,11 +116,11 @@ class TestVertexAIVideoConfig:
     def test_get_complete_url_missing_project(self, monkeypatch):
         """Test that missing vertex_project raises error."""
         monkeypatch.delenv("VERTEXAI_PROJECT", raising=False)
-        monkeypatch.setattr(litellm, "vertex_project", None)
+        monkeypatch.setattr(hangarllm, "vertex_project", None)
 
         with pytest.raises(ValueError, match="vertex_project is required"):
             self.config.get_complete_url(
-                model="veo-002", api_base=None, litellm_params={}
+                model="veo-002", api_base=None, hangarllm_params={}
             )
 
 
@@ -131,9 +131,9 @@ class TestVertexAIVideoConfig:
         vertex_video_models = {
             model_name.removeprefix("vertex_ai/")
             for model_name, info in model_cost.items()
-            if info.get("litellm_provider") == "vertex_ai-video-models"
+            if info.get("hangarllm_provider") == "vertex_ai-video-models"
         }
-        monkeypatch.setattr(litellm, "vertex_ai_video_models", vertex_video_models)
+        monkeypatch.setattr(hangarllm, "vertex_ai_video_models", vertex_video_models)
 
         model, custom_llm_provider, _, _ = get_llm_provider(
             model="veo-3.1-lite-generate-001"
@@ -153,7 +153,7 @@ class TestVertexAIVideoConfig:
             prompt=prompt,
             api_base=api_base,
             video_create_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -185,7 +185,7 @@ class TestVertexAIVideoConfig:
                 "aspectRatio": "16:9",
                 "durationSeconds": 8,
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -205,7 +205,7 @@ class TestVertexAIVideoConfig:
         mock_image.seek = Mock()
 
         with patch(
-            "litellm.llms.vertex_ai.videos.transformation.ImageEditRequestUtils.get_image_content_type",
+            "hangarllm.llms.vertex_ai.videos.transformation.ImageEditRequestUtils.get_image_content_type",
             return_value="image/jpeg",
         ):
             data, files, url = self.config.transform_video_create_request(
@@ -213,7 +213,7 @@ class TestVertexAIVideoConfig:
                 prompt=prompt,
                 api_base=api_base,
                 video_create_optional_request_params={"image": mock_image},
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -258,7 +258,7 @@ class TestVertexAIVideoConfig:
     ):
         model_cost = _load_model_cost_map(BACKUP_MODEL_COST_PATH)
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             VEO_31_LITE_VERTEX_MODEL,
             dict(model_cost[VEO_31_LITE_VERTEX_MODEL]),
         )
@@ -288,7 +288,7 @@ class TestVertexAIVideoConfig:
         model = "veo-3.1-generate-001"
         model_key = f"vertex_ai/{model}"
         model_cost = _load_model_cost_map(BACKUP_MODEL_COST_PATH)
-        monkeypatch.setitem(litellm.model_cost, model_key, dict(model_cost[model_key]))
+        monkeypatch.setitem(hangarllm.model_cost, model_key, dict(model_cost[model_key]))
 
         mapped = self.config.map_openai_params(
             video_create_optional_params={"size": "1920x1080"},
@@ -402,7 +402,7 @@ class TestVertexAIVideoConfig:
         url, params = self.config.transform_video_status_retrieve_request(
             video_id=operation_name,
             api_base=api_base,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -423,7 +423,7 @@ class TestVertexAIVideoConfig:
             self.config.transform_video_status_retrieve_request(
                 video_id=invalid_operation_name,
                 api_base=None,
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -506,7 +506,7 @@ class TestVertexAIVideoConfig:
         url, params = self.config.transform_video_content_request(
             video_id=operation_name,
             api_base=api_base,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -573,7 +573,7 @@ class TestVertexAIVideoConfig:
         fetch_url, fetch_body = self.config.get_video_edit_prefetch_params(
             video_id=operation_name,
             api_base=api_base,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -598,7 +598,7 @@ class TestVertexAIVideoConfig:
             prompt="Make it brighter",
             video_id=operation_name,
             api_base=api_base,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={"Authorization": "Bearer token"},
             prefetched_source_data=prefetched,
         )
@@ -627,7 +627,7 @@ class TestVertexAIVideoConfig:
             prompt="Make it darker",
             video_id=operation_name,
             api_base=api_base,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
             prefetched_source_data=prefetched,
         )
@@ -644,7 +644,7 @@ class TestVertexAIVideoConfig:
                 prompt="Make it brighter",
                 video_id=operation_name,
                 api_base=api_base,
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
                 prefetched_source_data={"done": False},
             )
@@ -721,7 +721,7 @@ class TestVertexAIVideoConfig:
                 video_id="test-video-id",
                 prompt="new prompt",
                 api_base="https://example.com",
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -730,7 +730,7 @@ class TestVertexAIVideoConfig:
         with pytest.raises(NotImplementedError, match="Video list is not supported"):
             self.config.transform_video_list_request(
                 api_base="https://example.com",
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -740,7 +740,7 @@ class TestVertexAIVideoConfig:
             self.config.transform_video_delete_request(
                 video_id="test-video-id",
                 api_base="https://example.com",
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -751,7 +751,7 @@ class TestVertexAIVideoConfig:
         )
 
         # Should return VertexAIError
-        from litellm.llms.vertex_ai.common_utils import VertexAIError
+        from hangarllm.llms.vertex_ai.common_utils import VertexAIError
 
         assert isinstance(error, VertexAIError)
         assert error.status_code == 500
@@ -769,7 +769,7 @@ class TestConvertImageToVertexFormat:
         mock_image.seek = Mock()
 
         with patch(
-            "litellm.llms.vertex_ai.videos.transformation.ImageEditRequestUtils.get_image_content_type",
+            "hangarllm.llms.vertex_ai.videos.transformation.ImageEditRequestUtils.get_image_content_type",
             return_value="image/jpeg",
         ):
             result = _convert_image_to_vertex_format(mock_image)
@@ -790,7 +790,7 @@ class TestConvertImageToVertexFormat:
         mock_image.seek = Mock()
 
         with patch(
-            "litellm.llms.vertex_ai.videos.transformation.ImageEditRequestUtils.get_image_content_type",
+            "hangarllm.llms.vertex_ai.videos.transformation.ImageEditRequestUtils.get_image_content_type",
             return_value="image/png",
         ):
             result = _convert_image_to_vertex_format(mock_image)
@@ -867,7 +867,7 @@ class TestImageAndParametersPassthrough:
             prompt="Cinematic drone shot",
             api_base=self.api_base,
             video_create_optional_request_params={"image": image},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -882,7 +882,7 @@ class TestImageAndParametersPassthrough:
             prompt="Cinematic drone shot",
             api_base=self.api_base,
             video_create_optional_request_params={"image": gs_uri},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -896,7 +896,7 @@ class TestImageAndParametersPassthrough:
             prompt="Cinematic drone shot",
             api_base=self.api_base,
             video_create_optional_request_params={"image": image},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -914,7 +914,7 @@ class TestImageAndParametersPassthrough:
             prompt="Cinematic drone shot",
             api_base=self.api_base,
             video_create_optional_request_params={"parameters": params},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -953,7 +953,7 @@ class TestImageAndParametersPassthrough:
             prompt="Cinematic drone shot moving forward along the beach boardwalk",
             api_base=self.api_base,
             video_create_optional_request_params=mapped,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 

@@ -6,11 +6,11 @@ PARASAIL_RESPONSES_GATEWAY = "https://api-webflux.saas.parasail.io/v1"
 
 
 def test_parasail_json_registry():
-    import litellm
-    from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+    import hangarllm
+    from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
-    assert litellm.LlmProviders.PARASAIL.value == "parasail"
-    assert litellm.LlmProviders("parasail") == litellm.LlmProviders.PARASAIL
+    assert hangarllm.LlmProviders.PARASAIL.value == "parasail"
+    assert hangarllm.LlmProviders("parasail") == hangarllm.LlmProviders.PARASAIL
     assert JSONProviderRegistry.exists("parasail")
     config = JSONProviderRegistry.get("parasail")
     assert config is not None
@@ -23,14 +23,14 @@ def test_parasail_json_registry():
 
 
 def test_parasail_listed_in_openai_compatible_providers():
-    from litellm.constants import openai_compatible_providers
+    from hangarllm.constants import openai_compatible_providers
 
     assert "parasail" in openai_compatible_providers
 
 
 def test_parasail_dynamic_config_env_vars():
-    from litellm.llms.openai_like.dynamic_config import create_config_class
-    from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+    from hangarllm.llms.openai_like.dynamic_config import create_config_class
+    from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
     config = create_config_class(JSONProviderRegistry.get("parasail"))()
 
@@ -48,7 +48,7 @@ def test_parasail_dynamic_config_env_vars():
 
 
 def test_parasail_provider_detection_by_prefix():
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     model, provider, _, api_base = get_llm_provider(
         "parasail/parasail-llama-33-70b-fp8"
@@ -60,8 +60,8 @@ def test_parasail_provider_detection_by_prefix():
 
 
 def test_parasail_chat_complete_url():
-    from litellm.llms.openai_like.dynamic_config import create_config_class
-    from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+    from hangarllm.llms.openai_like.dynamic_config import create_config_class
+    from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
     config = create_config_class(JSONProviderRegistry.get("parasail"))()
 
@@ -71,15 +71,15 @@ def test_parasail_chat_complete_url():
             api_key=None,
             model="parasail-llama-33-70b-fp8",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         == f"{PARASAIL_API_BASE}/chat/completions"
     )
 
 
 def test_parasail_responses_api_config():
-    from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+    from hangarllm.utils import ProviderConfigManager
 
     config = ProviderConfigManager.get_provider_responses_api_config(
         provider="parasail",
@@ -89,13 +89,13 @@ def test_parasail_responses_api_config():
     assert isinstance(config, OpenAIResponsesAPIConfig)
     assert config.custom_llm_provider == "parasail"
     assert (
-        config.get_complete_url(api_base=None, litellm_params={})
+        config.get_complete_url(api_base=None, hangarllm_params={})
         == f"{PARASAIL_API_BASE}/responses"
     )
 
 
 def test_parasail_responses_api_honors_api_base_override():
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.utils import ProviderConfigManager
 
     config = ProviderConfigManager.get_provider_responses_api_config(
         provider="parasail",
@@ -106,14 +106,14 @@ def test_parasail_responses_api_honors_api_base_override():
         os.environ,
         {"PARASAIL_API_BASE": PARASAIL_RESPONSES_GATEWAY},
     ):
-        url = config.get_complete_url(api_base=None, litellm_params={})
+        url = config.get_complete_url(api_base=None, hangarllm_params={})
 
     assert url == f"{PARASAIL_RESPONSES_GATEWAY}/responses"
 
 
 def test_parasail_responses_api_forces_store_false_when_caller_sets_true():
-    from litellm.types.router import GenericLiteLLMParams
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.types.router import GenericHangarLLMParams
+    from hangarllm.utils import ProviderConfigManager
 
     config = ProviderConfigManager.get_provider_responses_api_config(
         provider="parasail",
@@ -125,7 +125,7 @@ def test_parasail_responses_api_forces_store_false_when_caller_sets_true():
         model="parasail-kimi-k25-elicit",
         input="hello",
         response_api_optional_request_params=request_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -134,8 +134,8 @@ def test_parasail_responses_api_forces_store_false_when_caller_sets_true():
 
 
 def test_parasail_responses_api_forces_store_false_when_caller_omits_store():
-    from litellm.types.router import GenericLiteLLMParams
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.types.router import GenericHangarLLMParams
+    from hangarllm.utils import ProviderConfigManager
 
     config = ProviderConfigManager.get_provider_responses_api_config(
         provider="parasail",
@@ -146,7 +146,7 @@ def test_parasail_responses_api_forces_store_false_when_caller_omits_store():
         model="parasail-kimi-k25-elicit",
         input="hello",
         response_api_optional_request_params={},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -154,8 +154,8 @@ def test_parasail_responses_api_forces_store_false_when_caller_omits_store():
 
 
 def test_parasail_responses_api_validate_environment_sets_bearer_token():
-    from litellm.types.router import GenericLiteLLMParams
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.types.router import GenericHangarLLMParams
+    from hangarllm.utils import ProviderConfigManager
 
     config = ProviderConfigManager.get_provider_responses_api_config(
         provider="parasail",
@@ -166,7 +166,7 @@ def test_parasail_responses_api_validate_environment_sets_bearer_token():
         headers = config.validate_environment(
             headers={},
             model="parasail-kimi-k25-elicit",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
         )
 
     assert headers["Authorization"] == "Bearer secret-from-env"

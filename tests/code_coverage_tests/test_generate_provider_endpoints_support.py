@@ -33,7 +33,7 @@ def _current_json(providers: Mapping[str, JsonValue]) -> dict[str, JsonValue]:
 def _provider(flags: Mapping[str, JsonValue] | None = None) -> dict[str, JsonValue]:
     return {
         "display_name": "Example (`example`)",
-        "url": "https://docs.litellm.ai/docs/providers/example",
+        "url": "https://github.com/valteresj2/HangarLLM#readme",
         "endpoints": dict(flags or {}),
     }
 
@@ -49,7 +49,7 @@ def _flags(generated: Mapping[str, JsonValue], slug: str) -> Mapping[str, JsonVa
 
 
 def test_mode_derives_chat_flag() -> None:
-    cost_map: Final = {"example/model": {"litellm_provider": "example", "mode": "chat"}}
+    cost_map: Final = {"example/model": {"hangarllm_provider": "example", "mode": "chat"}}
     current_json: Final = _current_json({"example": _provider()})
 
     generated: Final = generate_provider_endpoints_support(cost_map, current_json)
@@ -60,7 +60,7 @@ def test_mode_derives_chat_flag() -> None:
 def test_supported_endpoint_derives_embedding_flag() -> None:
     cost_map: Final = {
         "example/model": {
-            "litellm_provider": "example",
+            "hangarllm_provider": "example",
             "mode": "completion",
             "supported_endpoints": ["/v1/embeddings"],
         }
@@ -74,13 +74,13 @@ def test_supported_endpoint_derives_embedding_flag() -> None:
 
 def test_chat_models_enable_bridge_flags_but_other_models_do_not() -> None:
     cost_map: Final = {
-        "example/chat": {"litellm_provider": "has_chat", "mode": "chat"},
+        "example/chat": {"hangarllm_provider": "has_chat", "mode": "chat"},
         "example/endpoint-chat": {
-            "litellm_provider": "endpoint_chat",
+            "hangarllm_provider": "endpoint_chat",
             "mode": "image_generation",
             "supported_endpoints": ["/v1/chat/completions"],
         },
-        "example/image": {"litellm_provider": "no_chat", "mode": "image_generation"},
+        "example/image": {"hangarllm_provider": "no_chat", "mode": "image_generation"},
     }
     current_json: Final = _current_json(
         {
@@ -100,7 +100,7 @@ def test_chat_models_enable_bridge_flags_but_other_models_do_not() -> None:
 
 
 def test_unbacked_derived_flags_reset_and_handwritten_flags_remain() -> None:
-    cost_map: Final = {"example/model": {"litellm_provider": "example", "mode": "image_generation"}}
+    cost_map: Final = {"example/model": {"hangarllm_provider": "example", "mode": "image_generation"}}
     current_json: Final = _current_json(
         {
             "example": _provider({"responses": True, "count_tokens": True, "files": False}),
@@ -119,9 +119,9 @@ def test_unbacked_derived_flags_reset_and_handwritten_flags_remain() -> None:
 
 def test_provider_aliases_share_their_mapped_slugs() -> None:
     cost_map: Final = {
-        "vertex/model-a": {"litellm_provider": "vertex_ai-chat", "mode": "chat"},
-        "vertex/model-b": {"litellm_provider": "vertex_ai-embedding", "mode": "embedding"},
-        "bedrock/model": {"litellm_provider": "bedrock_converse", "mode": "responses"},
+        "vertex/model-a": {"hangarllm_provider": "vertex_ai-chat", "mode": "chat"},
+        "vertex/model-b": {"hangarllm_provider": "vertex_ai-embedding", "mode": "embedding"},
+        "bedrock/model": {"hangarllm_provider": "bedrock_converse", "mode": "responses"},
     }
     current_json: Final = _current_json({"vertex_ai": _provider(), "bedrock": _provider()})
 
@@ -133,7 +133,7 @@ def test_provider_aliases_share_their_mapped_slugs() -> None:
 
 
 def test_cost_map_provider_without_file_entry_is_an_error() -> None:
-    cost_map: Final = {"example/model": {"litellm_provider": "missing_provider", "mode": "chat"}}
+    cost_map: Final = {"example/model": {"hangarllm_provider": "missing_provider", "mode": "chat"}}
     current_json: Final = _current_json({"example": _provider()})
 
     with pytest.raises(ValueError, match="missing_provider"):
@@ -141,7 +141,7 @@ def test_cost_map_provider_without_file_entry_is_an_error() -> None:
 
 
 def test_check_reports_stale_output_without_writing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    cost_map: Final = {"example/model": {"litellm_provider": "example", "mode": "chat"}}
+    cost_map: Final = {"example/model": {"hangarllm_provider": "example", "mode": "chat"}}
     current_json: Final = _current_json({"example": _provider()})
     (tmp_path / "model_prices_and_context_window.json").write_text(json.dumps(cost_map), encoding="utf-8")
     source_path: Final = tmp_path / "provider_endpoints_support.json"
@@ -152,19 +152,19 @@ def test_check_reports_stale_output_without_writing(tmp_path: Path, capsys: pyte
 
     assert result == 1
     assert source_path.read_text(encoding="utf-8") == source_content
-    assert not (tmp_path / "litellm/provider_endpoints_support_backup.json").exists()
+    assert not (tmp_path / "hangarllm/provider_endpoints_support_backup.json").exists()
     error_output: Final = capsys.readouterr().err
     assert "provider endpoint support is stale" in error_output
     assert "scripts/generate_provider_endpoints_support.py" in error_output
 
 
 def test_check_reports_stale_backup_without_writing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    cost_map: Final = {"example/model": {"litellm_provider": "example", "mode": "chat"}}
+    cost_map: Final = {"example/model": {"hangarllm_provider": "example", "mode": "chat"}}
     current_json: Final = _current_json({"example": _provider()})
     generated: Final = generate_provider_endpoints_support(cost_map, current_json)
     generated_content: Final = json.dumps(generated, indent=2, ensure_ascii=False) + "\n"
     source_path: Final = tmp_path / "provider_endpoints_support.json"
-    backup_path: Final = tmp_path / "litellm/provider_endpoints_support_backup.json"
+    backup_path: Final = tmp_path / "hangarllm/provider_endpoints_support_backup.json"
     backup_content: Final = "stale\n"
     (tmp_path / "model_prices_and_context_window.json").write_text(json.dumps(cost_map), encoding="utf-8")
     source_path.write_text(generated_content, encoding="utf-8")

@@ -127,7 +127,7 @@ def test_raw_chat_request_carries_the_call_id_and_lands_once(gateway: Gateway) -
             "POST", "/v1/chat/completions", {"model": alias, "messages": USER_MESSAGES, "cache": NO_CACHE}
         )
         assert response.status_code == 200, response.text
-        assert "x-litellm-call-id" in response.headers, response.headers
+        assert "x-hangarllm-call-id" in response.headers, response.headers
         body: Final = JSON_OBJECT.validate_json(response.content)
         assert body["id"] == identity, response.text
         assert only_call(wire, "/v1/chat/completions")["messages"] == USER_MESSAGES
@@ -334,7 +334,7 @@ def test_provider_client_error_reaches_the_caller_after_one_attempt(gateway: Gat
         assert message in response.text, response.text
         attempts: Final = [(request.method, request.target) for request in wire.drain()]
         assert attempts == [("POST", target)], attempts
-        assert_failed(spend_row(response.headers["x-litellm-call-id"]), alias)
+        assert_failed(spend_row(response.headers["x-hangarllm-call-id"]), alias)
         assert gateway.request("GET", "/health/liveliness").status_code == 200
 
 
@@ -358,7 +358,7 @@ def test_provider_server_error_is_retried_then_reaches_the_caller(gateway: Gatew
         assert message in response.text, response.text
         attempts: Final = [(request.method, request.target) for request in wire.drain()]
         assert attempts == [("POST", "/v1/chat/completions")] * (1 + DEPLOYMENT_RETRIES), attempts
-        assert_failed(spend_row(response.headers["x-litellm-call-id"]), alias)
+        assert_failed(spend_row(response.headers["x-hangarllm-call-id"]), alias)
 
 
 def test_unreachable_api_base_reports_the_connection_error_and_leaves_the_proxy_serving(gateway: Gateway) -> None:
@@ -376,7 +376,7 @@ def test_unreachable_api_base_reports_the_connection_error_and_leaves_the_proxy_
         )
         assert response.status_code == 500, response.text
         assert "Connection error" in response.text, response.text
-        assert_failed(spend_row(response.headers["x-litellm-call-id"]), alias)
+        assert_failed(spend_row(response.headers["x-hangarllm-call-id"]), alias)
         assert gateway.request("GET", "/health/liveliness").status_code == 200
         ready(gateway, control)
         assert gateway.chat(control, text="still serving")["object"] == "chat.completion"
@@ -387,12 +387,12 @@ def test_deployment_without_a_key_and_no_env_key_fails_before_the_provider(
     gateway: Gateway, api_key: str | None
 ) -> None:
     with wire_server(provider("unused")) as wire, gateway.scenario() as scenario:
-        litellm_params: Final[dict[str, JsonValue]] = {
+        hangarllm_params: Final[dict[str, JsonValue]] = {
             "model": f"{PROVIDER}/{MODEL}",
             "api_base": f"{wire.url}/v1",
             **({} if api_key == "missing" else {"api_key": api_key}),
         }
-        alias: Final = raw_deployment(scenario, f"integration-{uuid.uuid4().hex}", litellm_params)
+        alias: Final = raw_deployment(scenario, f"integration-{uuid.uuid4().hex}", hangarllm_params)
         response: Final = eventually(
             lambda: gateway.request(
                 "POST", "/v1/chat/completions", {"model": alias, "messages": USER_MESSAGES, "cache": NO_CACHE}
@@ -402,7 +402,7 @@ def test_deployment_without_a_key_and_no_env_key_fails_before_the_provider(
         )
         assert response.status_code == 500, response.text
         assert "AuthenticationError" in response.text and "CORALBRICKS_API_KEY" in response.text, response.text
-        assert_failed(spend_row(response.headers["x-litellm-call-id"]), alias)
+        assert_failed(spend_row(response.headers["x-hangarllm-call-id"]), alias)
         assert wire.drain() == (), "the provider was called without a key"
         assert gateway.request("GET", "/health/liveliness").status_code == 200
 
@@ -457,10 +457,10 @@ def test_model_info_reports_the_coralbricks_cost_map_row(gateway: Gateway) -> No
         assert isinstance(entries, list)
         mine: Final = [object_value(entry) for entry in entries if object_value(entry)["model_name"] == alias]
         assert len(mine) == 1, [object_value(entry)["model_name"] for entry in entries]
-        litellm_params: Final = object_value(mine[0]["litellm_params"])
+        hangarllm_params: Final = object_value(mine[0]["hangarllm_params"])
         info: Final = object_value(mine[0]["model_info"])
-        assert litellm_params["model"] == f"{PROVIDER}/{MODEL}", litellm_params
-        assert info["litellm_provider"] == PROVIDER, info
+        assert hangarllm_params["model"] == f"{PROVIDER}/{MODEL}", hangarllm_params
+        assert info["hangarllm_provider"] == PROVIDER, info
         assert number(info["input_cost_per_token"]) == pytest.approx(rates.input), info
         assert number(info["output_cost_per_token"]) == pytest.approx(rates.output), info
         assert number(info["cache_creation_input_token_cost"]) == pytest.approx(rates.cache_write), info
@@ -490,7 +490,7 @@ def test_wildcard_deployment_lists_every_coralbricks_catalog_row(gateway: Gatewa
             "/model/new",
             {
                 "model_name": f"{PROVIDER}/*",
-                "litellm_params": {"model": f"{PROVIDER}/*", "api_base": f"{wire.url}/v1", "api_key": API_KEY},
+                "hangarllm_params": {"model": f"{PROVIDER}/*", "api_base": f"{wire.url}/v1", "api_key": API_KEY},
             },
         )
         scenario.cleanups.callback(scenario.delete_model, string_value(object_value(created["model_info"])["id"]))
@@ -508,8 +508,8 @@ def test_wildcard_deployment_lists_every_coralbricks_catalog_row(gateway: Gatewa
         }
         assert set(expanded) == catalog, [object_value(entry)["model_name"] for entry in entries]
         for name, entry in expanded.items():
-            assert object_value(entry["litellm_params"])["model"] == name, entry
-            assert object_value(entry["model_info"])["litellm_provider"] == PROVIDER, entry
+            assert object_value(entry["hangarllm_params"])["model"] == name, entry
+            assert object_value(entry["model_info"])["hangarllm_provider"] == PROVIDER, entry
 
 
 def test_health_probe_reaches_coralbricks_with_the_deployment_key(gateway: Gateway) -> None:
@@ -532,8 +532,8 @@ def test_add_model_form_fields_name_the_coralbricks_credentials(gateway: Gateway
     assert response.status_code == 200, response.text
     providers: Final = response.json()
     assert isinstance(providers, list), response.text
-    mine: Final = [object_value(entry) for entry in providers if object_value(entry)["litellm_provider"] == PROVIDER]
-    assert len(mine) == 1, [object_value(entry)["litellm_provider"] for entry in providers]
+    mine: Final = [object_value(entry) for entry in providers if object_value(entry)["hangarllm_provider"] == PROVIDER]
+    assert len(mine) == 1, [object_value(entry)["hangarllm_provider"] for entry in providers]
     assert mine[0]["provider_display_name"] == "CoralBricks", mine[0]
     fields: Final = mine[0]["credential_fields"]
     assert isinstance(fields, list), mine[0]
@@ -606,7 +606,7 @@ def test_fallback_from_a_refused_primary_lands_on_coralbricks(gateway: Gateway) 
             seconds=60,
         )
         assert response.status_code == 200, response.text
-        assert response.headers.get("x-litellm-attempted-fallbacks") == "1", response.headers
+        assert response.headers.get("x-hangarllm-attempted-fallbacks") == "1", response.headers
         assert JSON_OBJECT.validate_json(response.content)["id"] == identity, response.text
         only_call(wire, "/v1/chat/completions")
         assert_billed(spend_row(identity), alias, "acompletion")

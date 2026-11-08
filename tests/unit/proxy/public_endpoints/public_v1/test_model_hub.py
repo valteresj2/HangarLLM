@@ -7,10 +7,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-import litellm
-from litellm.proxy._types import LiteLLMRoutes
-from litellm.proxy.proxy_server import app
-from litellm.types.router import DeploymentTypedDict, ModelGroupInfo
+import hangarllm
+from hangarllm.proxy._types import HangarLLMRoutes
+from hangarllm.proxy.proxy_server import app
+from hangarllm.types.router import DeploymentTypedDict, ModelGroupInfo
 from tests._master_key import MASTER_KEY
 from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stubs
 
@@ -45,12 +45,12 @@ def _info(
 
 
 def _publish(monkeypatch, infos: Sequence[ModelGroupInfo], prisma_client: object | None = None) -> None:
-    monkeypatch.setattr(litellm, "public_model_groups", [info.model_group for info in infos])
+    monkeypatch.setattr(hangarllm, "public_model_groups", [info.model_group for info in infos])
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.llm_router",
+        "hangarllm.proxy.proxy_server.llm_router",
         route_entry_points_to_stubs(_FakeRouter(infos=MappingProxyType({info.model_group: info for info in infos}))),
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma_client)
 
 
 def _named(count: int, **overrides: object) -> Sequence[ModelGroupInfo]:
@@ -96,7 +96,7 @@ def _asked_about(read) -> list[str]:
 
 def test_the_route_is_registered_as_a_public_route():
     """`public_routes` membership is an exact-string check, so the path has to match literally."""
-    assert MODEL_HUB_PATH in LiteLLMRoutes.public_routes.value
+    assert MODEL_HUB_PATH in HangarLLMRoutes.public_routes.value
 
 
 def test_a_page_slices_the_published_model_groups(monkeypatch):
@@ -248,7 +248,7 @@ def test_a_repeated_sort_field_is_rejected_rather_than_sorted_twice(monkeypatch)
 
     assert response.status_code == 400
     assert response.headers["content-type"].startswith("application/problem+json")
-    assert response.json()["type"] == "urn:litellm:error:duplicate-sort-field"
+    assert response.json()["type"] == "urn:hangarllm:error:duplicate-sort-field"
 
 
 def test_an_unknown_query_parameter_is_a_problem_outside_management_v1(monkeypatch):
@@ -301,8 +301,8 @@ def test_the_search_matches_model_group_names_case_insensitively(monkeypatch):
 @pytest.fixture
 def guarded(monkeypatch):
     """A proxy with a master key set, so anything but a public route would demand credentials."""
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", MASTER_KEY)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", MASTER_KEY)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
 
 def test_an_unauthenticated_caller_is_served(monkeypatch, guarded):
@@ -325,7 +325,7 @@ def test_a_bad_api_key_does_not_turn_a_public_route_into_a_401(monkeypatch, guar
 
 def test_no_published_model_groups_yields_an_empty_but_coherent_envelope(monkeypatch):
     _publish(monkeypatch, ())
-    monkeypatch.setattr(litellm, "public_model_groups", None)
+    monkeypatch.setattr(hangarllm, "public_model_groups", None)
 
     response = _get()
 
@@ -340,13 +340,13 @@ def test_no_published_model_groups_yields_an_empty_but_coherent_envelope(monkeyp
 
 
 def test_no_router_answers_with_a_problem_rather_than_the_openai_error_shape(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
 
     response = _get()
 
     assert response.status_code == 400
     assert response.headers["content-type"].startswith("application/problem+json")
-    assert response.json()["type"] == "urn:litellm:error:no-llm-router"
+    assert response.json()["type"] == "urn:hangarllm:error:no-llm-router"
 
 
 def test_an_unexpected_router_failure_answers_as_a_problem_not_the_openai_error_shape(monkeypatch):
@@ -354,15 +354,15 @@ def test_an_unexpected_router_failure_answers_as_a_problem_not_the_openai_error_
         def get_model_group_info(self, model_group: str, team_id: str | None = None) -> ModelGroupInfo:
             raise RuntimeError("router blew up")
 
-    monkeypatch.setattr(litellm, "public_model_groups", ["boom"])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", route_entry_points_to_stubs(_Exploding()))
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr(hangarllm, "public_model_groups", ["boom"])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", route_entry_points_to_stubs(_Exploding()))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
 
     response = _get()
 
     assert response.status_code == 500
     assert response.headers["content-type"].startswith("application/problem+json")
-    assert response.json()["type"] == "urn:litellm:error:internal-server-error"
+    assert response.json()["type"] == "urn:hangarllm:error:internal-server-error"
 
 
 @pytest.mark.parametrize("query", ["", "page=1&page_size=2"])
@@ -504,4 +504,4 @@ def test_a_facet_rejects_a_sort_it_does_not_offer(monkeypatch):
 
 @pytest.mark.parametrize("facet", FACET_PATHS)
 def test_a_facet_is_reachable_without_a_key(facet):
-    assert f"{MODEL_HUB_PATH}/{facet}" in LiteLLMRoutes.public_routes.value
+    assert f"{MODEL_HUB_PATH}/{facet}" in HangarLLMRoutes.public_routes.value

@@ -10,12 +10,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
+from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+from hangarllm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
     AmazonAnthropicClaudeConfig,
 )
-from litellm.llms.bedrock.common_utils import get_anthropic_beta_from_headers
-from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
+from hangarllm.llms.bedrock.common_utils import get_anthropic_beta_from_headers
+from hangarllm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
     AmazonAnthropicClaudeMessagesConfig,
 )
 
@@ -58,7 +58,7 @@ class TestAnthropicBetaHeaderSupport:
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "Test"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers=headers,
         )
 
@@ -101,7 +101,7 @@ class TestAnthropicBetaHeaderSupport:
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "Test"}],
             anthropic_messages_optional_request_params={"max_tokens": 100},
-            litellm_params={},
+            hangarllm_params={},
             headers=headers,
         )
 
@@ -175,7 +175,7 @@ class TestAnthropicBetaHeaderSupport:
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "Test"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers=headers,
         )
 
@@ -210,7 +210,7 @@ class TestAnthropicBetaHeaderSupport:
             model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
             messages=messages,
             anthropic_messages_optional_request_params={"max_tokens": 100},
-            litellm_params={},
+            hangarllm_params={},
             headers=headers,
         )
 
@@ -251,7 +251,7 @@ class TestAnthropicBetaHeaderSupport:
             model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers=headers,
         )
 
@@ -288,7 +288,7 @@ class TestAnthropicBetaHeaderSupport:
             model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
             messages=messages,
             anthropic_messages_optional_request_params={"max_tokens": 100},
-            litellm_params={},
+            hangarllm_params={},
             headers=headers,
         )
 

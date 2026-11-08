@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-import litellm
-from litellm import Router
+import hangarllm
+from hangarllm import Router
 
 
 class TestInitializeInteractionsEndpoints:
@@ -19,7 +19,7 @@ class TestInitializeInteractionsEndpoints:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "gpt-4"},
+                    "hangarllm_params": {"model": "gpt-4"},
                 }
             ]
         )
@@ -49,7 +49,7 @@ class TestInitializeManagedAgentsEndpoints:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "gpt-4"},
+                    "hangarllm_params": {"model": "gpt-4"},
                 }
             ]
         )
@@ -75,8 +75,8 @@ async def test_interaction_endpoints_default_the_provider_to_gemini(
     monkeypatch: pytest.MonkeyPatch, request_kwargs: dict[str, str], provider: str
 ) -> None:
     provider_call = AsyncMock(return_value={"result": "success"})
-    monkeypatch.setattr(litellm.interactions, "aget", provider_call)
-    router = Router(model_list=[{"model_name": "gpt-4", "litellm_params": {"model": "gpt-4"}}])
+    monkeypatch.setattr(hangarllm.interactions, "aget", provider_call)
+    router = Router(model_list=[{"model_name": "gpt-4", "hangarllm_params": {"model": "gpt-4"}}])
 
     result = await router.aget_interaction(interaction_id="test-id", **request_kwargs)
 
@@ -91,8 +91,8 @@ async def test_agent_only_interaction_does_not_send_the_agent_name_as_the_model(
 ) -> None:
     """Managed agent interactions must not pass agent name as model to the SDK."""
     provider_call = AsyncMock(return_value={"id": "int-1"})
-    monkeypatch.setattr(litellm.interactions, "acreate", provider_call)
-    router = Router(model_list=[{"model_name": "openai/*", "litellm_params": {"model": "gpt-4"}}])
+    monkeypatch.setattr(hangarllm.interactions, "acreate", provider_call)
+    router = Router(model_list=[{"model_name": "openai/*", "hangarllm_params": {"model": "gpt-4"}}])
 
     result = await router.acreate_interaction(
         agent="mqy-custom-slides-agent", model="mqy-custom-slides-agent", input="hello"
@@ -114,7 +114,7 @@ async def test_managed_agent_endpoints_default_the_provider_to_gemini(
     monkeypatch: pytest.MonkeyPatch, request_kwargs: dict[str, str], provider: str
 ) -> None:
     provider_call = AsyncMock(return_value={"agents": []})
-    monkeypatch.setattr(litellm.interactions.agents, "alist", provider_call)
+    monkeypatch.setattr(hangarllm.interactions.agents, "alist", provider_call)
     router = Router(model_list=[])
 
     result = await router.alist_agents(**request_kwargs)

@@ -100,7 +100,7 @@ def add_upstream_authorization(gateway: Gateway, peer: McpPeer, key: str, identi
 
 def list_tools_status(target: Gateway, key: str, identity: str) -> int:
     return target.client.get(
-        "/mcp-rest/tools/list", headers={"x-litellm-api-key": key}, params={"server_id": identity}
+        "/mcp-rest/tools/list", headers={"x-hangarllm-api-key": key}, params={"server_id": identity}
     ).status_code
 
 
@@ -130,7 +130,7 @@ def assert_precondition_failed(gateway: Gateway, key: str, identity: str, *missi
 def stored_user_ids(identity: str) -> tuple[JsonValue, ...]:
     return tuple(
         row["user_id"]
-        for row in read_rows('SELECT user_id FROM "LiteLLM_MCPUserEnvVars" WHERE server_id = %s', (identity,))
+        for row in read_rows('SELECT user_id FROM "HangarLLM_MCPUserEnvVars" WHERE server_id = %s', (identity,))
     )
 
 

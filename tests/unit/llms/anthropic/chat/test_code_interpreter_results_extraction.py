@@ -6,16 +6,16 @@ and mock end-to-end streaming integration.
 
 from unittest.mock import MagicMock
 
-from litellm.llms.anthropic.chat.handler import ModelResponseIterator
-from litellm.main import stream_chunk_builder
-from litellm.responses.litellm_completion_transformation.transformation import (
-    LiteLLMCompletionResponsesConfig,
+from hangarllm.llms.anthropic.chat.handler import ModelResponseIterator
+from hangarllm.main import stream_chunk_builder
+from hangarllm.responses.hangarllm_completion_transformation.transformation import (
+    HangarLLMCompletionResponsesConfig,
 )
-from litellm.types.responses.main import (
+from hangarllm.types.responses.main import (
     OutputCodeInterpreterCall,
     OutputCodeInterpreterCallLog,
 )
-from litellm.types.utils import Choices, Message, ModelResponse
+from hangarllm.types.utils import Choices, Message, ModelResponse
 
 
 def _make_model_response(code_interpreter_results=None, provider_specific_fields=None):
@@ -51,7 +51,7 @@ def test_extract_tool_result_output_items_from_pydantic_objects():
         ),
     ]
     resp = _make_model_response(code_interpreter_results=items)
-    result = LiteLLMCompletionResponsesConfig._extract_tool_result_output_items(resp)
+    result = HangarLLMCompletionResponsesConfig._extract_tool_result_output_items(resp)
     assert len(result) == 2
     assert result[0].id == "srvtoolu_01AAA"
     assert result[1].id == "srvtoolu_01BBB"
@@ -71,7 +71,7 @@ def test_extract_tool_result_output_items_from_dicts():
         },
     ]
     resp = _make_model_response(code_interpreter_results=items)
-    result = LiteLLMCompletionResponsesConfig._extract_tool_result_output_items(resp)
+    result = HangarLLMCompletionResponsesConfig._extract_tool_result_output_items(resp)
     assert len(result) == 1
     assert isinstance(result[0], OutputCodeInterpreterCall)
     assert result[0].id == "srvtoolu_01AAA"
@@ -80,7 +80,7 @@ def test_extract_tool_result_output_items_from_dicts():
 def test_extract_tool_result_output_items_empty():
     """No code_interpreter_results → empty list."""
     resp = _make_model_response()
-    result = LiteLLMCompletionResponsesConfig._extract_tool_result_output_items(resp)
+    result = HangarLLMCompletionResponsesConfig._extract_tool_result_output_items(resp)
     assert result == []
 
 
@@ -90,7 +90,7 @@ def test_extract_tool_result_output_items_no_provider_specific_fields():
     choice = Choices(index=0, message=msg, finish_reason="stop")
     resp = ModelResponse()
     resp.choices = [choice]
-    result = LiteLLMCompletionResponsesConfig._extract_tool_result_output_items(resp)
+    result = HangarLLMCompletionResponsesConfig._extract_tool_result_output_items(resp)
     assert result == []
 
 
@@ -136,7 +136,7 @@ def test_in_place_substitution_preserves_ordering():
     responses_output = [msg_item, fc_exec1, fc_regular, fc_exec2]
 
     # Apply the same logic as _transform_chat_completion_choices_to_responses_output
-    tool_result_items = LiteLLMCompletionResponsesConfig._extract_tool_result_output_items(resp)
+    tool_result_items = HangarLLMCompletionResponsesConfig._extract_tool_result_output_items(resp)
     if tool_result_items:
         result_by_id = {(item.get("id") if isinstance(item, dict) else item.id): item for item in tool_result_items}
         replaced_ids = set(result_by_id.keys())
@@ -247,7 +247,7 @@ def test_end_to_end_streaming_chunks_to_code_interpreter_output():
     assert code_results[0]["code"] == "echo e2e_test"
 
     # Step 3: Extract via _extract_tool_result_output_items (Responses API layer)
-    tool_result_items = LiteLLMCompletionResponsesConfig._extract_tool_result_output_items(assembled)
+    tool_result_items = HangarLLMCompletionResponsesConfig._extract_tool_result_output_items(assembled)
     assert len(tool_result_items) == 1
     item = tool_result_items[0]
     # Items are reconstructed as Pydantic OutputCodeInterpreterCall objects

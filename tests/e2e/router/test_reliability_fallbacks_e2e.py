@@ -5,7 +5,7 @@ Each test registers a primary deployment that fails (an unreachable base URL, or
 a 1ms deadline) and calls it with a `router_settings_override` mapping it to the
 real `gpt-5.5`. The proof the fallback fired is twofold: the response is a
 completion from `gpt-5.5`, and the proxy reports at least one attempted fallback
-in the x-litellm-attempted-fallbacks header. Empty content is accepted only when
+in the x-hangarllm-attempted-fallbacks header. Empty content is accepted only when
 `finish_reason == "length"` and the response billed completion tokens, since
 gpt-5.5 counts reasoning against max_tokens and can consume the whole budget
 before emitting any text; a fallback that produced nothing at all still fails.
@@ -72,9 +72,9 @@ def _assert_served_by_fallback(resp: StreamingResponse) -> None:
         f"content is only acceptable when the budget was spent on non-visible reasoning "
         f"(body={resp.body[:300]})"
     )
-    attempted = resp.headers.get("x-litellm-attempted-fallbacks")
-    assert attempted is not None, "response is missing the x-litellm-attempted-fallbacks header"
-    assert int(attempted) >= 1, f"x-litellm-attempted-fallbacks should be >= 1, got {attempted!r}"
+    attempted = resp.headers.get("x-hangarllm-attempted-fallbacks")
+    assert attempted is not None, "response is missing the x-hangarllm-attempted-fallbacks header"
+    assert int(attempted) >= 1, f"x-hangarllm-attempted-fallbacks should be >= 1, got {attempted!r}"
 
 
 AZURE_FILTER_ATTEMPTS: Final = 3

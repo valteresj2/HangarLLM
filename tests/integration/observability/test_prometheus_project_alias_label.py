@@ -20,10 +20,10 @@ from tests.integration._support.wire import Reply, Request, Wire, wire_server
 _MODEL: Final = "prometheus-project-alias-model"
 _RPM: Final = 60
 _TPM: Final = 10000
-_ALLOWED: Final = "litellm_project_model_rate_limit_allowed_metric"
-_USED: Final = "litellm_project_model_rate_limit_used_metric"
-_TOTAL_REQUESTS: Final = "litellm_proxy_total_requests_metric_total"
-_LATENCY_COUNT: Final = "litellm_request_total_latency_metric_count"
+_ALLOWED: Final = "hangarllm_project_model_rate_limit_allowed_metric"
+_USED: Final = "hangarllm_project_model_rate_limit_used_metric"
+_TOTAL_REQUESTS: Final = "hangarllm_proxy_total_requests_metric_total"
+_LATENCY_COUNT: Final = "hangarllm_request_total_latency_metric_count"
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,7 +55,7 @@ def _config(directory: Path, upstream: Wire) -> Path:
     configuration["model_list"] = [
         {
             "model_name": _MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "sk-fixture",
                 "api_base": f"{upstream.url}/v1",
@@ -64,8 +64,8 @@ def _config(directory: Path, upstream: Wire) -> Path:
             },
         }
     ]
-    configuration["litellm_settings"]["callbacks"] = ["prometheus"]
-    configuration["litellm_settings"]["custom_prometheus_metadata_labels"] = ["project_alias"]
+    configuration["hangarllm_settings"]["callbacks"] = ["prometheus"]
+    configuration["hangarllm_settings"]["custom_prometheus_metadata_labels"] = ["project_alias"]
     configuration.setdefault("router_settings", {})["num_retries"] = 0
     path: Final = directory / "prometheus-project-alias-label.yaml"
     path.write_text(yaml.safe_dump(configuration))

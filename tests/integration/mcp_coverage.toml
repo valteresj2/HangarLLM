@@ -4,11 +4,11 @@ core = "sysmon"
 parallel = true
 relative_files = true
 include = [
-    "litellm/proxy/mcp_server/*",
-    "litellm/proxy/management_endpoints/mcp_management_endpoints.py",
-    "litellm/responses/mcp/*",
-    "litellm/mcp_client/*",
-    "litellm/proxy/guardrails/guardrail_hooks/mcp_*",
+    "hangarllm/proxy/mcp_server/*",
+    "hangarllm/proxy/management_endpoints/mcp_management_endpoints.py",
+    "hangarllm/responses/mcp/*",
+    "hangarllm/mcp_client/*",
+    "hangarllm/proxy/guardrails/guardrail_hooks/mcp_*",
 ]
 
 [tool.coverage.report]

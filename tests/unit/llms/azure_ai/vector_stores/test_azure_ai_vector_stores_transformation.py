@@ -5,13 +5,13 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.azure_ai.vector_stores.transformation import AzureAIVectorStoreConfig
-from litellm.types.utils import EmbeddingResponse
-from litellm.vector_stores import (
+import hangarllm
+from hangarllm.llms.azure_ai.vector_stores.transformation import AzureAIVectorStoreConfig
+from hangarllm.types.utils import EmbeddingResponse
+from hangarllm.vector_stores import (
     asearch as vector_store_asearch,
 )
-from litellm.vector_stores import (
+from hangarllm.vector_stores import (
     search as vector_store_search,
 )
 
@@ -21,7 +21,7 @@ from litellm.vector_stores import (
 async def test_basic_search_vector_store(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, sync_mode
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     query_vector = [0.5, -0.25, 0.125]
     search_url = (
         "https://azure-kb-search.search.windows.net/indexes/my-vector-index/docs/search?api-version=2024-07-01"
@@ -55,8 +55,8 @@ async def test_basic_search_vector_store(
         "vector_store_id": "my-vector-index",
         "custom_llm_provider": "azure_ai",
         "azure_search_service_name": "azure-kb-search",
-        "litellm_embedding_model": "azure_ai/text-embedding-3-large",
-        "litellm_embedding_config": {
+        "hangarllm_embedding_model": "azure_ai/text-embedding-3-large",
+        "hangarllm_embedding_config": {
             "api_base": "https://azure-embed.example.com",
             "api_key": "mock_azure_ai_api_key",
         },
@@ -111,9 +111,9 @@ def _transform_kwargs(executor):
         "query": "what is azure search?",
         "vector_store_search_optional_params": {"top_k": 2},
         "api_base": "https://azure-kb-search.search.windows.net",
-        "litellm_logging_obj": logging_obj,
-        "litellm_params": {
-            "litellm_embedding_model": "multilingual-e5-large",
+        "hangarllm_logging_obj": logging_obj,
+        "hangarllm_params": {
+            "hangarllm_embedding_model": "multilingual-e5-large",
             "azure_search_vector_field": "embedding",
         },
         "embedding_executor": executor,
@@ -139,7 +139,7 @@ async def test_transform_uses_injected_executor_without_embedding_config(respx_m
         {"vector": ALIAS_QUERY_VECTOR, "fields": "embedding", "kind": "vector", "k": 2}
     ]
     assert sync_body["top"] == 2
-    logging_details = transform_kwargs["litellm_logging_obj"].model_call_details
+    logging_details = transform_kwargs["hangarllm_logging_obj"].model_call_details
     assert logging_details["embedding_model"] == "multilingual-e5-large"
     assert logging_details["top_k"] == 2
 
@@ -160,9 +160,9 @@ def test_transform_falls_back_to_sdk_embedding_without_executor(
         )
     )
     transform_kwargs = _transform_kwargs(None)
-    transform_kwargs["litellm_params"] = {
-        "litellm_embedding_model": "openai/text-embedding-3-small",
-        "litellm_embedding_config": {"api_base": "https://embedding.example/v1", "api_key": "store-key"},
+    transform_kwargs["hangarllm_params"] = {
+        "hangarllm_embedding_model": "openai/text-embedding-3-small",
+        "hangarllm_embedding_config": {"api_base": "https://embedding.example/v1", "api_key": "store-key"},
     }
 
     _, body = AzureAIVectorStoreConfig().transform_search_vector_store_request(**transform_kwargs)
@@ -176,7 +176,7 @@ def test_transform_falls_back_to_sdk_embedding_without_executor(
 
 def test_transform_requires_embedding_model():
     transform_kwargs = _transform_kwargs(RecordingEmbeddingExecutor(ALIAS_EMBEDDING_RESPONSE))
-    transform_kwargs["litellm_params"] = {"litellm_embedding_config": {"api_key": "store-key"}}
+    transform_kwargs["hangarllm_params"] = {"hangarllm_embedding_config": {"api_key": "store-key"}}
 
-    with pytest.raises(ValueError, match="litellm_embedding_model is required"):
+    with pytest.raises(ValueError, match="hangarllm_embedding_model is required"):
         AzureAIVectorStoreConfig().transform_search_vector_store_request(**transform_kwargs)

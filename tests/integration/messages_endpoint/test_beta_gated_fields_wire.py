@@ -56,7 +56,7 @@ def respond(request: Request) -> Reply:
 def deployment(name: str, model: str, api_base: str, drop_params: bool = False) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": model,
             "api_base": api_base,
             "api_key": f"synthetic-{name}-key",
@@ -86,7 +86,7 @@ def write_config(directory: Path, wire_url: str) -> Path:
                     ),
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                 },
             }
@@ -133,7 +133,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
         owned_proxy(
             shared,
             directory,
-            {"LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS": "true"},
+            {"HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS": "true"},
             config=write_config(directory, wire.url),
             workers=1,
         ) as gateway,

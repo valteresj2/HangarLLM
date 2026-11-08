@@ -552,13 +552,13 @@ def forget_mcp(gateway: Gateway, identity: str) -> None:
 def delete_mcp(gateway: Gateway, identity: str) -> None:
     response: Final = gateway.request("DELETE", f"/v1/mcp/server/{identity}")
     assert response.status_code == 202, response.text
-    assert read_rows('SELECT server_id FROM "LiteLLM_MCPServerTable" WHERE server_id = %s', (identity,)) == []
+    assert read_rows('SELECT server_id FROM "HangarLLM_MCPServerTable" WHERE server_id = %s', (identity,)) == []
 
 
 def listed_tools(gateway: Gateway, key: str, identity: str | None = None) -> dict[str, dict[str, object]]:
     response: Final = gateway.client.get(
         "/mcp-rest/tools/list",
-        headers={"x-litellm-api-key": key},
+        headers={"x-hangarllm-api-key": key},
         params={"server_id": identity} if identity else None,
     )
     assert response.status_code == 200, response.text
@@ -589,7 +589,7 @@ def call_tool(
 ) -> httpx.Response:
     return gateway.client.post(
         "/mcp-rest/tools/call",
-        headers={"x-litellm-api-key": key, **(headers or {})},
+        headers={"x-hangarllm-api-key": key, **(headers or {})},
         json={"server_id": identity, "name": name, "arguments": arguments},
     )
 
@@ -677,7 +677,7 @@ class McpCaller:
 
     def _headers(self) -> dict[str, str]:
         return {
-            **({"x-litellm-api-key": self.key} if self.key is not None else {}),
+            **({"x-hangarllm-api-key": self.key} if self.key is not None else {}),
             "Accept": "application/json, text/event-stream",
             **self.headers,
         }
@@ -769,7 +769,7 @@ def official_client_outcomes(
 ) -> tuple[Outcome, Outcome]:
     """List then call through the official MCP client session, returning both outcomes."""
     url: Final = str(gateway.client.base_url).rstrip("/") + path
-    headers: Final = {"x-litellm-api-key": key}
+    headers: Final = {"x-hangarllm-api-key": key}
 
     async def run() -> tuple[Outcome, Outcome]:
         transport: Final = (

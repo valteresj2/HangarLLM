@@ -60,17 +60,17 @@ def _write_config(
                 "model_list": [
                     {
                         "model_name": model,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": f"openai/{model}",
                             "api_base": f"{upstream_url}/v1",
                             "api_key": "integration-provider-key",
                         },
                     }
                 ],
-                "litellm_settings": {"callbacks": list(callbacks)},
+                "hangarllm_settings": {"callbacks": list(callbacks)},
                 "callback_settings": callback_settings,
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                 },
             }

@@ -12,7 +12,7 @@ from typing import Any, Dict
 
 from mcp.types import TextContent, ToolResultContent
 
-from litellm.proxy.mcp_server.sampling_handler import (
+from hangarllm.proxy.mcp_server.sampling_handler import (
     _convert_mcp_messages_to_openai,
     _convert_single_content,
 )
@@ -129,7 +129,7 @@ class TestConvertMcpMessagesMultiTurnTools:
         a proper tool_calls array, not a text stub."""
         messages = [
             _sampling_msg("assistant", _tool_use(
-                name="search", tool_id="call_1", input_data={"query": "LiteLLM"}
+                name="search", tool_id="call_1", input_data={"query": "HangarLLM"}
             )),
         ]
         result = _convert_mcp_messages_to_openai(messages)

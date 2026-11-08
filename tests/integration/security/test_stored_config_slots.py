@@ -2,7 +2,7 @@
 
 Slots: A1 (virtual key raw value), A2 (master key), B2 (deployment ``api_key`` via ``/model/new``, kept through a
 partial ``POST /model/update`` and rotated through ``PATCH /model/{id}/update``),
-B3 (``/credentials`` entry named by ``litellm_credential_name``), B4 (deployment
+B3 (``/credentials`` entry named by ``hangarllm_credential_name``), B4 (deployment
 ``aws_secret_access_key``), B4v and B4t (Vertex service-account JSON and the access token minted
 for it), B5 (team ``model_config`` credential override), E1 (guardrail ``api_key`` from config),
 G1 and G1b (sink credentials from env).
@@ -64,7 +64,7 @@ from integration.security._sweeps import (
     sweep_all,
     sweep_sink,
 )
-from litellm.types.guardrails import (
+from hangarllm.types.guardrails import (
     GuardrailInfoResponse,
     ListGuardrailsResponse,
 )
@@ -72,7 +72,7 @@ from litellm.types.guardrails import (
 OUTCOMES: Final = ("success", "provider_4xx")
 BEDROCK_MODEL: Final = "bedrock/converse/anthropic.claude-haiku-4-5-20251001-v1:0"
 AWS_ACCESS_KEY: Final = "AKIACANARYINTEGRATION"
-GUARDRAIL_PATH: Final = "/beta/litellm_basic_guardrail_api"
+GUARDRAIL_PATH: Final = "/beta/hangarllm_basic_guardrail_api"
 GUARDRAIL_SINK: Final = "guardrail"
 LANGFUSE_SINK: Final = "langfuse"
 LANGFUSE_PUBLIC_KEY: Final = "pk-lf-canary-integration"
@@ -95,7 +95,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
     """Shared proxy for slots created through the API, with team model_config overrides on."""
 
     def configure(config: dict[str, object], _: str) -> None:
-        settings: Final = config["litellm_settings"]
+        settings: Final = config["hangarllm_settings"]
         assert isinstance(settings, dict)
         settings["enable_model_config_credential_overrides"] = True
 
@@ -118,11 +118,11 @@ def _caller(
     return Caller(team, user, scenario.key(**fields))
 
 
-def _model(scenario: Scenario, litellm_params: Mapping[str, object]) -> tuple[str, str]:
+def _model(scenario: Scenario, hangarllm_params: Mapping[str, object]) -> tuple[str, str]:
     """A database deployment created through ``/model/new``; returns (model name, model id)."""
     name: Final = f"canary-{uuid.uuid4().hex}"
     created: Final = scenario.gateway.post(
-        "/model/new", {"model_name": name, "litellm_params": dict(litellm_params), "model_info": {}}
+        "/model/new", {"model_name": name, "hangarllm_params": dict(hangarllm_params), "model_info": {}}
     )
     identity: Final = string_value(object_value(created["model_info"])["id"])
     scenario.cleanups.callback(scenario.delete_model, identity)
@@ -153,7 +153,7 @@ def _chat(
     )
     assert response.status_code == (200 if outcome == "success" else 400), response.text
     request_id: Final = (
-        string_value(response.json()["id"]) if outcome == "success" else response.headers["x-litellm-call-id"]
+        string_value(response.json()["id"]) if outcome == "success" else response.headers["x-hangarllm-call-id"]
     )
     return response, request_id
 
@@ -226,7 +226,7 @@ def _finish(
     assert_marker_seen(
         report,
         {
-            "S1": "LiteLLM_SpendLogs.proxy_server_request",
+            "S1": "HangarLLM_SpendLogs.proxy_server_request",
             "S2": f"GET /spend/logs/ui/{request_id} as admin -> 200",
             "S4": f"{GENERIC_SINK}[",
         },
@@ -277,11 +277,11 @@ def test_virtual_key_raw_value_authenticates_and_is_stored_only_as_a_hash(
         caller: Final = _caller(scenario, models=[CONFIG_MODEL], key=a1.value)
         assert caller.key == a1.value
         digest: Final = hashlib.sha256(a1.value.encode()).hexdigest()
-        _assert_stored_without_canary('SELECT token FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,), a1)
+        _assert_stored_without_canary('SELECT token FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,), a1)
         response, request_id = _chat(rig.proxy, a1.value, CONFIG_MODEL, "A1", marker, outcome)
         assert len(rig.provider.carrying(marker.value)) == 1, "Positive control: the A1 key did not authenticate"
         spend: Final = eventually(
-            lambda: read_rows('SELECT api_key FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (request_id,)),
+            lambda: read_rows('SELECT api_key FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (request_id,)),
             lambda rows: len(rows) == 1,
             seconds=70,
         )
@@ -311,7 +311,7 @@ def test_master_key_from_env_authorizes_admin_calls_only(
     started: Final = datetime.now(UTC)
     a2: Final = canary("A2")
     marker: Final = canary(MARKER)
-    with canary_rig(tmp_path, environment={"LITELLM_MASTER_KEY": a2.value}) as owned:
+    with canary_rig(tmp_path, environment={"HANGARLLM_MASTER_KEY": a2.value}) as owned:
         admin: Final = owned.proxy
         assert admin.key == a2.value
         with admin.scenario() as scenario:
@@ -349,7 +349,7 @@ def test_model_api_key_added_through_the_api_reaches_only_the_provider(
             scenario, {"model": "openai/gpt-4o-mini", "api_base": rig.provider.url + "/v1", "api_key": b2.value}
         )
         _assert_stored_without_canary(
-            """SELECT litellm_params->>'api_key' FROM "LiteLLM_ProxyModelTable" WHERE model_id=%s""", (model_id,), b2
+            """SELECT hangarllm_params->>'api_key' FROM "HangarLLM_ProxyModelTable" WHERE model_id=%s""", (model_id,), b2
         )
         caller: Final = _caller(scenario, models=[model])
         response, request_id = _chat(rig.proxy, caller.key, model, "B2", marker, outcome)
@@ -365,25 +365,25 @@ def test_model_api_key_added_through_the_api_reaches_only_the_provider(
             caller=caller,
             ids={"model_id": model_id, "model": model},
             detail_routes=(f"/credentials/by_model/{model_id}",),
-            reads=_reads(rig.proxy, {"/model/info": {"litellm_model_id": model_id}}),
+            reads=_reads(rig.proxy, {"/model/info": {"hangarllm_model_id": model_id}}),
             context=f"slot B2, {outcome}",
             since=started,
         )
 
 
-def _stored_litellm_params(model_id: str) -> dict[str, object]:
-    rows: Final = read_rows('SELECT litellm_params FROM "LiteLLM_ProxyModelTable" WHERE model_id=%s', (model_id,))
+def _stored_hangarllm_params(model_id: str) -> dict[str, object]:
+    rows: Final = read_rows('SELECT hangarllm_params FROM "HangarLLM_ProxyModelTable" WHERE model_id=%s', (model_id,))
     assert len(rows) == 1, rows
-    return object_value(rows[0]["litellm_params"])
+    return object_value(rows[0]["hangarllm_params"])
 
 
 class _ServedParams(BaseModel):
     model_name: str
-    litellm_params: dict[str, JsonValue]
+    hangarllm_params: dict[str, JsonValue]
 
 
 def _served_params(gateway: Gateway, model_id: str) -> _ServedParams:
-    response: Final = gateway.request("GET", "/model/info", params={"litellm_model_id": model_id})
+    response: Final = gateway.request("GET", "/model/info", params={"hangarllm_model_id": model_id})
     assert response.status_code == 200, response.text
     entries: Final = response.json()["data"]
     assert isinstance(entries, list) and len(entries) == 1, response.text
@@ -397,7 +397,7 @@ def _served_openai_params(api_base: str, **changed: JsonValue) -> dict[str, Json
         "allow_client_keepalive_override": False,
         "merge_reasoning_content_in_choices": False,
         "use_in_pass_through": False,
-        "use_litellm_proxy": False,
+        "use_hangarllm_proxy": False,
         "use_xai_oauth": False,
         **changed,
     }
@@ -419,15 +419,15 @@ def test_partial_legacy_model_update_keeps_the_stored_api_key_usable(
     api_base: Final = rig.provider.url + "/v1"
     with rig.proxy.scenario() as scenario:
         model, model_id = _model(scenario, {"model": "openai/gpt-4o-mini", "api_base": api_base, "api_key": b2.value})
-        stored_before: Final = _stored_litellm_params(model_id)
+        stored_before: Final = _stored_hangarllm_params(model_id)
         updated: Final = rig.proxy.request(
             "POST",
             "/model/update",
-            {"model_name": model, "model_info": {"id": model_id}, "litellm_params": partial_params},
+            {"model_name": model, "model_info": {"id": model_id}, "hangarllm_params": partial_params},
         )
         assert updated.status_code == 200, updated.text
         assert find_canary(updated.text, (b2,)) == (), f"/model/update echoed the stored key: {updated.text}"
-        stored_after: Final = _stored_litellm_params(model_id)
+        stored_after: Final = _stored_hangarllm_params(model_id)
         assert stored_after == {**stored_before, **expected_params}, (
             "A partial update rewrote stored params it was not sent, the api_key ciphertext included"
         )
@@ -435,14 +435,14 @@ def test_partial_legacy_model_update_keeps_the_stored_api_key_usable(
             (key, type(value), value) for key, value in expected_params.items()
         ), stored_after
         _assert_stored_without_canary(
-            """SELECT litellm_params->>'api_key' FROM "LiteLLM_ProxyModelTable" WHERE model_id=%s""", (model_id,), b2
+            """SELECT hangarllm_params->>'api_key' FROM "HangarLLM_ProxyModelTable" WHERE model_id=%s""", (model_id,), b2
         )
         served_params: Final = _served_params(rig.proxy, model_id)
         assert served_params == _ServedParams(
-            model_name=model, litellm_params=_served_openai_params(api_base, **expected_params)
+            model_name=model, hangarllm_params=_served_openai_params(api_base, **expected_params)
         )
         assert tuple(
-            (key, type(served_params.litellm_params[key]), served_params.litellm_params[key])
+            (key, type(served_params.hangarllm_params[key]), served_params.hangarllm_params[key])
             for key in expected_params
         ) == tuple((key, type(value), value) for key, value in expected_params.items()), served_params
         caller: Final = _caller(scenario, models=[model])
@@ -465,24 +465,24 @@ def test_patched_model_api_key_rotates_the_provider_bearer_and_is_never_stored_o
         model, model_id = _model(
             scenario, {"model": "openai/gpt-4o-mini", "api_base": api_base, "api_key": original.value}
         )
-        stored_before: Final = _stored_litellm_params(model_id)
+        stored_before: Final = _stored_hangarllm_params(model_id)
         patched: Final = rig.proxy.request(
-            "PATCH", f"/model/{model_id}/update", {"litellm_params": {"api_key": rotated.value}}
+            "PATCH", f"/model/{model_id}/update", {"hangarllm_params": {"api_key": rotated.value}}
         )
         assert patched.status_code == 200, patched.text
         assert find_canary(patched.text, (original, rotated)) == (), f"PATCH echoed a provider key: {patched.text}"
         _assert_stored_without_canary(
-            """SELECT litellm_params->>'api_key' FROM "LiteLLM_ProxyModelTable" WHERE model_id=%s""",
+            """SELECT hangarllm_params->>'api_key' FROM "HangarLLM_ProxyModelTable" WHERE model_id=%s""",
             (model_id,),
             rotated,
         )
-        stored_after: Final = _stored_litellm_params(model_id)
+        stored_after: Final = _stored_hangarllm_params(model_id)
         assert stored_after["api_key"] != stored_before["api_key"], "The rotated key was never written"
         assert {k: v for k, v in stored_after.items() if k != "api_key"} == {
             k: v for k, v in stored_before.items() if k != "api_key"
         }
         assert _served_params(rig.proxy, model_id) == _ServedParams(
-            model_name=model, litellm_params=_served_openai_params(api_base)
+            model_name=model, hangarllm_params=_served_openai_params(api_base)
         )
         caller: Final = _caller(scenario, models=[model])
         response, request_id = _chat(rig.proxy, caller.key, model, "B2", marker, "success")
@@ -500,7 +500,7 @@ def test_patched_model_api_key_rotates_the_provider_bearer_and_is_never_stored_o
             caller=caller,
             ids={"model_id": model_id, "model": model},
             detail_routes=(f"/credentials/by_model/{model_id}",),
-            reads=_reads(rig.proxy, {"/model/info": {"litellm_model_id": model_id}}),
+            reads=_reads(rig.proxy, {"/model/info": {"hangarllm_model_id": model_id}}),
             context="slot B2 rotated through PATCH",
             since=started,
         )
@@ -515,7 +515,7 @@ def test_named_credential_reaches_only_the_provider(rig: Rig, outcome: str, requ
     with rig.proxy.scenario() as scenario:
         credential: Final = _credential(scenario, {"api_key": b3.value})
         _assert_stored_without_canary(
-            """SELECT credential_values->>'api_key' FROM "LiteLLM_CredentialsTable" WHERE credential_name=%s""",
+            """SELECT credential_values->>'api_key' FROM "HangarLLM_CredentialsTable" WHERE credential_name=%s""",
             (credential,),
             b3,
         )
@@ -524,7 +524,7 @@ def test_named_credential_reaches_only_the_provider(rig: Rig, outcome: str, requ
             {
                 "model": "openai/gpt-4o-mini",
                 "api_base": rig.provider.url + "/v1",
-                "litellm_credential_name": credential,
+                "hangarllm_credential_name": credential,
             },
         )
         caller: Final = _caller(scenario, models=[model])
@@ -541,7 +541,7 @@ def test_named_credential_reaches_only_the_provider(rig: Rig, outcome: str, requ
             caller=caller,
             ids={"model_id": model_id, "model": model, "credential_name": credential},
             detail_routes=(f"/credentials/by_name/{credential}", f"/credentials/by_model/{model_id}"),
-            reads=_reads(rig.proxy, {"/model/info": {"litellm_model_id": model_id}}),
+            reads=_reads(rig.proxy, {"/model/info": {"hangarllm_model_id": model_id}}),
             context=f"slot B3, {outcome}",
             since=started,
         )
@@ -606,7 +606,7 @@ def test_aws_secret_key_signs_the_provider_request_and_stays_encrypted(
             },
         )
         _assert_stored_without_canary(
-            """SELECT litellm_params->>'aws_secret_access_key' FROM "LiteLLM_ProxyModelTable" WHERE model_id=%s""",
+            """SELECT hangarllm_params->>'aws_secret_access_key' FROM "HangarLLM_ProxyModelTable" WHERE model_id=%s""",
             (model_id,),
             b4,
         )
@@ -627,7 +627,7 @@ def test_aws_secret_key_signs_the_provider_request_and_stays_encrypted(
             caller=caller,
             ids={"model_id": model_id, "model": model},
             detail_routes=(f"/credentials/by_model/{model_id}",),
-            reads=_reads(rig.proxy, {"/model/info": {"litellm_model_id": model_id}}),
+            reads=_reads(rig.proxy, {"/model/info": {"hangarllm_model_id": model_id}}),
             extra_sinks={"bedrock": bedrock.requests},
             context=f"slot B4, {outcome}",
             since=started,
@@ -715,7 +715,7 @@ def test_vertex_service_account_and_its_token_reach_only_the_token_endpoint_and_
             },
         )
         _assert_stored_without_canary(
-            """SELECT litellm_params->>'vertex_credentials' FROM "LiteLLM_ProxyModelTable" WHERE model_id=%s""",
+            """SELECT hangarllm_params->>'vertex_credentials' FROM "HangarLLM_ProxyModelTable" WHERE model_id=%s""",
             (model_id,),
             b4v,
         )
@@ -741,7 +741,7 @@ def test_vertex_service_account_and_its_token_reach_only_the_token_endpoint_and_
             caller=caller,
             ids={"model_id": model_id, "model": model},
             detail_routes=(f"/credentials/by_model/{model_id}",),
-            reads=_reads(rig.proxy, {"/model/info": {"litellm_model_id": model_id}}),
+            reads=_reads(rig.proxy, {"/model/info": {"hangarllm_model_id": model_id}}),
             extra_sinks={"vertex": lambda: tuple(entry for entry in vertex.requests() if entry.target != TOKEN_PATH)},
             own_headers={"vertex": ("authorization", "B4t")},
             context=f"slots B4v and B4t, {outcome}",
@@ -761,14 +761,14 @@ def test_team_model_config_credential_override_reaches_only_the_provider(
     with rig.proxy.scenario() as scenario:
         credential: Final = _credential(scenario, {"api_key": b5.value})
         _assert_stored_without_canary(
-            """SELECT credential_values->>'api_key' FROM "LiteLLM_CredentialsTable" WHERE credential_name=%s""",
+            """SELECT credential_values->>'api_key' FROM "HangarLLM_CredentialsTable" WHERE credential_name=%s""",
             (credential,),
             b5,
         )
         caller: Final = _caller(
             scenario,
             models=[CONFIG_MODEL],
-            team_metadata={"model_config": {CONFIG_MODEL: {"openai": {"litellm_credentials": credential}}}},
+            team_metadata={"model_config": {CONFIG_MODEL: {"openai": {"hangarllm_credentials": credential}}}},
         )
         response, request_id = _chat(rig.proxy, caller.key, CONFIG_MODEL, "B5", marker, outcome)
         _bearer(rig, marker, b5)
@@ -825,7 +825,7 @@ def test_config_guardrail_api_key_reaches_only_the_guardrail(
 
         def configure(config: dict[str, object], _: str) -> None:
             config["guardrails"] = [  # rebind-ok: canary_rig's configure hook edits the config it is handed
-                {"guardrail_name": name, "litellm_params": _guardrail_params(wire.url, e1)}
+                {"guardrail_name": name, "hangarllm_params": _guardrail_params(wire.url, e1)}
             ]
 
         with canary_rig(tmp_path, configure=configure) as owned, owned.proxy.scenario() as scenario:
@@ -872,7 +872,7 @@ def test_api_created_guardrail_api_key_is_encrypted_at_rest_and_reaches_only_the
         created_response: Final = rig.proxy.request(
             "POST",
             "/guardrails",
-            {"guardrail": {"guardrail_name": name, "litellm_params": _guardrail_params(wire.url, secret)}},
+            {"guardrail": {"guardrail_name": name, "hangarllm_params": _guardrail_params(wire.url, secret)}},
         )
         assert created_response.status_code == 200, created_response.text
         created: Final = _CreatedGuardrail.model_validate_json(created_response.content)
@@ -884,7 +884,7 @@ def test_api_created_guardrail_api_key_is_encrypted_at_rest_and_reaches_only_the
             assert deleted.status_code == 200, deleted.text
             assert (
                 read_rows(
-                    'SELECT guardrail_id FROM "LiteLLM_GuardrailsTable" WHERE guardrail_id=%s',
+                    'SELECT guardrail_id FROM "HangarLLM_GuardrailsTable" WHERE guardrail_id=%s',
                     (guardrail_id,),
                 )
                 == []
@@ -898,12 +898,12 @@ def test_api_created_guardrail_api_key_is_encrypted_at_rest_and_reaches_only_the
         assert [(item.method, item.target) for item in guardrail_requests] == [("POST", GUARDRAIL_PATH)]
 
         _assert_stored_without_canary(
-            "SELECT litellm_params->>'api_key' FROM \"LiteLLM_GuardrailsTable\" WHERE guardrail_id=%s",
+            "SELECT hangarllm_params->>'api_key' FROM \"HangarLLM_GuardrailsTable\" WHERE guardrail_id=%s",
             (guardrail_id,),
             secret,
         )
         params_rows: Final = read_rows(
-            'SELECT litellm_params::text AS params FROM "LiteLLM_GuardrailsTable" WHERE guardrail_id=%s',
+            'SELECT hangarllm_params::text AS params FROM "HangarLLM_GuardrailsTable" WHERE guardrail_id=%s',
             (guardrail_id,),
         )
         assert len(params_rows) == 1, params_rows
@@ -933,16 +933,16 @@ def test_api_created_guardrail_api_key_is_encrypted_at_rest_and_reaches_only_the
             tuple((item.created_at, item.updated_at) for item in details)
             == ((details[0].created_at, details[0].updated_at),) * 2
         )
-        assert all(item.litellm_params is not None for item in details), tuple(item.text for item in detail_responses)
+        assert all(item.hangarllm_params is not None for item in details), tuple(item.text for item in detail_responses)
         assert (
             tuple(
                 (
-                    item.litellm_params.default_on,
-                    item.litellm_params.api_base,
-                    item.litellm_params.api_key,
+                    item.hangarllm_params.default_on,
+                    item.hangarllm_params.api_base,
+                    item.hangarllm_params.api_key,
                 )
                 for item in details
-                if item.litellm_params is not None
+                if item.hangarllm_params is not None
             )
             == ((True, wire.url, masked_secret),) * 2
         ), tuple(item.text for item in detail_responses)
@@ -1005,7 +1005,7 @@ def test_sink_credentials_from_env_reach_only_their_sink(
     marker: Final = canary(MARKER)
 
     def configure(config: dict[str, object], _: str) -> None:
-        settings: Final = config["litellm_settings"]
+        settings: Final = config["hangarllm_settings"]
         assert isinstance(settings, dict)
         settings.update({"success_callback": ["langfuse"], "failure_callback": ["langfuse"]})
 

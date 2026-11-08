@@ -3,10 +3,10 @@ from unittest.mock import patch
 import pytest
 
 
-from litellm.llms.vercel_ai_gateway.chat.transformation import (
+from hangarllm.llms.vercel_ai_gateway.chat.transformation import (
     VercelAIGatewayConfig,
 )
-from litellm.llms.vercel_ai_gateway.common_utils import VercelAIGatewayException
+from hangarllm.llms.vercel_ai_gateway.common_utils import VercelAIGatewayException
 
 
 def test_vercel_ai_gateway_extra_body_transformation():
@@ -19,7 +19,7 @@ def test_vercel_ai_gateway_extra_body_transformation():
                 "providerOptions": {"gateway": {"order": ["azure", "openai"]}}
             }
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -100,7 +100,7 @@ def test_vercel_ai_gateway_error_class():
 
 def test_vercel_ai_gateway_exception_inheritance():
     """Test that VercelAIGatewayException inherits from BaseLLMException"""
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
 
     exception = VercelAIGatewayException(message="test", status_code=500, headers={})
 

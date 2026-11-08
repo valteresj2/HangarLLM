@@ -22,7 +22,7 @@ _STARTUP: Final = (
     "/usr/local/lib/python3.12/asyncio/base_events.py:448> took 0.302 seconds"
 )
 _GC_PASS: Final = (
-    "2026-10-17 04:46:02,101 - LiteLLM Proxy - WARNING - Garbage collection gen=2 collected=98608 took 0.711 seconds"
+    "2026-10-17 04:46:02,101 - HangarLLM Proxy - WARNING - Garbage collection gen=2 collected=98608 took 0.711 seconds"
 )
 _SPEC: Final = EventLoopStalls(
     allowlist=(

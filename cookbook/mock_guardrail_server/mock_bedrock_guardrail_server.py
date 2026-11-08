@@ -362,20 +362,20 @@ async def health():
 
 
 """
-LiteLLM exposes a basic guardrail API with the text extracted from the request and sent to the guardrail API, as well as the received request body for any further processing. 
+HangarLLM exposes a basic guardrail API with the text extracted from the request and sent to the guardrail API, as well as the received request body for any further processing. 
 
-This works across all LiteLLM endpoints (completion, anthropic /v1/messages, responses api, image generation, embedding, etc.)
+This works across all HangarLLM endpoints (completion, anthropic /v1/messages, responses api, image generation, embedding, etc.)
 
-This makes it easy to support your own guardrail API without having to make a PR to LiteLLM.
+This makes it easy to support your own guardrail API without having to make a PR to HangarLLM.
 
-LiteLLM supports passing any provider specific params from LiteLLM config.yaml to the guardrail API.
+HangarLLM supports passing any provider specific params from HangarLLM config.yaml to the guardrail API.
 
 Example:
 
 ```yaml
 guardrails:
   - guardrail_name: "bedrock-content-guard"
-    litellm_params:
+    hangarllm_params:
       guardrail: generic_guardrail_api
       mode: "pre_call"
       api_key: os.environ/GUARDRAIL_API_KEY
@@ -388,7 +388,7 @@ This is a beta API. Please help us improve it.
 """
 
 
-class LitellmBasicGuardrailRequest(BaseModel):
+class HangarllmBasicGuardrailRequest(BaseModel):
     texts: List[str]
     images: Optional[List[str]] = None
     tools: Optional[List[dict]] = None
@@ -396,27 +396,27 @@ class LitellmBasicGuardrailRequest(BaseModel):
     request_data: Dict[str, Any] = Field(default_factory=dict)
     additional_provider_specific_params: Dict[str, Any] = Field(default_factory=dict)
     input_type: Literal["request", "response"]
-    litellm_call_id: Optional[str] = None
-    litellm_trace_id: Optional[str] = None
+    hangarllm_call_id: Optional[str] = None
+    hangarllm_trace_id: Optional[str] = None
     structured_messages: Optional[List[Dict[str, Any]]] = None
 
 
-class LitellmBasicGuardrailResponse(BaseModel):
+class HangarllmBasicGuardrailResponse(BaseModel):
     action: Literal[
         "BLOCKED", "NONE", "GUARDRAIL_INTERVENED"
-    ]  # BLOCKED = litellm will raise an error, NONE = litellm will continue, GUARDRAIL_INTERVENED = litellm will continue, but the text was modified by the guardrail
+    ]  # BLOCKED = hangarllm will raise an error, NONE = hangarllm will continue, GUARDRAIL_INTERVENED = hangarllm will continue, but the text was modified by the guardrail
     blocked_reason: Optional[str] = None  # only if action is BLOCKED, otherwise None
     texts: Optional[List[str]] = None
     images: Optional[List[str]] = None
 
 
 @app.post(
-    "/beta/litellm_basic_guardrail_api",
-    response_model=LitellmBasicGuardrailResponse,
+    "/beta/hangarllm_basic_guardrail_api",
+    response_model=HangarllmBasicGuardrailResponse,
 )
-async def beta_litellm_basic_guardrail_api(
-    request: LitellmBasicGuardrailRequest,
-) -> LitellmBasicGuardrailResponse:
+async def beta_hangarllm_basic_guardrail_api(
+    request: HangarllmBasicGuardrailRequest,
+) -> HangarllmBasicGuardrailResponse:
     """
     Apply guardrail to input or output content.
 
@@ -427,22 +427,22 @@ async def beta_litellm_basic_guardrail_api(
         token: Bearer token (verified by dependency)
 
     Returns:
-        LitellmBasicGuardrailResponse with analysis results
+        HangarllmBasicGuardrailResponse with analysis results
     """
     print(f"request: {request}")
     if any("ishaan" in text.lower() for text in request.texts):
-        return LitellmBasicGuardrailResponse(
+        return HangarllmBasicGuardrailResponse(
             action="BLOCKED", blocked_reason="Ishaan is not allowed"
         )
     elif any("pii_value" in text for text in request.texts):
-        return LitellmBasicGuardrailResponse(
+        return HangarllmBasicGuardrailResponse(
             action="GUARDRAIL_INTERVENED",
             texts=[
                 text.replace("pii_value", "pii_value_redacted")
                 for text in request.texts
             ],
         )
-    return LitellmBasicGuardrailResponse(action="NONE")
+    return HangarllmBasicGuardrailResponse(action="NONE")
 
 
 @app.post("/config/update")

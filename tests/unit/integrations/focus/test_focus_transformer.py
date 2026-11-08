@@ -6,7 +6,7 @@ from decimal import Decimal
 
 import polars as pl
 
-from litellm.integrations.focus.transformer import FocusTransformer
+from hangarllm.integrations.focus.transformer import FocusTransformer
 
 
 def _base_row(**overrides) -> dict:

@@ -17,10 +17,10 @@ from unittest.mock import patch
 
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
-ENVIRONMENT: Final = {"LITELLM_LOCAL_MODEL_COST_MAP": "True", "PYTHON_DOTENV_DISABLED": "1"}
+ENVIRONMENT: Final = {"HANGARLLM_LOCAL_MODEL_COST_MAP": "True", "PYTHON_DOTENV_DISABLED": "1"}
 
 with patch.dict(os.environ, ENVIRONMENT):
-    import litellm
+    import hangarllm
 
 RESPONSES: Final[Queue[tuple[int, bytes]]] = Queue()
 REQUESTS: Final[Queue[tuple[str, dict[str, str], bytes]]] = Queue()
@@ -112,9 +112,9 @@ def check_tools(base: str, asynchronous: bool = False) -> None:
     ]
     enqueue({**CHAT, "choices": choices})
     result: Final = (
-        asyncio.run(litellm.acompletion(**arguments, tools=tools))
+        asyncio.run(hangarllm.acompletion(**arguments, tools=tools))
         if asynchronous
-        else litellm.completion(**arguments, tools=tools)
+        else hangarllm.completion(**arguments, tools=tools)
     )
     assert payload(result)["choices"] == [{**choices[0], "provider_specific_fields": {}}]
     path, headers, body = REQUESTS.get(timeout=10)
@@ -149,7 +149,7 @@ def check_responses(base: str, asynchronous: bool = False) -> None:
         {"type": "mcp", "server_label": "repos", "server_url": "https://mcp.example.com/mcp/repos"},
     ]
     arguments: Final = dict(model="openai/gpt-6", input="ping", tools=tools, api_key="test-key", api_base=base + "/v1")
-    response: Final = asyncio.run(litellm.aresponses(**arguments)) if asynchronous else litellm.responses(**arguments)
+    response: Final = asyncio.run(hangarllm.aresponses(**arguments)) if asynchronous else hangarllm.responses(**arguments)
     assert payload(response)["output"] == output
     assert payload(response)["usage"] == {"input_tokens": 3, "output_tokens": 2, "total_tokens": 5}
     path, headers, body = REQUESTS.get(timeout=10)
@@ -182,7 +182,7 @@ def check_messages_tools(base: str) -> None:
 
     async def send() -> object:
         create: Final = cast(  # cast-ok: SDK facade exposes untyped kwargs
-            Callable[..., Awaitable[object]], litellm.anthropic.messages.acreate
+            Callable[..., Awaitable[object]], hangarllm.anthropic.messages.acreate
         )
         return await create(
             model="anthropic/claude-sonnet-5-5",
@@ -204,8 +204,8 @@ def check_messages_tools(base: str) -> None:
 
 @skipIf(importlib.util.find_spec("fastapi") is None, "BUG: LIT-9333 cache hits import proxy-only fastapi")
 def check_cache_hit(base: str) -> None:
-    from litellm.caching.caching import Cache
-    from litellm.types.caching import LiteLLMCacheType
+    from hangarllm.caching.caching import Cache
+    from hangarllm.types.caching import HangarLLMCacheType
 
     arguments: Final = dict(
         model="openai/gpt-6",
@@ -217,11 +217,11 @@ def check_cache_hit(base: str) -> None:
         num_retries=0,
         max_retries=0,
     )
-    with patch.object(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL)):
+    with patch.object(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL)):
         enqueue(CHAT)
-        first: Final = litellm.completion(**arguments)
+        first: Final = hangarllm.completion(**arguments)
         assert REQUESTS.get(timeout=10)[0] == "/v1/chat/completions"
-        cached: Final = litellm.completion(**arguments)
+        cached: Final = hangarllm.completion(**arguments)
         assert payload(cached) == payload(first)
         assert payload(cached)["choices"] == [{
             "index": 0, "message": {"role": "assistant", "content": "pong"},
@@ -233,8 +233,8 @@ def check_cache_hit(base: str) -> None:
 
 @skipIf(importlib.util.find_spec("fastapi") is None, "BUG: LIT-9333 Messages streaming imports proxy-only fastapi")
 def check_messages_stream_and_callback(base: str) -> None:
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     successes: Final[Queue[Mapping[str, object]]] = Queue()
     failures: Final[Queue[object]] = Queue()
@@ -243,13 +243,13 @@ def check_messages_stream_and_callback(base: str) -> None:
         async def async_log_success_event(
             self, kwargs: Mapping[str, object], response_obj: object, start_time: object, end_time: object
         ) -> None:
-            if kwargs.get("litellm_call_id") == "base-sdk-messages-check":
+            if kwargs.get("hangarllm_call_id") == "base-sdk-messages-check":
                 successes.put(kwargs)
 
         async def async_log_failure_event(
             self, kwargs: Mapping[str, object], response_obj: object, start_time: object, end_time: object
         ) -> None:
-            if kwargs.get("litellm_call_id") == "base-sdk-messages-check":
+            if kwargs.get("hangarllm_call_id") == "base-sdk-messages-check":
                 failures.put(response_obj)
 
     frames: Final[tuple[Mapping[str, JsonValue], ...]] = (
@@ -281,9 +281,9 @@ def check_messages_stream_and_callback(base: str) -> None:
     )
 
     async def check_async() -> None:
-        with patch.object(litellm, "callbacks", [Probe()]):
+        with patch.object(hangarllm, "callbacks", [Probe()]):
             create: Final = cast(  # cast-ok: SDK facade exposes untyped kwargs and iterator items
-                Callable[..., Awaitable[object]], litellm.anthropic.messages.acreate
+                Callable[..., Awaitable[object]], hangarllm.anthropic.messages.acreate
             )
             stream: Final = await create(
                 model="anthropic/claude-sonnet-5-5",
@@ -292,7 +292,7 @@ def check_messages_stream_and_callback(base: str) -> None:
                 api_base=base,
                 max_tokens=16,
                 stream=True,
-                litellm_call_id="base-sdk-messages-check",
+                hangarllm_call_id="base-sdk-messages-check",
             )
             assert isinstance(stream, AsyncIterable), stream
             iterator: Final = cast(AsyncIterable[object], stream)  # cast-ok: SDK returns an unparameterized iterator
@@ -318,7 +318,7 @@ def check_messages_stream_and_callback(base: str) -> None:
 def check_http(base: str) -> None:
     arguments: Final = dict(model="openai/gpt-4o", messages=MESSAGES, api_key="test-key", api_base=base + "/v1")
     enqueue(CHAT)
-    response: Final = litellm.completion(**arguments)
+    response: Final = hangarllm.completion(**arguments)
     assert response.choices[0].message.content == "pong"
     assert response.usage.total_tokens == 5
     path, headers, body = REQUESTS.get(timeout=10)
@@ -326,34 +326,34 @@ def check_http(base: str) -> None:
     assert headers["authorization"] == "Bearer test-key"
     assert json.loads(body)["messages"] == MESSAGES
     enqueue_stream()
-    assert "".join(part.choices[0].delta.content or "" for part in litellm.completion(**arguments, stream=True)) == "pong"
+    assert "".join(part.choices[0].delta.content or "" for part in hangarllm.completion(**arguments, stream=True)) == "pong"
     REQUESTS.get(timeout=10)
-    for status, exception in ((401, litellm.AuthenticationError), (429, litellm.RateLimitError), (500, litellm.InternalServerError)):
+    for status, exception in ((401, hangarllm.AuthenticationError), (429, hangarllm.RateLimitError), (500, hangarllm.InternalServerError)):
         enqueue({"error": {"message": "controlled upstream failure"}}, status)
         try:
-            litellm.completion(**arguments, num_retries=0, max_retries=0)
+            hangarllm.completion(**arguments, num_retries=0, max_retries=0)
         except exception:
             REQUESTS.get(timeout=10)
         else:
             raise AssertionError(f"HTTP {status} did not raise {exception.__name__}")
     enqueue({"error": {"message": "retry once"}}, 429)
     enqueue(CHAT)
-    assert litellm.completion(**arguments, num_retries=1).choices[0].message.content == "pong"
+    assert hangarllm.completion(**arguments, num_retries=1).choices[0].message.content == "pong"
     REQUESTS.get(timeout=10)
     REQUESTS.get(timeout=10)
 
     async def check_async() -> None:
         enqueue(CHAT)
-        result: Final = await litellm.acompletion(**arguments)
+        result: Final = await hangarllm.acompletion(**arguments)
         assert result.choices[0].message.content == "pong"
         REQUESTS.get(timeout=10)
         enqueue_stream()
-        stream: Final = await litellm.acompletion(**arguments, stream=True)
+        stream: Final = await hangarllm.acompletion(**arguments, stream=True)
         assert "".join([part.choices[0].delta.content or "" async for part in stream]) == "pong"
         REQUESTS.get(timeout=10)
         ARRIVED.clear()
         RESPONSES.put((0, b""))
-        task: Final = asyncio.create_task(litellm.acompletion(**arguments, num_retries=0, max_retries=0))
+        task: Final = asyncio.create_task(hangarllm.acompletion(**arguments, num_retries=0, max_retries=0))
         assert await asyncio.to_thread(ARRIVED.wait, 10), "request did not reach upstream"
         task.cancel()
         try:
@@ -369,14 +369,14 @@ def check_http(base: str) -> None:
     enqueue({"object": "list", "model": "text-embedding-3-small",
              "data": [{"object": "embedding", "index": 0, "embedding": [0.1, 0.2]}],
              "usage": {"prompt_tokens": 3, "total_tokens": 3}})
-    embedding: Final = litellm.embedding(model="text-embedding-3-small", input=["ping"], api_key="test-key", api_base=base + "/v1")
+    embedding: Final = hangarllm.embedding(model="text-embedding-3-small", input=["ping"], api_key="test-key", api_base=base + "/v1")
     assert embedding.data[0]["embedding"] == [0.1, 0.2]
     assert REQUESTS.get(timeout=10)[0] == "/v1/embeddings"
     RELEASE.clear()
     RESPONSES.put((0, b""))
     try:
-        litellm.completion(**arguments, timeout=0.1, num_retries=0, max_retries=0)
-    except litellm.Timeout:
+        hangarllm.completion(**arguments, timeout=0.1, num_retries=0, max_retries=0)
+    except hangarllm.Timeout:
         REQUESTS.get(timeout=10)
     else:
         raise AssertionError("stalled upstream did not time out")
@@ -396,7 +396,7 @@ def check_http(base: str) -> None:
                 **({"aws_access_key_id": "test-key", "aws_secret_access_key": "test-secret", "api_key": ""}
                    if signed else {"api_key": "bearer-key"}),
             )
-            result: Final = asyncio.run(litellm.acompletion(**bedrock)) if asynchronous else litellm.completion(**bedrock)
+            result: Final = asyncio.run(hangarllm.acompletion(**bedrock)) if asynchronous else hangarllm.completion(**bedrock)
             assert result.choices[0].message.content == "pong"
             assert result.usage.total_tokens == 5
             path, headers, body = REQUESTS.get(timeout=10)
@@ -412,7 +412,7 @@ def check_http(base: str) -> None:
             bedrock_event("messageStop", {"stopReason": "end_turn"}),
             bedrock_event("metadata", {"usage": {"inputTokens": 3, "outputTokens": 2, "totalTokens": 5}}),
         ))))
-        streamed: Final = litellm.completion(
+        streamed: Final = hangarllm.completion(
             model="bedrock/anthropic.claude-3-sonnet-20240229-v1:0", messages=MESSAGES,
             api_key="bearer-key", aws_region_name="us-east-1", aws_bedrock_runtime_endpoint=base, stream=True,
         )
@@ -421,7 +421,7 @@ def check_http(base: str) -> None:
     enqueue({"id": "msg-http-check", "type": "message", "role": "assistant", "model": "claude-3-sonnet-20240229",
              "content": [{"type": "text", "text": "pong"}], "stop_reason": "end_turn", "stop_sequence": None,
              "usage": {"input_tokens": 3, "output_tokens": 2}})
-    anthropic: Final = litellm.completion(model="anthropic/claude-3-sonnet-20240229", messages=MESSAGES,
+    anthropic: Final = hangarllm.completion(model="anthropic/claude-3-sonnet-20240229", messages=MESSAGES,
                                         api_key="test-key", api_base=base, max_tokens=16)
     assert anthropic.choices[0].message.content == "pong"
     assert anthropic.usage.total_tokens == 5

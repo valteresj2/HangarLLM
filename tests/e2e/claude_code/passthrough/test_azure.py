@@ -9,7 +9,7 @@ the `/azure` route falls back to its env-configured target: the proxy
 must set AZURE_API_BASE to the Foundry resource's Anthropic surface
 (`https://<resource>.services.ai.azure.com/anthropic`) and
 AZURE_API_KEY to the Foundry key (see
-cron_vm/litellm-compat-matrix.env.example). The model ids are the
+cron_vm/hangarllm-compat-matrix.env.example). The model ids are the
 Foundry deployment names, which this matrix provisions to match the
 Anthropic ids.
 

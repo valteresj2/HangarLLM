@@ -3,9 +3,9 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-from litellm.proxy.telemetry.settings import EnvPolicy, TelemetrySettings, describe_errors, env_policy, load_settings
-from litellm.telemetry.consent import OFF, TelemetryConsent
-from litellm.telemetry.records import TelemetryGroup
+from hangarllm.proxy.telemetry.settings import EnvPolicy, TelemetrySettings, describe_errors, env_policy, load_settings
+from hangarllm.telemetry.consent import OFF, TelemetryConsent
+from hangarllm.telemetry.records import TelemetryGroup
 
 _HEARTBEAT = TelemetryConsent(frozenset({TelemetryGroup.HEARTBEAT}))
 _STORED = TelemetryConsent(frozenset({TelemetryGroup.HEARTBEAT, TelemetryGroup.REQUEST_SUCCESS}))
@@ -53,7 +53,7 @@ def test_an_empty_groups_variable_pins_telemetry_off() -> None:
 def test_invalid_pinned_groups_fail_settings_validation(
     monkeypatch: pytest.MonkeyPatch, groups: str, message: str
 ) -> None:
-    monkeypatch.setenv("LITELLM_TELEMETRY_GROUPS", groups)
+    monkeypatch.setenv("HANGARLLM_TELEMETRY_GROUPS", groups)
     error = load_settings()
     assert isinstance(error, ValidationError)
     assert message in describe_errors(error)
@@ -61,21 +61,21 @@ def test_invalid_pinned_groups_fail_settings_validation(
 
 @pytest.mark.parametrize("endpoint", ["not a url", "ftp://telemetry.example/v1", "telemetry.example/v1"])
 def test_a_non_http_endpoint_fails_settings_validation(monkeypatch: pytest.MonkeyPatch, endpoint: str) -> None:
-    monkeypatch.setenv("LITELLM_TELEMETRY_ENDPOINT", endpoint)
+    monkeypatch.setenv("HANGARLLM_TELEMETRY_ENDPOINT", endpoint)
     assert isinstance(load_settings(), ValidationError)
 
 
 def test_validation_errors_name_the_variable_but_never_echo_its_value(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_TELEMETRY_ENDPOINT", "ftp://secret-token@telemetry.example")
+    monkeypatch.setenv("HANGARLLM_TELEMETRY_ENDPOINT", "ftp://secret-token@telemetry.example")
     error = load_settings()
     assert isinstance(error, ValidationError)
     described = describe_errors(error)
-    assert "LITELLM_TELEMETRY_ENDPOINT" in described
+    assert "HANGARLLM_TELEMETRY_ENDPOINT" in described
     assert "secret-token" not in described
 
 
 def test_the_flush_interval_is_not_configurable(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_TELEMETRY_FLUSH_INTERVAL_SECONDS", "1")
+    monkeypatch.setenv("HANGARLLM_TELEMETRY_FLUSH_INTERVAL_SECONDS", "1")
     settings = load_settings()
     assert isinstance(settings, TelemetrySettings)
     assert "flush_interval_seconds" not in TelemetrySettings.model_fields
@@ -84,20 +84,20 @@ def test_the_flush_interval_is_not_configurable(monkeypatch: pytest.MonkeyPatch)
 def test_set_variables_lists_every_telemetry_env_var_present_but_never_its_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_TELEMETRY_ENDPOINT", "https://secret-token@telemetry.example")
-    monkeypatch.setenv("litellm_telemetry_disabled", "1")
+    monkeypatch.setenv("HANGARLLM_TELEMETRY_ENDPOINT", "https://secret-token@telemetry.example")
+    monkeypatch.setenv("hangarllm_telemetry_disabled", "1")
     policy = _policy(TelemetrySettings())
-    assert policy.set_variables == ("LITELLM_TELEMETRY_DISABLED", "LITELLM_TELEMETRY_ENDPOINT")
+    assert policy.set_variables == ("HANGARLLM_TELEMETRY_DISABLED", "HANGARLLM_TELEMETRY_ENDPOINT")
     assert policy.vetoed is True
 
 
 def test_an_http_destination_without_an_endpoint_fails_settings_validation(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_TELEMETRY_DESTINATION", "http")
+    monkeypatch.setenv("HANGARLLM_TELEMETRY_DESTINATION", "http")
     error: Final = load_settings()
     assert isinstance(error, ValidationError)
-    assert describe_errors(error).startswith("LITELLM_TELEMETRY_DESTINATION:")
+    assert describe_errors(error).startswith("HANGARLLM_TELEMETRY_DESTINATION:")
 
 
 def test_a_negative_settle_timeout_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_TELEMETRY_SETTLE_TIMEOUT_SECONDS", "-1")
+    monkeypatch.setenv("HANGARLLM_TELEMETRY_SETTLE_TIMEOUT_SECONDS", "-1")
     assert isinstance(load_settings(), ValidationError)

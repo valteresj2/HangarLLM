@@ -68,10 +68,10 @@ def _global_config(directory: Path, api_base: str) -> Path:
     config: Final[Mapping[str, JsonValue]] = {
         **stock,
         "model_list": [
-            {"model_name": _GLOBAL_UNSET, "litellm_params": dict(deployment)},
-            {"model_name": _GLOBAL_FALSE, "litellm_params": {**deployment, "drop_params": False}},
+            {"model_name": _GLOBAL_UNSET, "hangarllm_params": dict(deployment)},
+            {"model_name": _GLOBAL_FALSE, "hangarllm_params": {**deployment, "drop_params": False}},
         ],
-        "litellm_settings": {**rv.JSON_OBJECT.validate_python(stock["litellm_settings"]), "drop_params": True},
+        "hangarllm_settings": {**rv.JSON_OBJECT.validate_python(stock["hangarllm_settings"]), "drop_params": True},
         "router_settings": {**rv.JSON_OBJECT.validate_python(stock.get("router_settings") or {}), "num_retries": 0},
     }
     path: Final = directory / "bridge-breakpoint-global.yaml"
@@ -134,7 +134,7 @@ async def _send(client: httpx.AsyncClient, key: str, model: str, call: _Call, br
         headers={"Authorization": f"Bearer {key}", "anthropic-version": "2023-06-01"},
     ) as response:
         raw: Final = await response.aread()
-    return _Served(call, response.status_code, raw.decode(), response.headers["x-litellm-call-id"])
+    return _Served(call, response.status_code, raw.decode(), response.headers["x-hangarllm-call-id"])
 
 
 async def _burst(
@@ -196,7 +196,7 @@ def _assert_each_lands_once(
 ) -> None:
     expected: Final = len(failed) + len(served)
     rows: Final = eventually(lambda: spend.rows_for(model), lambda found: len(found) >= expected, seconds=70)
-    by_call: Final = {string_value(row["litellm_call_id"]): row for row in rows}
+    by_call: Final = {string_value(row["hangarllm_call_id"]): row for row in rows}
     assert len(by_call) == len(rows) == expected, rows
     for item in failed:
         assert by_call[item.call_id]["status"] == "failure", (item.call_id, rows)
@@ -222,7 +222,7 @@ def _completion(response: httpx.Response, marker: str) -> str:
     body: Final = rv.JSON_OBJECT.validate_json(response.text)
     assert pcb.answers(string_value(body["id"]), marker), body
     assert rv.answer(marker) in response.text, response.text
-    return response.headers["x-litellm-call-id"]
+    return response.headers["x-hangarllm-call-id"]
 
 
 def _user_block_on_wire(wire: Wire, marker: str) -> dict[str, JsonValue]:
@@ -400,7 +400,7 @@ async def test_proxy_restart_mid_burst_never_lands_a_served_call_twice(
             call_id: Final = _completion(_chat(second.gateway, _GLOBAL_UNSET, follow_up, pcb.EXPLICIT), follow_up)
             pcb.assert_marker(_user_block_on_wire(wire, follow_up), pcb.EXPLICIT)
             spend.landed(_GLOBAL_UNSET, call_id, follow_up)
-    counts: Final = Counter(string_value(row["litellm_call_id"]) for row in spend.rows_for(_GLOBAL_UNSET))
+    counts: Final = Counter(string_value(row["hangarllm_call_id"]) for row in spend.rows_for(_GLOBAL_UNSET))
     assert all(count == 1 for count in counts.values()), counts
     landed: Final = sum(1 for item in served if item.call_id in counts)
     record_property("served", len(served))

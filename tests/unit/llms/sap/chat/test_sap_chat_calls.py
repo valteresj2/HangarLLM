@@ -76,17 +76,17 @@ async def test_sap_chat(
     fake_deployment_url,
     sync_mode,
 ):
-    import litellm
+    import hangarllm
 
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
     with (
         patch(
-            "litellm.llms.sap.chat.transformation.GenAIHubOrchestrationConfig.deployment_url",
+            "hangarllm.llms.sap.chat.transformation.GenAIHubOrchestrationConfig.deployment_url",
             new_callable=PropertyMock,
             return_value=fake_deployment_url,
         ),
         patch(
-            "litellm.llms.sap.chat.transformation.get_token_creator",
+            "hangarllm.llms.sap.chat.transformation.get_token_creator",
             return_value=fake_token_creator,
         ),
     ):
@@ -97,9 +97,9 @@ async def test_sap_chat(
         )
 
         if sync_mode:
-            response = litellm.completion(model=model, messages=messages)
+            response = hangarllm.completion(model=model, messages=messages)
         else:
-            response = await litellm.acompletion(model=model, messages=messages)
+            response = await hangarllm.acompletion(model=model, messages=messages)
 
         assert response.choices[0].message.content == "Hello from SAP!"
         assert response.model.startswith("gpt-4o")
@@ -113,17 +113,17 @@ async def test_sap_streaming(
     fake_token_creator,
     fake_deployment_url,
 ):
-    import litellm
+    import hangarllm
 
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
     with (
         patch(
-            "litellm.llms.sap.chat.transformation.GenAIHubOrchestrationConfig.deployment_url",
+            "hangarllm.llms.sap.chat.transformation.GenAIHubOrchestrationConfig.deployment_url",
             new_callable=PropertyMock,
             return_value=fake_deployment_url,
         ),
         patch(
-            "litellm.llms.sap.chat.transformation.get_token_creator",
+            "hangarllm.llms.sap.chat.transformation.get_token_creator",
             return_value=fake_token_creator,
         ),
     ):
@@ -138,7 +138,7 @@ async def test_sap_streaming(
             )
         )
 
-        stream = litellm.completion(model=model, messages=messages, stream=True)
+        stream = hangarllm.completion(model=model, messages=messages, stream=True)
 
         full = ""
         for chunk in stream:
@@ -156,25 +156,25 @@ async def test_sap_chat_required_headers(
     fake_deployment_url,
 ):
     """Test that required headers are correctly set in SAP chat requests."""
-    import litellm
+    import hangarllm
 
     # Define required headers for SAP requests
     required_headers = {
         "Authorization": "Bearer FAKE_TOKEN",
         "AI-Resource-Group": "fake-group",
         "Content-Type": "application/json",
-        "AI-Client-Type": "LiteLLM",
+        "AI-Client-Type": "HangarLLM",
     }
 
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
     with (
         patch(
-            "litellm.llms.sap.chat.transformation.GenAIHubOrchestrationConfig.deployment_url",
+            "hangarllm.llms.sap.chat.transformation.GenAIHubOrchestrationConfig.deployment_url",
             new_callable=PropertyMock,
             return_value=fake_deployment_url,
         ),
         patch(
-            "litellm.llms.sap.chat.transformation.get_token_creator",
+            "hangarllm.llms.sap.chat.transformation.get_token_creator",
             return_value=fake_token_creator,
         ),
     ):
@@ -185,7 +185,7 @@ async def test_sap_chat_required_headers(
         route = respx_mock.post(f"{fake_deployment_url}/v2/completion")
         route.respond(json=sap_api_response)
 
-        response = await litellm.acompletion(model=model, messages=messages)
+        response = await hangarllm.acompletion(model=model, messages=messages)
 
         # Verify the response is valid
         assert response.choices[0].message.content == "Hello from SAP!"

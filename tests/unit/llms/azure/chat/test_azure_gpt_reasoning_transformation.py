@@ -4,9 +4,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.get_model_cost_map import get_model_cost_map
-from litellm.llms.azure.chat.gpt_reasoning_transformation import AzureOpenAIGPT5Config
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_model_cost_map import get_model_cost_map
+from hangarllm.llms.azure.chat.gpt_reasoning_transformation import AzureOpenAIGPT5Config
 
 
 @pytest.fixture()
@@ -18,9 +18,9 @@ def config() -> AzureOpenAIGPT5Config:
 def use_local_model_cost_map(monkeypatch: pytest.MonkeyPatch):
     """Pin the bundled cost map: these gates read model-map capability keys, and the default
     import path fetches the published map, which lags a key added in this repo."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", get_model_cost_map(url=litellm.model_cost_map_url))
-    litellm.add_known_models(model_cost_map=litellm.model_cost)
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", get_model_cost_map(url=hangarllm.model_cost_map_url))
+    hangarllm.add_known_models(model_cost_map=hangarllm.model_cost)
 
 
 def test_azure_gpt5_supports_reasoning_effort(config: AzureOpenAIGPT5Config):
@@ -31,7 +31,7 @@ def test_azure_gpt5_supports_reasoning_effort(config: AzureOpenAIGPT5Config):
 
 
 def test_azure_gpt5_allows_tool_choice_for_deployment_names():
-    supported_params = litellm.get_supported_openai_params(
+    supported_params = hangarllm.get_supported_openai_params(
         model="gpt-5-chat-2025-08-07", custom_llm_provider="azure"
     )
     assert supported_params is not None
@@ -65,7 +65,7 @@ def test_azure_gpt5_maps_minimal_reasoning_to_request_body(config: AzureOpenAIGP
         model="gpt-5",
         messages=[{"role": "user", "content": "Solve the problem."}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -78,7 +78,7 @@ def test_azure_gpt5_maps_minimal_reasoning_to_request_body(config: AzureOpenAIGP
 
 
 def test_azure_gpt5_temperature_error(config: AzureOpenAIGPT5Config):
-    with pytest.raises(litellm.utils.UnsupportedParamsError):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError):
         config.map_openai_params(
             non_default_params={"temperature": 0.2},
             optional_params={},
@@ -93,7 +93,7 @@ def test_azure_gpt5_series_transform_request(config: AzureOpenAIGPT5Config):
         model="gpt5_series/gpt-5",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert request["model"] == "gpt-5"
@@ -129,7 +129,7 @@ def test_azure_gpt5_codex_maps_max_tokens(config: AzureOpenAIGPT5Config):
 
 def test_azure_gpt5_codex_temperature_error(config: AzureOpenAIGPT5Config):
     """Test that Azure GPT-5-Codex raises error for unsupported temperature."""
-    with pytest.raises(litellm.utils.UnsupportedParamsError):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError):
         config.map_openai_params(
             non_default_params={"temperature": 0.8},
             optional_params={},
@@ -145,7 +145,7 @@ def test_azure_gpt5_codex_series_transform_request(config: AzureOpenAIGPT5Config
         model="gpt5_series/gpt-5-codex",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert request["model"] == "gpt-5-codex"
@@ -203,7 +203,7 @@ def test_azure_gpt5_1_temperature_with_reasoning_effort_other_values(
 ):
     """Test that Azure GPT-5.1 only allows temperature=1 when reasoning_effort is not 'none'."""
     # Test that temperature != 1 raises error when reasoning_effort is set to other values
-    with pytest.raises(litellm.utils.UnsupportedParamsError):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError):
         config.map_openai_params(
             non_default_params={"temperature": 0.7, "reasoning_effort": "low"},
             optional_params={},
@@ -258,7 +258,7 @@ def test_azure_gpt5_4_preserves_reasoning_effort_when_tools_present(
 
 def test_azure_gpt5_reasoning_effort_none_error(config: AzureOpenAIGPT5Config):
     """Test that Azure GPT-5 (non-5.1) raises error for reasoning_effort='none' when drop_params=False."""
-    with pytest.raises(litellm.utils.UnsupportedParamsError):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError):
         config.map_openai_params(
             non_default_params={"reasoning_effort": "none"},
             optional_params={},
@@ -280,11 +280,11 @@ def test_azure_gpt5_reasoning_effort_none_dropped(config: AzureOpenAIGPT5Config)
     assert "reasoning_effort" not in params or params.get("reasoning_effort") != "none"
 
 
-@pytest.mark.parametrize(("model", "names_base_model"), [("azure/litellm-qa-sol-alias", True), ("azure/gpt-5", False)])
+@pytest.mark.parametrize(("model", "names_base_model"), [("azure/hangarllm-qa-sol-alias", True), ("azure/gpt-5", False)])
 def test_azure_dropped_effort_warning_suggests_base_model_only_for_a_name_the_map_lacks(
     config: AzureOpenAIGPT5Config, caplog: pytest.LogCaptureFixture, model: str, names_base_model: bool
 ) -> None:
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         params: Final = config.map_openai_params(
             non_default_params={"reasoning_effort": "none"},
             optional_params={},
@@ -390,7 +390,7 @@ class TestAzureResolvesTheDeclaredDefaultEffort:
 
 
 def test_azure_gpt_6_astra_takes_the_reasoning_series_request_shape():
-    params = litellm.get_optional_params(
+    params = hangarllm.get_optional_params(
         model="gpt-6-astra",
         custom_llm_provider="azure",
         max_tokens=100,
@@ -408,7 +408,7 @@ def test_azure_reasoning_effort_none_unlocks_temperature_off_the_azure_row(
     """A deployment whose azure/ row takes none accepts a non-default temperature with it, read off
     that row even when OpenAI's twin row says the model refuses none."""
     monkeypatch.setitem(
-        litellm.model_cost, "gpt-6-sol", {**litellm.model_cost["gpt-6-sol"], "supports_none_reasoning_effort": False}
+        hangarllm.model_cost, "gpt-6-sol", {**hangarllm.model_cost["gpt-6-sol"], "supports_none_reasoning_effort": False}
     )
     params = config.map_openai_params(
         non_default_params={"temperature": 0.2, "reasoning_effort": "none"},
@@ -440,7 +440,7 @@ def test_azure_gpt6_astra_forwards_exactly_the_effort_levels_its_map_row_allows(
     high and xhigh on 2026-10-01, so its row turns none and minimal off. The row keeps max off too,
     since chat refuses it, but no gate reads that flag: the Responses route honors max, so chat
     forwards it for the bridge and a plain chat call gets the provider's own 400."""
-    forwarded: Final = _azure_chat_row_forwards(litellm.model_cost[model], level)
+    forwarded: Final = _azure_chat_row_forwards(hangarllm.model_cost[model], level)
     dropped: Final = config.map_openai_params(
         non_default_params={"reasoning_effort": level},
         optional_params={},
@@ -459,7 +459,7 @@ def test_azure_gpt6_astra_forwards_exactly_the_effort_levels_its_map_row_allows(
         )
         assert kept["reasoning_effort"] == level
     else:
-        with pytest.raises(litellm.utils.UnsupportedParamsError):
+        with pytest.raises(hangarllm.utils.UnsupportedParamsError):
             config.map_openai_params(
                 non_default_params={"reasoning_effort": level},
                 optional_params={},
@@ -476,7 +476,7 @@ def test_azure_gpt6_astra_row_turns_none_and_minimal_off(model: str):
     low, medium, high, xhigh), and minimal the same way; max it refused on chat while honoring it
     on Responses, so the route-blind flag stays off. When Azure adds a level, flip the row and
     this assertion together."""
-    row: Final = litellm.model_cost[model]
+    row: Final = hangarllm.model_cost[model]
     assert row["supports_none_reasoning_effort"] is False
     assert row["supports_minimal_reasoning_effort"] is False
     assert row["supports_max_reasoning_effort"] is False
@@ -490,14 +490,14 @@ def test_azure_chat_gate_reads_the_foundry_row_when_azure_ai_prefix_survives_pro
     a level neither real row flags, so the prefixed name has to read azure_ai/gpt-6-sol while the
     bare deployment name keeps reading azure/gpt-6-sol."""
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "azure_ai/gpt-6-sol",
-        {**litellm.model_cost["azure_ai/gpt-6-sol"], "supports_low_reasoning_effort": False},
+        {**hangarllm.model_cost["azure_ai/gpt-6-sol"], "supports_low_reasoning_effort": False},
     )
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "azure/gpt-6-sol",
-        {**litellm.model_cost["azure/gpt-6-sol"], "supports_low_reasoning_effort": True},
+        {**hangarllm.model_cost["azure/gpt-6-sol"], "supports_low_reasoning_effort": True},
     )
     prefixed: Final = config.map_openai_params(
         non_default_params={"reasoning_effort": "low"},
@@ -520,11 +520,11 @@ def test_azure_chat_gate_reads_the_foundry_row_when_azure_ai_prefix_survives_pro
 def test_azure_chat_gate_falls_back_to_the_azure_row_for_an_azure_ai_name_the_map_lacks(
     config: AzureOpenAIGPT5Config, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.delitem(litellm.model_cost, "azure_ai/gpt-6-sol")
+    monkeypatch.delitem(hangarllm.model_cost, "azure_ai/gpt-6-sol")
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "azure/gpt-6-sol",
-        {**litellm.model_cost["azure/gpt-6-sol"], "supports_low_reasoning_effort": False},
+        {**hangarllm.model_cost["azure/gpt-6-sol"], "supports_low_reasoning_effort": False},
     )
     dropped: Final = config.map_openai_params(
         non_default_params={"reasoning_effort": "low"},
@@ -542,6 +542,6 @@ def test_azure_gpt61_sol_rows_turn_none_off(key: str):
     gpt-6.1-sol-2026-09-29) refused none on chat and on Responses on 2026-10-02 (400 unsupported_value
     naming low, medium, high, xhigh, and max on Responses), and minimal the same way, while these rows
     still said none was on. When Azure adds a level, flip the row and this assertion together."""
-    row: Final = litellm.model_cost[key]
+    row: Final = hangarllm.model_cost[key]
     assert row["supports_none_reasoning_effort"] is False
     assert row["supports_minimal_reasoning_effort"] is False

@@ -13,7 +13,7 @@ from psycopg import sql
 from prisma import Prisma
 
 from integration._support.database import read_rows
-from litellm.proxy.db.db_transaction_queue.spend_logs_partition_manager import SpendLogsPartitionManager
+from hangarllm.proxy.db.db_transaction_queue.spend_logs_partition_manager import SpendLogsPartitionManager
 
 
 @dataclass(frozen=True)
@@ -32,7 +32,7 @@ async def test_real_partition_ddl_survives_witnessed_lock_and_is_idempotent() ->
     scoped_url: Final = urlunsplit(
         parsed._replace(query=urlencode({**dict(parse_qsl(parsed.query)), "schema": schema}))
     )
-    parent: Final = sql.Identifier(schema, "LiteLLM_SpendLogs")
+    parent: Final = sql.Identifier(schema, "HangarLLM_SpendLogs")
     with psycopg.connect(url, autocommit=True) as setup:
         setup.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
         try:
@@ -84,7 +84,7 @@ async def test_real_partition_ddl_survives_witnessed_lock_and_is_idempotent() ->
                 catalog: Final = read_rows(
                     "SELECT child.relname FROM pg_inherits i JOIN pg_class child ON child.oid=i.inhrelid "
                     "JOIN pg_class parent ON parent.oid=i.inhparent JOIN pg_namespace n ON n.oid=parent.relnamespace "
-                    "WHERE n.nspname=%s AND parent.relname='LiteLLM_SpendLogs'",
+                    "WHERE n.nspname=%s AND parent.relname='HangarLLM_SpendLogs'",
                     (schema,),
                 )
                 assert catalog == [{"relname": ensured[0]}]

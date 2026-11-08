@@ -3,7 +3,7 @@ proxy and drives routing, instead of silently crashing and falling back to the
 local heuristic scorer.
 
 The regression this guards (complexity_router.py `_classifier_call_metadata`
-returning None when the request carries no `litellm_metadata`, which the classifier
+returning None when the request carries no `hangarllm_metadata`, which the classifier
 sub-call then fed into a `.update`, raising `'NoneType' object has no attribute
 'update'`) was invisible from the outside: the router caught the error and answered
 from heuristic scoring, so every request still returned 200. The only tell is which

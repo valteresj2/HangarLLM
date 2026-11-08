@@ -12,44 +12,44 @@ import responses
 from click.testing import CliRunner
 from responses import matchers
 
-from litellm.litellm_core_utils.cli_keyring import (
+from hangarllm.hangarllm_core_utils.cli_keyring import (
     DISABLE_KEYRING_ENV_VAR,
     KeyringDisabled,
     KeyringNotInstalled,
     SecretErased,
     SecretStored,
 )
-from litellm.litellm_core_utils.cli_token_utils import (
+from hangarllm.hangarllm_core_utils.cli_token_utils import (
     CliTokenRecord,
     CredentialNotRecorded,
     CredentialNotSaved,
     save_cli_token,
 )
-from litellm.proxy.client.cli import cli
-from litellm.proxy.client.cli.commands import claude_settings as claude_settings_module
-from litellm.proxy.client.cli.commands.auth import (
+from hangarllm.proxy.client.cli import cli
+from hangarllm.proxy.client.cli.commands import claude_settings as claude_settings_module
+from hangarllm.proxy.client.cli.commands.auth import (
     get_stored_api_key,
     login,
     logout,
     print_token,
     whoami,
 )
-from litellm.proxy.client.cli.commands.claude_settings import SettingsFileOwner
+from hangarllm.proxy.client.cli.commands.claude_settings import SettingsFileOwner
 
 
 @pytest.fixture
 def isolated_home(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    monkeypatch.delenv("LITELLM_PROXY_URL", raising=False)
-    monkeypatch.delenv("LITELLM_PROXY_API_KEY", raising=False)
+    monkeypatch.delenv("HANGARLLM_PROXY_URL", raising=False)
+    monkeypatch.delenv("HANGARLLM_PROXY_API_KEY", raising=False)
     return tmp_path
 
 
 def _write_home_json(home: Path, filename: str, payload: dict[str, object]) -> None:
-    litellm_dir = home / ".litellm"
-    litellm_dir.mkdir(exist_ok=True)
-    (litellm_dir / filename).write_text(json.dumps(payload))
+    hangarllm_dir = home / ".hangarllm"
+    hangarllm_dir.mkdir(exist_ok=True)
+    (hangarllm_dir / filename).write_text(json.dumps(payload))
 
 
 def _write_token_file(home: Path, *, key: str | None) -> None:
@@ -96,21 +96,21 @@ def _mock_cli_sso_start_response(
 
 class TestPollingErrorSurfacing:
     def test_client_error_raises_with_server_detail_and_stops_polling(self):
-        from litellm.proxy.client.cli.commands.auth import _poll_for_ready_data
+        from hangarllm.proxy.client.cli.commands.auth import _poll_for_ready_data
 
         mock_response = Mock()
         mock_response.status_code = 400
         mock_response.json.return_value = {
-            "detail": "Your litellm CLI is out of date and uses a login flow this proxy no longer supports."
+            "detail": "Your hangarllm CLI is out of date and uses a login flow this proxy no longer supports."
         }
 
         with patch("requests.get", return_value=mock_response) as mock_get, patch("time.sleep"):
-            with pytest.raises(ValueError, match="Your litellm CLI is out of date and uses a login flow") as exc_info:
+            with pytest.raises(ValueError, match="Your hangarllm CLI is out of date and uses a login flow") as exc_info:
                 _poll_for_ready_data("http://test/sso/cli/poll/sk-legacy")
 
         assert mock_get.call_count == 1
         assert (
-            "The proxy rejected the login session with HTTP 400: Your litellm CLI is out of date "
+            "The proxy rejected the login session with HTTP 400: Your hangarllm CLI is out of date "
             "and uses a login flow this proxy no longer supports." in str(exc_info.value)
         )
 
@@ -136,7 +136,7 @@ class TestPollingErrorSurfacing:
         assert "Authentication timed out" not in result.output
 
     def test_server_error_without_json_body_retries_until_timeout(self, capsys):
-        from litellm.proxy.client.cli.commands.auth import _poll_for_ready_data
+        from hangarllm.proxy.client.cli.commands.auth import _poll_for_ready_data
 
         mock_response = Mock()
         mock_response.status_code = 500
@@ -150,7 +150,7 @@ class TestPollingErrorSurfacing:
         assert "Polling error: HTTP 500" in capsys.readouterr().out
 
     def test_rate_limit_is_retried_not_aborted(self, capsys):
-        from litellm.proxy.client.cli.commands.auth import _poll_for_ready_data
+        from hangarllm.proxy.client.cli.commands.auth import _poll_for_ready_data
 
         mock_response = Mock()
         mock_response.status_code = 429
@@ -166,7 +166,7 @@ class TestPollingErrorSurfacing:
 
 class TestStartCliSsoFlowErrors:
     def test_endpoint_not_found_explains_version_or_base_url(self):
-        from litellm.proxy.client.cli.commands.auth import _start_cli_sso_flow
+        from hangarllm.proxy.client.cli.commands.auth import _start_cli_sso_flow
 
         mock_response = Mock()
         mock_response.status_code = 404
@@ -181,7 +181,7 @@ class TestStartCliSsoFlowErrors:
         assert "older than this CLI" in message
 
     def test_http_error_includes_server_detail(self):
-        from litellm.proxy.client.cli.commands.auth import _start_cli_sso_flow
+        from hangarllm.proxy.client.cli.commands.auth import _start_cli_sso_flow
 
         mock_response = Mock()
         mock_response.status_code = 429
@@ -195,7 +195,7 @@ class TestStartCliSsoFlowErrors:
         assert "Too many CLI login attempts. Try again later." in str(exc_info.value)
 
     def test_non_json_response_names_interception(self):
-        from litellm.proxy.client.cli.commands.auth import _start_cli_sso_flow
+        from hangarllm.proxy.client.cli.commands.auth import _start_cli_sso_flow
 
         mock_response = Mock()
         mock_response.status_code = 200
@@ -215,7 +215,7 @@ class TestStartCliSsoFlowErrors:
     def test_connection_error_points_at_base_url(self):
         import requests
 
-        from litellm.proxy.client.cli.commands.auth import _start_cli_sso_flow
+        from hangarllm.proxy.client.cli.commands.auth import _start_cli_sso_flow
 
         with patch("requests.post", side_effect=requests.ConnectionError("Connection refused")):
             with pytest.raises(ValueError, match="Connection refused\\. Check that the proxy is running") as exc_info:
@@ -301,10 +301,10 @@ class TestLoginCommand:
             patch("webbrowser.open"),
             patch("requests.post", return_value=_mock_cli_sso_start_response()),
             patch("requests.get", return_value=mock_response),
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _FakeSession),
-            patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
-            patch("litellm.proxy.client.cli.commands.auth.save_token", return_value=SecretStored()) as mock_save,
-            patch("litellm.proxy.client.cli.interface.show_commands"),
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _FakeSession),
+            patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
+            patch("hangarllm.proxy.client.cli.commands.auth.save_token", return_value=SecretStored()) as mock_save,
+            patch("hangarllm.proxy.client.cli.interface.show_commands"),
         ):
             result = self.runner.invoke(login, obj={"base_url": "https://test.example.com"})
 
@@ -342,8 +342,8 @@ class TestLoginCommand:
                 return_value=_mock_cli_sso_start_response(login_id="cli-test-uuid-123"),
             ) as mock_post,
             patch("requests.get", return_value=mock_response) as mock_get,
-            patch("litellm.proxy.client.cli.commands.auth.save_cli_token") as mock_save,
-            patch("litellm.proxy.client.cli.interface.show_commands") as mock_show_commands,
+            patch("hangarllm.proxy.client.cli.commands.auth.save_cli_token") as mock_save,
+            patch("hangarllm.proxy.client.cli.interface.show_commands") as mock_show_commands,
         ):
             result = self.runner.invoke(login, obj=mock_context.obj)
 
@@ -361,7 +361,7 @@ class TestLoginCommand:
             assert "pre-filled in the browser" not in result.output
             mock_post.assert_called_once()
             mock_get.assert_called()
-            assert mock_get.call_args.kwargs["headers"] == {"x-litellm-cli-poll-secret": "poll-secret"}
+            assert mock_get.call_args.kwargs["headers"] == {"x-hangarllm-cli-poll-secret": "poll-secret"}
 
             # Verify JWT was saved
             mock_save.assert_called_once()
@@ -389,7 +389,7 @@ class TestLoginCommand:
             login_id="cli-test-uuid-123",
             verification_uri_complete=(
                 "https://internal-hostname.example.com/sso/key/generate"
-                "?source=litellm-cli&key=cli-test-uuid-123&user_code=ABCD-EFGH"
+                "?source=hangarllm-cli&key=cli-test-uuid-123&user_code=ABCD-EFGH"
             ),
         )
 
@@ -402,7 +402,7 @@ class TestLoginCommand:
 
         assert result.exit_code == 0, result.output
         assert json.loads(vault.blob)["key"] == "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.jwt"
-        assert json.loads((isolated_home / ".litellm" / "token.json").read_text())["user_id"] == "test-user-123"
+        assert json.loads((isolated_home / ".hangarllm" / "token.json").read_text())["user_id"] == "test-user-123"
         opened_url = mock_browser.call_args[0][0]
         assert opened_url.startswith("https://test.example.com/sso/key/generate?")
         assert "internal-hostname" not in opened_url
@@ -573,7 +573,7 @@ class TestLogoutCommand:
         assert result.exit_code == 0
         assert "Logged out successfully" in result.output
         assert vault.blob is None
-        assert not (isolated_home / ".litellm" / "token.json").exists()
+        assert not (isolated_home / ".hangarllm" / "token.json").exists()
 
     def test_logout_without_the_keyring_package_does_not_claim_the_keychain_is_clear(
         self, isolated_home, secret_vault_factory
@@ -589,7 +589,7 @@ class TestLogoutCommand:
         assert result.exit_code == 0
         assert "Logged out successfully" not in result.output
         assert "could not be checked" in result.output
-        assert "pip install 'litellm[cli]'" in result.output
+        assert "pip install 'hangarllm[cli]'" in result.output
 
     def test_logout_does_not_call_an_unusable_keychain_clean(self, isolated_home, secret_vault_factory):
         """A keychain-backed login, then a login that fell back to the file because the keychain had
@@ -619,11 +619,11 @@ class TestLogoutCommand:
 
     @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores file permissions")
     def test_logout_reports_a_token_file_it_cannot_clear(self, isolated_home, secret_vault_factory):
-        """`lite logout` on a read-only ~/.litellm holding a read-only token file used to end in a
+        """`lite logout` on a read-only ~/.hangarllm holding a read-only token file used to end in a
         PermissionError traceback with the credential still sitting in the file. The user has to be
         told what is left and where."""
         _write_token_file(isolated_home, key="sk-in-file")
-        config_dir = isolated_home / ".litellm"
+        config_dir = isolated_home / ".hangarllm"
         path = config_dir / "token.json"
         path.chmod(0o400)
         config_dir.chmod(0o500)
@@ -642,11 +642,11 @@ class TestLogoutCommand:
     def test_logout_on_a_read_only_directory_still_takes_the_secret_out_of_the_file(
         self, isolated_home, secret_vault_factory
     ):
-        """A ~/.litellm that will accept no replacement file and no removal still lets the file it
+        """A ~/.hangarllm that will accept no replacement file and no removal still lets the file it
         has be shortened, so the logout the user asked for happens rather than being handed back to
         them with instructions."""
         _write_token_file(isolated_home, key="sk-in-file")
-        config_dir = isolated_home / ".litellm"
+        config_dir = isolated_home / ".hangarllm"
         path = config_dir / "token.json"
         config_dir.chmod(0o500)
         try:
@@ -673,7 +673,7 @@ class TestLogoutCommand:
         assert result.exit_code == 0
         assert "Logged out successfully" not in result.output
         assert "could not be checked" in result.output
-        assert "pip install 'litellm[cli]'" in result.output
+        assert "pip install 'hangarllm[cli]'" in result.output
 
 
 class TestWhoamiCommand:
@@ -693,7 +693,7 @@ class TestWhoamiCommand:
             timestamp=time.time() - 3600,
         )
 
-        with patch("litellm.proxy.client.cli.commands.auth.load_cli_token", return_value=token_data):
+        with patch("hangarllm.proxy.client.cli.commands.auth.load_cli_token", return_value=token_data):
             result = self.runner.invoke(whoami)
 
             assert result.exit_code == 0
@@ -705,7 +705,7 @@ class TestWhoamiCommand:
 
     def test_whoami_not_authenticated(self):
         """Test whoami when user is not authenticated"""
-        with patch("litellm.proxy.client.cli.commands.auth.load_cli_token", return_value=None):
+        with patch("hangarllm.proxy.client.cli.commands.auth.load_cli_token", return_value=None):
             result = self.runner.invoke(whoami)
 
             assert result.exit_code == 0
@@ -731,7 +731,7 @@ class TestWhoamiCommand:
             timestamp=STALE_TOKEN_TIMESTAMP,
         )
 
-        with patch("litellm.proxy.client.cli.commands.auth.load_cli_token", return_value=token_data):
+        with patch("hangarllm.proxy.client.cli.commands.auth.load_cli_token", return_value=token_data):
             result: Final = self.runner.invoke(whoami)
 
         assert result.exit_code == 0
@@ -743,7 +743,7 @@ class TestWhoamiCommand:
         """Test whoami with token missing some fields"""
         token_data = CliTokenRecord(key="sk-live", timestamp=time.time() - 3600)
 
-        with patch("litellm.proxy.client.cli.commands.auth.load_cli_token", return_value=token_data):
+        with patch("hangarllm.proxy.client.cli.commands.auth.load_cli_token", return_value=token_data):
             result = self.runner.invoke(whoami)
 
             assert result.exit_code == 0
@@ -762,7 +762,7 @@ class TestWhoamiCommand:
             "refresh_token": "llm_srefresh_abc",
         }
 
-        with patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=token_data):
+        with patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=token_data):
             result = self.runner.invoke(whoami)
 
         assert result.exit_code == 0
@@ -778,7 +778,7 @@ class TestWhoamiCommand:
             "expires_at": time.time() - 60,
         }
 
-        with patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=token_data):
+        with patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=token_data):
             result = self.runner.invoke(whoami)
 
         assert result.exit_code == 0
@@ -795,7 +795,7 @@ class TestWhoamiCommand:
             "refresh_token": "llm_srefresh_spent",
         }
 
-        with patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=token_data):
+        with patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=token_data):
             result = self.runner.invoke(whoami)
 
         assert result.exit_code == 0
@@ -813,7 +813,7 @@ class TestWhoamiCommand:
 
         with (
             patch(
-                "litellm.proxy.client.cli.commands.auth.load_cli_token",
+                "hangarllm.proxy.client.cli.commands.auth.load_cli_token",
                 return_value=token_data,
             ),
             patch("time.time", return_value=1000),
@@ -873,8 +873,8 @@ class TestCLIKeyRegenerationFlow:
                 return_value=_mock_cli_sso_start_response(login_id="cli-session-uuid-456"),
             ),
             patch("requests.get", side_effect=[mock_first_response, mock_second_response]) as mock_get,
-            patch("litellm.proxy.client.cli.commands.auth.save_cli_token") as mock_save,
-            patch("litellm.proxy.client.cli.interface.show_commands") as mock_show_commands,
+            patch("hangarllm.proxy.client.cli.commands.auth.save_cli_token") as mock_save,
+            patch("hangarllm.proxy.client.cli.interface.show_commands") as mock_show_commands,
             patch("click.prompt", return_value="2"),
         ):  # User selects index 2
             result = self.runner.invoke(login, obj=mock_context.obj)
@@ -897,7 +897,7 @@ class TestCLIKeyRegenerationFlow:
             first_poll_url = mock_get.call_args_list[0][0][0]
             assert "cli-session-uuid-456" in first_poll_url
             assert "team_id=" not in first_poll_url
-            assert mock_get.call_args_list[0].kwargs["headers"] == {"x-litellm-cli-poll-secret": "poll-secret"}
+            assert mock_get.call_args_list[0].kwargs["headers"] == {"x-hangarllm-cli-poll-secret": "poll-secret"}
 
             # Second poll should include team_id=team-beta
             second_poll_url = mock_get.call_args_list[1][0][0]
@@ -934,8 +934,8 @@ class TestCLIKeyRegenerationFlow:
                 return_value=_mock_cli_sso_start_response(login_id="cli-session-uuid-solo"),
             ),
             patch("requests.get", return_value=mock_response),
-            patch("litellm.proxy.client.cli.commands.auth.save_cli_token") as mock_save,
-            patch("litellm.proxy.client.cli.interface.show_commands"),
+            patch("hangarllm.proxy.client.cli.commands.auth.save_cli_token") as mock_save,
+            patch("hangarllm.proxy.client.cli.interface.show_commands"),
         ):
             result = self.runner.invoke(login, obj=mock_context.obj)
 
@@ -946,7 +946,7 @@ class TestCLIKeyRegenerationFlow:
             mock_browser.assert_called_once()
             call_args = mock_browser.call_args[0][0]
             assert "https://test.example.com/sso/key/generate" in call_args
-            assert "source=litellm-cli" in call_args
+            assert "source=hangarllm-cli" in call_args
             assert "key=cli-session-uuid-solo" in call_args
 
             # Verify JWT was saved
@@ -972,7 +972,7 @@ class TestPrintTokenCommand:
     apiKeyHelper, can still invoke this bare (no --base-url at all); that
     case falls back to trusting whatever `lite login` stored in token.json,
     since there is no explicit target to check it against. `--base-url`/
-    `LITELLM_PROXY_URL` only enforces the match when a caller explicitly
+    `HANGARLLM_PROXY_URL` only enforces the match when a caller explicitly
     passes it (tracked via ctx.obj["base_url_explicit"], set by the `cli`
     group from click's ParameterSource); a base_url saved via
     `lite config set` counts as explicit too.
@@ -982,7 +982,7 @@ class TestPrintTokenCommand:
         self.runner = CliRunner()
 
     def test_no_stored_token_fails_cleanly(self):
-        with patch("litellm.proxy.client.cli.commands.auth.load_cli_token", return_value=None):
+        with patch("hangarllm.proxy.client.cli.commands.auth.load_cli_token", return_value=None):
             result = self.runner.invoke(print_token, obj={})
 
         assert result.exit_code != 0
@@ -994,9 +994,9 @@ class TestPrintTokenCommand:
         one). Must use token.json's own base_url, not a hardcoded default."""
         with (
             patch(
-                "litellm.proxy.client.cli.commands.auth.load_cli_token",
+                "hangarllm.proxy.client.cli.commands.auth.load_cli_token",
                 return_value=CliTokenRecord(
-                    base_url="https://litellm-proxy.corp.com",
+                    base_url="https://hangarllm-proxy.corp.com",
                     key="sk-prod-fresh",
                     timestamp=time.time(),
                 ),
@@ -1016,7 +1016,7 @@ class TestPrintTokenCommand:
         token minted for proxy A must not reach a helper invocation aimed
         at proxy B, even though the token itself is otherwise fresh."""
         with patch(
-            "litellm.proxy.client.cli.commands.auth.load_cli_token",
+            "hangarllm.proxy.client.cli.commands.auth.load_cli_token",
             return_value=CliTokenRecord(
                 base_url="https://other-server.com",
                 key="sk-should-not-print",
@@ -1035,7 +1035,7 @@ class TestPrintTokenCommand:
         """`lite up`'s own bound invocation shape: --base-url matching the token's origin
         must succeed exactly like the bare/legacy invocation does."""
         with patch(
-            "litellm.proxy.client.cli.commands.auth.load_cli_token",
+            "hangarllm.proxy.client.cli.commands.auth.load_cli_token",
             return_value=CliTokenRecord(
                 base_url="http://localhost:4000",
                 key="sk-matches",
@@ -1056,7 +1056,7 @@ class TestPrintTokenCommand:
         refresh call on every single invocation (apiKeyHelper gets called
         frequently)."""
         with patch(
-            "litellm.proxy.client.cli.commands.auth.load_cli_token",
+            "hangarllm.proxy.client.cli.commands.auth.load_cli_token",
             return_value=CliTokenRecord(
                 base_url="http://localhost:4000",
                 key="sk-cached-fresh",
@@ -1091,7 +1091,7 @@ class TestPrintTokenCommand:
         _register_models_answer("sk-stale-key", proxy_answer)
 
         with patch(
-            "litellm.proxy.client.cli.commands.auth.load_cli_token",
+            "hangarllm.proxy.client.cli.commands.auth.load_cli_token",
             return_value=CliTokenRecord(
                 base_url=STALE_TOKEN_BASE_URL,
                 key="sk-stale-key",
@@ -1110,7 +1110,7 @@ class TestPrintTokenCommand:
         _register_models_answer("sk-stale-key", requests.ReadTimeout("proxy sent nothing"))
 
         with patch(
-            "litellm.proxy.client.cli.commands.auth.load_cli_token",
+            "hangarllm.proxy.client.cli.commands.auth.load_cli_token",
             return_value=CliTokenRecord(
                 base_url=STALE_TOKEN_BASE_URL,
                 key="sk-stale-key",
@@ -1128,7 +1128,7 @@ class TestPrintTokenCommand:
     @responses.activate
     def test_key_without_a_recorded_proxy_still_expires_after_the_client_window(self):
         with patch(
-            "litellm.proxy.client.cli.commands.auth.load_cli_token",
+            "hangarllm.proxy.client.cli.commands.auth.load_cli_token",
             return_value=CliTokenRecord(key="sk-old-format", timestamp=STALE_TOKEN_TIMESTAMP),
         ):
             result: Final = self.runner.invoke(print_token, obj={})
@@ -1141,7 +1141,7 @@ class TestPrintTokenCommand:
 
 class TestPrintTokenWithConfigFile:
     """A config-file base_url is a drop-in replacement for exporting
-    LITELLM_PROXY_URL, so print-token must treat it as an explicit server
+    HANGARLLM_PROXY_URL, so print-token must treat it as an explicit server
     choice: a token minted for a different proxy is never handed out."""
 
     def test_config_base_url_mismatch_fails_closed(self, isolated_home):
@@ -1211,7 +1211,7 @@ class TestFileFallbackStorage:
             vault=secret_vault_factory(available=False),
         )
 
-        token_file = isolated_home / ".litellm" / "token.json"
+        token_file = isolated_home / ".hangarllm" / "token.json"
         assert json.loads(token_file.read_text())["key"] == "sk-secret"
         assert stat.S_IMODE(token_file.stat().st_mode) == 0o600
         assert stat.S_IMODE(token_file.parent.stat().st_mode) == 0o700
@@ -1219,12 +1219,12 @@ class TestFileFallbackStorage:
 
     def test_a_failed_write_preserves_the_existing_token(self, isolated_home, secret_vault_factory, monkeypatch):
         _write_home_json(isolated_home, "token.json", {"key": "sk-original", "timestamp": 1234567890})
-        token_file = isolated_home / ".litellm" / "token.json"
+        token_file = isolated_home / ".hangarllm" / "token.json"
 
         def _explode(*args, **kwargs):
             raise TypeError("not serialisable")
 
-        monkeypatch.setattr("litellm.litellm_core_utils.private_json.json.dump", _explode)
+        monkeypatch.setattr("hangarllm.hangarllm_core_utils.private_json.json.dump", _explode)
 
         with pytest.raises(TypeError):
             save_cli_token(CliTokenRecord(key="sk-new"), vault=secret_vault_factory(available=False))
@@ -1254,7 +1254,7 @@ class TestKeychainBackedCommands:
             patch("webbrowser.open"),
             patch("requests.post", return_value=_mock_cli_sso_start_response()),
             patch("requests.get", return_value=poll_response),
-            patch("litellm.proxy.client.cli.interface.show_commands"),
+            patch("hangarllm.proxy.client.cli.interface.show_commands"),
         ):
             return self.runner.invoke(login, obj={"base_url": base_url, "secret_vault": vault})
 
@@ -1263,7 +1263,7 @@ class TestKeychainBackedCommands:
 
         result = self._login(vault)
 
-        token_file = isolated_home / ".litellm" / "token.json"
+        token_file = isolated_home / ".hangarllm" / "token.json"
         assert result.exit_code == 0
         assert "Credential stored in your OS keychain." in result.output
         assert json.loads(vault.blob)["key"] == "sk-minted"
@@ -1273,7 +1273,7 @@ class TestKeychainBackedCommands:
     def test_login_without_a_keychain_says_where_the_credential_went(self, isolated_home, secret_vault_factory):
         result = self._login(secret_vault_factory(available=False))
 
-        token_file = isolated_home / ".litellm" / "token.json"
+        token_file = isolated_home / ".hangarllm" / "token.json"
         assert result.exit_code == 0
         assert "No OS keychain available" in result.output
         assert str(token_file) in result.output
@@ -1284,9 +1284,9 @@ class TestKeychainBackedCommands:
         that user their machine has no keychain sends them looking for a problem they do not have."""
         result = self._login(secret_vault_factory(available=False, failure=KeyringNotInstalled()))
 
-        token_file = isolated_home / ".litellm" / "token.json"
+        token_file = isolated_home / ".hangarllm" / "token.json"
         assert result.exit_code == 0
-        assert "pip install 'litellm[cli]'" in result.output
+        assert "pip install 'hangarllm[cli]'" in result.output
         assert "No OS keychain available" not in result.output
         assert json.loads(token_file.read_text())["key"] == "sk-minted"
 
@@ -1295,7 +1295,7 @@ class TestKeychainBackedCommands:
         storage, because the file is then told to drop the only remaining copy."""
         result = self._login(secret_vault_factory(discards=True))
 
-        token_file = isolated_home / ".litellm" / "token.json"
+        token_file = isolated_home / ".hangarllm" / "token.json"
         assert result.exit_code == 0
         assert "Credential stored in your OS keychain." not in result.output
         assert "keyring --enable" in result.output
@@ -1307,7 +1307,7 @@ class TestKeychainBackedCommands:
         assert result.exit_code == 0
         assert DISABLE_KEYRING_ENV_VAR in result.output
         assert "No OS keychain available" not in result.output
-        assert json.loads((isolated_home / ".litellm" / "token.json").read_text())["key"] == "sk-minted"
+        assert json.loads((isolated_home / ".hangarllm" / "token.json").read_text())["key"] == "sk-minted"
 
     def test_whoami_and_print_token_read_through_the_keychain(self, isolated_home, secret_vault_factory):
         vault = secret_vault_factory()
@@ -1331,7 +1331,7 @@ class TestKeychainBackedCommands:
         assert result.exit_code == 0
         assert "Logged out successfully" in result.output
         assert vault.blob is None
-        assert not (isolated_home / ".litellm" / "token.json").exists()
+        assert not (isolated_home / ".hangarllm" / "token.json").exists()
 
     def test_logout_warns_when_the_keychain_will_not_release_the_secret(self, isolated_home, secret_vault_factory):
         """Silently reporting success would leave a live credential in the keychain."""
@@ -1342,7 +1342,7 @@ class TestKeychainBackedCommands:
 
         assert result.exit_code == 0
         assert "could not be removed" in result.output
-        assert not (isolated_home / ".litellm" / "token.json").exists()
+        assert not (isolated_home / ".hangarllm" / "token.json").exists()
 
     def test_print_token_explains_a_locked_keychain_instead_of_printing_nothing(
         self, isolated_home, secret_vault_factory
@@ -1397,16 +1397,16 @@ class TestKeychainBackedCommands:
         result = self.runner.invoke(print_token, obj=obj)
 
         assert result.exit_code == 1
-        assert "pip install 'litellm[cli]'" in result.output
+        assert "pip install 'hangarllm[cli]'" in result.output
         assert DISABLE_KEYRING_ENV_VAR not in result.output
 
 
 class TestApiKeyPrecedence:
-    """`LITELLM_PROXY_API_KEY` and `--api-key` outrank the stored credential; moving the secret
+    """`HANGARLLM_PROXY_API_KEY` and `--api-key` outrank the stored credential; moving the secret
     into the keychain must not disturb that order."""
 
     def _resolved_key(self, args, obj=None):
-        with patch("litellm.proxy.client.cli.main.print_version") as mock_print_version:
+        with patch("hangarllm.proxy.client.cli.main.print_version") as mock_print_version:
             result = CliRunner().invoke(cli, [*args, "version"], obj=obj)
         assert result.exit_code == 0, result.output
         return mock_print_version.call_args[0][1]
@@ -1434,7 +1434,7 @@ class TestApiKeyPrecedence:
             "token.json",
             {"base_url": "http://localhost:4000", "key": "sk-stored", "timestamp": time.time()},
         )
-        monkeypatch.setenv("LITELLM_PROXY_API_KEY", "sk-from-env")
+        monkeypatch.setenv("HANGARLLM_PROXY_API_KEY", "sk-from-env")
 
         assert self._resolved_key([]) == "sk-from-env"
 
@@ -1444,7 +1444,7 @@ class TestApiKeyPrecedence:
             "token.json",
             {"base_url": "http://localhost:4000", "key": "sk-stored", "timestamp": time.time()},
         )
-        monkeypatch.setenv("LITELLM_PROXY_API_KEY", "sk-from-env")
+        monkeypatch.setenv("HANGARLLM_PROXY_API_KEY", "sk-from-env")
 
         assert self._resolved_key(["--api-key", "sk-explicit"]) == "sk-explicit"
 
@@ -1486,8 +1486,8 @@ class TestLoginConfigClaude:
             patch("webbrowser.open"),
             patch("requests.post", return_value=_mock_cli_sso_start_response()),
             patch("requests.get", return_value=poll_response),
-            patch("litellm.proxy.client.cli.commands.auth.save_cli_token", return_value=stored or SecretStored()),
-            patch("litellm.proxy.client.cli.interface.show_commands"),
+            patch("hangarllm.proxy.client.cli.commands.auth.save_cli_token", return_value=stored or SecretStored()),
+            patch("hangarllm.proxy.client.cli.interface.show_commands"),
         ):
             result = self.runner.invoke(login, args, obj={"base_url": base_url}, env=env)
         return result, settings_path, backup_path
@@ -1580,7 +1580,7 @@ class TestLoginConfigClaude:
     def test_a_second_login_replaces_the_key_and_unconfigure_still_restores_the_original(self, tmp_path, monkeypatch):
         # The stored key expires daily, so the flag is re-run per login; the receipt must keep owning the
         # slot across re-logins and hand back what was there before the first one.
-        from litellm.proxy.client.cli.commands.configure import unconfigure_claude
+        from hangarllm.proxy.client.cli.commands.configure import unconfigure_claude
 
         settings_path = tmp_path / "claude" / "settings.json"
         settings_path.parent.mkdir(parents=True)
@@ -1596,7 +1596,7 @@ class TestLoginConfigClaude:
 
     @pytest.mark.parametrize(
         "stored",
-        [CredentialNotSaved("read-only ~/.litellm"), CredentialNotRecorded()],
+        [CredentialNotSaved("read-only ~/.hangarllm"), CredentialNotRecorded()],
         ids=["nothing-kept-it", "keychain-took-it-file-refused"],
     )
     def test_claude_code_is_configured_even_when_the_cli_could_not_keep_the_credential(
@@ -1689,7 +1689,7 @@ def _pkce_record(**overrides):
 
 
 def _pkce_credential():
-    from litellm.proxy.client.cli.commands.pkce_login import PkceCredential
+    from hangarllm.proxy.client.cli.commands.pkce_login import PkceCredential
 
     return PkceCredential(
         access_token="sk-cli-fresh",
@@ -1725,11 +1725,11 @@ class TestPkceLoginCommand:
             return SecretStored()
 
         with (
-            patch("litellm.proxy.client.cli.commands.auth.run_pkce_login", return_value=_pkce_credential()),
-            patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record(team_id="team-a")),
-            patch("litellm.proxy.client.cli.commands.auth.save_token", side_effect=record_posts) as save,
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _FakeSession),
-            patch("litellm.proxy.client.cli.interface.show_commands"),
+            patch("hangarllm.proxy.client.cli.commands.auth.run_pkce_login", return_value=_pkce_credential()),
+            patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record(team_id="team-a")),
+            patch("hangarllm.proxy.client.cli.commands.auth.save_token", side_effect=record_posts) as save,
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _FakeSession),
+            patch("hangarllm.proxy.client.cli.interface.show_commands"),
         ):
             result = self.runner.invoke(login, ["--pkce"], obj={"base_url": PKCE_BASE_URL})
 
@@ -1753,11 +1753,11 @@ class TestPkceLoginCommand:
                 self.response = _FakeHttpResponse(503, {"error": "temporarily_unavailable"})
 
         with (
-            patch("litellm.proxy.client.cli.commands.auth.run_pkce_login", return_value=_pkce_credential()),
-            patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
-            patch("litellm.proxy.client.cli.commands.auth.save_token", return_value=SecretStored()) as save,
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _FailingSession),
-            patch("litellm.proxy.client.cli.interface.show_commands"),
+            patch("hangarllm.proxy.client.cli.commands.auth.run_pkce_login", return_value=_pkce_credential()),
+            patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
+            patch("hangarllm.proxy.client.cli.commands.auth.save_token", return_value=SecretStored()) as save,
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _FailingSession),
+            patch("hangarllm.proxy.client.cli.interface.show_commands"),
         ):
             result = self.runner.invoke(login, ["--pkce"], obj={"base_url": PKCE_BASE_URL})
 
@@ -1772,11 +1772,11 @@ class TestPkceLoginCommand:
     @pytest.mark.parametrize("previous", [None, {"key": "sk-classic", "base_url": PKCE_BASE_URL}])
     def test_pkce_login_without_a_previous_refresh_token_makes_no_revocation_request(self, previous):
         with (
-            patch("litellm.proxy.client.cli.commands.auth.run_pkce_login", return_value=_pkce_credential()),
-            patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=previous),
-            patch("litellm.proxy.client.cli.commands.auth.save_token", return_value=SecretStored()) as save,
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _FakeSession),
-            patch("litellm.proxy.client.cli.interface.show_commands"),
+            patch("hangarllm.proxy.client.cli.commands.auth.run_pkce_login", return_value=_pkce_credential()),
+            patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=previous),
+            patch("hangarllm.proxy.client.cli.commands.auth.save_token", return_value=SecretStored()) as save,
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _FakeSession),
+            patch("hangarllm.proxy.client.cli.interface.show_commands"),
         ):
             result = self.runner.invoke(login, ["--pkce"], obj={"base_url": PKCE_BASE_URL})
 
@@ -1796,18 +1796,18 @@ class TestPkceLoginCommand:
         ],
     )
     def test_login_uses_pkce_when_the_flag_or_the_saved_setting_says_so(self, saved, args, uses_pkce):
-        from litellm.proxy.client.cli.commands.config import save_config
+        from hangarllm.proxy.client.cli.commands.config import save_config
 
         if saved is not None:
             save_config({"pkce": saved})
         with (
-            patch("litellm.proxy.client.cli.commands.auth.run_pkce_login", return_value=_pkce_credential()),
+            patch("hangarllm.proxy.client.cli.commands.auth.run_pkce_login", return_value=_pkce_credential()),
             patch(
-                "litellm.proxy.client.cli.commands.auth._start_cli_sso_flow",
+                "hangarllm.proxy.client.cli.commands.auth._start_cli_sso_flow",
                 side_effect=RuntimeError("classic sso flow"),
             ),
-            patch("litellm.proxy.client.cli.commands.auth.save_token", return_value=SecretStored()),
-            patch("litellm.proxy.client.cli.interface.show_commands"),
+            patch("hangarllm.proxy.client.cli.commands.auth.save_token", return_value=SecretStored()),
+            patch("hangarllm.proxy.client.cli.interface.show_commands"),
         ):
             result = self.runner.invoke(login, args, obj={"base_url": PKCE_BASE_URL})
 
@@ -1816,10 +1816,10 @@ class TestPkceLoginCommand:
 
     def test_pkce_login_saves_the_refreshable_record_and_skips_the_sso_poll(self):
         with (
-            patch("litellm.proxy.client.cli.commands.auth.run_pkce_login", return_value=_pkce_credential()) as run,
-            patch("litellm.proxy.client.cli.commands.auth._start_cli_sso_flow") as sso_start,
-            patch("litellm.proxy.client.cli.commands.auth.save_token", return_value=SecretStored()) as save,
-            patch("litellm.proxy.client.cli.interface.show_commands"),
+            patch("hangarllm.proxy.client.cli.commands.auth.run_pkce_login", return_value=_pkce_credential()) as run,
+            patch("hangarllm.proxy.client.cli.commands.auth._start_cli_sso_flow") as sso_start,
+            patch("hangarllm.proxy.client.cli.commands.auth.save_token", return_value=SecretStored()) as save,
+            patch("hangarllm.proxy.client.cli.interface.show_commands"),
         ):
             result = self.runner.invoke(login, ["--pkce"], obj={"base_url": f"{PKCE_BASE_URL}/"})
 
@@ -1840,14 +1840,14 @@ class TestPkceLoginCommand:
         assert saved["team_id"] == "team-b"
 
     def test_pkce_login_failure_is_reported_and_nothing_is_saved(self):
-        from litellm.proxy.client.cli.commands.pkce_login import PkceFailure
+        from hangarllm.proxy.client.cli.commands.pkce_login import PkceFailure
 
         with (
             patch(
-                "litellm.proxy.client.cli.commands.auth.run_pkce_login",
+                "hangarllm.proxy.client.cli.commands.auth.run_pkce_login",
                 return_value=PkceFailure("sign-in was not approved (access_denied): no details"),
             ),
-            patch("litellm.proxy.client.cli.commands.auth.save_token", return_value=SecretStored()) as save,
+            patch("hangarllm.proxy.client.cli.commands.auth.save_token", return_value=SecretStored()) as save,
         ):
             result = self.runner.invoke(login, ["--pkce"], obj={"base_url": PKCE_BASE_URL})
 
@@ -1857,8 +1857,8 @@ class TestPkceLoginCommand:
 
     def test_login_without_the_flag_never_touches_the_pkce_flow(self):
         with (
-            patch("litellm.proxy.client.cli.commands.auth.run_pkce_login") as run,
-            patch("litellm.proxy.client.cli.commands.auth._start_cli_sso_flow", side_effect=KeyboardInterrupt),
+            patch("hangarllm.proxy.client.cli.commands.auth.run_pkce_login") as run,
+            patch("hangarllm.proxy.client.cli.commands.auth._start_cli_sso_flow", side_effect=KeyboardInterrupt),
         ):
             result = self.runner.invoke(login, obj={"base_url": PKCE_BASE_URL})
 
@@ -1873,9 +1873,9 @@ class TestPkceLogoutCommand:
 
     def test_logout_revokes_the_refresh_token_before_clearing(self):
         with (
-            patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
-            patch("litellm.proxy.client.cli.commands.auth.clear_cli_token", return_value=SecretErased()) as clear,
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _FakeSession),
+            patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
+            patch("hangarllm.proxy.client.cli.commands.auth.clear_cli_token", return_value=SecretErased()) as clear,
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _FakeSession),
         ):
             result = self.runner.invoke(logout)
 
@@ -1896,9 +1896,9 @@ class TestPkceLogoutCommand:
                 self.response = _FakeHttpResponse(401, {"error": "invalid_client"})
 
         with (
-            patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
-            patch("litellm.proxy.client.cli.commands.auth.clear_cli_token", return_value=SecretErased()) as clear,
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _RefusingSession),
+            patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
+            patch("hangarllm.proxy.client.cli.commands.auth.clear_cli_token", return_value=SecretErased()) as clear,
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _RefusingSession),
         ):
             result = self.runner.invoke(logout)
 
@@ -1919,9 +1919,9 @@ class TestPkceLogoutCommand:
                 )
 
         with (
-            patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
-            patch("litellm.proxy.client.cli.commands.auth.clear_cli_token", return_value=SecretErased()) as clear,
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _UnavailableSession),
+            patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
+            patch("hangarllm.proxy.client.cli.commands.auth.clear_cli_token", return_value=SecretErased()) as clear,
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _UnavailableSession),
         ):
             result = self.runner.invoke(logout)
 
@@ -1935,9 +1935,9 @@ class TestPkceLogoutCommand:
 
     def test_logout_of_a_classic_token_makes_no_request(self):
         with (
-            patch("litellm.proxy.client.cli.commands.auth.load_token", return_value={"key": "sk-classic"}),
-            patch("litellm.proxy.client.cli.commands.auth.clear_cli_token", return_value=SecretErased()) as clear,
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _FakeSession),
+            patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value={"key": "sk-classic"}),
+            patch("hangarllm.proxy.client.cli.commands.auth.clear_cli_token", return_value=SecretErased()) as clear,
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _FakeSession),
         ):
             result = self.runner.invoke(logout)
 
@@ -1961,9 +1961,9 @@ class TestPkcePrintToken:
                 self.response = _FakeHttpResponse(200, PKCE_TOKEN_RESPONSE)
 
         with (
-            patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
-            patch("litellm.proxy.client.cli.commands.auth.save_token") as save,
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _RefreshingSession),
+            patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
+            patch("hangarllm.proxy.client.cli.commands.auth.save_token") as save,
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _RefreshingSession),
         ):
             result = self.runner.invoke(print_token, obj={})
 
@@ -1978,10 +1978,10 @@ class TestPkcePrintToken:
     def test_print_token_prints_a_fresh_pkce_key_without_a_request(self):
         with (
             patch(
-                "litellm.proxy.client.cli.commands.auth.load_token",
+                "hangarllm.proxy.client.cli.commands.auth.load_token",
                 return_value=_pkce_record(expires_at=time.time() + 3600),
             ),
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _FakeSession),
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _FakeSession),
         ):
             result = self.runner.invoke(print_token, obj={})
 
@@ -1996,11 +1996,11 @@ class TestPkcePrintToken:
 
         with (
             patch(
-                "litellm.proxy.client.cli.commands.auth.load_token",
+                "hangarllm.proxy.client.cli.commands.auth.load_token",
                 return_value=_pkce_record(expires_at=time.time() - 1),
             ),
-            patch("litellm.proxy.client.cli.commands.auth.save_token") as save,
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _RefusingSession),
+            patch("hangarllm.proxy.client.cli.commands.auth.save_token") as save,
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _RefusingSession),
         ):
             result = self.runner.invoke(print_token, obj={})
 
@@ -2012,8 +2012,8 @@ class TestPkcePrintToken:
         save.assert_not_called()
 
     def test_print_token_through_the_cli_group_renews_once_and_reports_a_refusal_once(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_PROXY_API_KEY", raising=False)
-        monkeypatch.delenv("LITELLM_PROXY_URL", raising=False)
+        monkeypatch.delenv("HANGARLLM_PROXY_API_KEY", raising=False)
+        monkeypatch.delenv("HANGARLLM_PROXY_URL", raising=False)
 
         class _RefusingSession(_FakeSession):
             def __init__(self):
@@ -2024,11 +2024,11 @@ class TestPkcePrintToken:
 
         with (
             patch(
-                "litellm.proxy.client.cli.commands.auth.load_token",
+                "hangarllm.proxy.client.cli.commands.auth.load_token",
                 return_value=_pkce_record(expires_at=time.time() - 1),
             ),
-            patch("litellm.proxy.client.cli.commands.auth.save_token") as save,
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _RefusingSession),
+            patch("hangarllm.proxy.client.cli.commands.auth.save_token") as save,
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _RefusingSession),
         ):
             result = self.runner.invoke(cli, ["--base-url", PKCE_BASE_URL, "auth", "print-token"])
 
@@ -2044,8 +2044,8 @@ class TestPkcePrintToken:
         save.assert_not_called()
 
     def test_print_token_through_the_cli_group_prints_the_key_the_group_renewed(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_PROXY_API_KEY", raising=False)
-        monkeypatch.delenv("LITELLM_PROXY_URL", raising=False)
+        monkeypatch.delenv("HANGARLLM_PROXY_API_KEY", raising=False)
+        monkeypatch.delenv("HANGARLLM_PROXY_URL", raising=False)
 
         class _RefreshingSession(_FakeSession):
             def __init__(self):
@@ -2053,9 +2053,9 @@ class TestPkcePrintToken:
                 self.response = _FakeHttpResponse(200, PKCE_TOKEN_RESPONSE)
 
         with (
-            patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
-            patch("litellm.proxy.client.cli.commands.auth.save_token") as save,
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _RefreshingSession),
+            patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
+            patch("hangarllm.proxy.client.cli.commands.auth.save_token") as save,
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _RefreshingSession),
         ):
             result = self.runner.invoke(cli, ["--base-url", PKCE_BASE_URL, "auth", "print-token"])
 
@@ -2067,8 +2067,8 @@ class TestPkcePrintToken:
     def test_print_token_invoked_bare_for_another_server_renews_once(self, monkeypatch, tmp_path):
         monkeypatch.setenv("HOME", str(tmp_path))
         monkeypatch.setenv("USERPROFILE", str(tmp_path))
-        monkeypatch.delenv("LITELLM_PROXY_API_KEY", raising=False)
-        monkeypatch.delenv("LITELLM_PROXY_URL", raising=False)
+        monkeypatch.delenv("HANGARLLM_PROXY_API_KEY", raising=False)
+        monkeypatch.delenv("HANGARLLM_PROXY_URL", raising=False)
 
         class _RefreshingSession(_FakeSession):
             def __init__(self):
@@ -2076,9 +2076,9 @@ class TestPkcePrintToken:
                 self.response = _FakeHttpResponse(200, PKCE_TOKEN_RESPONSE)
 
         with (
-            patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
-            patch("litellm.proxy.client.cli.commands.auth.save_token") as save,
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _RefreshingSession),
+            patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
+            patch("hangarllm.proxy.client.cli.commands.auth.save_token") as save,
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _RefreshingSession),
         ):
             result = self.runner.invoke(cli, ["auth", "print-token"])
 
@@ -2092,7 +2092,7 @@ class TestPkcePrintToken:
         _register_models_answer("sk-classic", 200)
         with (
             patch(
-                "litellm.proxy.client.cli.commands.auth.load_token",
+                "hangarllm.proxy.client.cli.commands.auth.load_token",
                 return_value={
                     "key": "sk-classic",
                     "base_url": STALE_TOKEN_BASE_URL,
@@ -2100,7 +2100,7 @@ class TestPkcePrintToken:
                     "expires_at": STALE_TOKEN_TIMESTAMP + 3600,
                 },
             ),
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _FakeSession),
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _FakeSession),
         ):
             result: Final = self.runner.invoke(print_token, obj={})
 
@@ -2121,9 +2121,9 @@ class TestGetStoredApiKeyRefresh:
                 self.response = _FakeHttpResponse(200, PKCE_TOKEN_RESPONSE)
 
         with (
-            patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
-            patch("litellm.proxy.client.cli.commands.auth.save_token") as save,
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _RefreshingSession),
+            patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
+            patch("hangarllm.proxy.client.cli.commands.auth.save_token") as save,
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _RefreshingSession),
         ):
             assert get_stored_api_key(PKCE_BASE_URL) == "sk-cli-rotated"
             assert get_stored_api_key("https://other.example.com") is None
@@ -2140,9 +2140,9 @@ class TestGetStoredApiKeyRefresh:
                 self.response = _FakeHttpResponse(503, {"error": "temporarily_unavailable"})
 
         with (
-            patch("litellm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
-            patch("litellm.proxy.client.cli.commands.auth.save_token") as save,
-            patch("litellm.proxy.client.cli.commands.auth.requests.Session", _RefusingSession),
+            patch("hangarllm.proxy.client.cli.commands.auth.load_token", return_value=_pkce_record()),
+            patch("hangarllm.proxy.client.cli.commands.auth.save_token") as save,
+            patch("hangarllm.proxy.client.cli.commands.auth.requests.Session", _RefusingSession),
         ):
             assert get_stored_api_key(PKCE_BASE_URL) == "sk-cli-old"
 

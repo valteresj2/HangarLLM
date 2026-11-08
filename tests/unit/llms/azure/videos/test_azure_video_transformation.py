@@ -11,14 +11,14 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../.."))
 )
 
-import litellm
-from litellm.llms.azure.videos.transformation import AzureVideoConfig
-from litellm.types.videos.main import (
+import hangarllm
+from hangarllm.llms.azure.videos.transformation import AzureVideoConfig
+from hangarllm.types.videos.main import (
     VideoObject,
     VideoResponse,
     VideoCreateOptionalRequestParams,
 )
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.types.router import GenericHangarLLMParams
 from pydantic import ValidationError
 
 
@@ -70,12 +70,12 @@ class TestAzureVideoConfig:
         assert result["size"] == "1280x720"
         assert result["user"] == "test_user"
 
-    @patch("litellm.llms.azure.common_utils.litellm")
-    def test_validate_environment_with_api_key(self, mock_litellm):
+    @patch("hangarllm.llms.azure.common_utils.hangarllm")
+    def test_validate_environment_with_api_key(self, mock_hangarllm):
         """Test environment validation with provided API key - should use api-key header for Azure."""
-        # Since validate_environment passes litellm_params=None, it relies on litellm.api_key or litellm.azure_key
-        mock_litellm.api_key = self.api_key
-        mock_litellm.azure_key = None
+        # Since validate_environment passes hangarllm_params=None, it relies on hangarllm.api_key or hangarllm.azure_key
+        mock_hangarllm.api_key = self.api_key
+        mock_hangarllm.azure_key = None
 
         headers = {"Content-Type": "application/json"}
 
@@ -88,12 +88,12 @@ class TestAzureVideoConfig:
         assert result_headers["api-key"] == self.api_key
         assert result_headers["Content-Type"] == "application/json"
 
-    @patch("litellm.llms.azure.common_utils.get_secret_str")
-    @patch("litellm.llms.azure.common_utils.litellm")
-    def test_validate_environment_without_api_key(self, mock_litellm, mock_get_secret):
+    @patch("hangarllm.llms.azure.common_utils.get_secret_str")
+    @patch("hangarllm.llms.azure.common_utils.hangarllm")
+    def test_validate_environment_without_api_key(self, mock_hangarllm, mock_get_secret):
         """Test environment validation without provided API key - should fallback to secret manager."""
-        mock_litellm.api_key = None
-        mock_litellm.azure_key = None
+        mock_hangarllm.api_key = None
+        mock_hangarllm.azure_key = None
         mock_get_secret.return_value = "secret-api-key"
 
         headers = {"Content-Type": "application/json"}
@@ -107,13 +107,13 @@ class TestAzureVideoConfig:
 
     def test_get_complete_url(self):
         """Test URL construction for Azure video API."""
-        litellm_params = {
+        hangarllm_params = {
             "api_base": self.api_base,
             "api_version": "2024-02-15-preview",
         }
 
         url = self.config.get_complete_url(
-            model=self.model, api_base=self.api_base, litellm_params=litellm_params
+            model=self.model, api_base=self.api_base, hangarllm_params=hangarllm_params
         )
 
         # Should contain the Azure base URL and video endpoint
@@ -124,7 +124,7 @@ class TestAzureVideoConfig:
         """Test video creation request transformation."""
         video_params = {"seconds": 8, "size": "720x1280"}
 
-        litellm_params = GenericLiteLLMParams(
+        hangarllm_params = GenericHangarLLMParams(
             model=self.model, api_base=self.api_base, api_key=self.api_key
         )
 
@@ -136,7 +136,7 @@ class TestAzureVideoConfig:
             prompt="A cinematic shot of a city at night",
             api_base=api_base,
             video_create_optional_request_params=video_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -233,12 +233,12 @@ class TestAzureVideoConfig:
     def test_url_construction_with_trailing_slash(self):
         """Test URL construction with API base that has trailing slash."""
         api_base_with_slash = "https://your-resource.openai.azure.com/"
-        litellm_params = {"api_base": api_base_with_slash}
+        hangarllm_params = {"api_base": api_base_with_slash}
 
         url = self.config.get_complete_url(
             model=self.model,
             api_base=api_base_with_slash,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         # Should not have double slashes
@@ -248,12 +248,12 @@ class TestAzureVideoConfig:
     def test_url_construction_without_trailing_slash(self):
         """Test URL construction with API base that doesn't have trailing slash."""
         api_base_without_slash = "https://your-resource.openai.azure.com"
-        litellm_params = {"api_base": api_base_without_slash}
+        hangarllm_params = {"api_base": api_base_without_slash}
 
         url = self.config.get_complete_url(
             model=self.model,
             api_base=api_base_without_slash,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         # Should have proper slash separation
@@ -264,7 +264,7 @@ class TestAzureVideoConfig:
         """Test video creation with file upload (input_reference)."""
         video_params = {"seconds": 10, "input_reference": "test_image.png"}
 
-        litellm_params = GenericLiteLLMParams(
+        hangarllm_params = GenericHangarLLMParams(
             model=self.model, api_base=self.api_base, api_key=self.api_key
         )
 
@@ -279,7 +279,7 @@ class TestAzureVideoConfig:
                     prompt="A video with reference image",
                     api_base=api_base,
                     video_create_optional_request_params=video_params,
-                    litellm_params=litellm_params,
+                    hangarllm_params=hangarllm_params,
                     headers=headers,
                 )
 
@@ -305,13 +305,13 @@ class TestAzureVideoConfig:
                 model=self.model, raw_response=mock_response, logging_obj=logging_obj
             )
 
-    @patch("litellm.llms.azure.common_utils.litellm")
-    def test_azure_specific_environment_validation(self, mock_litellm):
+    @patch("hangarllm.llms.azure.common_utils.hangarllm")
+    def test_azure_specific_environment_validation(self, mock_hangarllm):
         """Test Azure-specific environment validation with different key sources."""
         # Test with azure_key
-        mock_litellm.api_key = None
-        mock_litellm.azure_key = "azure-test-key"
-        mock_litellm.openai_key = None
+        mock_hangarllm.api_key = None
+        mock_hangarllm.azure_key = "azure-test-key"
+        mock_hangarllm.openai_key = None
 
         headers = {"Content-Type": "application/json"}
 

@@ -6,12 +6,12 @@ Per the OpenAI spec, finish_reason must be "tool_calls" when the model
 called a tool. The ModelResponseIterator must track tool_calls across
 streaming chunks and correctly set finish_reason on the final chunk.
 
-Ref: https://github.com/BerriAI/litellm/issues/21041
+Ref: upstream issue 21041
 """
 
 from unittest.mock import MagicMock
 
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
     ModelResponseIterator,
 )
 
@@ -241,7 +241,7 @@ def test_streaming_tool_call_finish_reason_with_empty_content_in_final_chunk():
     This covers models like gemini-3.1-flash-lite-preview that send the
     final chunk with content (empty text) instead of omitting it entirely.
 
-    Ref: https://github.com/BerriAI/litellm/issues/22900
+    Ref: upstream issue 22900
     """
     logging_obj = _make_logging_obj()
     iterator = ModelResponseIterator(
@@ -312,7 +312,7 @@ def test_streaming_metadata_only_chunk_does_not_yield_empty_choices():
     `choices` is empty and the downstream streaming handler hits
     `IndexError: list index out of range` on choices[0].
 
-    Ref: https://github.com/BerriAI/litellm/issues/28884
+    Ref: upstream issue 28884
     """
     logging_obj = _make_logging_obj()
     iterator = ModelResponseIterator(

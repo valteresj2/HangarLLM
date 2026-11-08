@@ -227,7 +227,7 @@ def test_team_flag_resaved_key_and_spend_log(gateway: Gateway, tmp_path: Path) -
             assert upstream_hits(gateway, resave_marker) == 1
             assert _sink_hits(policy, resave_marker) == 0
             eventually(
-                lambda: read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (response_id,)),
+                lambda: read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (response_id,)),
                 lambda rows: len(rows) == 1,
                 seconds=70,
             )

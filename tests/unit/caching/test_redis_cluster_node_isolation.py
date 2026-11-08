@@ -26,8 +26,8 @@ from redis.exceptions import (
     TimeoutError as RedisTimeoutError,
 )
 
-from litellm.caching.redis_cluster_node_isolation import (
-    get_litellm_async_redis_cluster_class,
+from hangarllm.caching.redis_cluster_node_isolation import (
+    get_hangarllm_async_redis_cluster_class,
 )
 
 if TYPE_CHECKING:
@@ -86,7 +86,7 @@ class _FakeNodesManager:
 
 
 def _build_cluster_instance() -> "_AsyncRedisClusterType":
-    cluster_cls = get_litellm_async_redis_cluster_class(
+    cluster_cls = get_hangarllm_async_redis_cluster_class(
         cluster_node_class=_NodeClassWithoutPerConnectionRecovery
     )
     instance = cluster_cls.__new__(cluster_cls)
@@ -100,7 +100,7 @@ def _build_cluster_instance() -> "_AsyncRedisClusterType":
 
 
 def _build_8x_cluster_instance() -> _Fake8xRedisCluster:
-    cluster_cls = get_litellm_async_redis_cluster_class(
+    cluster_cls = get_hangarllm_async_redis_cluster_class(
         cluster_node_class=_NodeClassWithPerConnectionRecovery,
         base_cluster_class=_Fake8xRedisCluster,
     )
@@ -111,7 +111,7 @@ def test_unverified_redis_version_logs_warning(caplog: pytest.LogCaptureFixture)
     import redis
 
     with patch.object(redis, "__version__", "8.0.1"):
-        get_litellm_async_redis_cluster_class(cluster_node_class=_NodeClassWithoutPerConnectionRecovery)
+        get_hangarllm_async_redis_cluster_class(cluster_node_class=_NodeClassWithoutPerConnectionRecovery)
 
     assert "not in the set this cluster-teardown-storm fix was verified against" in caplog.text
 

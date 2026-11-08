@@ -6,18 +6,18 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
-from litellm.models.verification_token import LiteLLM_VerificationToken
-from litellm.proxy._types import (
-    LiteLLM_TeamTableCachedObj,
-    LitellmUserRoles,
+from hangarllm.constants import UI_SESSION_TOKEN_TEAM_ID
+from hangarllm.models.verification_token import HangarLLM_VerificationToken
+from hangarllm.proxy._types import (
+    HangarLLM_TeamTableCachedObj,
+    HangarllmUserRoles,
     Member,
     ProxyException,
     UpdateKeyRequest,
     UserAPIKeyAuth,
 )
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.management_endpoints.key_budget_change import (
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.management_endpoints.key_budget_change import (
     KeyBudgetAdminOnly,
     KeyBudgetChange,
     KeyBudgetLoosened,
@@ -26,8 +26,8 @@ from litellm.proxy.management_endpoints.key_budget_change import (
     classify_key_budget_change,
     resolve_self_serve_budget_policy,
 )
-from litellm.proxy.management_endpoints.key_management_endpoints import _validate_update_key_data
-from litellm.types.proxy.management_endpoints.ui_sso import LiteLLM_UpperboundKeyGenerateParams
+from hangarllm.proxy.management_endpoints.key_management_endpoints import _validate_update_key_data
+from hangarllm.types.proxy.management_endpoints.ui_sso import HangarLLM_UpperboundKeyGenerateParams
 
 _OWNER: Final = "owner-1"
 _TEAM_ADMIN: Final = "team-admin"
@@ -46,8 +46,8 @@ def _key(
     budget_limits: Sequence[Mapping[str, object]] | None = None,
     budget_id: str | None = None,
     budget_duration: str | None = None,
-) -> LiteLLM_VerificationToken:
-    return LiteLLM_VerificationToken(
+) -> HangarLLM_VerificationToken:
+    return HangarLLM_VerificationToken(
         token="hashed-owner-key",
         user_id=user_id,
         created_by=created_by,
@@ -182,7 +182,7 @@ def _window(duration: str, cap: float) -> Mapping[str, object]:
     ],
 )
 def test_classify_key_budget_change(
-    update: UpdateKeyRequest, stored: LiteLLM_VerificationToken, expected: KeyBudgetChange
+    update: UpdateKeyRequest, stored: HangarLLM_VerificationToken, expected: KeyBudgetChange
 ) -> None:
     assert classify_key_budget_change(update, stored) == expected
 
@@ -201,8 +201,8 @@ def test_resolve_self_serve_budget_policy(settings: Mapping[str, object], expect
     assert resolve_self_serve_budget_policy(settings) == expected
 
 
-def _team(member_permissions: Sequence[str]) -> LiteLLM_TeamTableCachedObj:
-    return LiteLLM_TeamTableCachedObj(
+def _team(member_permissions: Sequence[str]) -> HangarLLM_TeamTableCachedObj:
+    return HangarLLM_TeamTableCachedObj(
         team_id=_TEAM,
         members_with_roles=[Member(user_id=_TEAM_ADMIN, role="admin"), Member(user_id=_OWNER, role="user")],
         team_member_permissions=list(member_permissions),
@@ -218,7 +218,7 @@ def _caller(
 ) -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         user_id=user_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         max_budget=max_budget,
         team_id=team_id,
         user_max_budget=user_max_budget,
@@ -230,18 +230,18 @@ async def _update(
     *,
     policy: str | None,
     data: UpdateKeyRequest,
-    existing: LiteLLM_VerificationToken,
-    team: LiteLLM_TeamTableCachedObj | None = None,
+    existing: HangarLLM_VerificationToken,
+    team: HangarLLM_TeamTableCachedObj | None = None,
     caller: UserAPIKeyAuth | None = None,
 ) -> None:
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {} if policy is None else {"self_serve_budget_policy": policy},
     )
     prisma: Final = MagicMock()
-    prisma.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=existing)
-    prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=team)
-    prisma.writer_db.litellm_teamtable.find_unique = AsyncMock(return_value=team)
+    prisma.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=existing)
+    prisma.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=team)
+    prisma.writer_db.hangarllm_teamtable.find_unique = AsyncMock(return_value=team)
     await _validate_update_key_data(
         data=data,
         existing_key_row=existing,
@@ -258,8 +258,8 @@ async def _denial(
     *,
     policy: str | None,
     data: UpdateKeyRequest,
-    existing: LiteLLM_VerificationToken,
-    team: LiteLLM_TeamTableCachedObj | None = None,
+    existing: HangarLLM_VerificationToken,
+    team: HangarLLM_TeamTableCachedObj | None = None,
     caller: UserAPIKeyAuth | None = None,
 ) -> HTTPException | None:
     try:
@@ -273,7 +273,7 @@ _ADD_DAILY_WINDOW: Final = UpdateKeyRequest(key="sk-1", budget_limits=[_WEEKLY, 
 _RAISE_WEEKLY_WINDOW: Final = UpdateKeyRequest(key="sk-1", budget_limits=[_window("7d", 80.0)])
 
 
-def _team_key_with_weekly(*, user_id: str = _OWNER, created_by: str = _OWNER) -> LiteLLM_VerificationToken:
+def _team_key_with_weekly(*, user_id: str = _OWNER, created_by: str = _OWNER) -> HangarLLM_VerificationToken:
     return _key(user_id=user_id, created_by=created_by, team_id=_TEAM, budget_limits=[_WEEKLY])
 
 
@@ -412,8 +412,8 @@ async def test_ceiling_caps_ui_session_owner_raise_at_user_budget(monkeypatch: p
 @pytest.mark.asyncio
 async def test_ceiling_respects_personal_key_generation_role_restriction(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "litellm.key_generation_settings",
-        {"personal_key_generation": {"allowed_user_roles": [LitellmUserRoles.PROXY_ADMIN.value]}},
+        "hangarllm.key_generation_settings",
+        {"personal_key_generation": {"allowed_user_roles": [HangarllmUserRoles.PROXY_ADMIN.value]}},
     )
     with pytest.raises(HTTPException) as exc:
         await _update(
@@ -430,8 +430,8 @@ async def test_lower_only_lets_owner_lower_personal_key_budget_without_generate_
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "litellm.key_generation_settings",
-        {"personal_key_generation": {"allowed_user_roles": [LitellmUserRoles.PROXY_ADMIN.value]}},
+        "hangarllm.key_generation_settings",
+        {"personal_key_generation": {"allowed_user_roles": [HangarllmUserRoles.PROXY_ADMIN.value]}},
     )
     assert (
         await _denial(
@@ -447,7 +447,7 @@ async def test_lower_only_lets_owner_lower_personal_key_budget_without_generate_
 @pytest.mark.asyncio
 async def test_ceiling_respects_team_key_generation_role_restriction(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "litellm.key_generation_settings",
+        "hangarllm.key_generation_settings",
         {"team_key_generation": {"allowed_team_member_roles": ["admin"]}},
     )
     with pytest.raises(HTTPException) as exc:
@@ -480,7 +480,7 @@ async def test_owner_cannot_override_a_cap_inherited_from_a_linked_budget(
 async def test_ceiling_cannot_leave_a_key_uncapped_when_an_upperbound_is_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("litellm.upperbound_key_generate_params", LiteLLM_UpperboundKeyGenerateParams(max_budget=20.0))
+    monkeypatch.setattr("hangarllm.upperbound_key_generate_params", HangarLLM_UpperboundKeyGenerateParams(max_budget=20.0))
     with pytest.raises(HTTPException) as exc:
         await _update(
             monkeypatch,
@@ -534,7 +534,7 @@ async def test_owner_cannot_clear_max_budget_by_default(monkeypatch: pytest.Monk
     ],
 )
 async def test_owner_cannot_restart_or_relink_a_key_budget_without_admin(
-    monkeypatch: pytest.MonkeyPatch, policy: str | None, data: UpdateKeyRequest, existing: LiteLLM_VerificationToken
+    monkeypatch: pytest.MonkeyPatch, policy: str | None, data: UpdateKeyRequest, existing: HangarLLM_VerificationToken
 ) -> None:
     with pytest.raises(HTTPException) as exc:
         await _update(monkeypatch, policy=policy, data=data, existing=existing)
@@ -556,7 +556,7 @@ async def test_owner_cannot_restart_or_relink_a_key_budget_without_admin(
     ],
 )
 async def test_owner_changes_budget_duration_when_it_cannot_restart_a_cap_or_policy_allows(
-    monkeypatch: pytest.MonkeyPatch, policy: str | None, data: UpdateKeyRequest, existing: LiteLLM_VerificationToken
+    monkeypatch: pytest.MonkeyPatch, policy: str | None, data: UpdateKeyRequest, existing: HangarLLM_VerificationToken
 ) -> None:
     assert await _denial(monkeypatch, policy=policy, data=data, existing=existing) is None
 

@@ -12,18 +12,18 @@ import pytest
 import httpx
 from fastapi import HTTPException
 
-import litellm
-import litellm.types.utils
-from litellm._logging import verbose_proxy_logger
-from litellm.caching import DualCache
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, MaskedHTTPStatusError
-from litellm.proxy.guardrails.anthropic_sse import anthropic_sse_error_frames
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.model_armor import ModelArmorGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.model_armor.model_armor import (
+import hangarllm
+import hangarllm.types.utils
+from hangarllm._logging import verbose_proxy_logger
+from hangarllm.caching import DualCache
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, MaskedHTTPStatusError
+from hangarllm.proxy.guardrails.anthropic_sse import anthropic_sse_error_frames
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.model_armor import ModelArmorGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.model_armor.model_armor import (
     ModelArmorAPIError,
 )
-from litellm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.guardrails import GuardrailEventHooks
 
 
 @pytest.mark.asyncio
@@ -212,10 +212,10 @@ async def test_model_armor_post_call_hook_sanitization():
         guardrail.async_handler, "post", AsyncMock(return_value=mock_response)
     ):
         # Create a mock response
-        mock_llm_response = litellm.ModelResponse()
+        mock_llm_response = hangarllm.ModelResponse()
         mock_llm_response.choices = [
-            litellm.Choices(
-                message=litellm.Message(
+            hangarllm.Choices(
+                message=hangarllm.Message(
                     content="Here is the information: Credit card 1234-5678-9012-3456"
                 )
             )
@@ -286,10 +286,10 @@ async def test_model_armor_post_call_hook_blocked():
         guardrail.async_handler, "post", AsyncMock(return_value=mock_response)
     ):
         # Create a mock response
-        mock_llm_response = litellm.ModelResponse()
+        mock_llm_response = hangarllm.ModelResponse()
         mock_llm_response.choices = [
-            litellm.Choices(
-                message=litellm.Message(content="Here is some harmful content...")
+            hangarllm.Choices(
+                message=hangarllm.Message(content="Here is some harmful content...")
             )
         ]
 
@@ -501,17 +501,17 @@ async def test_model_armor_streaming_response():
         # Create mock streaming chunks
         async def mock_stream():
             chunks = [
-                litellm.ModelResponseStream(
+                hangarllm.ModelResponseStream(
                     choices=[
-                        litellm.types.utils.StreamingChoices(
-                            delta=litellm.types.utils.Delta(content="Sensitive ")
+                        hangarllm.types.utils.StreamingChoices(
+                            delta=hangarllm.types.utils.Delta(content="Sensitive ")
                         )
                     ]
                 ),
-                litellm.ModelResponseStream(
+                hangarllm.ModelResponseStream(
                     choices=[
-                        litellm.types.utils.StreamingChoices(
-                            delta=litellm.types.utils.Delta(content="information")
+                        hangarllm.types.utils.StreamingChoices(
+                            delta=hangarllm.types.utils.Delta(content="information")
                         )
                     ]
                 ),
@@ -587,17 +587,17 @@ async def test_model_armor_streaming_block_yields_sse_error():
 
         async def mock_stream():
             chunks = [
-                litellm.ModelResponseStream(
+                hangarllm.ModelResponseStream(
                     choices=[
-                        litellm.types.utils.StreamingChoices(
-                            delta=litellm.types.utils.Delta(content="My password is ")
+                        hangarllm.types.utils.StreamingChoices(
+                            delta=hangarllm.types.utils.Delta(content="My password is ")
                         )
                     ]
                 ),
-                litellm.ModelResponseStream(
+                hangarllm.ModelResponseStream(
                     choices=[
-                        litellm.types.utils.StreamingChoices(
-                            delta=litellm.types.utils.Delta(content="hunter2")
+                        hangarllm.types.utils.StreamingChoices(
+                            delta=hangarllm.types.utils.Delta(content="hunter2")
                         )
                     ]
                 ),
@@ -759,9 +759,9 @@ async def test_model_armor_api_error_fail_open_moderation_and_post_call(fail_on_
         "messages": [{"role": "user", "content": "synthetic input"}],
         "metadata": {},
     }
-    mock_llm_response = litellm.ModelResponse()
+    mock_llm_response = hangarllm.ModelResponse()
     mock_llm_response.choices = [
-        litellm.Choices(message=litellm.Message(content="model output"))
+        hangarllm.Choices(message=hangarllm.Message(content="model output"))
     ]
 
     if fail_on_error:
@@ -812,10 +812,10 @@ async def test_model_armor_api_error_fail_open_streaming(fail_on_error: bool):
     guardrail.should_run_guardrail = Mock(return_value=True)
 
     async def mock_stream():
-        yield litellm.ModelResponseStream(
+        yield hangarllm.ModelResponseStream(
             choices=[
-                litellm.types.utils.StreamingChoices(
-                    delta=litellm.types.utils.Delta(content="streamed output")
+                hangarllm.types.utils.StreamingChoices(
+                    delta=hangarllm.types.utils.Delta(content="streamed output")
                 )
             ]
         )
@@ -839,7 +839,7 @@ async def test_model_armor_api_error_fail_open_streaming(fail_on_error: bool):
         assert '"code": "500"' in chunks[0]
     else:
         assert len(chunks) == 1
-        assert isinstance(chunks[0], litellm.ModelResponseStream)
+        assert isinstance(chunks[0], hangarllm.ModelResponseStream)
 
 
 @pytest.mark.asyncio
@@ -883,22 +883,22 @@ async def test_model_armor_api_error_fail_open_file_scan(fail_on_error: bool):
 
 
 def test_model_armor_hot_reload_null_stays_sanitized():
-    """update_in_memory_litellm_params assigns raw fields; an explicit null in a
+    """update_in_memory_hangarllm_params assigns raw fields; an explicit null in a
     hot-reloaded config must not disable sanitization."""
-    from litellm.types.guardrails import LitellmParams
+    from hangarllm.types.guardrails import HangarllmParams
 
     guardrail = ModelArmorGuardrail(
         template_id="test-template",
         project_id="test-project",
         guardrail_name="model-armor-test",
     )
-    guardrail.update_in_memory_litellm_params(
-        LitellmParams(guardrail="model_armor", mode="pre_call", sanitize_error_detail=None)
+    guardrail.update_in_memory_hangarllm_params(
+        HangarllmParams(guardrail="model_armor", mode="pre_call", sanitize_error_detail=None)
     )
     assert guardrail.sanitize_error_detail is True
 
-    guardrail.update_in_memory_litellm_params(
-        LitellmParams(guardrail="model_armor", mode="pre_call", sanitize_error_detail=False)
+    guardrail.update_in_memory_hangarllm_params(
+        HangarllmParams(guardrail="model_armor", mode="pre_call", sanitize_error_detail=False)
     )
     assert guardrail.sanitize_error_detail is False
 
@@ -906,8 +906,8 @@ def test_model_armor_hot_reload_null_stays_sanitized():
 def test_model_armor_redactor_depth_cap_fails_closed():
     """Past the recursion cap the redactor must return the redaction sentinel,
     never raw content, and must not raise RecursionError."""
-    from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-    from litellm.proxy.guardrails.guardrail_hooks.model_armor.model_armor import (
+    from hangarllm.constants import DEFAULT_MAX_RECURSE_DEPTH
+    from hangarllm.proxy.guardrails.guardrail_hooks.model_armor.model_armor import (
         _redact_scanned_content,
     )
 
@@ -1006,19 +1006,19 @@ async def test_model_armor_post_call_logging_redacts_scanned_content(sanitize: b
     guardrail.make_model_armor_request = AsyncMock(return_value=armor_response)
     guardrail.should_run_guardrail = Mock(return_value=True)
 
-    mock_llm_response = litellm.ModelResponse()
+    mock_llm_response = hangarllm.ModelResponse()
     mock_llm_response.choices = [
-        litellm.Choices(message=litellm.Message(content="model output"))
+        hangarllm.Choices(message=hangarllm.Message(content="model output"))
     ]
     request_data = {
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "synthetic input"}],
         "metadata": {},
-        "litellm_logging_obj": MagicMock(),
+        "hangarllm_logging_obj": MagicMock(),
     }
 
     with patch(
-        "litellm.proxy.common_utils.callback_utils.add_guardrail_response_to_standard_logging_object"
+        "hangarllm.proxy.common_utils.callback_utils.add_guardrail_response_to_standard_logging_object"
     ) as add_logging:
         await guardrail.async_post_call_success_hook(
             data=request_data,
@@ -1061,10 +1061,10 @@ async def test_model_armor_streaming_logging_redacts_scanned_content(sanitize: b
     guardrail.should_run_guardrail = Mock(return_value=True)
 
     async def mock_stream():
-        yield litellm.ModelResponseStream(
+        yield hangarllm.ModelResponseStream(
             choices=[
-                litellm.types.utils.StreamingChoices(
-                    delta=litellm.types.utils.Delta(content="streamed output")
+                hangarllm.types.utils.StreamingChoices(
+                    delta=hangarllm.types.utils.Delta(content="streamed output")
                 )
             ]
         )
@@ -1132,7 +1132,7 @@ async def test_model_armor_match_found_sanitizes_caller_and_logging(sanitize: bo
             user_api_key_dict=UserAPIKeyAuth(),
             cache=MagicMock(spec=DualCache),
             data=request_data,
-            call_type=litellm.types.utils.CallTypes.call_mcp_tool.value,
+            call_type=hangarllm.types.utils.CallTypes.call_mcp_tool.value,
         )
 
     detail = exc_info.value.detail
@@ -1163,10 +1163,10 @@ async def test_model_armor_match_found_sanitizes_caller_and_logging(sanitize: bo
 
 
 def test_model_armor_sanitize_error_detail_config_wiring():
-    from litellm.proxy.guardrails.guardrail_hooks.model_armor import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.model_armor import (
         initialize_guardrail,
     )
-    from litellm.types.guardrails import LitellmParams
+    from hangarllm.types.guardrails import HangarllmParams
 
     config = {"guardrail_name": "model-armor-test"}
     params = {
@@ -1176,12 +1176,12 @@ def test_model_armor_sanitize_error_detail_config_wiring():
         "project_id": "test-project",
     }
     opted_out = initialize_guardrail(
-        LitellmParams(**params, sanitize_error_detail=False), config
+        HangarllmParams(**params, sanitize_error_detail=False), config
     )
     explicit_null = initialize_guardrail(
-        LitellmParams(**params, sanitize_error_detail=None), config
+        HangarllmParams(**params, sanitize_error_detail=None), config
     )
-    default = initialize_guardrail(LitellmParams(**params), config)
+    default = initialize_guardrail(HangarllmParams(**params), config)
 
     assert opted_out.sanitize_error_detail is False
     assert explicit_null.sanitize_error_detail is True
@@ -1190,7 +1190,7 @@ def test_model_armor_sanitize_error_detail_config_wiring():
 
 def test_model_armor_ui_friendly_name():
     """Test the UI-friendly name of the Model Armor guardrail"""
-    from litellm.types.proxy.guardrails.guardrail_hooks.model_armor import (
+    from hangarllm.types.proxy.guardrails.guardrail_hooks.model_armor import (
         ModelArmorGuardrailConfigModel,
     )
 
@@ -1489,9 +1489,9 @@ async def test_model_armor_missing_sanitized_text():
         guardrail.async_handler, "post", AsyncMock(return_value=mock_response)
     ):
         # Create a mock response
-        mock_llm_response = litellm.ModelResponse()
+        mock_llm_response = hangarllm.ModelResponse()
         mock_llm_response.choices = [
-            litellm.Choices(message=litellm.Message(content="Original content"))
+            hangarllm.Choices(message=hangarllm.Message(content="Original content"))
         ]
 
         request_data = {
@@ -2224,7 +2224,7 @@ async def test_async_moderation_hook_with_sanitization():
         # Should return data with sanitized content
         assert result == request_data
         # Content should be sanitized
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from hangarllm.hangarllm_core_utils.prompt_templates.common_utils import (
             get_last_user_message,
         )
 
@@ -2810,11 +2810,11 @@ async def test_pre_call_gs_uri_reference_passthrough_when_skip_unscannable_enabl
 
 
 def test_initialize_guardrail_forwards_skip_unscannable_attachments():
-    """skip_unscannable_attachments configured in litellm_params reaches the guardrail instance."""
-    from litellm.proxy.guardrails.guardrail_hooks.model_armor import initialize_guardrail
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    """skip_unscannable_attachments configured in hangarllm_params reaches the guardrail instance."""
+    from hangarllm.proxy.guardrails.guardrail_hooks.model_armor import initialize_guardrail
+    from hangarllm.types.guardrails import Guardrail, HangarllmParams
 
-    litellm_params = LitellmParams(
+    hangarllm_params = HangarllmParams(
         guardrail="model_armor",
         mode="pre_call",
         template_id="demo-template",
@@ -2822,7 +2822,7 @@ def test_initialize_guardrail_forwards_skip_unscannable_attachments():
         skip_unscannable_attachments=True,
     )
     guardrail = initialize_guardrail(
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         guardrail=Guardrail(guardrail_name="model-armor-config-test"),
     )
 
@@ -2831,17 +2831,17 @@ def test_initialize_guardrail_forwards_skip_unscannable_attachments():
 
 def test_initialize_guardrail_skip_unscannable_defaults_false():
     """A config that omits skip_unscannable_attachments keeps the secure default (block)."""
-    from litellm.proxy.guardrails.guardrail_hooks.model_armor import initialize_guardrail
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from hangarllm.proxy.guardrails.guardrail_hooks.model_armor import initialize_guardrail
+    from hangarllm.types.guardrails import Guardrail, HangarllmParams
 
-    litellm_params = LitellmParams(
+    hangarllm_params = HangarllmParams(
         guardrail="model_armor",
         mode="pre_call",
         template_id="demo-template",
         project_id="demo-project",
     )
     guardrail = initialize_guardrail(
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         guardrail=Guardrail(guardrail_name="model-armor-config-default"),
     )
 
@@ -2961,7 +2961,7 @@ async def test_pre_call_skips_unsupported_file_type():
 @pytest.mark.asyncio
 async def test_pre_call_blocks_file_over_size_limit():
     """A recognized document over Model Armor's 4 MB limit cannot be scanned, so it is blocked."""
-    from litellm.proxy.guardrails.guardrail_hooks.model_armor.file_scanning import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.model_armor.file_scanning import (
         MODEL_ARMOR_MAX_FILE_SIZE_BYTES,
     )
 
@@ -2995,7 +2995,7 @@ async def test_pre_call_blocks_file_over_size_limit():
 @pytest.mark.asyncio
 async def test_pre_call_oversize_file_skipped_when_fail_open():
     """With fail_on_error=False the operator opts into fail-open, so an oversized file proceeds."""
-    from litellm.proxy.guardrails.guardrail_hooks.model_armor.file_scanning import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.model_armor.file_scanning import (
         MODEL_ARMOR_MAX_FILE_SIZE_BYTES,
     )
 
@@ -3503,7 +3503,7 @@ async def test_single_scan_response_stays_a_dict():
 
 @pytest.mark.asyncio
 async def test_scan_result_reaches_the_logger_on_a_seeded_route():
-    """On routes that seed `litellm_metadata` the scan result must land in that bucket
+    """On routes that seed `hangarllm_metadata` the scan result must land in that bucket
     and be found by `_process_response`. Writing the file-scan result through the shared
     resolver while the text-scan writers and the reader used a hard-coded `metadata` key
     split the record in two, so the logged guardrail payload came back empty."""
@@ -3513,7 +3513,7 @@ async def test_scan_result_reaches_the_logger_on_a_seeded_route():
         "model": "claude-haiku",
         "messages": [_file_message(pdf_b64)],
         "metadata": {"user_id": "device-account-session"},
-        "litellm_metadata": {"guardrails": ["model-armor-test"]},
+        "hangarllm_metadata": {"guardrails": ["model-armor-test"]},
     }
 
     with patch.object(
@@ -3529,12 +3529,12 @@ async def test_scan_result_reaches_the_logger_on_a_seeded_route():
         )
 
     assert "_model_armor_response" not in request_data["metadata"]
-    assert "_model_armor_response" in request_data["litellm_metadata"]
+    assert "_model_armor_response" in request_data["hangarllm_metadata"]
 
-    before = len(request_data["litellm_metadata"].get("standard_logging_guardrail_information", []))
+    before = len(request_data["hangarllm_metadata"].get("standard_logging_guardrail_information", []))
     guardrail._process_response(response=None, request_data=request_data)
 
-    logged = request_data["litellm_metadata"]["standard_logging_guardrail_information"]
+    logged = request_data["hangarllm_metadata"]["standard_logging_guardrail_information"]
     assert len(logged) == before + 1
     assert logged[-1]["guardrail_response"], "the logger recorded an empty Model Armor payload"
 
@@ -3626,7 +3626,7 @@ def test_accumulated_responses_are_redactable_as_a_list():
     Regression: a tuple is skipped by redact_nested_match_and_regex_keys (it only recurses into
     dicts and lists), which would leave sensitive match/regex findings un-redacted in logs.
     """
-    from litellm.litellm_core_utils.core_helpers import (
+    from hangarllm.hangarllm_core_utils.core_helpers import (
         redact_nested_match_and_regex_keys,
     )
 
@@ -3845,19 +3845,19 @@ _MODEL_ARMOR_DEIDENTIFIED = {
 def _chat_completion_chunks():
     """The chat-completions surface: typed ModelResponseStream chunks."""
     return (
-        litellm.types.utils.ModelResponseStream(
+        hangarllm.types.utils.ModelResponseStream(
             choices=[
-                litellm.types.utils.StreamingChoices(
+                hangarllm.types.utils.StreamingChoices(
                     index=0,
-                    delta=litellm.types.utils.Delta(content="my card is 4111-1111-1111-1111"),
+                    delta=hangarllm.types.utils.Delta(content="my card is 4111-1111-1111-1111"),
                 )
             ]
         ),
-        litellm.types.utils.ModelResponseStream(
+        hangarllm.types.utils.ModelResponseStream(
             choices=[
-                litellm.types.utils.StreamingChoices(
+                hangarllm.types.utils.StreamingChoices(
                     index=0,
-                    delta=litellm.types.utils.Delta(content=""),
+                    delta=hangarllm.types.utils.Delta(content=""),
                     finish_reason="stop",
                 )
             ]
@@ -3892,7 +3892,7 @@ async def _anthropic_sse_stream():
 
 
 def _responses_api_events():
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         OutputTextDeltaEvent,
         ResponseCompletedEvent,
         ResponsesAPIResponse,
@@ -4014,7 +4014,7 @@ async def test_streaming_block_emits_anthropic_error_frame():
 @pytest.mark.asyncio
 async def test_streaming_block_emits_responses_api_error_event():
     """A block on /v1/responses must terminate the stream with a Responses ErrorEvent."""
-    from litellm.types.llms.openai import ErrorEvent
+    from hangarllm.types.llms.openai import ErrorEvent
 
     guardrail = _surface_guardrail()
 
@@ -4050,7 +4050,7 @@ async def test_streaming_masking_re_emits_anthropic_sse_with_sanitized_text():
 async def test_streaming_masking_blocks_responses_api_stream():
     """A Responses event stream cannot be rebuilt from sanitized text, so releasing it would
     ship the content the guardrail just rewrote. It is blocked instead."""
-    from litellm.types.llms.openai import ErrorEvent
+    from hangarllm.types.llms.openai import ErrorEvent
 
     guardrail = _surface_guardrail(mask_response_content=True)
 
@@ -4069,7 +4069,7 @@ async def test_streaming_masking_blocks_responses_api_stream():
 async def test_streaming_api_failure_frames_error_per_surface(surface):
     """A Model Armor outage with fail_on_error must terminate the stream in the endpoint's
     own error format rather than leaking an OpenAI SSE frame onto it."""
-    from litellm.types.llms.openai import ErrorEvent
+    from hangarllm.types.llms.openai import ErrorEvent
 
     guardrail = _surface_guardrail(fail_on_error=True)
     chunks = _ANTHROPIC_SSE_CHUNKS if surface == "anthropic_sse" else _responses_api_events()
@@ -4107,7 +4107,7 @@ async def test_streaming_api_failure_frames_error_per_surface(surface):
 async def test_streaming_hook_fails_closed_when_a_surface_stream_cannot_be_assembled(chunks):
     """Forwarding an unscannable /v1/messages or /v1/responses stream would silently disable the
     guardrail, so the stream is refused in its own wire format instead of released unscanned."""
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         ErrorEvent,
         OutputTextDeltaEvent,
         ResponsesAPIStreamEvents,
@@ -4147,7 +4147,7 @@ async def test_streaming_hook_forwards_a_preceding_guardrails_error_item():
     """A guardrail earlier in the post_call chain replaces the stream with its own terminal
     error item. That item is not a chat delta, and feeding it to stream_chunk_builder is what
     surfaced the ticket's 500, so it has to be forwarded untouched instead."""
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         ErrorEvent,
         ErrorEventError,
         ResponsesAPIStreamEvents,
@@ -4205,7 +4205,7 @@ async def test_streaming_hook_forwards_a_preceding_guardrails_error_frame(chunks
 async def test_streaming_responses_error_falls_back_to_sse_when_the_handler_declines():
     """build_stream_error_items may return None, which must not swallow the block into a clean
     200: the refusal falls back to the chat-completions SSE form that still carries the status."""
-    from litellm.proxy.guardrails.guardrail_hooks.model_armor.model_armor import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.model_armor.model_armor import (
         _StreamSurface,
     )
 
@@ -4230,7 +4230,7 @@ async def test_streaming_responses_error_falls_back_to_sse_when_the_handler_decl
 
 
 def _responses_created_event():
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         ResponseCreatedEvent,
         ResponsesAPIResponse,
         ResponsesAPIStreamEvents,
@@ -4314,7 +4314,7 @@ async def test_streaming_fail_closed_records_the_applied_guardrail():
 async def test_streaming_responses_tool_call_output_is_scanned():
     """An agentic /v1/responses turn can carry its whole payload in tool-call arguments, which
     is what the chat surface already folds into the scanned text."""
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         ResponseCompletedEvent,
         ResponsesAPIResponse,
         ResponsesAPIStreamEvents,
@@ -4384,11 +4384,11 @@ async def test_streaming_hook_refuses_a_content_stream_that_ends_with_an_error_f
         ),
         (
             (
-                litellm.types.utils.ModelResponseStream(
+                hangarllm.types.utils.ModelResponseStream(
                     choices=[
-                        litellm.types.utils.StreamingChoices(
+                        hangarllm.types.utils.StreamingChoices(
                             index=0,
-                            delta=litellm.types.utils.Delta(content="my card is 4111-1111-1111-1111"),
+                            delta=hangarllm.types.utils.Delta(content="my card is 4111-1111-1111-1111"),
                         )
                     ]
                 ),
@@ -4403,7 +4403,7 @@ def test_is_sse_error_stream_only_matches_a_stream_that_is_nothing_but_refusals(
     """The chain-aware passthrough turns on this predicate, so anything it calls error-only is
     forwarded to the client untouched. A stream that still carries content must not qualify: the
     frames-only join drops typed chunks, and a content event may carry an empty ``error`` field."""
-    from litellm.proxy.guardrails.anthropic_sse import is_sse_error_stream
+    from hangarllm.proxy.guardrails.anthropic_sse import is_sse_error_stream
 
     assert is_sse_error_stream(chunks) is expected, case
 
@@ -4415,11 +4415,11 @@ async def test_streaming_hook_does_not_forward_typed_chunks_that_end_with_an_err
     guardrail = _surface_guardrail()
     post = _armor_post_mock(_MODEL_ARMOR_CLEAN)
     chunks = (
-        litellm.types.utils.ModelResponseStream(
+        hangarllm.types.utils.ModelResponseStream(
             choices=[
-                litellm.types.utils.StreamingChoices(
+                hangarllm.types.utils.StreamingChoices(
                     index=0,
-                    delta=litellm.types.utils.Delta(content="my card is 4111-1111-1111-1111"),
+                    delta=hangarllm.types.utils.Delta(content="my card is 4111-1111-1111-1111"),
                 )
             ]
         ),
@@ -4563,7 +4563,7 @@ def _responses_api_events_truncated(terminal: str):
     turn that broke mid-generation reports an empty ``output`` while the deltas ahead of it already
     spelled the answer out to the client.
     """
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         OutputTextDeltaEvent,
         ResponseFailedEvent,
         ResponseIncompleteEvent,
@@ -4626,7 +4626,7 @@ async def test_streaming_responses_mcp_argument_deltas_are_scanned_when_the_body
     The delta fallback is read off the event enum rather than listed by hand, so an argument event
     that carries no `output_text` cannot fall out of the scan.
     """
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         MCPCallArgumentsDeltaEvent,
         ResponseIncompleteEvent,
         ResponsesAPIResponse,
@@ -4680,7 +4680,7 @@ async def test_streaming_responses_reasoning_summary_deltas_are_scanned_alongsid
     Reading only the body scans the visible answer and hands the client every summary delta
     unscanned, so the body and the deltas are scanned together.
     """
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         OutputTextDeltaEvent,
         ReasoningSummaryTextDeltaEvent,
         ResponseCompletedEvent,
@@ -4752,7 +4752,7 @@ async def test_streaming_responses_deltas_of_separate_fields_do_not_form_a_findi
     A reasoning summary ending in half a card number and an answer opening with the other half
     each carry nothing to find, and joining them without a break would invent one.
     """
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         OutputTextDeltaEvent,
         ReasoningSummaryTextDeltaEvent,
         ResponseCompletedEvent,
@@ -4813,7 +4813,7 @@ async def test_streaming_responses_deltas_of_separate_fields_do_not_form_a_findi
 @pytest.mark.asyncio
 async def test_streaming_responses_one_fields_deltas_still_join_into_a_single_finding():
     """A card number split across two deltas of one field is still one card number to scan."""
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         OutputTextDeltaEvent,
         ResponseCompletedEvent,
         ResponsesAPIResponse,
@@ -4864,7 +4864,7 @@ async def test_streaming_responses_fields_the_body_repeats_are_not_scanned_a_sec
     Two output_text fields stream as deltas and come back in the completed body, so scanning the
     deltas on top of the body would send Model Armor two copies of everything the client sees.
     """
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         OutputTextDeltaEvent,
         ResponseCompletedEvent,
         ResponsesAPIResponse,
@@ -4919,10 +4919,10 @@ async def test_streaming_responses_fields_the_body_repeats_are_not_scanned_a_sec
 
 def test_every_responses_delta_event_is_in_the_scanned_set():
     """Every ``.delta`` the Responses event enum defines is model output on its way to the client."""
-    from litellm.proxy.guardrails.guardrail_hooks.model_armor.model_armor import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.model_armor.model_armor import (
         _RESPONSES_DELTA_EVENT_TYPES,
     )
-    from litellm.types.llms.openai import ResponsesAPIStreamEvents
+    from hangarllm.types.llms.openai import ResponsesAPIStreamEvents
 
     missing = {
         event.value
@@ -4998,28 +4998,28 @@ def _logged_kwargs() -> dict[str, object]:
     return {
         "model": "gpt-4o",
         "messages": [{"role": "user", "content": "hi"}],
-        "litellm_call_id": "call-1",
-        "litellm_params": {"metadata": {}},
+        "hangarllm_call_id": "call-1",
+        "hangarllm_params": {"metadata": {}},
         "optional_params": {},
         "standard_logging_object": {"guardrail_information": None},
     }
 
 
-def _chat_response(text: str) -> litellm.ModelResponse:
-    return litellm.ModelResponse(
+def _chat_response(text: str) -> hangarllm.ModelResponse:
+    return hangarllm.ModelResponse(
         choices=[
-            litellm.types.utils.Choices(
-                message=litellm.types.utils.Message(role="assistant", content=text)
+            hangarllm.types.utils.Choices(
+                message=hangarllm.types.utils.Message(role="assistant", content=text)
             )
         ]
     )
 
 
-def _stream_chunk(text: str) -> litellm.ModelResponseStream:
-    return litellm.ModelResponseStream(
+def _stream_chunk(text: str) -> hangarllm.ModelResponseStream:
+    return hangarllm.ModelResponseStream(
         choices=[
-            litellm.types.utils.StreamingChoices(
-                delta=litellm.types.utils.Delta(content=text)
+            hangarllm.types.utils.StreamingChoices(
+                delta=hangarllm.types.utils.Delta(content=text)
             )
         ]
     )
@@ -5137,7 +5137,7 @@ async def test_logging_only_scans_assembled_responses_api_stream():
     assembled ResponsesAPIResponse kept in kwargs."""
     from openai.types.responses import ResponseOutputMessage, ResponseOutputText
 
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         ResponseCompletedEvent,
         ResponsesAPIResponse,
         ResponsesAPIStreamEvents,

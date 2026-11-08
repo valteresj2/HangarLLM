@@ -5,13 +5,13 @@ from typing import Final
 import httpx
 import pytest
 
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.bedrock.count_tokens.mantle_handler import BedrockMantleCountTokensHandler
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.bedrock.common_utils import BedrockError
+from hangarllm.llms.bedrock.count_tokens.mantle_handler import BedrockMantleCountTokensHandler
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 from tests.unit.llms.bedrock.event_loop_probe import host_in_loop_probing_vault
 
 MANTLE_COUNT_URL: Final = "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages/count_tokens"
-LITELLM_PARAMS: Final = {
+HANGARLLM_PARAMS: Final = {
     "aws_access_key_id": "AKIATESTACCESSKEY",
     "aws_secret_access_key": "test-secret",
     "aws_region_name": "us-east-1",
@@ -55,7 +55,7 @@ async def test_counts_on_mantle_with_the_base_model_and_the_deployment_credentia
 
     result: Final = await BedrockMantleCountTokensHandler().handle_count_tokens_request(
         request_data=dict(REQUEST),
-        litellm_params=dict(LITELLM_PARAMS),
+        hangarllm_params=dict(HANGARLLM_PARAMS),
         resolved_model="anthropic.claude-opus-4-8",
         client=_client(mantle),
     )
@@ -91,7 +91,7 @@ async def test_counts_tools_the_way_mantle_messages_sends_them(resolved_model: s
                 {"name": "deferred", "input_schema": schema, "custom": {"defer_loading": True}},
             ],
         },
-        litellm_params=dict(LITELLM_PARAMS),
+        hangarllm_params=dict(HANGARLLM_PARAMS),
         resolved_model=resolved_model,
         client=_client(mantle),
     )
@@ -109,7 +109,7 @@ async def test_bedrock_mantle_api_base_env_names_the_host(monkeypatch: pytest.Mo
 
     await BedrockMantleCountTokensHandler().handle_count_tokens_request(
         request_data=dict(REQUEST),
-        litellm_params=dict(LITELLM_PARAMS),
+        hangarllm_params=dict(HANGARLLM_PARAMS),
         resolved_model="anthropic.claude-opus-4-8",
         client=_client(mantle),
     )
@@ -129,7 +129,7 @@ async def test_non_200_answers_raise_bedrock_error_with_mantle_status() -> None:
     with pytest.raises(BedrockError) as raised:
         await BedrockMantleCountTokensHandler().handle_count_tokens_request(
             request_data=dict(REQUEST),
-            litellm_params=dict(LITELLM_PARAMS),
+            hangarllm_params=dict(HANGARLLM_PARAMS),
             resolved_model="anthropic.claude-sonnet-5-5",
             client=_client(mantle),
         )
@@ -146,7 +146,7 @@ async def test_region_and_endpoint_lookups_leave_the_event_loop_free(monkeypatch
 
     result = await BedrockMantleCountTokensHandler().handle_count_tokens_request(
         request_data={**REQUEST, "model": "global.anthropic.claude-opus-5-5"},
-        litellm_params={key: value for key, value in LITELLM_PARAMS.items() if key != "aws_region_name"},
+        hangarllm_params={key: value for key, value in HANGARLLM_PARAMS.items() if key != "aws_region_name"},
         resolved_model="anthropic.claude-opus-5-5",
         client=_client(mantle),
     )

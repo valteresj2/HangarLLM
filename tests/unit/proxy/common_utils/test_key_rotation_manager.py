@@ -8,11 +8,11 @@ from unittest.mock import AsyncMock
 import pytest
 
 
-from litellm.proxy._types import (
+from hangarllm.proxy._types import (
     GenerateKeyResponse,
-    LiteLLM_VerificationToken,
+    HangarLLM_VerificationToken,
 )
-from litellm.proxy.common_utils.key_rotation_manager import KeyRotationManager
+from hangarllm.proxy.common_utils.key_rotation_manager import KeyRotationManager
 
 
 class TestKeyRotationManager:
@@ -35,7 +35,7 @@ class TestKeyRotationManager:
         now = datetime.now(timezone.utc)
 
         # Test Case 1: No rotation time set (key_rotation_at = None) - should rotate
-        key_no_rotation_time = LiteLLM_VerificationToken(
+        key_no_rotation_time = HangarLLM_VerificationToken(
             token="test-token-1",
             auto_rotate=True,
             rotation_interval="30s",
@@ -46,7 +46,7 @@ class TestKeyRotationManager:
         assert manager._should_rotate_key(key_no_rotation_time, now) is True
 
         # Test Case 2: Future rotation time - should NOT rotate
-        key_future_rotation = LiteLLM_VerificationToken(
+        key_future_rotation = HangarLLM_VerificationToken(
             token="test-token-2",
             auto_rotate=True,
             rotation_interval="30s",
@@ -57,7 +57,7 @@ class TestKeyRotationManager:
         assert manager._should_rotate_key(key_future_rotation, now) is False
 
         # Test Case 3: Past rotation time - should rotate
-        key_past_rotation = LiteLLM_VerificationToken(
+        key_past_rotation = HangarLLM_VerificationToken(
             token="test-token-3",
             auto_rotate=True,
             rotation_interval="30s",
@@ -68,7 +68,7 @@ class TestKeyRotationManager:
         assert manager._should_rotate_key(key_past_rotation, now) is True
 
         # Test Case 4: Exact rotation time - should rotate
-        key_exact_rotation = LiteLLM_VerificationToken(
+        key_exact_rotation = HangarLLM_VerificationToken(
             token="test-token-4",
             auto_rotate=True,
             rotation_interval="30s",
@@ -79,7 +79,7 @@ class TestKeyRotationManager:
         assert manager._should_rotate_key(key_exact_rotation, now) is True
 
         # Test Case 5: No rotation interval - should NOT rotate
-        key_no_interval = LiteLLM_VerificationToken(
+        key_no_interval = HangarLLM_VerificationToken(
             token="test-token-5",
             auto_rotate=True,
             rotation_interval=None,
@@ -108,14 +108,14 @@ class TestKeyRotationManager:
 
         # Mock database response - these are the keys the database query would return
         mock_keys = [
-            LiteLLM_VerificationToken(
+            HangarLLM_VerificationToken(
                 token="token-1",
                 auto_rotate=True,
                 rotation_interval="30s",
                 key_rotation_at=None,  # Should rotate (null key_rotation_at)
                 rotation_count=0,
             ),
-            LiteLLM_VerificationToken(
+            HangarLLM_VerificationToken(
                 token="token-2",
                 auto_rotate=True,
                 rotation_interval="60s",
@@ -125,7 +125,7 @@ class TestKeyRotationManager:
             ),
         ]
 
-        mock_prisma_client.db.litellm_verificationtoken.find_many.return_value = (
+        mock_prisma_client.db.hangarllm_verificationtoken.find_many.return_value = (
             mock_keys
         )
 
@@ -133,7 +133,7 @@ class TestKeyRotationManager:
         from unittest.mock import patch
 
         with patch(
-            "litellm.proxy.common_utils.key_rotation_manager.datetime"
+            "hangarllm.proxy.common_utils.key_rotation_manager.datetime"
         ) as mock_datetime:
             mock_datetime.now.return_value = now
             mock_datetime.side_effect = lambda *args, **kwargs: datetime(
@@ -144,7 +144,7 @@ class TestKeyRotationManager:
             keys_needing_rotation = await manager._find_keys_needing_rotation()
 
         # Verify database query - should use OR condition for key_rotation_at
-        mock_prisma_client.db.litellm_verificationtoken.find_many.assert_called_once_with(
+        mock_prisma_client.db.hangarllm_verificationtoken.find_many.assert_called_once_with(
             where={
                 "auto_rotate": True,
                 "OR": [{"key_rotation_at": None}, {"key_rotation_at": {"lte": now}}],
@@ -174,7 +174,7 @@ class TestKeyRotationManager:
         manager = KeyRotationManager(mock_prisma_client)
 
         # Mock key to rotate
-        key_to_rotate = LiteLLM_VerificationToken(
+        key_to_rotate = HangarLLM_VerificationToken(
             token="old-token",
             auto_rotate=True,
             rotation_interval="30s",
@@ -192,19 +192,19 @@ class TestKeyRotationManager:
         from unittest.mock import patch
 
         with patch(
-            "litellm.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
+            "hangarllm.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
             return_value=mock_response,
         ):
             with patch(
-                "litellm.proxy.common_utils.key_rotation_manager.KeyManagementEventHooks.async_key_rotated_hook"
+                "hangarllm.proxy.common_utils.key_rotation_manager.KeyManagementEventHooks.async_key_rotated_hook"
             ):
                 # Execute
                 await manager._rotate_key(key_to_rotate)
 
         # Verify database update was called with correct data
-        mock_prisma_client.db.litellm_verificationtoken.update.assert_called_once()
+        mock_prisma_client.db.hangarllm_verificationtoken.update.assert_called_once()
 
-        call_args = mock_prisma_client.db.litellm_verificationtoken.update.call_args
+        call_args = mock_prisma_client.db.hangarllm_verificationtoken.update.call_args
 
         # Check the WHERE clause targets the new token
         assert call_args[1]["where"]["token"] == "new-token-id"
@@ -231,16 +231,16 @@ class TestKeyRotationManager:
         Test that _cleanup_expired_deprecated_keys deletes expired deprecated keys.
         """
         mock_prisma_client = AsyncMock()
-        mock_prisma_client.db.litellm_deprecatedverificationtoken.delete_many.return_value = (
+        mock_prisma_client.db.hangarllm_deprecatedverificationtoken.delete_many.return_value = (
             3
         )
         manager = KeyRotationManager(mock_prisma_client)
 
         await manager._cleanup_expired_deprecated_keys()
 
-        mock_prisma_client.db.litellm_deprecatedverificationtoken.delete_many.assert_called_once()
+        mock_prisma_client.db.hangarllm_deprecatedverificationtoken.delete_many.assert_called_once()
         call_args = (
-            mock_prisma_client.db.litellm_deprecatedverificationtoken.delete_many.call_args
+            mock_prisma_client.db.hangarllm_deprecatedverificationtoken.delete_many.call_args
         )
         assert "revoke_at" in call_args[1]["where"]
         assert call_args[1]["where"]["revoke_at"]["lt"] is not None
@@ -253,7 +253,7 @@ class TestKeyRotationManager:
         mock_prisma_client = AsyncMock()
         manager = KeyRotationManager(mock_prisma_client)
 
-        key_to_rotate = LiteLLM_VerificationToken(
+        key_to_rotate = HangarLLM_VerificationToken(
             token="old-token",
             auto_rotate=True,
             rotation_interval="30s",
@@ -270,16 +270,16 @@ class TestKeyRotationManager:
         from unittest.mock import patch
 
         with patch(
-            "litellm.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
+            "hangarllm.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
             new_callable=AsyncMock,
         ) as mock_regenerate:
             mock_regenerate.return_value = mock_response
             with patch(
-                "litellm.proxy.common_utils.key_rotation_manager.KeyManagementEventHooks.async_key_rotated_hook",
+                "hangarllm.proxy.common_utils.key_rotation_manager.KeyManagementEventHooks.async_key_rotated_hook",
                 new_callable=AsyncMock,
             ):
                 with patch(
-                    "litellm.proxy.common_utils.key_rotation_manager.LITELLM_KEY_ROTATION_GRACE_PERIOD",
+                    "hangarllm.proxy.common_utils.key_rotation_manager.HANGARLLM_KEY_ROTATION_GRACE_PERIOD",
                     "48h",
                 ):
                     await manager._rotate_key(key_to_rotate)

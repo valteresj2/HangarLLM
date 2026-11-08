@@ -20,17 +20,17 @@ import pytest
 import respx
 from pydantic import JsonValue
 
-import litellm
-from litellm import Router
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.responses.bridge_check import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.responses.bridge_check import (
     backend_serves_chat_completions,
     bridge_reasoning_effort,
     deployment_routing_mode,
     responses_api_bridge_check,
 )
-from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
-from litellm.types.utils import Choices, Message, ModelResponse, Usage
+from hangarllm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+from hangarllm.types.utils import Choices, Message, ModelResponse, Usage
 
 
 class TestUseResponsesApiBridgeFlag:
@@ -41,10 +41,10 @@ class TestUseResponsesApiBridgeFlag:
         respond: Final = MagicMock(side_effect=AssertionError("Incompatible classifier sent an upstream request"))
         with httpx.Client(transport=httpx.MockTransport(respond)) as client:
             with pytest.raises(
-                litellm.APIConnectionError,
+                hangarllm.APIConnectionError,
                 match="Encrypted task classification requires a compatible native Responses deployment",
             ) as error:
-                litellm.responses(
+                hangarllm.responses(
                     model=model,
                     input="Delegated task",
                     api_key="test-key",
@@ -57,39 +57,39 @@ class TestUseResponsesApiBridgeFlag:
         respond.assert_not_called()
 
     @patch.object(
-        import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler"
+        import_module("hangarllm.responses.main").hangarllm_completion_transformation_handler, "response_api_handler"
     )
-    @patch.object(import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
+    @patch.object(import_module("hangarllm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
     def test_bridge_used_when_use_chat_completions_api_true(self, mock_get_config, mock_bridge_handler):
         """When use_chat_completions_api=True, the bridge handler should be called."""
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = hangarllm.OpenAIResponsesAPIConfig()
         mock_bridge_handler.return_value = MagicMock()
 
-        litellm.responses(
+        hangarllm.responses(
             model="openai/my-custom-model",
             input="Hello",
             use_chat_completions_api=True,
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
         )
 
         mock_bridge_handler.assert_called_once()
 
     @patch.object(
-        import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler"
+        import_module("hangarllm.responses.main").hangarllm_completion_transformation_handler, "response_api_handler"
     )
-    @patch.object(import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
+    @patch.object(import_module("hangarllm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
     def test_provider_affinity_header_is_forwarded_through_bridge(self, mock_get_config, mock_bridge_handler):
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = hangarllm.OpenAIResponsesAPIConfig()
         mock_bridge_handler.return_value = MagicMock()
 
-        litellm.responses(
+        hangarllm.responses(
             model="openai/my-custom-model",
             input="Hello",
             use_chat_completions_api=True,
-            litellm_session_id="session-bridge",
+            hangarllm_session_id="session-bridge",
             provider_affinity_header="X-Conversation-Id",
             extra_headers={"X-Customer-Header": "customer-value"},
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
         )
 
         forwarded_headers = mock_bridge_handler.call_args.kwargs["extra_headers"]
@@ -97,54 +97,54 @@ class TestUseResponsesApiBridgeFlag:
         assert forwarded_headers["X-Customer-Header"] == "customer-value"
 
     @patch.object(
-        import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler"
+        import_module("hangarllm.responses.main").hangarllm_completion_transformation_handler, "response_api_handler"
     )
-    @patch.object(import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
+    @patch.object(import_module("hangarllm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
     def test_bridge_used_when_model_uses_chat_completions_prefix(self, mock_get_config, mock_bridge_handler):
         """`openai/chat_completions/<name>` normalizes to `openai/<name>` and uses the bridge."""
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = hangarllm.OpenAIResponsesAPIConfig()
         mock_bridge_handler.return_value = MagicMock()
 
-        litellm.responses(
+        hangarllm.responses(
             model="openai/chat_completions/my-custom-model",
             input="Hello",
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
         )
 
         mock_bridge_handler.assert_called_once()
         # Model string is provider-normalized after resolution; prefix only forces the bridge.
         assert mock_bridge_handler.call_args.kwargs["model"].endswith("my-custom-model")
 
-    @patch.object(import_module("litellm.responses.main").base_llm_http_handler, "response_api_handler")
-    @patch.object(import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
+    @patch.object(import_module("hangarllm.responses.main").base_llm_http_handler, "response_api_handler")
+    @patch.object(import_module("hangarllm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
     def test_native_forwarding_when_flag_absent(self, mock_get_config, mock_native_handler):
         """When use_chat_completions_api is not set, openai/ models should use
         native responses API forwarding (existing behavior)."""
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = hangarllm.OpenAIResponsesAPIConfig()
         mock_native_handler.return_value = MagicMock()
 
-        litellm.responses(
+        hangarllm.responses(
             model="openai/gpt-4o",
             input="Hello",
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
         )
 
         mock_native_handler.assert_called_once()
 
     @patch.object(
-        import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler"
+        import_module("hangarllm.responses.main").hangarllm_completion_transformation_handler, "response_api_handler"
     )
-    @patch.object(import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
+    @patch.object(import_module("hangarllm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
     def test_flag_does_not_leak_into_kwargs(self, mock_get_config, mock_bridge_handler):
         """use_chat_completions_api should be popped and not passed to the bridge handler."""
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = hangarllm.OpenAIResponsesAPIConfig()
         mock_bridge_handler.return_value = MagicMock()
 
-        litellm.responses(
+        hangarllm.responses(
             model="openai/my-custom-model",
             input="Hello",
             use_chat_completions_api=True,
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
         )
 
         call_kwargs = mock_bridge_handler.call_args
@@ -152,30 +152,30 @@ class TestUseResponsesApiBridgeFlag:
         assert "use_chat_completions_api" not in all_kwargs
 
     @patch.object(
-        import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler"
+        import_module("hangarllm.responses.main").hangarllm_completion_transformation_handler, "response_api_handler"
     )
-    @patch.object(import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
+    @patch.object(import_module("hangarllm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
     def test_bridge_used_when_provider_config_none(self, mock_get_config, mock_bridge_handler):
         """When the provider has no native responses API config (returns None),
         the bridge should be used regardless of the flag (existing behavior)."""
         mock_get_config.return_value = None
         mock_bridge_handler.return_value = MagicMock()
 
-        litellm.responses(
+        hangarllm.responses(
             model="anthropic/claude-3-haiku",
             input="Hello",
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
         )
 
         mock_bridge_handler.assert_called_once()
 
-    @patch("litellm.acompletion")
-    @patch.object(import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
+    @patch("hangarllm.acompletion")
+    @patch.object(import_module("hangarllm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
     async def test_allowed_openai_params_forwarded_through_bridge(self, mock_get_config, mock_acompletion):
         """allowed_openai_params is a named param of responses(), so it must be
-        explicitly forwarded to the bridge; otherwise litellm.acompletion raises
+        explicitly forwarded to the bridge; otherwise hangarllm.acompletion raises
         UnsupportedParamsError for params the caller explicitly allowed."""
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = hangarllm.OpenAIResponsesAPIConfig()
         mock_acompletion.return_value = ModelResponse(
             id="chatcmpl_123",
             model="openai/my-custom-model",
@@ -189,13 +189,13 @@ class TestUseResponsesApiBridgeFlag:
             usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
         )
 
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model="openai/my-custom-model",
             input="Hello",
             use_chat_completions_api=True,
             allowed_openai_params=["reasoning_effort"],
             reasoning={"effort": "high"},
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
         )
 
         mock_acompletion.assert_called_once()
@@ -255,7 +255,7 @@ class TestUseResponsesApiBridgeFlag:
             )
         )
 
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model=model,
             input="Hello",
             use_chat_completions_api=use_chat_completions_api,
@@ -289,7 +289,7 @@ class TestUseResponsesApiBridgeFlag:
             )
         )
 
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model="openai/my-custom-model",
             input="Hello",
             use_chat_completions_api=True,
@@ -322,7 +322,7 @@ class TestUseResponsesApiBridgeFlag:
             )
         )
 
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model="databricks/my-custom-model",
             instructions="You are terse.",
             input=[
@@ -363,7 +363,7 @@ class TestUseResponsesApiBridgeFlag:
             )
         )
 
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model="databricks/my-custom-model",
             input="Hello",
             client_metadata={
@@ -407,7 +407,7 @@ class TestUseResponsesApiBridgeFlag:
             )
         )
 
-        litellm.responses(
+        hangarllm.responses(
             model="azure/my-deployment",
             input="Hello",
             use_chat_completions_api=True,
@@ -426,11 +426,11 @@ class TestUseResponsesApiBridgeFlag:
     def test_bridge_rejects_a_responses_field_it_cannot_translate_when_drop_params_is_off(
         self, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
     ):
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         upstream: Final = _databricks_chat_upstream(respx_mock)
 
-        with pytest.raises(litellm.UnsupportedParamsError) as raised:
-            litellm.responses(
+        with pytest.raises(hangarllm.UnsupportedParamsError) as raised:
+            hangarllm.responses(
                 model="databricks/my-custom-model",
                 input="Hello",
                 max_tool_calls=5,
@@ -448,10 +448,10 @@ class TestUseResponsesApiBridgeFlag:
     def test_bridge_drops_a_responses_field_it_cannot_translate_when_drop_params_is_on(
         self, drop_params_source: str, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
     ):
-        monkeypatch.setattr(litellm, "drop_params", drop_params_source == "global")
+        monkeypatch.setattr(hangarllm, "drop_params", drop_params_source == "global")
         upstream: Final = _databricks_chat_upstream(respx_mock)
 
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model="databricks/my-custom-model",
             input="Hello",
             max_tool_calls=5,
@@ -473,13 +473,13 @@ class TestUseResponsesApiBridgeFlag:
     def test_bridge_drops_a_responses_field_it_cannot_translate_when_the_deployment_sets_drop_params(
         self, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
     ):
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         upstream: Final = _databricks_chat_upstream(respx_mock)
         router: Final = Router(
             model_list=[
                 {
                     "model_name": "bridged",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "databricks/my-custom-model",
                         "api_base": "https://example.databricks.test/serving-endpoints",
                         "api_key": "fake-databricks-api-key",
@@ -501,10 +501,10 @@ class TestUseResponsesApiBridgeFlag:
     def test_allowed_openai_params_sends_a_responses_field_through_the_bridge(
         self, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
     ):
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         upstream: Final = _databricks_chat_upstream(respx_mock)
 
-        litellm.responses(
+        hangarllm.responses(
             model="databricks/my-custom-model",
             input="Hello",
             max_tool_calls=5,
@@ -520,10 +520,10 @@ class TestUseResponsesApiBridgeFlag:
     def test_bridge_still_honors_additional_drop_params_for_a_responses_field_it_cannot_translate(
         self, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
     ):
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         upstream: Final = _databricks_chat_upstream(respx_mock)
 
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model="databricks/my-custom-model",
             input="Hello",
             max_tool_calls=5,
@@ -543,10 +543,10 @@ class TestUseResponsesApiBridgeFlag:
     def test_bridge_still_quietly_drops_responses_fields_it_already_handles(
         self, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
     ):
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         upstream: Final = _databricks_chat_upstream(respx_mock)
 
-        litellm.responses(
+        hangarllm.responses(
             model="databricks/my-custom-model",
             input="Hello",
             store=False,
@@ -565,14 +565,14 @@ class TestUseResponsesApiBridgeFlag:
             "messages": [{"role": "user", "content": "Hello"}],
         }
 
-    @patch.object(import_module("litellm.responses.file_search.emulated_handler"), "_call_aresponses")
-    @patch.object(import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
+    @patch.object(import_module("hangarllm.responses.file_search.emulated_handler"), "_call_aresponses")
+    @patch.object(import_module("hangarllm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
     async def test_bridge_flag_forwarded_to_file_search_emulation(self, mock_get_config, mock_call_aresponses):
         """When use_chat_completions_api=True and file_search tool is present,
         the flag should be forwarded to the inner aresponses call in the
         file_search emulation path."""
         # Setup: provider has native responses API support
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = hangarllm.OpenAIResponsesAPIConfig()
 
         # Mock the inner aresponses call to return a valid response
         mock_response = ResponsesAPIResponse(
@@ -584,12 +584,12 @@ class TestUseResponsesApiBridgeFlag:
         )
         mock_call_aresponses.return_value = mock_response
 
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model="openai/my-custom-model",
             input="Search for information",
             tools=[{"type": "file_search"}],
             use_chat_completions_api=True,
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
         )
 
         # Verify _call_aresponses was called with use_chat_completions_api=True
@@ -600,10 +600,10 @@ class TestUseResponsesApiBridgeFlag:
         )
 
     @patch.object(
-        import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler"
+        import_module("hangarllm.responses.main").hangarllm_completion_transformation_handler, "response_api_handler"
     )
-    @patch("litellm.vector_stores.main.asearch")
-    @patch.object(import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
+    @patch("hangarllm.vector_stores.main.asearch")
+    @patch.object(import_module("hangarllm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
     async def test_bridge_flag_prevents_native_responses_endpoint_call(
         self, mock_get_config, mock_asearch, mock_bridge_handler
     ):
@@ -612,7 +612,7 @@ class TestUseResponsesApiBridgeFlag:
         file_search → emulation must still route inner calls through the bridge
         (chat completions), not POST to api_base /v1/responses.
         """
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = hangarllm.OpenAIResponsesAPIConfig()
         mock_asearch.return_value = []
 
         first_response = ResponsesAPIResponse(
@@ -622,7 +622,7 @@ class TestUseResponsesApiBridgeFlag:
             output=[
                 {
                     "type": "function_call",
-                    "name": "litellm_file_search",
+                    "name": "hangarllm_file_search",
                     "call_id": "call_123",
                     "arguments": '{"queries": ["test query"]}',
                 }
@@ -643,7 +643,7 @@ class TestUseResponsesApiBridgeFlag:
         )
         mock_bridge_handler.side_effect = [first_response, second_response]
 
-        result = await litellm.aresponses(
+        result = await hangarllm.aresponses(
             model="openai/my-local-model",
             input="Search for information",
             tools=[
@@ -654,7 +654,7 @@ class TestUseResponsesApiBridgeFlag:
             ],
             use_chat_completions_api=True,
             api_base="http://localhost:8080/v1",
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
         )
 
         assert mock_bridge_handler.call_count == 2, (
@@ -666,12 +666,12 @@ class TestUseResponsesApiBridgeFlag:
         assert result is not None
         assert result.id is not None
 
-    @patch.object(import_module("litellm.responses.main").base_llm_http_handler, "response_api_handler")
-    @patch("litellm.vector_stores.main.asearch")
-    @patch.object(import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
+    @patch.object(import_module("hangarllm.responses.main").base_llm_http_handler, "response_api_handler")
+    @patch("hangarllm.vector_stores.main.asearch")
+    @patch.object(import_module("hangarllm.responses.main").ProviderConfigManager, "get_provider_responses_api_config")
     async def test_without_bridge_flag_uses_native_endpoint(self, mock_get_config, mock_asearch, mock_native_handler):
         """Without the bridge flag, openai/ with native config uses the native handler."""
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = hangarllm.OpenAIResponsesAPIConfig()
         mock_asearch.return_value = []
         mock_native_handler.return_value = ResponsesAPIResponse(
             id="resp_native",
@@ -686,10 +686,10 @@ class TestUseResponsesApiBridgeFlag:
             usage=ResponseAPIUsage(input_tokens=10, output_tokens=5, total_tokens=15),
         )
 
-        result = await litellm.aresponses(
+        result = await hangarllm.aresponses(
             model="openai/gpt-4o",
             input="Hello",
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
         )
 
         mock_native_handler.assert_called_once()
@@ -699,8 +699,8 @@ class TestUseResponsesApiBridgeFlag:
         send: Final = MagicMock(return_value=httpx.Response(200))
         client: Final = openai.OpenAI(api_key="fake-key", http_client=httpx.Client(transport=httpx.MockTransport(send)))
 
-        with pytest.raises(litellm.BadRequestError) as exc_info:
-            litellm.responses(
+        with pytest.raises(hangarllm.BadRequestError) as exc_info:
+            hangarllm.responses(
                 model="openai/gpt-4.1-mini",
                 input="hi",
                 use_chat_completions_api=True,
@@ -737,7 +737,7 @@ def _databricks_chat_upstream(respx_mock: respx.MockRouter) -> respx.Route:
 
 
 def _pin_shared_mode(monkeypatch: pytest.MonkeyPatch, model: str, mode: str) -> None:
-    cost_map: Final = cast(dict[str, dict[str, object]], litellm.model_cost)
+    cost_map: Final = cast(dict[str, dict[str, object]], hangarllm.model_cost)
     monkeypatch.setitem(cost_map, model, {**cost_map.get(model, {}), "mode": mode})
 
 
@@ -898,7 +898,7 @@ def test_a_chat_pinned_responses_prefixed_router_deployment_reaches_the_response
 ) -> None:
     """The router registers a ``mode: chat`` row under the deployment's own ``responses/gpt-5.6`` name,
     so the prefix has to win over that row too, or the request goes to Chat Completions as ``responses/gpt-5.6``."""
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
     responses_route: Final = respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(
             200,
@@ -925,7 +925,7 @@ def test_a_chat_pinned_responses_prefixed_router_deployment_reaches_the_response
         model_list=[
             {
                 "model_name": "prefixed-chat",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/responses/gpt-5.6",
                     "custom_llm_provider": "openai",
                     "api_key": "sk-test",
@@ -944,10 +944,10 @@ def test_a_chat_pinned_responses_prefixed_router_deployment_reaches_the_response
 def test_a_chat_pin_keeps_a_plain_gpt_5_4_chat_request_on_chat_completions() -> None:
     """Without tools or a reasoning summary nothing forces the Responses API, so the deployment's own
     mode decides and the shared ``responses`` row is left alone."""
-    shared_mode = litellm.model_cost["gpt-5.4"]["mode"]
+    shared_mode = hangarllm.model_cost["gpt-5.4"]["mode"]
     info, model = responses_api_bridge_check(model="gpt-5.4", custom_llm_provider="openai", deployment_model_info=_CHAT)
     assert (info["mode"], model) == ("chat", "gpt-5.4")
-    assert litellm.model_cost["gpt-5.4"]["mode"] == shared_mode
+    assert hangarllm.model_cost["gpt-5.4"]["mode"] == shared_mode
 
 
 @pytest.mark.parametrize(
@@ -966,7 +966,7 @@ def test_a_chat_pin_cannot_pull_a_responses_only_model_off_the_responses_api(
 ) -> None:
     """These rows list only ``/v1/responses`` in ``supported_endpoints``, or are ``responses`` rows with no
     endpoint list at all, so a deployment pin to chat has nowhere to send the request and the bridge keeps it."""
-    cost_map: Final = cast(dict[str, dict[str, object]], litellm.model_cost)
+    cost_map: Final = cast(dict[str, dict[str, object]], hangarllm.model_cost)
     assert not backend_serves_chat_completions(
         cost_map[model if custom_llm_provider == "openai" else f"{custom_llm_provider}/{model}"]
     )
@@ -1032,15 +1032,15 @@ async def test_chatgpt_completion_routes_to_responses_without_a_provider_catalog
     model: Final = "test-chatgpt-routing"
     monkeypatch.setenv("CHATGPT_TOKEN_DIR", str(tmp_path))
     monkeypatch.setenv("CHATGPT_API_BASE", "https://chatgpt.example")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     (tmp_path / "auth.json").write_text(
         json.dumps({"access_token": "fake-access-token", "expires_at": 253402300799, "account_id": "fake-account"})
     )
-    monkeypatch.delitem(litellm.model_cost, f"chatgpt/{model}", raising=False)
-    monkeypatch.delitem(litellm.model_cost, model, raising=False)
+    monkeypatch.delitem(hangarllm.model_cost, f"chatgpt/{model}", raising=False)
+    monkeypatch.delitem(hangarllm.model_cost, model, raising=False)
     if catalog_mode is not None:
-        monkeypatch.setitem(litellm.model_cost, model, {"mode": catalog_mode, "litellm_provider": "openai"})
-    litellm.get_model_info.cache_clear()
+        monkeypatch.setitem(hangarllm.model_cost, model, {"mode": catalog_mode, "hangarllm_provider": "openai"})
+    hangarllm.get_model_info.cache_clear()
     payload: Final = {
         "id": "resp_test",
         "object": "response",
@@ -1081,9 +1081,9 @@ async def test_chatgpt_completion_routes_to_responses_without_a_provider_catalog
         "stream": stream,
         "num_retries": 0,
     }
-    response: Final = await litellm.acompletion(**kwargs) if asynchronous else litellm.completion(**kwargs)
+    response: Final = await hangarllm.acompletion(**kwargs) if asynchronous else hangarllm.completion(**kwargs)
     result: Final = (
-        litellm.stream_chunk_builder([chunk async for chunk in response] if asynchronous else list(response))
+        hangarllm.stream_chunk_builder([chunk async for chunk in response] if asynchronous else list(response))
         if stream
         else response
     )
@@ -1145,12 +1145,12 @@ def _openai_chat_upstream(respx_mock: respx.MockRouter, stream: bool) -> respx.R
 
 async def _bridged_responses_call(asynchronous: bool, stream: bool, **kwargs: object) -> None:
     if not asynchronous:
-        response = litellm.responses(
+        response = hangarllm.responses(
             input="Hello", stream=stream, api_key="fake-provider-api-key", num_retries=0, **kwargs
         )
         _ = list(response) if stream else response
         return
-    response = await litellm.aresponses(
+    response = await hangarllm.aresponses(
         input="Hello", stream=stream, api_key="fake-provider-api-key", num_retries=0, **kwargs
     )
     _ = [event async for event in response] if stream else response
@@ -1163,8 +1163,8 @@ async def _bridged_responses_call(asynchronous: bool, stream: bool, **kwargs: ob
 async def test_bridge_sends_text_verbosity_as_chat_verbosity(
     verbosity: str, asynchronous: bool, stream: bool, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     upstream: Final = _openai_chat_upstream(respx_mock, stream)
 
     await _bridged_responses_call(
@@ -1216,10 +1216,10 @@ def test_bridge_maps_text_format_alongside_verbosity(
     monkeypatch: pytest.MonkeyPatch,
     respx_mock: respx.MockRouter,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     upstream: Final = _openai_chat_upstream(respx_mock, stream=False)
 
-    litellm.responses(
+    hangarllm.responses(
         model="openai/gpt-5.6",
         input="Hello",
         use_chat_completions_api=True,
@@ -1241,11 +1241,11 @@ def test_bridge_maps_text_format_alongside_verbosity(
 async def test_bridge_rejects_text_verbosity_the_provider_does_not_support_when_drop_params_is_off(
     asynchronous: bool, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     upstream: Final = _databricks_chat_upstream(respx_mock)
 
-    with pytest.raises(litellm.UnsupportedParamsError) as raised:
+    with pytest.raises(hangarllm.UnsupportedParamsError) as raised:
         await _bridged_responses_call(
             asynchronous,
             False,
@@ -1274,10 +1274,10 @@ def test_bridge_text_verbosity_follows_provider_param_validation(
     monkeypatch: pytest.MonkeyPatch,
     respx_mock: respx.MockRouter,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", global_drop_params)
+    monkeypatch.setattr(hangarllm, "drop_params", global_drop_params)
     upstream: Final = _databricks_chat_upstream(respx_mock)
 
-    response: Final = litellm.responses(
+    response: Final = hangarllm.responses(
         model="databricks/my-custom-model",
         input="Hello",
         text={"verbosity": "low"},
@@ -1299,7 +1299,7 @@ def test_bridge_text_verbosity_follows_provider_param_validation(
 def test_native_responses_route_keeps_text_verbosity_nested(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses").respond(
         200,
         json={
@@ -1321,7 +1321,7 @@ def test_native_responses_route_keeps_text_verbosity_nested(
         },
     )
 
-    litellm.responses(
+    hangarllm.responses(
         model="openai/gpt-5.6",
         input="Hello",
         text={"verbosity": "low"},
@@ -1350,8 +1350,8 @@ _CLIENT_TOOL_SEARCH: Final = {
 async def test_bridge_sends_text_verbosity_on_a_client_tool_search_follow_up_turn(
     verbosity: str, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     upstream: Final = _openai_chat_upstream(respx_mock, stream=False)
 
     await _bridged_responses_call(

@@ -120,7 +120,7 @@ async def _send(client: httpx.AsyncClient, key: str, model: str, marker: str) ->
     )
     return _Served(
         marker=marker,
-        call_id=response.headers.get("x-litellm-call-id", ""),
+        call_id=response.headers.get("x-hangarllm-call-id", ""),
         status=response.status_code,
         text=response.text,
     )
@@ -144,18 +144,18 @@ def _markers(count: int) -> tuple[str, ...]:
 
 def _spend_rows(model: str, expected: int) -> list[dict[str, JsonValue]]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT litellm_call_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT hangarllm_call_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= expected,
         seconds=70,
     )
-    assert len({row["litellm_call_id"] for row in rows}) == len(rows) == expected, rows
+    assert len({row["hangarllm_call_id"] for row in rows}) == len(rows) == expected, rows
     return rows
 
 
 def _assert_each_billed_once(
     rows: list[dict[str, JsonValue]], failed: tuple[_Served, ...], served: tuple[_Served, ...]
 ) -> None:
-    by_call: Final = {string_value(row["litellm_call_id"]): row for row in rows}
+    by_call: Final = {string_value(row["hangarllm_call_id"]): row for row in rows}
     assert len(by_call) == len(failed) + len(served), (len(by_call), len(failed), len(served))
     for item in failed:
         assert by_call[item.call_id]["status"] == "failure", (item.call_id, by_call[item.call_id])
@@ -217,7 +217,7 @@ def _chaos_config(wire: Wire, tmp_path: Path) -> Path:
     config["model_list"] = [
         {
             "model_name": _CONFIG_MODEL,
-            "litellm_params": {"model": _CANONICAL, "api_base": wire.url, "api_key": _API_KEY},
+            "hangarllm_params": {"model": _CANONICAL, "api_base": wire.url, "api_key": _API_KEY},
         }
     ]
     path: Final = tmp_path / "clef-omni-media-chaos.yaml"

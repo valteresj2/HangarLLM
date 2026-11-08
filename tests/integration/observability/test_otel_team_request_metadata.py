@@ -1,5 +1,5 @@
 """A team's or key's own New Relic destination gets the operator-allowlisted request metadata as
-``litellm.metadata.*``, whether or not ``otel`` is listed in ``litellm_settings.callbacks`` (LIT-9783)."""
+``hangarllm.metadata.*``, whether or not ``otel`` is listed in ``hangarllm_settings.callbacks`` (LIT-9783)."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from pydantic import JsonValue
 
 OPERATION: Final = "gen_ai.operation.name"
 SERVER_KIND: Final = 2
-PROMOTED: Final = ("litellm.metadata.correlation_id", "litellm.metadata.correlation.id")
+PROMOTED: Final = ("hangarllm.metadata.correlation_id", "hangarllm.metadata.correlation.id")
 ALLOWLIST: Final = (
     "requester_metadata.correlation_id",
     "requester_metadata.correlation.id",
@@ -55,7 +55,7 @@ def _config(directory: Path, callbacks: tuple[str, ...]) -> Path:
     loaded: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     config: Final = {
         **loaded,
-        "litellm_settings": {**loaded.get("litellm_settings", {}), "callbacks": list(callbacks)},
+        "hangarllm_settings": {**loaded.get("hangarllm_settings", {}), "callbacks": list(callbacks)},
         "general_settings": {**loaded.get("general_settings", {}), "user_api_key_cache_ttl": 2},
     }
     path: Final = directory / "team-request-metadata.yaml"
@@ -86,9 +86,9 @@ def proxy(
             gateway,
             directory,
             {
-                "LITELLM_OTEL_V2": "1",
+                "HANGARLLM_OTEL_V2": "1",
                 "OTEL_BSP_SCHEDULE_DELAY": "300",
-                "LITELLM_OTEL_BAGGAGE_METADATA_KEYS": ",".join(ALLOWLIST),
+                "HANGARLLM_OTEL_BAGGAGE_METADATA_KEYS": ",".join(ALLOWLIST),
                 "HTTPS_PROXY": newrelic.proxy_url,
                 "NO_PROXY": "127.0.0.1,localhost",
                 "REQUESTS_CA_BUNDLE": newrelic.ca_pem,

@@ -15,7 +15,7 @@ tests:
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_COLLECTOR_ENABLED
+            name: HANGARLLM_COLLECTOR_ENABLED
             value: "true"
         template: gateway/deployment.yaml
       - notContains:
@@ -40,39 +40,39 @@ tests:
       database.connectionPool.maxDbConnections: 8
       database.connectionPool.maxClientConn: 250
       gateway.envSecrets:
-        - litellm-license
+        - hangarllm-license
       gateway.volumes:
         - name: redis-ca
           secret:
             secretName: redis-ca
       gateway.volumeMounts:
         - name: redis-ca
-          mountPath: /etc/litellm/redis-ca
+          mountPath: /etc/hangarllm/redis-ca
           readOnly: true
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_COLLECTOR_ADDRESS
-            value: unix:///var/run/litellm/collector.sock
+            name: HANGARLLM_COLLECTOR_ADDRESS
+            value: unix:///var/run/hangarllm/collector.sock
         template: gateway/deployment.yaml
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_COLLECTOR_BUFFER_SIZE
+            name: HANGARLLM_COLLECTOR_BUFFER_SIZE
             value: "250"
         template: gateway/deployment.yaml
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_COLLECTOR_ON_UNAVAILABLE
+            name: HANGARLLM_COLLECTOR_ON_UNAVAILABLE
             value: drop
         template: gateway/deployment.yaml
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content:
             name: collector-socket
-            mountPath: /var/run/litellm
+            mountPath: /var/run/hangarllm
         template: gateway/deployment.yaml
       - equal:
           path: spec.template.spec.containers[1].name
@@ -87,12 +87,12 @@ tests:
           value:
             - python
             - -m
-            - litellm.proxy.collector
+            - hangarllm.proxy.collector
         template: gateway/deployment.yaml
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_JOB_ROLE
+            name: HANGARLLM_JOB_ROLE
             value: collector
         template: gateway/deployment.yaml
       - contains:
@@ -104,19 +104,19 @@ tests:
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
             value: "true"
         template: gateway/deployment.yaml
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS
+            name: HANGARLLM_PGBOUNCER_MAX_DB_CONNECTIONS
             value: "8"
         template: gateway/deployment.yaml
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_CLIENT_CONN
+            name: HANGARLLM_PGBOUNCER_MAX_CLIENT_CONN
             value: "250"
         template: gateway/deployment.yaml
       - contains:
@@ -128,8 +128,8 @@ tests:
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_COLLECTOR_ADDRESS
-            value: unix:///var/run/litellm/collector.sock
+            name: HANGARLLM_COLLECTOR_ADDRESS
+            value: unix:///var/run/hangarllm/collector.sock
         template: gateway/deployment.yaml
       - notContains:
           path: spec.template.spec.containers[1].env
@@ -141,7 +141,7 @@ tests:
           path: spec.template.spec.containers[1].envFrom
           value:
             - secretRef:
-                name: litellm-license
+                name: hangarllm-license
         template: gateway/deployment.yaml
       - contains:
           path: spec.template.spec.containers[1].volumeMounts
@@ -154,13 +154,13 @@ tests:
           path: spec.template.spec.containers[1].volumeMounts
           content:
             name: collector-socket
-            mountPath: /var/run/litellm
+            mountPath: /var/run/hangarllm
         template: gateway/deployment.yaml
       - contains:
           path: spec.template.spec.containers[1].volumeMounts
           content:
             name: redis-ca
-            mountPath: /etc/litellm/redis-ca
+            mountPath: /etc/hangarllm/redis-ca
             readOnly: true
         template: gateway/deployment.yaml
       - equal:
@@ -195,7 +195,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_COLLECTOR_ADDRESS
+            name: HANGARLLM_COLLECTOR_ADDRESS
             value: tcp://127.0.0.1:4010
         template: gateway/deployment.yaml
       - notContains:

@@ -7,17 +7,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge import (
+import hangarllm
+from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge import (
     LLMAsAJudgeGuardrail,
     _build_judge_prompt,
     _extract_text_from_content,
     _parse_judge_verdict,
     initialize_guardrail,
 )
-from litellm.types.guardrails import GuardrailEventHooks, Mode
-from litellm.types.utils import LLM_AS_A_JUDGE_GUARDRAIL_CALL_ORIGIN
+from hangarllm.types.guardrails import GuardrailEventHooks, Mode
+from hangarllm.types.utils import LLM_AS_A_JUDGE_GUARDRAIL_CALL_ORIGIN
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -93,7 +93,7 @@ def test_build_judge_prompt_missing_name_and_weight():
 # ---------------------------------------------------------------------------
 
 
-def _make_litellm_params(**overrides):
+def _make_hangarllm_params(**overrides):
     params = MagicMock()
     for attr in ("guardrail_name", "judge_model", "criteria", "on_failure", "overall_threshold", "mode", "default_on"):
         setattr(params, attr, None)
@@ -102,31 +102,31 @@ def _make_litellm_params(**overrides):
     return params
 
 
-def _make_guardrail_dict(name="g", **litellm_params_overrides):
+def _make_guardrail_dict(name="g", **hangarllm_params_overrides):
     raw = {"judge_model": "gpt-4o-mini", "criteria": CRITERIA_100, "on_failure": "block", "overall_threshold": 80.0}
-    raw.update(litellm_params_overrides)
-    return {"guardrail_name": name, "litellm_params": raw}
+    raw.update(hangarllm_params_overrides)
+    return {"guardrail_name": name, "hangarllm_params": raw}
 
 
-@patch("litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.litellm.logging_callback_manager")
+@patch("hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.hangarllm.logging_callback_manager")
 def test_initialize_guardrail_ok(mock_mgr):
-    lp = _make_litellm_params()
+    lp = _make_hangarllm_params()
     g = _make_guardrail_dict()
     instance = initialize_guardrail(lp, g)
     assert isinstance(instance, LLMAsAJudgeGuardrail)
-    mock_mgr.add_litellm_callback.assert_called_once_with(instance)
+    mock_mgr.add_hangarllm_callback.assert_called_once_with(instance)
 
 
 def test_initialize_guardrail_missing_judge_model():
-    lp = _make_litellm_params()
+    lp = _make_hangarllm_params()
     g = _make_guardrail_dict(judge_model=None)
-    g["litellm_params"].pop("judge_model")
+    g["hangarllm_params"].pop("judge_model")
     with pytest.raises(ValueError, match="judge_model"):
         initialize_guardrail(lp, g)
 
 
 def test_initialize_guardrail_weight_sum_not_100():
-    lp = _make_litellm_params()
+    lp = _make_hangarllm_params()
     bad_criteria = [{"name": "A", "weight": 50, "description": "d"}]
     g = _make_guardrail_dict(criteria=bad_criteria)
     with pytest.raises(ValueError, match="100"):
@@ -134,7 +134,7 @@ def test_initialize_guardrail_weight_sum_not_100():
 
 
 def test_initialize_guardrail_invalid_on_failure():
-    lp = _make_litellm_params()
+    lp = _make_hangarllm_params()
     g = _make_guardrail_dict(on_failure="explode")
     with pytest.raises(ValueError, match="on_failure"):
         initialize_guardrail(lp, g)
@@ -155,20 +155,20 @@ def test_initialize_guardrail_preserves_every_mode_shape(
     runs_pre_call: bool,
     runs_post_call: bool,
 ):
-    lp: Final = _make_litellm_params(mode=mode)
+    lp: Final = _make_hangarllm_params(mode=mode)
     instance: Final = initialize_guardrail(lp, _make_guardrail_dict())
     request_data: Final[dict[str, object]] = {"metadata": {"guardrails": ["g"], "tags": ["judge"]}}
-    premium: Final = patch("litellm.proxy.proxy_server.premium_user", True)  # test-quality-ok: no seam for Mode tags
+    premium: Final = patch("hangarllm.proxy.proxy_server.premium_user", True)  # test-quality-ok: no seam for Mode tags
     try:
         with premium:
             assert instance.should_run_guardrail(request_data, GuardrailEventHooks.pre_call) is runs_pre_call
             assert instance.should_run_guardrail(request_data, GuardrailEventHooks.post_call) is runs_post_call
     finally:
-        litellm.logging_callback_manager.remove_callback_from_all_lists(instance)
+        hangarllm.logging_callback_manager.remove_callback_from_all_lists(instance)
 
 
 def test_initialize_guardrail_rejects_unknown_mode():
-    lp: Final = _make_litellm_params(mode="sometimes")
+    lp: Final = _make_hangarllm_params(mode="sometimes")
     with pytest.raises(ValueError, match="sometimes"):
         initialize_guardrail(lp, _make_guardrail_dict())
 
@@ -180,10 +180,10 @@ def test_initialize_guardrail_rejects_unknown_mode():
 
 def _judge_router(overall_score: float) -> MagicMock:
     """Router double, injected via router_provider, that serves the judge model and returns a canned verdict."""
-    from litellm import Router
+    from hangarllm import Router
 
     router: Final = MagicMock(spec=Router)
-    router.resolved_litellm_models.return_value = ("openai/gpt-4o-mini",)
+    router.resolved_hangarllm_models.return_value = ("openai/gpt-4o-mini",)
     router.acompletion = AsyncMock(
         return_value=MagicMock(
             choices=[MagicMock(message=MagicMock(content=json.dumps(_make_verdict_response(overall_score))))]
@@ -410,13 +410,13 @@ async def test_apply_guardrail_logging_only_labels_both_sides_logging_only(input
 async def test_logging_only_judge_does_not_judge_its_own_judge_call():
     router: Final = _judge_router(90.0)
     guardrail: Final = _make_guardrail(event_hook=GuardrailEventHooks.logging_only, router_provider=lambda: router)
-    client_call: Final[dict[str, object]] = {"litellm_params": {"metadata": {"user_api_key": "hashed"}}}
+    client_call: Final[dict[str, object]] = {"hangarllm_params": {"metadata": {"user_api_key": "hashed"}}}
 
     assert guardrail.should_run_guardrail(client_call, GuardrailEventHooks.logging_only) is True
     await guardrail.apply_guardrail({"texts": ["hi"]}, {"messages": [{"role": "user", "content": "hi"}]}, "request")
 
     judge_call: Final[dict[str, object]] = {
-        "litellm_params": {"metadata": router.acompletion.call_args.kwargs["metadata"]}
+        "hangarllm_params": {"metadata": router.acompletion.call_args.kwargs["metadata"]}
     }
     assert guardrail.should_run_guardrail(judge_call, GuardrailEventHooks.logging_only) is False
     assert guardrail.should_run_guardrail(client_call, GuardrailEventHooks.logging_only) is True
@@ -430,7 +430,7 @@ def test_client_supplied_judge_origin_does_not_bypass_enforcing_hooks(event_type
     forged_request: Final[dict[str, object]] = {
         "messages": [{"role": "user", "content": "hi"}],
         "guardrails": [guardrail.guardrail_name],
-        "litellm_params": {"metadata": {INTERNAL_CALL_ORIGIN_METADATA_KEY: LLM_AS_A_JUDGE_GUARDRAIL_CALL_ORIGIN}},
+        "hangarllm_params": {"metadata": {INTERNAL_CALL_ORIGIN_METADATA_KEY: LLM_AS_A_JUDGE_GUARDRAIL_CALL_ORIGIN}},
     }
 
     assert guardrail.should_run_guardrail(forged_request, event_type) is True
@@ -459,7 +459,7 @@ async def test_apply_guardrail_empty_response_passthrough():
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.litellm.acompletion")
+@patch("hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.hangarllm.acompletion")
 async def test_apply_guardrail_passes_above_threshold(mock_completion):
     mock_completion.return_value = MagicMock(
         choices=[MagicMock(message=MagicMock(content=json.dumps(_make_verdict_response(90.0))))]
@@ -473,7 +473,7 @@ async def test_apply_guardrail_passes_above_threshold(mock_completion):
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.litellm.acompletion")
+@patch("hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.hangarllm.acompletion")
 async def test_apply_guardrail_blocks_below_threshold(mock_completion):
     mock_completion.return_value = MagicMock(
         choices=[MagicMock(message=MagicMock(content=json.dumps(_make_verdict_response(50.0))))]
@@ -487,7 +487,7 @@ async def test_apply_guardrail_blocks_below_threshold(mock_completion):
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.litellm.acompletion")
+@patch("hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.hangarllm.acompletion")
 async def test_apply_guardrail_log_mode_does_not_block(mock_completion):
     mock_completion.return_value = MagicMock(
         choices=[MagicMock(message=MagicMock(content=json.dumps(_make_verdict_response(50.0))))]
@@ -536,7 +536,7 @@ def test_parse_judge_verdict_rejects_json_non_object():
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.litellm.acompletion")
+@patch("hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.hangarllm.acompletion")
 async def test_apply_guardrail_enforces_fenced_verdict(mock_completion):
     """A failing verdict wrapped in a code fence blocks with a 422."""
     fenced = "```json\n" + json.dumps(_make_verdict_response(50.0)) + "\n```"
@@ -550,7 +550,7 @@ async def test_apply_guardrail_enforces_fenced_verdict(mock_completion):
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.litellm.acompletion")
+@patch("hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.hangarllm.acompletion")
 async def test_apply_guardrail_non_object_verdict_fails_open_with_status(mock_completion):
     """A non-object verdict fails open and logs guardrail_failed_to_respond."""
     mock_completion.return_value = MagicMock(choices=[MagicMock(message=MagicMock(content='[{"overall_score": 50}]'))])
@@ -564,7 +564,7 @@ async def test_apply_guardrail_non_object_verdict_fails_open_with_status(mock_co
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.litellm.acompletion")
+@patch("hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.hangarllm.acompletion")
 async def test_apply_guardrail_parses_fenced_json_verdict(mock_completion):
     """Fencing-prone judge models wrap the verdict in a ```json fence; the guardrail
     must parse it and evaluate rather than failing open on json.loads."""
@@ -579,7 +579,7 @@ async def test_apply_guardrail_parses_fenced_json_verdict(mock_completion):
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.litellm.acompletion")
+@patch("hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.hangarllm.acompletion")
 async def test_apply_guardrail_judge_error_fails_open(mock_completion):
     mock_completion.side_effect = RuntimeError("judge down")
     guardrail = _make_guardrail()
@@ -602,7 +602,7 @@ def _real_router(model_list, **router_kwargs):
     """Build a real Router so the router-membership decision is exercised for
     real (wildcards, model_group_alias, exact names), stubbing only the outbound
     completion so no network call is made."""
-    from litellm import Router
+    from hangarllm import Router
 
     router = Router(model_list=model_list, **router_kwargs)
     router.acompletion = AsyncMock(return_value=_judge_response_mock())
@@ -616,14 +616,14 @@ def _real_router(model_list, **router_kwargs):
             [
                 {
                     "model_name": "my-judge-alias",
-                    "litellm_params": {"model": "anthropic/claude-sonnet-4-6", "api_key": "sk-ant-test"},
+                    "hangarllm_params": {"model": "anthropic/claude-sonnet-4-6", "api_key": "sk-ant-test"},
                 }
             ],
             {},
             "my-judge-alias",
         ),
         (
-            [{"model_name": "anthropic/*", "litellm_params": {"model": "anthropic/*", "api_key": "sk-ant-test"}}],
+            [{"model_name": "anthropic/*", "hangarllm_params": {"model": "anthropic/*", "api_key": "sk-ant-test"}}],
             {},
             "anthropic/claude-sonnet-4-6",
         ),
@@ -631,7 +631,7 @@ def _real_router(model_list, **router_kwargs):
             [
                 {
                     "model_name": "backing-group",
-                    "litellm_params": {"model": "anthropic/claude-sonnet-4-6", "api_key": "sk-ant-test"},
+                    "hangarllm_params": {"model": "anthropic/claude-sonnet-4-6", "api_key": "sk-ant-test"},
                 }
             ],
             {"model_group_alias": {"my-judge-alias": "backing-group"}},
@@ -641,7 +641,7 @@ def _real_router(model_list, **router_kwargs):
             [
                 {
                     "model_name": "backing-group",
-                    "litellm_params": {"model": "anthropic/claude-sonnet-4-6", "api_key": "sk-ant-test"},
+                    "hangarllm_params": {"model": "anthropic/claude-sonnet-4-6", "api_key": "sk-ant-test"},
                 }
             ],
             {"model_group_alias": {"my-judge-alias": {"model": "backing-group", "hidden": True}}},
@@ -651,7 +651,7 @@ def _real_router(model_list, **router_kwargs):
     ids=["plain-deployment", "wildcard-route", "model-group-alias", "hidden-model-group-alias"],
 )
 @pytest.mark.asyncio
-@patch("litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.litellm.acompletion", new_callable=AsyncMock)
+@patch("hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.hangarllm.acompletion", new_callable=AsyncMock)
 async def test_judge_routes_through_router_for_router_served_model(
     mock_sdk_completion, model_list, router_kwargs, judge_model
 ):
@@ -676,13 +676,13 @@ async def test_judge_routes_through_router_for_router_served_model(
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.litellm.acompletion", new_callable=AsyncMock)
+@patch("hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.hangarllm.acompletion", new_callable=AsyncMock)
 async def test_judge_call_falls_back_to_sdk_when_model_not_in_router(mock_sdk_completion):
     """A judge_model the Router cannot serve (e.g. a raw provider model resolved
     from the environment) must fall back to the SDK."""
     mock_sdk_completion.return_value = _judge_response_mock()
     router = _real_router(
-        [{"model_name": "some-other-model", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}}]
+        [{"model_name": "some-other-model", "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}}]
     )
     guardrail = _make_guardrail(judge_model="gpt-4o-mini", router_provider=lambda: router)
     inputs = {"texts": ["good response"]}
@@ -697,7 +697,7 @@ async def test_judge_call_falls_back_to_sdk_when_model_not_in_router(mock_sdk_co
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.litellm.acompletion", new_callable=AsyncMock)
+@patch("hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.hangarllm.acompletion", new_callable=AsyncMock)
 async def test_judge_call_uses_sdk_when_no_router(mock_sdk_completion):
     mock_sdk_completion.return_value = _judge_response_mock()
     guardrail = _make_guardrail(judge_model="gpt-4o-mini", router_provider=lambda: None)
@@ -711,7 +711,7 @@ async def test_judge_call_uses_sdk_when_no_router(mock_sdk_completion):
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.litellm.acompletion", new_callable=AsyncMock)
+@patch("hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.hangarllm.acompletion", new_callable=AsyncMock)
 async def test_judge_resolves_router_lazily_per_call(mock_sdk_completion):
     """The Router is resolved at call time, not captured at construction. A
     guardrail built before the proxy Router exists (provider returns None) starts
@@ -729,7 +729,7 @@ async def test_judge_resolves_router_lazily_per_call(mock_sdk_completion):
         [
             {
                 "model_name": "my-judge-alias",
-                "litellm_params": {"model": "anthropic/claude-sonnet-4-6", "api_key": "sk-ant-test"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-4-6", "api_key": "sk-ant-test"},
             }
         ]
     )
@@ -744,34 +744,34 @@ def test_default_router_provider_returns_none_when_proxy_not_importable():
     by the fail-open handler and the guardrail silently no-opping."""
     import sys
 
-    from litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge import _default_router_provider
+    from hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge import _default_router_provider
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": None}):
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": None}):
         assert _default_router_provider() is None
 
 
 def test_default_router_provider_reads_global_router():
     """The default provider must read the live proxy global so the router is
     resolved lazily rather than captured."""
-    from litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge import _default_router_provider
+    from hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge import _default_router_provider
 
     sentinel = object()
-    with patch("litellm.proxy.proxy_server.llm_router", sentinel):
+    with patch("hangarllm.proxy.proxy_server.llm_router", sentinel):
         assert _default_router_provider() is sentinel
 
 
-@patch("litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.litellm.logging_callback_manager")
+@patch("hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.hangarllm.logging_callback_manager")
 def test_initialize_guardrail_uses_default_router_provider(mock_mgr):
-    from litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge import _default_router_provider
+    from hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge import _default_router_provider
 
-    lp = _make_litellm_params()
+    lp = _make_hangarllm_params()
     g = _make_guardrail_dict(judge_model="my-judge-alias")
     instance = initialize_guardrail(lp, g)
     assert instance._router_provider is _default_router_provider
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.litellm.acompletion")
+@patch("hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge.hangarllm.acompletion")
 async def test_apply_guardrail_clamps_score(mock_completion):
     response_payload = {"verdicts": [], "overall_score": 150}
     mock_completion.return_value = MagicMock(

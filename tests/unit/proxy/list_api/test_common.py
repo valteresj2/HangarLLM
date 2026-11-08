@@ -9,8 +9,8 @@ import pytest
 from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.testclient import TestClient
 
-import litellm.proxy.list_api.common as common_module
-from litellm.proxy.list_api.common import (
+import hangarllm.proxy.list_api.common as common_module
+from hangarllm.proxy.list_api.common import (
     PROBLEM_CONTENT_TYPE,
     ManagementProblem,
     _declared_query_params,

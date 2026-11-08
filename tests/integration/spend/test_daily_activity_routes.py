@@ -19,20 +19,20 @@ from integration._support.upstream import JsonResponse, delete_scenario, registe
 from integration.spend.test_daily_activity_repository import _daily_activity_database, _PrismaDatabase, _repository
 from pydantic import JsonValue
 
-from litellm import constants
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.management_endpoints.daily_activity_routes import (
+from hangarllm import constants
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.management_endpoints.daily_activity_routes import (
     get_daily_activity_prisma_client,
     get_daily_activity_repository,
 )
-from litellm.proxy.management_endpoints.daily_activity_routes import (
+from hangarllm.proxy.management_endpoints.daily_activity_routes import (
     router as daily_activity_router,
 )
-from litellm.proxy.management_endpoints.internal_user_endpoints import router as internal_user_router
-from litellm.proxy.management_endpoints.team_endpoints import router as team_router
-from litellm.types.proxy.management_endpoints.common_daily_activity import (
+from hangarllm.proxy.management_endpoints.internal_user_endpoints import router as internal_user_router
+from hangarllm.proxy.management_endpoints.team_endpoints import router as team_router
+from hangarllm.types.proxy.management_endpoints.common_daily_activity import (
     DailyActivityKeyPageResponse,
     SpendAnalyticsPaginatedResponse,
 )
@@ -345,18 +345,18 @@ def _assert_daily_activity_routes(gateway: Gateway) -> None:
         end_date: Final = (today + timedelta(days=1)).isoformat()
         date_params: Final = {"start_date": start_date, "end_date": end_date, "timezone": "0"}
         route_cases: Final = (
-            ("/user", "user_id", user_id, "LiteLLM_DailyUserSpend", "user_id"),
-            ("/team", "team_ids", team_id, "LiteLLM_DailyTeamSpend", "team_id"),
-            ("/tag", "tags", tag, "LiteLLM_DailyTagSpend", "tag"),
+            ("/user", "user_id", user_id, "HangarLLM_DailyUserSpend", "user_id"),
+            ("/team", "team_ids", team_id, "HangarLLM_DailyTeamSpend", "team_id"),
+            ("/tag", "tags", tag, "HangarLLM_DailyTagSpend", "tag"),
             (
                 "/organization",
                 "organization_ids",
                 organization_id,
-                "LiteLLM_DailyOrganizationSpend",
+                "HangarLLM_DailyOrganizationSpend",
                 "organization_id",
             ),
-            ("/customer", "end_user_ids", end_user_id, "LiteLLM_DailyEndUserSpend", "end_user_id"),
-            ("/agent", "agent_ids", agent_id, "LiteLLM_DailyAgentSpend", "agent_id"),
+            ("/customer", "end_user_ids", end_user_id, "HangarLLM_DailyEndUserSpend", "end_user_id"),
+            ("/agent", "agent_ids", agent_id, "HangarLLM_DailyAgentSpend", "agent_id"),
         )
         target_digest: Final = hashlib.sha256(target_key.encode()).hexdigest()
         for prefix, entity_param, entity_id, table, entity_column in route_cases:
@@ -602,7 +602,7 @@ async def test_existing_activity_routes_match_base_branch_goldens(monkeypatch: p
         app.include_router(daily_activity_router)
         monkeypatch.setattr(proxy_server, "prisma_client", _PrismaDatabase(database))
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-            user_id="integration-admin", user_role=LitellmUserRoles.PROXY_ADMIN
+            user_id="integration-admin", user_role=HangarllmUserRoles.PROXY_ADMIN
         )
         app.dependency_overrides[get_daily_activity_prisma_client] = lambda: _PrismaDatabase(database)
         app.dependency_overrides[get_daily_activity_repository] = lambda: repository
@@ -622,14 +622,14 @@ async def test_existing_activity_routes_match_base_branch_goldens(monkeypatch: p
 async def test_user_key_pages_and_details_respect_caller_scope() -> None:
     async with _daily_activity_database() as database:
         await database.query_raw(
-            'INSERT INTO "LiteLLM_UserTable" (user_id, user_email, models) VALUES ($1, $2, $3)',
+            'INSERT INTO "HangarLLM_UserTable" (user_id, user_email, models) VALUES ($1, $2, $3)',
             "user-2",
             "other@example.test",
             [],
         )
         await database.query_raw(
             """
-            INSERT INTO "LiteLLM_VerificationToken"
+            INSERT INTO "HangarLLM_VerificationToken"
                 (token, key_alias, team_id, user_id, metadata, models)
             VALUES ($1, $2, $3, $4, $5::jsonb, $6)
             """,
@@ -642,7 +642,7 @@ async def test_user_key_pages_and_details_respect_caller_scope() -> None:
         )
         await database.query_raw(
             """
-            INSERT INTO "LiteLLM_DailyUserSpend"
+            INSERT INTO "HangarLLM_DailyUserSpend"
                 (id, user_id, date, api_key, model, model_group, custom_llm_provider,
                  mcp_namespaced_tool_name, endpoint, prompt_tokens, completion_tokens,
                  cache_read_input_tokens, cache_creation_input_tokens, spend, api_requests,
@@ -673,7 +673,7 @@ async def test_user_key_pages_and_details_respect_caller_scope() -> None:
         app.include_router(daily_activity_router)
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
             user_id="user-1",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
         app.dependency_overrides[get_daily_activity_prisma_client] = lambda: _PrismaDatabase(database)
         app.dependency_overrides[get_daily_activity_repository] = lambda: repository
@@ -725,7 +725,7 @@ async def test_team_routes_exclusion_keeps_unassigned_keys() -> None:
         app: Final = FastAPI()
         app.include_router(daily_activity_router)
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-            user_id="integration-admin", user_role=LitellmUserRoles.PROXY_ADMIN
+            user_id="integration-admin", user_role=HangarllmUserRoles.PROXY_ADMIN
         )
         app.dependency_overrides[get_daily_activity_prisma_client] = lambda: _PrismaDatabase(database)
         app.dependency_overrides[get_daily_activity_repository] = lambda: repository
@@ -734,7 +734,7 @@ async def test_team_routes_exclusion_keeps_unassigned_keys() -> None:
             params: Final = {
                 "start_date": "2026-06-04",
                 "end_date": "2026-06-04",
-                "exclude_team_ids": "litellm-dashboard",
+                "exclude_team_ids": "hangarllm-dashboard",
             }
             surviving_keys: Final = frozenset(("key-excluded-null", "key-excluded-empty", "key-excluded-normal"))
 

@@ -4,13 +4,13 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-# Ensure the project root is on the import path so `litellm` can be imported when
+# Ensure the project root is on the import path so `hangarllm` can be imported when
 # tests are executed from any working directory.
 
-from litellm.llms.bedrock.chat.invoke_transformations.amazon_qwen3_transformation import (
+from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_qwen3_transformation import (
     AmazonQwen3Config,
 )
-from litellm.types.utils import ModelResponse
+from hangarllm.types.utils import ModelResponse
 
 
 def _transform(body: object) -> ModelResponse:
@@ -22,7 +22,7 @@ def _transform(body: object) -> ModelResponse:
         request_data={},
         messages=[{"role": "user", "content": "Hello!"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
         api_key="test-key",
     )
@@ -105,7 +105,7 @@ def test_qwen3_transform_request():
         model="qwen3/test-model",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -144,7 +144,7 @@ def test_qwen3_transform_response():
         model_response=model_response,
         logging_obj=Mock(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test-key",
         request_data={},
         encoding=None,
@@ -183,7 +183,7 @@ def test_qwen3_transform_response_without_usage():
         model_response=model_response,
         logging_obj=Mock(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test-key",
         request_data={},
         encoding=None,
@@ -262,8 +262,8 @@ def test_qwen3_transform_response_reports_every_count_that_is_not_a_number_with_
 
 def test_qwen3_provider_detection():
     """Test that Qwen3 provider is correctly detected from model names"""
-    from litellm.types.utils import LlmProviders
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.types.utils import LlmProviders
+    from hangarllm.utils import ProviderConfigManager
 
     # Test with qwen3/ prefix
     config = ProviderConfigManager.get_provider_chat_config(

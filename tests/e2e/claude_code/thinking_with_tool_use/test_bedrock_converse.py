@@ -1,6 +1,6 @@
 """thinking_with_tool_use x Bedrock (Converse).
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 Claude requests to AWS Bedrock via the `Converse` API, enable extended
 thinking via `--effort high`, allow the built-in `Bash` tool, and
 ask Claude to plan-and-execute a task that requires both reasoning and

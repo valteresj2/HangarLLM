@@ -42,7 +42,7 @@ _ALIASES: Final = (
 )
 _STARTED_WORKER: Final = re.compile(r"Started server process \[(\d+)\]")
 _ROWS_BY_CALL: Final = (
-    "SELECT litellm_call_id, status FROM \"LiteLLM_SpendLogs\" WHERE litellm_call_id = ANY(string_to_array(%s, ','))"
+    "SELECT hangarllm_call_id, status FROM \"HangarLLM_SpendLogs\" WHERE hangarllm_call_id = ANY(string_to_array(%s, ','))"
 )
 
 
@@ -97,7 +97,7 @@ async def _send(client: httpx.AsyncClient, key: str, index: int, text: str) -> _
         **({"model": _MODEL} if path.endswith("/v1/embeddings") or path == "/embeddings" else {}),
     }
     response: Final = await client.post(path, json=body, headers={"Authorization": f"Bearer {key}"})
-    return _Served(text, response.status_code, response.text, response.headers.get("x-litellm-call-id", ""))
+    return _Served(text, response.status_code, response.text, response.headers.get("x-hangarllm-call-id", ""))
 
 
 async def _burst(
@@ -131,8 +131,8 @@ def _spend_status_by_call(served: tuple[_Served, ...]) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(_ROWS_BY_CALL, (",".join(wanted),)), lambda found: len(found) >= len(wanted), seconds=70
     )
-    assert sorted(string_value(row["litellm_call_id"]) for row in rows) == wanted, rows
-    return {string_value(row["litellm_call_id"]): row["status"] for row in rows}
+    assert sorted(string_value(row["hangarllm_call_id"]) for row in rows) == wanted, rows
+    return {string_value(row["hangarllm_call_id"]): row["status"] for row in rows}
 
 
 def _unhealthy_count(gateway: Gateway) -> JsonValue:
@@ -177,7 +177,7 @@ async def test_peer_outage_fails_each_call_once_reports_unhealthy_and_recovers_o
         assert len(recovered) == 4
         for item in recovered:
             _assert_embedded(item)
-        healthy: Final = [request for request in restarted.drain() if "test from litellm" not in request.body.decode()]
+        healthy: Final = [request for request in restarted.drain() if "test from hangarllm" not in request.body.decode()]
         _assert_peer_saw(tuple(healthy), after)
     assert _spend_status_by_call((*served, *refused, *recovered)) == {
         **{item.call_id: "success" for item in served},

@@ -55,7 +55,7 @@ CLIENT_IP_HEADERS: Final = MappingProxyType(
 CALLBACK_SECRET: Final = "synthetic-callback-sink-secret"
 _ROW_COLUMNS: Final = (
     "SELECT s.request_id, s.metadata, s.requester_ip_address, row_to_json(s)::text AS row_text "
-    'FROM "LiteLLM_SpendLogs" s'
+    'FROM "HangarLLM_SpendLogs" s'
 )
 
 
@@ -67,7 +67,7 @@ def _config(tmp_path: Path, general_settings: Mapping[str, JsonValue], **section
                 "model_list": [],
                 **sections,
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                     "proxy_batch_write_at": 1,
@@ -378,7 +378,7 @@ class Rig:
             "POST", path, body, key=self.key, headers={"x-forwarded-for": forwarded_for, "x-real-ip": REAL_IP}
         )
         assert response.status_code == 200, response.text
-        return response.headers["x-litellm-call-id"]
+        return response.headers["x-hangarllm-call-id"]
 
     def callback_metadata(self, call_id: str) -> dict[str, JsonValue]:
         received: Final[
@@ -391,7 +391,7 @@ class Rig:
                 event
                 for batch in received
                 for event in (object_value(item) for item in list_value(json.loads(batch.body)))
-                if event.get("litellm_call_id") == call_id
+                if event.get("hangarllm_call_id") == call_id
             )
 
         events: Final = eventually(delivered, lambda values: len(values) == 1, seconds=20)
@@ -400,7 +400,7 @@ class Rig:
 
 def _row_for_call(call_id: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
-        lambda: read_rows(f"{_ROW_COLUMNS} WHERE s.litellm_call_id=%s", (call_id,)),
+        lambda: read_rows(f"{_ROW_COLUMNS} WHERE s.hangarllm_call_id=%s", (call_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -414,11 +414,11 @@ def _auto_router_models(router: str, provider: Wire) -> list[JsonValue]:
         "api_key": "synthetic-openai-key",
     }
     return [
-        {"model_name": f"{router}-judge", "litellm_params": deployment},
-        {"model_name": f"{router}-tier", "litellm_params": deployment},
+        {"model_name": f"{router}-judge", "hangarllm_params": deployment},
+        {"model_name": f"{router}-tier", "hangarllm_params": deployment},
         {
             "model_name": router,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "auto_router/complexity_router",
                 "complexity_router_config": {
                     "classifier_type": "llm",
@@ -437,11 +437,11 @@ def _rig(stack: ExitStack, gateway: Gateway, root: Path, provider: Wire, disable
     config: Final = _config(
         root,
         {SETTING: True, "store_prompts_in_spend_logs": True} if disabled else {"store_prompts_in_spend_logs": True},
-        litellm_settings={"callbacks": ["generic_api"], "DEFAULT_FLUSH_INTERVAL_SECONDS": 1},
+        hangarllm_settings={"callbacks": ["generic_api"], "DEFAULT_FLUSH_INTERVAL_SECONDS": 1},
         guardrails=[
             {
                 "guardrail_name": AKTO_GUARDRAIL,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "akto",
                     "mode": "pre_call",
                     "default_on": False,
@@ -599,7 +599,7 @@ def test_provider_failure_row_follows_the_setting(rigs: Mapping[bool, Rig], disa
     )
     assert response.status_code == 400, response.text
 
-    row: Final = _row_for_call(response.headers["x-litellm-call-id"])
+    row: Final = _row_for_call(response.headers["x-hangarllm-call-id"])
 
     assert object_value(row["metadata"])["status"] == "failure", row
     assert row["requester_ip_address"] == (None if disabled else FORWARDED_IP), row
@@ -620,7 +620,7 @@ def test_provider_error_row_masks_addresses_after_labels_and_before_ports(
     )
     assert response.status_code == 400, response.text
 
-    row_text: Final = string_value(_row_for_call(response.headers["x-litellm-call-id"])["row_text"])
+    row_text: Final = string_value(_row_for_call(response.headers["x-hangarllm-call-id"])["row_text"])
 
     assert [ip for ip in UPSTREAM_ADDRESS_FORMS if ip in row_text] == ([] if disabled else [*UPSTREAM_ADDRESS_FORMS]), (
         row_text
@@ -639,7 +639,7 @@ def test_client_ip_headers_outside_the_known_list_follow_the_setting(rigs: Mappi
     )
     assert response.status_code == 200, response.text
 
-    row: Final = _row_for_call(response.headers["x-litellm-call-id"])
+    row: Final = _row_for_call(response.headers["x-hangarllm-call-id"])
     stored_headers: Final = object_value(
         object_value(object_value(json.loads(string_value(row["row_text"]))["proxy_server_request"])["metadata"])[
             "headers"
@@ -665,11 +665,11 @@ def test_long_provider_error_row_keeps_no_ip_fragment_at_the_truncation_cut(rigs
     )
     assert response.status_code == 400, response.text
 
-    row: Final = _row_for_call(response.headers["x-litellm-call-id"])
+    row: Final = _row_for_call(response.headers["x-hangarllm-call-id"])
     error_message: Final = string_value(
         object_value(object_value(row["metadata"])["error_information"])["error_message"]
     )
-    cut: Final = re.search(r"\.\.\. \(litellm_truncated .*?\) \.\.\.", error_message)
+    cut: Final = re.search(r"\.\.\. \(hangarllm_truncated .*?\) \.\.\.", error_message)
 
     assert cut is not None, error_message
     assert re.search(r"[\d.]$", error_message[: cut.start()]) is None, error_message[: cut.start()][-60:]
@@ -688,12 +688,12 @@ def test_long_header_value_keeps_no_ip_fragment_at_the_truncation_cut(rigs: Mapp
     )
     assert response.status_code == 200, response.text
 
-    row_text: Final = string_value(_row_for_call(response.headers["x-litellm-call-id"])["row_text"])
+    row_text: Final = string_value(_row_for_call(response.headers["x-hangarllm-call-id"])["row_text"])
     stored_request: Final = object_value(json.loads(row_text)["proxy_server_request"])
     stored_value: Final = string_value(
         object_value(object_value(stored_request["metadata"])["headers"])["x-edge-trace"]
     )
-    cut: Final = re.search(r"\.\.\. \(litellm_truncated .*?\) \.\.\.", stored_value)
+    cut: Final = re.search(r"\.\.\. \(hangarllm_truncated .*?\) \.\.\.", stored_value)
 
     assert cut is not None, stored_value
     assert re.search(r"[\d.]$", stored_value[: cut.start()]) is None, stored_value[: cut.start()][-60:]

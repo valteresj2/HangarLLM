@@ -53,7 +53,7 @@ def _rows(
 
 def _logged(scope_column: str, scope_value: str, start: datetime, end: datetime) -> list[dict[str, object]]:
     return read_rows(
-        f'SELECT api_key, model, spend, prompt_tokens, completion_tokens, team_id FROM "LiteLLM_SpendLogs" '
+        f'SELECT api_key, model, spend, prompt_tokens, completion_tokens, team_id FROM "HangarLLM_SpendLogs" '
         f'WHERE "startTime" >= %s AND "startTime" < %s AND {scope_column} = %s',
         (start.isoformat(), end.isoformat(), scope_value),
     )
@@ -62,7 +62,7 @@ def _logged(scope_column: str, scope_value: str, start: datetime, end: datetime)
 def _logged_keys(keys: tuple[str, ...], start: datetime, end: datetime) -> list[dict[str, object]]:
     placeholders: Final = ", ".join("%s" for _ in keys)
     return read_rows(
-        'SELECT api_key, model, spend, prompt_tokens, completion_tokens, team_id FROM "LiteLLM_SpendLogs" '
+        'SELECT api_key, model, spend, prompt_tokens, completion_tokens, team_id FROM "HangarLLM_SpendLogs" '
         f'WHERE "startTime" >= %s AND "startTime" < %s AND api_key IN ({placeholders})',
         (start.isoformat(), end.isoformat(), *keys),
     )
@@ -117,7 +117,7 @@ def test_scoped_spend_reports_match_sql_and_enforce_caller_scope(gateway: Gatewa
         logged: Final = eventually(
             lambda: read_rows(
                 "SELECT api_key, to_char(\"startTime\", 'YYYY-MM-DD') AS day "
-                'FROM "LiteLLM_SpendLogs" WHERE api_key IN (%s, %s, %s)',
+                'FROM "HangarLLM_SpendLogs" WHERE api_key IN (%s, %s, %s)',
                 (k1_hash, k2_hash, direct_org_key_hash),
             ),
             lambda rows: len(rows) == 3,

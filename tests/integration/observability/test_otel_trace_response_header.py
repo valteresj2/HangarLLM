@@ -29,7 +29,7 @@ MARKER: Final = re.compile(rb"traceresp-[0-9a-f]{32}")
 TRACERESPONSE: Final = re.compile(r"00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})")
 SAMPLED: Final = 0x01
 SERVER: Final = 2
-CALL_ID: Final = "litellm.call_id"
+CALL_ID: Final = "hangarllm.call_id"
 ANSWER: Final = "trace ok"
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 UPSTREAM_CALL_ID: Final = "upstream-chosen-call-id"
@@ -158,7 +158,7 @@ def _relay(request: Request) -> Reply:
     if case == "restarted":
         return Reply(body=body, headers={"traceresponse": f"00-{query['trace']}-{query['span']}-01"})
     if case == "callid":
-        return Reply(status=int(query.get("status", "200")), body=body, headers={"x-litellm-call-id": UPSTREAM_CALL_ID})
+        return Reply(status=int(query.get("status", "200")), body=body, headers={"x-hangarllm-call-id": UPSTREAM_CALL_ID})
     if case in HOSTILE_UPSTREAM_VALUES:
         return Reply(body=body, headers={"traceresponse": HOSTILE_UPSTREAM_VALUES[case]})
     return Reply(body=body)
@@ -315,14 +315,14 @@ def _config(provider: Wire, relay: Wire, sink: Collector, model: str) -> dict[st
             *list_value(config.get("model_list") or []),
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "integration-provider-key",
                     "api_base": provider.url + "/v1",
                 },
             },
         ],
-        "litellm_settings": {**object_value(config["litellm_settings"]), "callbacks": ["otel"]},
+        "hangarllm_settings": {**object_value(config["hangarllm_settings"]), "callbacks": ["otel"]},
         "callback_settings": {"otel": {"exporter": "http/json", "endpoint": sink.wire.url}},
         "general_settings": {
             **object_value(config["general_settings"]),
@@ -345,7 +345,7 @@ class RigFactory:
         model: Final = "traceresp-model-" + uuid.uuid4().hex[:12]
         path: Final = self.directory / f"traceresponse-{uuid.uuid4().hex}.yaml"
         path.write_text(yaml.safe_dump(_config(self.provider, self.relay, self.sink, model)))
-        gate: Final = {"LITELLM_OTEL_V2": "1"} if self.otel_v2 else {}
+        gate: Final = {"HANGARLLM_OTEL_V2": "1"} if self.otel_v2 else {}
         with (
             gateway_from_environment() as gateway,
             owned_proxy_process(
@@ -353,7 +353,7 @@ class RigFactory:
                 self.directory,
                 {**gate, "OTEL_BSP_SCHEDULE_DELAY": "300"},
                 config=path,
-                remove_environment=() if self.otel_v2 else ("LITELLM_OTEL_V2",),
+                remove_environment=() if self.otel_v2 else ("HANGARLLM_OTEL_V2",),
                 workers=2,
             ) as owned,
         ):
@@ -389,7 +389,7 @@ def _assert_names_its_server_span(rig: Rig, headers: httpx.Headers) -> ExportedS
     trace_id, span_id = _named(headers)
     span: Final = rig.sink.span(span_id)
     assert (span.kind, span.trace_id) == (SERVER, trace_id), span
-    call_ids: Final = headers.get_list("x-litellm-call-id")
+    call_ids: Final = headers.get_list("x-hangarllm-call-id")
     assert len(call_ids) == 1 and span.attributes.get(CALL_ID) == call_ids[0], (call_ids, span)
     return span
 
@@ -468,7 +468,7 @@ def test_sdk_response_names_the_server_span_that_carries_its_call_id(rig: Rig, r
 
 
 def _spend_rows(response_id: str) -> int:
-    return len(read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (response_id,)))
+    return len(read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (response_id,)))
 
 
 @pytest.mark.parametrize("stream", (False, True), ids=("plain", "stream"))
@@ -488,7 +488,7 @@ def test_a_response_cache_hit_names_its_own_server_span(rig: Rig, stream: bool) 
     assert f"chatcmpl-{marker}" in second.text, second.text
     second_span: Final = _assert_names_its_server_span(rig, second.headers)
     assert second_span.span_id != first_span.span_id
-    assert second.headers["x-litellm-call-id"] != first.headers["x-litellm-call-id"]
+    assert second.headers["x-hangarllm-call-id"] != first.headers["x-hangarllm-call-id"]
     assert rig.upstream_count(marker) == 1
 
 
@@ -599,7 +599,7 @@ def test_a_pass_through_upstream_header_in_the_same_trace_is_relayed_unchanged_w
     assert response.status_code == 200, response.text
     relayed: Final = response.headers.get_list("traceresponse")
     assert len(relayed) == 1 and relayed[0].startswith(f"00-{trace_id}-"), relayed
-    span: Final = rig.sink.server_span_for_call(response.headers["x-litellm-call-id"])
+    span: Final = rig.sink.server_span_for_call(response.headers["x-hangarllm-call-id"])
     assert span.trace_id == trace_id, span
     assert span.span_id not in relayed[0], (span, relayed)
     assert span.links == (), span
@@ -616,7 +616,7 @@ def test_a_pass_through_upstream_that_restarted_the_trace_is_relayed_and_linked(
     )
     assert response.status_code == 200, response.text
     assert response.headers.get_list("traceresponse") == [f"00-{upstream_trace}-{upstream_span}-01"]
-    span: Final = rig.sink.server_span_for_call(response.headers["x-litellm-call-id"])
+    span: Final = rig.sink.server_span_for_call(response.headers["x-hangarllm-call-id"])
     assert span.trace_id != upstream_trace, span
     assert span.links == ((upstream_trace, upstream_span),), span
 
@@ -626,7 +626,7 @@ def test_a_hostile_pass_through_upstream_header_is_relayed_once_unchanged_and_ne
     response: Final = rig.post(f"/relay/{case}", {"marker": _marker()})
     assert response.status_code == 200, response.text
     assert response.headers.get_list("traceresponse") == [HOSTILE_UPSTREAM_VALUES[case]]
-    span: Final = rig.sink.server_span_for_call(response.headers["x-litellm-call-id"])
+    span: Final = rig.sink.server_span_for_call(response.headers["x-hangarllm-call-id"])
     assert span.links == (), span
 
 
@@ -639,7 +639,7 @@ def test_a_pass_through_upstream_call_id_never_replaces_the_gateway_call_id(rig:
         headers={"Authorization": f"Bearer {rig.proxy.key}"},
     )
     assert response.status_code == status, response.text
-    call_ids: Final = response.headers.get_list("x-litellm-call-id")
+    call_ids: Final = response.headers.get_list("x-hangarllm-call-id")
     assert len(call_ids) == 1 and call_ids[0] != UPSTREAM_CALL_ID, call_ids
     _assert_names_its_server_span(rig, response.headers)
     assert rig.sink.server_spans_for_call(UPSTREAM_CALL_ID) == ()

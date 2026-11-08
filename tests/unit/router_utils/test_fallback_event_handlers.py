@@ -12,16 +12,16 @@ import httpx
 import pytest
 from pydantic import TypeAdapter
 
-import litellm
-from litellm import Router
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils import get_llm_provider_logic
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.router_api import RouterSettings, RoutingContext
-from litellm.router_utils.cooldown_handlers import async_get_cooldown_deployments, mark_advisor_orchestration_failure
-from litellm.types.utils import Choices, Message, ModelResponse, StandardLoggingPayload, Usage
-from litellm.router_utils.fallback_event_handlers import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils import get_llm_provider_logic
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.router_api import RouterSettings, RoutingContext
+from hangarllm.router_utils.cooldown_handlers import async_get_cooldown_deployments, mark_advisor_orchestration_failure
+from hangarllm.types.utils import Choices, Message, ModelResponse, StandardLoggingPayload, Usage
+from hangarllm.router_utils.fallback_event_handlers import (
     MID_STREAM_FALLBACK_CONTROLS_KEY,
     PRE_ROUTING_SELECTED_MODEL_KEY,
     AttemptedFallbackTargets,
@@ -44,7 +44,7 @@ from litellm.router_utils.fallback_event_handlers import (
     routed_deployment_id,
     run_async_fallback,
 )
-from litellm.types.router import FallbackSkipReason, SkippedFallbackTarget
+from hangarllm.types.router import FallbackSkipReason, SkippedFallbackTarget
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -82,7 +82,7 @@ class AlwaysFailRouter(RouterDouble):
 @pytest.mark.asyncio
 async def test_run_async_fallback_adds_errors_when_opted_in():
     response = await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(FakeRouter()),
+        hangarllm_routing_ctx=RoutingContext(FakeRouter()),
         fallback_model_group=["fallback-model"],
         original_model_group="primary-model",
         original_exception=RuntimeError("upstream limited request"),
@@ -92,8 +92,8 @@ async def test_run_async_fallback_adds_errors_when_opted_in():
     )
 
     additional_headers = response._hidden_params["additional_headers"]
-    assert additional_headers["x-litellm-attempted-fallbacks"] == 1
-    assert json.loads(additional_headers["x-litellm-fallback-errors"]) == [
+    assert additional_headers["x-hangarllm-attempted-fallbacks"] == 1
+    assert json.loads(additional_headers["x-hangarllm-fallback-errors"]) == [
         {
             "message": "upstream limited request",
             "type": "RuntimeError",
@@ -106,7 +106,7 @@ async def test_run_async_fallback_adds_errors_when_opted_in():
 @pytest.mark.asyncio
 async def test_run_async_fallback_omits_errors_without_opt_in():
     response = await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(FakeRouter()),
+        hangarllm_routing_ctx=RoutingContext(FakeRouter()),
         fallback_model_group=["fallback-model"],
         original_model_group="primary-model",
         original_exception=RuntimeError("upstream limited request"),
@@ -115,15 +115,15 @@ async def test_run_async_fallback_omits_errors_without_opt_in():
     )
 
     additional_headers = response._hidden_params["additional_headers"]
-    assert additional_headers["x-litellm-attempted-fallbacks"] == 1
-    assert "x-litellm-fallback-errors" not in additional_headers
+    assert additional_headers["x-hangarllm-attempted-fallbacks"] == 1
+    assert "x-hangarllm-fallback-errors" not in additional_headers
 
 
 @pytest.mark.asyncio
 async def test_run_async_fallback_raises_when_all_fallbacks_fail():
     with pytest.raises(RuntimeError, match="fallback model also failed"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(AlwaysFailRouter()),
+            hangarllm_routing_ctx=RoutingContext(AlwaysFailRouter()),
             fallback_model_group=["fallback-model"],
             original_model_group="primary-model",
             original_exception=RuntimeError("original request failed"),
@@ -149,7 +149,7 @@ def _request_logging_obj() -> Logging:
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="fallback-hop",
+        hangarllm_call_id="fallback-hop",
         function_id="fallback-hop",
     )
 
@@ -175,7 +175,7 @@ class HopLoggingItsOwnSuccessRouter(FakeRouter):
             usage=Usage(prompt_tokens=52, completion_tokens=7, total_tokens=59),
         )
         now: Final = datetime(2026, 1, 1)
-        logging_obj: Final = kwargs["litellm_logging_obj"]
+        logging_obj: Final = kwargs["hangarllm_logging_obj"]
         assert isinstance(logging_obj, Logging)
         await logging_obj.async_success_handler(result=hop_response, start_time=now, end_time=now)
         return StreamingWrapper()
@@ -192,25 +192,25 @@ async def test_run_async_fallback_opens_the_hop_without_the_superseded_attempts_
         stream=False,
         call_type="completion",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="fallback-hop-success",
+        hangarllm_call_id="fallback-hop-success",
         function_id="fallback-hop-success",
         dynamic_async_success_callbacks=[recorder],
     )
     logging_obj.model_call_details["custom_llm_provider"] = "openai"
-    logging_obj.model_call_details["litellm_params"] = {"acompletion": True}
+    logging_obj.model_call_details["hangarllm_params"] = {"acompletion": True}
     logging_obj.model_call_details["current_attempt_api_call_start_time"] = datetime(2026, 1, 1)
-    logging_obj.litellm_params = logging_obj.model_call_details["litellm_params"]
+    logging_obj.hangarllm_params = logging_obj.model_call_details["hangarllm_params"]
     partial_usage: Final = Usage(prompt_tokens=52, completion_tokens=1, total_tokens=53)
     logging_obj.record_partial_usage_for_failure(partial_usage, 0.01)
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(HopLoggingItsOwnSuccessRouter()),
+        hangarllm_routing_ctx=RoutingContext(HopLoggingItsOwnSuccessRouter()),
         fallback_model_group=["fallback-model"],
         original_model_group="primary-model",
         original_exception=RuntimeError("stream dropped before content"),
         max_fallbacks=3,
         fallback_depth=0,
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
 
     assert tuple(tokens for tokens, _ in recorder.logged) == (7,)
@@ -227,13 +227,13 @@ async def test_run_async_fallback_preserves_superseded_usage_when_hop_fails_befo
 
     with pytest.raises(RuntimeError, match="fallback model also failed"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(AlwaysFailRouter()),
+            hangarllm_routing_ctx=RoutingContext(AlwaysFailRouter()),
             fallback_model_group=["fallback-model"],
             original_model_group="primary-model",
             original_exception=RuntimeError("stream dropped before content"),
             max_fallbacks=3,
             fallback_depth=0,
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
         )
 
     assert logging_obj.model_call_details["failed_attempts_usage"] == ((partial_usage, 0.01),)
@@ -248,9 +248,9 @@ def _entra_fallback_router() -> Router:
         model_list=[
             {
                 "model_name": "fallback-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1",
-                    "api_base": "https://litellm-qa.openai.azure.com",
+                    "api_base": "https://hangarllm-qa.openai.azure.com",
                     "api_version": "2025-04-01-preview",
                     "tenant_id": "configured-tenant",
                     "client_id": "configured-client",
@@ -264,15 +264,15 @@ def _entra_fallback_router() -> Router:
     )
 
 
-def _raised_from_an_entra_rejection(failed_deployment_id: str) -> litellm.AuthenticationError:
-    from litellm.llms.azure.common_utils import EntraRejectionError
+def _raised_from_an_entra_rejection(failed_deployment_id: str) -> hangarllm.AuthenticationError:
+    from hangarllm.llms.azure.common_utils import EntraRejectionError
 
     reason: Final = "Failed to get Azure AD token: AADSTS7000215: Invalid client secret provided."
     try:
-        raise litellm.AuthenticationError(message=reason, llm_provider="azure", model="gpt-4.1") from (
+        raise hangarllm.AuthenticationError(message=reason, llm_provider="azure", model="gpt-4.1") from (
             EntraRejectionError(status_code=401, message=reason)
         )
-    except litellm.AuthenticationError as raised:
+    except hangarllm.AuthenticationError as raised:
         raised.failed_deployment_id = failed_deployment_id
         return raised
 
@@ -294,7 +294,7 @@ async def test_fallback_hop_cools_down_only_a_deployment_entra_rejected_its_own_
         ctx=RoutingContext(router),
         kwargs={},
         exception=_raised_from_an_entra_rejection("fallback-dep-1"),
-        model_call_details={"litellm_params": call_params},
+        model_call_details={"hangarllm_params": call_params},
     )
 
     assert await async_get_cooldown_deployments(ctx=RoutingContext(router), parent_otel_span=None) == cooled_down
@@ -306,7 +306,7 @@ async def test_run_async_fallback_forwards_include_fallback_errors_to_nested_cal
     flag has to reach the nested async_function_with_fallbacks call."""
     router = RecordingRouter()
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=["fallback-model"],
         original_model_group="primary-model",
         original_exception=RuntimeError("upstream limited request"),
@@ -322,7 +322,7 @@ async def test_run_async_fallback_forwards_include_fallback_errors_to_nested_cal
 async def test_run_async_fallback_does_not_forward_flag_without_opt_in():
     router = RecordingRouter()
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=["fallback-model"],
         original_model_group="primary-model",
         original_exception=RuntimeError("upstream limited request"),
@@ -336,7 +336,7 @@ async def test_run_async_fallback_does_not_forward_flag_without_opt_in():
 @pytest.mark.asyncio
 async def test_run_async_fallback_skips_original_model_group():
     response = await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(FakeRouter()),
+        hangarllm_routing_ctx=RoutingContext(FakeRouter()),
         fallback_model_group=["primary-model", "fallback-model"],
         original_model_group="primary-model",
         original_exception=RuntimeError("original failed"),
@@ -344,7 +344,7 @@ async def test_run_async_fallback_skips_original_model_group():
         fallback_depth=0,
     )
 
-    assert response._hidden_params["additional_headers"]["x-litellm-attempted-fallbacks"] == 1
+    assert response._hidden_params["additional_headers"]["x-hangarllm-attempted-fallbacks"] == 1
 
 
 class AttemptRecordingRouter(RouterDouble):
@@ -399,7 +399,7 @@ async def test_run_async_fallback_keeps_uploaded_file_requests_in_their_model_gr
 
     with pytest.raises(RuntimeError, match="openai connection error"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(router),
+            hangarllm_routing_ctx=RoutingContext(router),
             fallback_model_group=["azure-group"],
             original_model_group="openai-group",
             original_exception=owning_provider_error,
@@ -419,7 +419,7 @@ async def test_run_async_fallback_keeps_fine_tuning_requests_in_their_model_grou
 
     with pytest.raises(RuntimeError, match="openai connection error"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(router),
+            hangarllm_routing_ctx=RoutingContext(router),
             fallback_model_group=["azure-group"],
             original_model_group="openai-group",
             original_exception=RuntimeError("openai connection error"),
@@ -440,7 +440,7 @@ async def test_run_async_fallback_allows_same_model_group_retry_for_uploaded_fil
     router = AttemptRecordingRouter()
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=[{"model": "openai-group", "_target_order": 2}],
         original_model_group="openai-group",
         original_exception=RuntimeError("first deployment failed"),
@@ -463,7 +463,7 @@ async def test_run_async_fallback_keeps_file_creation_in_its_model_group():
 
     with pytest.raises(RuntimeError, match="azure connection error"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(router),
+            hangarllm_routing_ctx=RoutingContext(router),
             fallback_model_group=["openai-group"],
             original_model_group="azure-group",
             original_exception=RuntimeError("azure connection error"),
@@ -481,7 +481,7 @@ async def test_run_async_fallback_allows_same_model_group_retry_for_file_creatio
     router = AttemptRecordingRouter()
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=[{"model": "azure-group", "_target_order": 2}],
         original_model_group="azure-group",
         original_exception=RuntimeError("first deployment failed"),
@@ -499,7 +499,7 @@ async def test_run_async_fallback_still_crosses_model_groups_without_an_uploaded
     router = AttemptRecordingRouter()
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=["azure-group"],
         original_model_group="openai-group",
         original_exception=RuntimeError("openai connection error"),
@@ -543,7 +543,7 @@ async def test_run_async_fallback_keeps_provider_scoped_ids_in_their_model_group
 
     with pytest.raises(RuntimeError, match="openai connection error"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(router),
+            hangarllm_routing_ctx=RoutingContext(router),
             fallback_model_group=["azure-group"],
             original_model_group="openai-group",
             original_exception=RuntimeError("openai connection error"),
@@ -566,7 +566,7 @@ async def test_run_async_fallback_ignores_stray_resource_ids_on_completion_calls
     router = AttemptRecordingRouter()
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=["azure-group"],
         original_model_group="openai-group",
         original_exception=RuntimeError("openai connection error"),
@@ -585,7 +585,7 @@ async def test_run_async_fallback_allows_same_model_group_retry_for_batch_cancel
     router = AttemptRecordingRouter()
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=[{"model": "openai-group", "_target_order": 2}],
         original_model_group="openai-group",
         original_exception=RuntimeError("first deployment failed"),
@@ -606,7 +606,7 @@ async def test_run_async_fallback_handles_explicitly_none_metadata():
     router = AttemptRecordingRouter()
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=["azure-group"],
         original_model_group="openai-group",
         original_exception=RuntimeError("openai connection error"),
@@ -626,11 +626,11 @@ async def test_run_async_fallback_handles_explicitly_none_metadata():
 @pytest.mark.asyncio
 async def test_run_async_fallback_records_batch_model_group_outside_provider_metadata():
     """`metadata` on a batch request is forwarded to the provider and stored on the
-    batch, so the router's own model_group belongs in litellm_metadata."""
+    batch, so the router's own model_group belongs in hangarllm_metadata."""
     router = AttemptRecordingRouter()
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=[{"model": "openai-group", "_target_order": 2}],
         original_model_group="openai-group",
         original_exception=RuntimeError("first deployment failed"),
@@ -639,12 +639,12 @@ async def test_run_async_fallback_records_batch_model_group_outside_provider_met
         model="openai-group",
         input_file_id="file-owned-by-openai",
         metadata={"caller": "nightly-job"},
-        litellm_metadata={"model_group": "openai-group"},
+        hangarllm_metadata={"model_group": "openai-group"},
         original_function=_acreate_batch,
     )
 
     assert router.received_kwargs["metadata"] == {"caller": "nightly-job"}
-    assert router.received_kwargs["litellm_metadata"]["model_group"] == "openai-group"
+    assert router.received_kwargs["hangarllm_metadata"]["model_group"] == "openai-group"
 
 
 class AccessCheckedRouter(AttemptRecordingRouter):
@@ -665,7 +665,7 @@ async def test_run_async_fallback_skips_targets_the_access_check_rejects():
     router = AccessCheckedRouter(allowed_models=frozenset({"allowed-model"}))
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=[
             {"model": "secret-model", "messages": [{"role": "user", "content": "hi"}]},
             "allowed-model",
@@ -697,7 +697,7 @@ async def test_run_async_fallback_still_runs_a_deprecated_llm_router_access_chec
 
     with pytest.warns(DeprecationWarning, match="llm_router"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(router),
+            hangarllm_routing_ctx=RoutingContext(router),
             fallback_model_group=["secret-model", "allowed-model"],
             original_model_group="primary-model",
             original_exception=RuntimeError("primary failed"),
@@ -717,7 +717,7 @@ async def test_run_async_fallback_raises_original_error_when_no_target_is_author
 
     with pytest.raises(RuntimeError, match="primary failed"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(router),
+            hangarllm_routing_ctx=RoutingContext(router),
             fallback_model_group=["secret-model", "other-secret-model"],
             original_model_group="primary-model",
             original_exception=RuntimeError("primary failed"),
@@ -736,7 +736,7 @@ async def test_run_async_fallback_does_not_consult_access_check_for_same_model_g
     router = AccessCheckedRouter(allowed_models=frozenset())
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=[{"model": "primary-model", "_target_order": 2}],
         original_model_group="primary-model",
         original_exception=RuntimeError("first order level failed"),
@@ -769,7 +769,7 @@ async def test_run_async_fallback_skips_model_group_already_attempted():
 
     with pytest.raises(RuntimeError, match="original failed"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(router),
+            hangarllm_routing_ctx=RoutingContext(router),
             fallback_model_group=["already-attempted"],
             original_model_group="primary-model",
             original_exception=RuntimeError("original failed"),
@@ -787,7 +787,7 @@ async def test_run_async_fallback_attempts_a_repeated_target_once():
 
     with pytest.raises(RuntimeError, match="fallback model also failed"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(router),
+            hangarllm_routing_ctx=RoutingContext(router),
             fallback_model_group=["fallback-model", "fallback-model", "other-model"],
             original_model_group="primary-model",
             original_exception=RuntimeError("original failed"),
@@ -806,7 +806,7 @@ async def test_run_async_fallback_forwards_attempted_model_groups_to_nested_call
     router = RecordingRouter()
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=["fallback-model"],
         original_model_group="primary-model",
         original_exception=RuntimeError("original failed"),
@@ -827,7 +827,7 @@ async def test_run_async_fallback_can_target_the_requested_group_when_a_pre_rout
     router = RecordingRouter()
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=["requested-model"],
         original_model_group="requested-model",
         original_exception=RuntimeError("selected tier failed"),
@@ -856,7 +856,7 @@ async def test_run_async_fallback_still_retargets_the_same_group_via_dict_entry(
     router = RecordingRouter()
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=[entry],
         original_model_group="primary-model",
         original_exception=RuntimeError("original failed"),
@@ -877,7 +877,7 @@ async def test_run_async_fallback_skips_a_repeated_dict_target():
 
     with pytest.raises(RuntimeError, match="original failed"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(router),
+            hangarllm_routing_ctx=RoutingContext(router),
             fallback_model_group=[{"model": "already-attempted"}],
             original_model_group="primary-model",
             original_exception=RuntimeError("original failed"),
@@ -896,7 +896,7 @@ async def test_run_async_fallback_attempts_a_repeated_dict_target_once():
 
     with pytest.raises(RuntimeError, match="fallback model also failed"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(router),
+            hangarllm_routing_ctx=RoutingContext(router),
             fallback_model_group=[entry, entry, {"model": "other-model"}],
             original_model_group="primary-model",
             original_exception=RuntimeError("original failed"),
@@ -916,7 +916,7 @@ async def test_run_async_fallback_keeps_a_request_override_distinct_from_the_bar
 
     with pytest.raises(RuntimeError, match="fallback model also failed"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(router),
+            hangarllm_routing_ctx=RoutingContext(router),
             fallback_model_group=[{"model": "already-attempted", "messages": [{"role": "user", "content": "shorter"}]}],
             original_model_group="primary-model",
             original_exception=RuntimeError("original failed"),
@@ -992,10 +992,10 @@ class TestTriggerCooldownForFailedDeployment:
     def test_calls_set_cooldown_deployments_with_stamped_deployment_id(self):
         ctx = _cooldown_ctx(cooldown_time=60.0)
 
-        exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         exc.failed_deployment_id = "fallback-deployment"
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(ctx=ctx, kwargs={}, exception=exc)
 
             mock_set_cooldown.assert_called_once()
@@ -1010,7 +1010,7 @@ class TestTriggerCooldownForFailedDeployment:
         deployment cooled down by forging a deployment_model_name marker."""
         ctx = _cooldown_ctx(cooldown_time=60.0)
 
-        exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         kwargs = {
             "metadata": {
                 "model_info": {"id": "attacker-chosen-deployment"},
@@ -1018,7 +1018,7 @@ class TestTriggerCooldownForFailedDeployment:
             }
         }
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(ctx=ctx, kwargs=kwargs, exception=exc)
 
             mock_set_cooldown.assert_not_called()
@@ -1029,13 +1029,13 @@ class TestTriggerCooldownForFailedDeployment:
         toward the default percent-fail-rate cooldown threshold."""
         ctx = _cooldown_ctx(cooldown_time=60.0)
 
-        exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         exc.failed_deployment_id = "fallback-deployment"
 
         with (
-            patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown,
+            patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown,
             patch(
-                "litellm.router_utils.fallback_event_handlers.increment_deployment_failures_for_current_minute"
+                "hangarllm.router_utils.fallback_event_handlers.increment_deployment_failures_for_current_minute"
             ) as mock_increment,
         ):
             _trigger_cooldown_for_failed_deployment(ctx=ctx, kwargs={}, exception=exc)
@@ -1046,7 +1046,7 @@ class TestTriggerCooldownForFailedDeployment:
     def test_no_op_when_deployment_id_missing(self):
         ctx = _cooldown_ctx()
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(ctx=ctx, kwargs={}, exception=RuntimeError("no metadata"))
 
             mock_set_cooldown.assert_not_called()
@@ -1054,22 +1054,22 @@ class TestTriggerCooldownForFailedDeployment:
     def test_skipped_for_advisor_orchestration_failure(self):
         ctx = _cooldown_ctx(cooldown_time=60.0)
 
-        exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         exc.failed_deployment_id = "fallback-deployment"
         mark_advisor_orchestration_failure(exc)
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(ctx=ctx, kwargs={}, exception=exc)
 
             mock_set_cooldown.assert_not_called()
 
-    def test_uses_deployment_litellm_params_cooldown_time_override(self):
-        ctx = _cooldown_ctx(cooldown_time=300.0, deployment_dict={"litellm_params": {"cooldown_time": 30.0}})
+    def test_uses_deployment_hangarllm_params_cooldown_time_override(self):
+        ctx = _cooldown_ctx(cooldown_time=300.0, deployment_dict={"hangarllm_params": {"cooldown_time": 30.0}})
 
-        exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         exc.failed_deployment_id = "fallback-deployment"
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(ctx=ctx, kwargs={}, exception=exc)
 
             call_kwargs = mock_set_cooldown.call_args[1]
@@ -1079,13 +1079,13 @@ class TestTriggerCooldownForFailedDeployment:
         """Precedence must match Router.deployment_callback_on_failure's primary
         path: deployment config, then the response's Retry-After header, then the
         router default."""
-        ctx = _cooldown_ctx(cooldown_time=60.0, deployment_dict={"litellm_params": {}})
+        ctx = _cooldown_ctx(cooldown_time=60.0, deployment_dict={"hangarllm_params": {}})
 
         exc = RuntimeError("upstream error")
         exc.failed_deployment_id = "fallback-deployment"
-        exc.litellm_response_headers = httpx.Headers({"retry-after": "45"})
+        exc.hangarllm_response_headers = httpx.Headers({"retry-after": "45"})
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(ctx=ctx, kwargs={}, exception=exc)
 
             call_kwargs = mock_set_cooldown.call_args[1]
@@ -1098,7 +1098,7 @@ class TestTriggerCooldownForFailedDeployment:
         exc.failed_deployment_id = "fallback-deployment"
 
         with patch(
-            "litellm.router_utils.fallback_event_handlers.set_cooldown_deployments",
+            "hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments",
             side_effect=RuntimeError("cooldown error"),
         ):
             _trigger_cooldown_for_failed_deployment(ctx=ctx, kwargs={}, exception=exc)
@@ -1110,13 +1110,13 @@ class TestTriggerCooldownForFailedDeployment:
         fallback chain and cool all of them down from one request."""
         ctx = _cooldown_ctx(cooldown_time=60.0)
 
-        exc = litellm.NotFoundError("not found", "openai", "gpt-4")
+        exc = hangarllm.NotFoundError("not found", "openai", "gpt-4")
         exc.failed_deployment_id = "fallback-deployment"
 
         with (
-            patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown,
+            patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown,
             patch(
-                "litellm.router_utils.fallback_event_handlers.increment_deployment_failures_for_current_minute"
+                "hangarllm.router_utils.fallback_event_handlers.increment_deployment_failures_for_current_minute"
             ) as mock_increment,
         ):
             _trigger_cooldown_for_failed_deployment(
@@ -1134,17 +1134,17 @@ class TestTriggerCooldownForFailedDeployment:
         cool down the deployment as before."""
         ctx = _cooldown_ctx(cooldown_time=60.0)
 
-        exc = litellm.NotFoundError("not found", "openai", "gpt-4")
+        exc = hangarllm.NotFoundError("not found", "openai", "gpt-4")
         exc.failed_deployment_id = "fallback-deployment"
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(ctx=ctx, kwargs={}, exception=exc)
 
             mock_set_cooldown.assert_called_once()
 
     def test_skips_client_side_timeout_408(self):
-        """The proxy's x-litellm-timeout header lets a caller set an arbitrarily short
-        timeout, which litellm.Timeout reports as status 408 regardless of the
+        """The proxy's x-hangarllm-timeout header lets a caller set an arbitrarily short
+        timeout, which hangarllm.Timeout reports as status 408 regardless of the
         deployment's actual health. Without this guard, a caller could force a 408 on
         every deployment in the fallback chain from a single request.
 
@@ -1153,13 +1153,13 @@ class TestTriggerCooldownForFailedDeployment:
         predates this hop's api_call_start_time. The guard must not trust it."""
         ctx = _cooldown_ctx(cooldown_time=60.0)
 
-        exc = litellm.Timeout(message="timeout", model="gpt-4", llm_provider="openai")
+        exc = hangarllm.Timeout(message="timeout", model="gpt-4", llm_provider="openai")
         exc.failed_deployment_id = "fallback-deployment"
 
         with (
-            patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown,
+            patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown,
             patch(
-                "litellm.router_utils.fallback_event_handlers.increment_deployment_failures_for_current_minute"
+                "hangarllm.router_utils.fallback_event_handlers.increment_deployment_failures_for_current_minute"
             ) as mock_increment,
         ):
             _trigger_cooldown_for_failed_deployment(
@@ -1167,7 +1167,7 @@ class TestTriggerCooldownForFailedDeployment:
                 kwargs={"client_side_timeout": True},
                 exception=exc,
                 model_call_details={
-                    "litellm_params": {"client_side_timeout": True, "timeout": 0.5},
+                    "hangarllm_params": {"client_side_timeout": True, "timeout": 0.5},
                     "api_call_start_time": datetime.now() - timedelta(seconds=1),
                     "end_time": datetime.now() - timedelta(seconds=5),
                 },
@@ -1181,20 +1181,20 @@ class TestTriggerCooldownForFailedDeployment:
         """client_side_timeout only records that the caller configured a timeout. A 408
         that comes back before that deadline was raised by the provider itself, so it is
         a real health signal and must still cool the deployment down."""
-        from litellm.router_utils.router_callbacks.track_deployment_metrics import (
+        from hangarllm.router_utils.router_callbacks.track_deployment_metrics import (
             get_deployment_failures_for_current_minute,
         )
 
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "fallback-model",
-                    "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"},
+                    "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"},
                     "model_info": {"id": "fallback-deployment"},
                 },
                 {
                     "model_name": "fallback-model",
-                    "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"},
+                    "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"},
                     "model_info": {"id": "fallback-sibling"},
                 },
             ],
@@ -1202,7 +1202,7 @@ class TestTriggerCooldownForFailedDeployment:
             cooldown_time=60,
             num_retries=0,
         )
-        exc = litellm.Timeout(message="timeout", model="gpt-5.6", llm_provider="openai")
+        exc = hangarllm.Timeout(message="timeout", model="gpt-5.6", llm_provider="openai")
         exc.failed_deployment_id = "fallback-deployment"
         started = datetime.now()
 
@@ -1211,7 +1211,7 @@ class TestTriggerCooldownForFailedDeployment:
             kwargs={"client_side_timeout": True},
             exception=exc,
             model_call_details={
-                "litellm_params": {"client_side_timeout": True, "timeout": 30},
+                "hangarllm_params": {"client_side_timeout": True, "timeout": 30},
                 "api_call_start_time": started,
                 "end_time": started + timedelta(seconds=1),
             },
@@ -1226,21 +1226,21 @@ class TestTriggerCooldownForFailedDeployment:
 
     def test_still_cools_down_408_without_client_side_timeout_flag(self):
         """The client-side-timeout guard is scoped to caller-supplied timeouts only: a
-        408 that did not come from x-litellm-timeout (no client_side_timeout in kwargs)
+        408 that did not come from x-hangarllm-timeout (no client_side_timeout in kwargs)
         must still cool down the deployment as before."""
         ctx = _cooldown_ctx(cooldown_time=60.0)
 
-        exc = litellm.Timeout(message="timeout", model="gpt-4", llm_provider="openai")
+        exc = hangarllm.Timeout(message="timeout", model="gpt-4", llm_provider="openai")
         exc.failed_deployment_id = "fallback-deployment"
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(ctx=ctx, kwargs={}, exception=exc)
 
             mock_set_cooldown.assert_called_once()
 
 
 async def _stalled_stream_error() -> Exception:
-    from litellm.router_rust.invoke.streaming import _aread_first_chunk  # noqa: PLC2701
+    from hangarllm.router_rust.invoke.streaming import _aread_first_chunk  # noqa: PLC2701
 
     async def _stall(**kwargs: object) -> NoReturn:
         raise httpx.ReadTimeout("Timeout on reading data from socket")
@@ -1254,7 +1254,7 @@ async def _stalled_stream_error() -> Exception:
             stream=True,
             call_type="acompletion",
             start_time=time.time(),
-            litellm_call_id="stalled-fallback",
+            hangarllm_call_id="stalled-fallback",
             function_id="stalled-fallback",
         ),
         custom_llm_provider="openai",
@@ -1262,9 +1262,9 @@ async def _stalled_stream_error() -> Exception:
     )
     try:
         await _aread_first_chunk(stream)
-    except litellm.Timeout as stalled:
+    except hangarllm.Timeout as stalled:
         return stalled
-    raise AssertionError("a stream that stalls before its first chunk must raise litellm.Timeout")
+    raise AssertionError("a stream that stalls before its first chunk must raise hangarllm.Timeout")
 
 
 @pytest.mark.asyncio
@@ -1276,16 +1276,16 @@ async def _stalled_stream_error() -> Exception:
 async def test_a_fallback_deployment_whose_stream_stalled_stays_out_of_cooldown(
     stream_stalled: bool, cooled: tuple[str, ...]
 ) -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "fallback-model",
-                "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"},
                 "model_info": {"id": "fallback-deployment"},
             },
             {
                 "model_name": "fallback-model",
-                "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"},
                 "model_info": {"id": "fallback-sibling"},
             },
         ],
@@ -1296,7 +1296,7 @@ async def test_a_fallback_deployment_whose_stream_stalled_stays_out_of_cooldown(
     error: Final = (
         await _stalled_stream_error()
         if stream_stalled
-        else litellm.Timeout(message="timeout", model="gpt-5.6", llm_provider="openai")
+        else hangarllm.Timeout(message="timeout", model="gpt-5.6", llm_provider="openai")
     )
     error.failed_deployment_id = "fallback-deployment"
 
@@ -1309,7 +1309,7 @@ async def test_a_fallback_deployment_whose_stream_stalled_stays_out_of_cooldown(
 class TestRunAsyncFallbackTriggersCooldown:
     class RouterWithLoggingKwarg(RouterDouble):
         async def async_function_with_fallbacks(self, *args, **kwargs):
-            logging_obj: Final = kwargs.get("litellm_logging_obj")
+            logging_obj: Final = kwargs.get("hangarllm_logging_obj")
             if isinstance(logging_obj, Logging):
                 logging_obj.model_call_details["current_attempt_api_call_start_time"] = _FINAL_HOP_FAILURE_MARKER
                 if logging_obj.model_call_details.get("has_logged_async_failure", False) is not True:
@@ -1326,17 +1326,17 @@ class TestRunAsyncFallbackTriggersCooldown:
     @pytest.mark.asyncio
     async def test_triggers_cooldown_when_has_logged_async_failure_is_true(self):
         with patch(
-            "litellm.router_utils.fallback_event_handlers._trigger_cooldown_for_failed_deployment"
+            "hangarllm.router_utils.fallback_event_handlers._trigger_cooldown_for_failed_deployment"
         ) as mock_trigger:
             with pytest.raises(RuntimeError, match="fallback model also failed"):
                 await run_async_fallback(
-                    litellm_routing_ctx=RoutingContext(self.RouterWithLoggingKwarg()),
+                    hangarllm_routing_ctx=RoutingContext(self.RouterWithLoggingKwarg()),
                     fallback_model_group=["fallback-model"],
                     original_model_group="primary-model",
                     original_exception=RuntimeError("original request failed"),
                     max_fallbacks=3,
                     fallback_depth=0,
-                    litellm_logging_obj=self._logging_obj(has_logged_async_failure=True),
+                    hangarllm_logging_obj=self._logging_obj(has_logged_async_failure=True),
                 )
 
             mock_trigger.assert_called_once()
@@ -1348,17 +1348,17 @@ class TestRunAsyncFallbackTriggersCooldown:
         (has_logged_async_failure is still False at that point), so no explicit
         trigger is needed there."""
         with patch(
-            "litellm.router_utils.fallback_event_handlers._trigger_cooldown_for_failed_deployment"
+            "hangarllm.router_utils.fallback_event_handlers._trigger_cooldown_for_failed_deployment"
         ) as mock_trigger:
             with pytest.raises(RuntimeError, match="fallback model also failed"):
                 await run_async_fallback(
-                    litellm_routing_ctx=RoutingContext(self.RouterWithLoggingKwarg()),
+                    hangarllm_routing_ctx=RoutingContext(self.RouterWithLoggingKwarg()),
                     fallback_model_group=["fallback-model"],
                     original_model_group="primary-model",
                     original_exception=RuntimeError("original request failed"),
                     max_fallbacks=3,
                     fallback_depth=0,
-                    litellm_logging_obj=self._logging_obj(has_logged_async_failure=False),
+                    hangarllm_logging_obj=self._logging_obj(has_logged_async_failure=False),
                 )
 
             mock_trigger.assert_not_called()
@@ -1366,11 +1366,11 @@ class TestRunAsyncFallbackTriggersCooldown:
     @pytest.mark.asyncio
     async def test_does_not_trigger_cooldown_when_no_logging_obj_present(self):
         with patch(
-            "litellm.router_utils.fallback_event_handlers._trigger_cooldown_for_failed_deployment"
+            "hangarllm.router_utils.fallback_event_handlers._trigger_cooldown_for_failed_deployment"
         ) as mock_trigger:
             with pytest.raises(RuntimeError, match="fallback model also failed"):
                 await run_async_fallback(
-                    litellm_routing_ctx=RoutingContext(self.RouterWithLoggingKwarg()),
+                    hangarllm_routing_ctx=RoutingContext(self.RouterWithLoggingKwarg()),
                     fallback_model_group=["fallback-model"],
                     original_model_group="primary-model",
                     original_exception=RuntimeError("original request failed"),
@@ -1392,7 +1392,7 @@ async def test_a_stored_fallback_target_cannot_carry_a_federation_field():
         match="server-owned workload identity federation or OAuth token exchange parameter",
     ):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(FakeRouter()),
+            hangarllm_routing_ctx=RoutingContext(FakeRouter()),
             fallback_model_group=[{"model": "anthropic-backup", "anthropic_federation_workspace_id": "wrkspc_other"}],
             original_model_group="primary-model",
             original_exception=RuntimeError("upstream limited request"),
@@ -1407,7 +1407,7 @@ async def test_a_stored_fallback_target_cannot_carry_an_openai_federation_field(
     naming a token file would pick which workload assertion is exchanged for the bearer."""
     with pytest.raises(ValueError, match="openai_identity_token_file"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(FakeRouter()),
+            hangarllm_routing_ctx=RoutingContext(FakeRouter()),
             fallback_model_group=[
                 {"model": "openai-backup", "openai_identity_token_file": "/var/run/secrets/tokens/other"}
             ],
@@ -1422,7 +1422,7 @@ async def test_a_stored_fallback_target_cannot_carry_an_openai_federation_field(
     "target",
     [
         {"model": "mistral-backup", "api_key": "oidc/file//var/run/secrets/kubernetes.io/serviceaccount/token"},
-        {"model": "mistral-backup", "litellm_credential_name": "admin-oidc", "api_base": "https://attacker.example"},
+        {"model": "mistral-backup", "hangarllm_credential_name": "admin-oidc", "api_base": "https://attacker.example"},
     ],
     ids=["inline_reference", "credential_holding_a_reference"],
 )
@@ -1430,10 +1430,10 @@ async def test_a_stored_fallback_target_cannot_carry_an_openai_federation_field(
 async def test_a_stored_fallback_target_cannot_make_the_proxy_read_an_oidc_api_key(monkeypatch, target: dict):
     """A stored key or team fallback is merged into kwargs ahead of the call, so it could otherwise point the
     proxy's own token file at a host the fallback picks."""
-    from litellm.types.utils import CredentialItem
+    from hangarllm.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -1446,7 +1446,7 @@ async def test_a_stored_fallback_target_cannot_make_the_proxy_read_an_oidc_api_k
 
     with pytest.raises(ValueError, match="oidc/"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(FakeRouter()),
+            hangarllm_routing_ctx=RoutingContext(FakeRouter()),
             fallback_model_group=[target],
             original_model_group="primary-model",
             original_exception=RuntimeError("upstream limited request"),
@@ -1461,7 +1461,7 @@ async def test_the_refusal_is_not_swallowed_as_a_fallback_error():
     that target's failure and the run would quietly continue to the next one."""
     with pytest.raises(ValueError, match="anthropic_issuer_signing_key_ref"):
         await run_async_fallback(
-            litellm_routing_ctx=RoutingContext(FakeRouter()),
+            hangarllm_routing_ctx=RoutingContext(FakeRouter()),
             fallback_model_group=[
                 {"model": "anthropic-backup", "anthropic_issuer_signing_key_ref": "os.environ/ADMIN_KEY"},
                 "a-perfectly-fine-model",
@@ -1480,7 +1480,7 @@ async def test_run_async_fallback_stamps_fallback_info_into_metadata():
     router = RecordingRouter()
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=["fallback-model"],
         original_model_group="primary-model",
         original_exception=RuntimeError("original failed"),
@@ -1501,7 +1501,7 @@ async def test_run_async_fallback_preserves_original_model_group_on_nested_fallb
     router = RecordingRouter()
 
     await run_async_fallback(
-        litellm_routing_ctx=RoutingContext(router),
+        hangarllm_routing_ctx=RoutingContext(router),
         fallback_model_group=["second-fallback"],
         original_model_group="first-fallback",
         original_exception=RuntimeError("first fallback failed"),
@@ -1525,8 +1525,8 @@ class TestPreRoutingSelectionCarriesToFallbacks:
         assert kwargs["metadata"]["pre_routing_selected_model"] == "tier1"
         assert get_pre_routing_selection(kwargs) == "tier1"
 
-    def test_selection_is_recorded_in_the_litellm_metadata_bucket(self):
-        kwargs = {"model": "smart-router", "litellm_metadata": {}}
+    def test_selection_is_recorded_in_the_hangarllm_metadata_bucket(self):
+        kwargs = {"model": "smart-router", "hangarllm_metadata": {}}
         record_pre_routing_selection(kwargs, "tier2")
         assert get_pre_routing_selection(kwargs) == "tier2"
 
@@ -1574,7 +1574,7 @@ class TestPreRoutingSelectionIsPerHop:
     def test_both_buckets_are_cleared(self):
         kwargs = {
             "metadata": {"pre_routing_selected_model": "tier1"},
-            "litellm_metadata": {"pre_routing_selected_model": "tier2"},
+            "hangarllm_metadata": {"pre_routing_selected_model": "tier2"},
         }
 
         clear_pre_routing_selection(kwargs)
@@ -1608,25 +1608,25 @@ class TestPreRoutingSelectionIsPerHop:
 
 class TestOrderedFallbackLookupGroups:
     def test_tier_first_then_requested_group_deduped(self):
-        from litellm.router_utils.fallback_event_handlers import (
+        from hangarllm.router_utils.fallback_event_handlers import (
             PRE_ROUTING_SELECTED_MODEL_KEY,
             fallback_lookup_groups,
         )
 
-        kwargs = {"litellm_metadata": {PRE_ROUTING_SELECTED_MODEL_KEY: "tier1"}}
+        kwargs = {"hangarllm_metadata": {PRE_ROUTING_SELECTED_MODEL_KEY: "tier1"}}
         assert fallback_lookup_groups(kwargs, "smart-router") == ("tier1", "smart-router")
         assert fallback_lookup_groups(kwargs, "tier1") == ("tier1",)
         assert fallback_lookup_groups({}, "smart-router") == ("smart-router",)
         assert fallback_lookup_groups({}, None) == ()
 
     def test_session_remap_keeps_the_bound_router_between_tier_and_requested_group(self):
-        from litellm.router_utils.fallback_event_handlers import (
+        from hangarllm.router_utils.fallback_event_handlers import (
             PRE_ROUTING_SELECTED_MODEL_KEY,
             fallback_lookup_groups,
         )
 
         kwargs = {
-            "litellm_metadata": {
+            "hangarllm_metadata": {
                 PRE_ROUTING_SELECTED_MODEL_KEY: "tier1",
                 "model_group": "smart-router",
             }
@@ -1640,7 +1640,7 @@ class TestOrderedFallbackLookupGroups:
         assert fallback_lookup_groups({"metadata": {"model_group": []}}, "requested-model") == ("requested-model",)
 
     def test_fallback_hop_resumes_the_original_groups_chain_last(self):
-        from litellm.router_utils.fallback_event_handlers import fallback_lookup_groups
+        from hangarllm.router_utils.fallback_event_handlers import fallback_lookup_groups
 
         kwargs = {"metadata": {"model_group": "fb1", "original_model_group": "primary"}}
 
@@ -1648,7 +1648,7 @@ class TestOrderedFallbackLookupGroups:
         assert fallback_lookup_groups({"metadata": {"original_model_group": 42}}, "fb1") == ("fb1",)
 
     def test_first_resolving_group_wins_and_generic_idx_survives_a_miss(self):
-        from litellm.router_utils.fallback_event_handlers import (
+        from hangarllm.router_utils.fallback_event_handlers import (
             get_fallback_model_group_for_lookup_groups,
         )
 
@@ -1661,7 +1661,7 @@ class TestOrderedFallbackLookupGroups:
 
 class TestHasUnattemptedFallbackTarget:
     def test_exhausted_chain_is_not_recoverable_but_a_fresh_entry_is(self):
-        from litellm.router_utils.fallback_event_handlers import (
+        from hangarllm.router_utils.fallback_event_handlers import (
             has_unattempted_fallback_target,
         )
 
@@ -1779,7 +1779,7 @@ def test_mid_stream_retry_kwargs_strips_what_the_retry_wrapper_pops_and_keeps_th
         return None
 
     controls = MidStreamFallbackControls(MappingProxyType({"num_retries": 3}))
-    litellm_metadata = {"model_group": "glm"}
+    hangarllm_metadata = {"model_group": "glm"}
     hop_kwargs = {
         "model": "glm",
         "original_generic_function": generic_function,
@@ -1790,7 +1790,7 @@ def test_mid_stream_retry_kwargs_strips_what_the_retry_wrapper_pops_and_keeps_th
         "num_retries": 3,
         "model_group_retry_policy": {},
         "stream": True,
-        "litellm_metadata": litellm_metadata,
+        "hangarllm_metadata": hangarllm_metadata,
         MID_STREAM_FALLBACK_CONTROLS_KEY: controls,
     }
 
@@ -1800,24 +1800,24 @@ def test_mid_stream_retry_kwargs_strips_what_the_retry_wrapper_pops_and_keeps_th
         "model": "glm",
         "original_generic_function": generic_function,
         "stream": True,
-        "litellm_metadata": litellm_metadata,
+        "hangarllm_metadata": hangarllm_metadata,
         MID_STREAM_FALLBACK_CONTROLS_KEY: controls,
     }
-    assert retry_kwargs["litellm_metadata"] is litellm_metadata
+    assert retry_kwargs["hangarllm_metadata"] is hangarllm_metadata
 
 
 @pytest.mark.parametrize(
     "kwargs,expected",
     [
         pytest.param(
-            {"litellm_metadata": {"attempted_retries": 2}, "metadata": {"attempted_retries": 5}},
+            {"hangarllm_metadata": {"attempted_retries": 2}, "metadata": {"attempted_retries": 5}},
             2,
-            id="litellm_metadata-wins",
+            id="hangarllm_metadata-wins",
         ),
         pytest.param({"metadata": {"attempted_retries": 1}}, 1, id="metadata-bucket"),
-        pytest.param({"litellm_metadata": {"attempted_retries": "2"}}, 0, id="string-is-not-a-count"),
-        pytest.param({"litellm_metadata": {"attempted_retries": -1}}, 0, id="negative-is-not-a-count"),
-        pytest.param({"litellm_metadata": {}}, 0, id="unstamped"),
+        pytest.param({"hangarllm_metadata": {"attempted_retries": "2"}}, 0, id="string-is-not-a-count"),
+        pytest.param({"hangarllm_metadata": {"attempted_retries": -1}}, 0, id="negative-is-not-a-count"),
+        pytest.param({"hangarllm_metadata": {}}, 0, id="unstamped"),
         pytest.param({}, 0, id="no-bucket"),
     ],
 )
@@ -1826,11 +1826,11 @@ def test_attempted_retries_for_request_reads_the_request_bucket(kwargs, expected
 
 
 def test_record_retry_attempt_stamps_the_bucket_the_retry_wrapper_reads():
-    kwargs = {"litellm_metadata": {"attempted_retries": 0, "max_retries": 2}, "metadata": {}}
+    kwargs = {"hangarllm_metadata": {"attempted_retries": 0, "max_retries": 2}, "metadata": {}}
 
     record_retry_attempt(kwargs, attempted_retries=1, max_retries=2)
 
-    assert kwargs["litellm_metadata"] == {"attempted_retries": 1, "max_retries": 2}
+    assert kwargs["hangarllm_metadata"] == {"attempted_retries": 1, "max_retries": 2}
     assert kwargs["metadata"] == {}
     assert attempted_retries_for_request(kwargs) == 1
     assert committed_retry_budget_for_request(kwargs) == 2
@@ -1839,14 +1839,14 @@ def test_record_retry_attempt_stamps_the_bucket_the_retry_wrapper_reads():
 @pytest.mark.parametrize(
     "kwargs,expected",
     [
-        pytest.param({"litellm_metadata": {"attempted_retries": 1, "max_retries": 3}}, 3, id="committed-by-a-retry"),
+        pytest.param({"hangarllm_metadata": {"attempted_retries": 1, "max_retries": 3}}, 3, id="committed-by-a-retry"),
         pytest.param(
-            {"litellm_metadata": {"attempted_retries": 0, "max_retries": 3}}, None, id="stamped-before-any-retry"
+            {"hangarllm_metadata": {"attempted_retries": 0, "max_retries": 3}}, None, id="stamped-before-any-retry"
         ),
         pytest.param(
-            {"litellm_metadata": {"attempted_retries": 1, "max_retries": "3"}}, None, id="string-is-not-a-budget"
+            {"hangarllm_metadata": {"attempted_retries": 1, "max_retries": "3"}}, None, id="string-is-not-a-budget"
         ),
-        pytest.param({"litellm_metadata": {"attempted_retries": 1}}, None, id="no-budget"),
+        pytest.param({"hangarllm_metadata": {"attempted_retries": 1}}, None, id="no-budget"),
         pytest.param({}, None, id="no-bucket"),
     ],
 )
@@ -1855,20 +1855,20 @@ def test_committed_retry_budget_for_request_is_the_budget_a_retry_stamped(kwargs
 
 
 def test_carry_over_routed_deployment_copies_model_info_into_the_snapshot():
-    live_kwargs = {"litellm_metadata": {"model_info": {"id": "dep-1"}, "deployment": "anthropic/glm-a"}}
-    snapshot = {"litellm_metadata": {"model_group": "glm"}}
+    live_kwargs = {"hangarllm_metadata": {"model_info": {"id": "dep-1"}, "deployment": "anthropic/glm-a"}}
+    snapshot = {"hangarllm_metadata": {"model_group": "glm"}}
 
     carry_over_routed_deployment(live_kwargs=live_kwargs, snapshot=snapshot)
 
-    assert snapshot["litellm_metadata"] == {"model_group": "glm", "model_info": {"id": "dep-1"}}
-    assert snapshot["litellm_metadata"]["model_info"] is not live_kwargs["litellm_metadata"]["model_info"]
+    assert snapshot["hangarllm_metadata"] == {"model_group": "glm", "model_info": {"id": "dep-1"}}
+    assert snapshot["hangarllm_metadata"]["model_info"] is not live_kwargs["hangarllm_metadata"]["model_info"]
     assert routed_deployment_id(snapshot) == "dep-1"
 
 
 def test_carry_over_routed_deployment_leaves_a_snapshot_without_a_bucket_alone():
     snapshot = {"model": "glm"}
 
-    carry_over_routed_deployment(live_kwargs={"litellm_metadata": {"model_info": {"id": "dep-1"}}}, snapshot=snapshot)
+    carry_over_routed_deployment(live_kwargs={"hangarllm_metadata": {"model_info": {"id": "dep-1"}}}, snapshot=snapshot)
 
     assert snapshot == {"model": "glm"}
     assert routed_deployment_id(snapshot) is None
@@ -1884,15 +1884,15 @@ def _vcr_outcome_gate(request, vcr):
 @pytest.fixture(scope="function")
 def setup_and_teardown():
     """
-    This fixture reloads litellm before every function. To speed up testing by removing callbacks being chained.
+    This fixture reloads hangarllm before every function. To speed up testing by removing callbacks being chained.
     """
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     try:
-        if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-            importlib.reload(litellm.proxy.proxy_server)
+        if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+            importlib.reload(hangarllm.proxy.proxy_server)
     except Exception:
         pass
     loop = asyncio.get_event_loop_policy().new_event_loop()
@@ -1975,7 +1975,7 @@ class _FrameStream(httpx.AsyncByteStream):
 class FakeAnthropicUpstream:
     """Intercepts the third-party transport (httpx.AsyncClient.send): refuses on fable
     models, answers on others. The router deliberately does not forward caller-injected
-    clients, so the transport is the seam that exercises the real litellm pipeline."""
+    clients, so the transport is the seam that exercises the real hangarllm pipeline."""
 
     def __init__(
         self,
@@ -2012,12 +2012,12 @@ class FakeAnthropicUpstream:
 
 FABLE_TIER = {
     "model_name": "fable-tier",
-    "litellm_params": {"model": "anthropic/claude-fable-5", "api_key": "sk-test"},
+    "hangarllm_params": {"model": "anthropic/claude-fable-5", "api_key": "sk-test"},
 }
 
 OPUS_TARGET = {
     "model_name": "opus-target",
-    "litellm_params": {"model": "anthropic/claude-opus-5", "api_key": "sk-test"},
+    "hangarllm_params": {"model": "anthropic/claude-opus-5", "api_key": "sk-test"},
 }
 
 
@@ -2130,7 +2130,7 @@ async def test_streaming_refusal_on_routed_tier_matches_tier_keyed_row_without_i
     fake = FakeAnthropicUpstream()
     smart_router = {
         "model_name": "smart-router",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {
                 "tiers": {"SIMPLE": "fable-tier", "MEDIUM": "fable-tier", "COMPLEX": "fable-tier"}
@@ -2168,7 +2168,7 @@ async def test_caller_forged_tier_stamp_cannot_pick_the_streaming_fallback_chain
             max_tokens=16,
             stream=True,
             messages=[{"role": "user", "content": "hi"}],
-            litellm_metadata={PRE_ROUTING_SELECTED_MODEL_KEY: "forged-tier"},
+            hangarllm_metadata={PRE_ROUTING_SELECTED_MODEL_KEY: "forged-tier"},
         )
         body = await _collect(stream)
 
@@ -2184,7 +2184,7 @@ async def test_tier_stamp_never_reaches_provider_bound_metadata():
     fake = FakeAnthropicUpstream()
     smart_router = {
         "model_name": "smart-router",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {
                 "tiers": {"SIMPLE": "fable-tier", "MEDIUM": "fable-tier", "COMPLEX": "fable-tier"}
@@ -2216,11 +2216,11 @@ async def test_tier_stamp_never_reaches_provider_bound_metadata():
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
 def test_record_pre_routing_selection_writes_only_the_internal_bucket():
     """The Anthropic request's own metadata field must never carry the tier stamp."""
-    kwargs = {"metadata": {"user_id": "u1"}, "litellm_metadata": {}}
+    kwargs = {"metadata": {"user_id": "u1"}, "hangarllm_metadata": {}}
 
     record_pre_routing_selection(kwargs, "tier-x")
 
-    assert kwargs["litellm_metadata"] == {PRE_ROUTING_SELECTED_MODEL_KEY: "tier-x"}
+    assert kwargs["hangarllm_metadata"] == {PRE_ROUTING_SELECTED_MODEL_KEY: "tier-x"}
     assert kwargs["metadata"] == {"user_id": "u1"}
 
 
@@ -2342,11 +2342,11 @@ def _create_fallback_event_router() -> Router:
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "test-key"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "api_key": "test-key"},
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "test-key"},
+                "hangarllm_params": {"model": "gpt-4", "api_key": "test-key"},
             },
         ],
         fallbacks=[{"gpt-3.5-turbo": ["gpt-4"]}],
@@ -2360,14 +2360,14 @@ async def test_log_success_fallback_event():
     """
     original_model_group = "gpt-3.5-turbo"
     kwargs = {"messages": [{"role": "user", "content": "Hello, world!"}]}
-    original_exception = litellm.exceptions.InternalServerError(
+    original_exception = hangarllm.exceptions.InternalServerError(
         message="Simulated error",
         llm_provider="openai",
         model="gpt-3.5-turbo",
     )
 
     logger = CustomTestLogger()
-    litellm.callbacks = [logger]
+    hangarllm.callbacks = [logger]
 
     # This test mainly checks if the function runs without errors
     await log_success_fallback_event(original_model_group, kwargs, original_exception)
@@ -2389,14 +2389,14 @@ async def test_log_failure_fallback_event():
     """
     original_model_group = "gpt-3.5-turbo"
     kwargs = {"messages": [{"role": "user", "content": "Hello, world!"}]}
-    original_exception = litellm.exceptions.InternalServerError(
+    original_exception = hangarllm.exceptions.InternalServerError(
         message="Simulated error",
         llm_provider="openai",
         model="gpt-3.5-turbo",
     )
 
     logger = CustomTestLogger()
-    litellm.callbacks = [logger]
+    hangarllm.callbacks = [logger]
 
     # This test mainly checks if the function runs without errors
     await log_failure_fallback_event(original_model_group, kwargs, original_exception)
@@ -2441,31 +2441,31 @@ def _provider_error(status_code: int) -> httpx.Response:
     ("exception", "stops_fallbacks"),
     [
         pytest.param(
-            litellm.BadRequestError(message="Unsupported value: temperature", model="m", llm_provider="openai"),
+            hangarllm.BadRequestError(message="Unsupported value: temperature", model="m", llm_provider="openai"),
             True,
             id="provider 400",
         ),
         pytest.param(
-            litellm.UnsupportedParamsError(
+            hangarllm.UnsupportedParamsError(
                 message="reasoning_effort is not supported", model="m", llm_provider="openai"
             ),
             True,
             id="client-side rejection",
         ),
         pytest.param(
-            litellm.UnsupportedParamsError(message="stop is not supported"),
+            hangarllm.UnsupportedParamsError(message="stop is not supported"),
             True,
             id="client-side rejection without a provider",
         ),
         pytest.param(
-            litellm.BadRequestError(
+            hangarllm.BadRequestError(
                 message="Deployment ptu is reserved for another team", model="ptu", llm_provider=""
             ),
             False,
             id="router-raised 400 keeps falling back",
         ),
         pytest.param(
-            litellm.BadRequestError(
+            hangarllm.BadRequestError(
                 message="VertexAIException BadRequestError - 403",
                 model="m",
                 llm_provider="vertex_ai",
@@ -2475,22 +2475,22 @@ def _provider_error(status_code: int) -> httpx.Response:
             id="vertex 403 wrapped as BadRequestError",
         ),
         pytest.param(
-            litellm.PaymentRequiredError(message="insufficient credits", model="m", llm_provider="openrouter"),
+            hangarllm.PaymentRequiredError(message="insufficient credits", model="m", llm_provider="openrouter"),
             False,
             id="402",
         ),
         pytest.param(
-            litellm.ContextWindowExceededError(message="maximum context length", model="m", llm_provider="openai"),
+            hangarllm.ContextWindowExceededError(message="maximum context length", model="m", llm_provider="openai"),
             False,
             id="context window keeps its own fallbacks",
         ),
         pytest.param(
-            litellm.ContentPolicyViolationError(message="content_policy_violation", model="m", llm_provider="openai"),
+            hangarllm.ContentPolicyViolationError(message="content_policy_violation", model="m", llm_provider="openai"),
             False,
             id="content policy keeps its own fallbacks",
         ),
         pytest.param(
-            litellm.InternalServerError(message="overloaded", model="m", llm_provider="openai"),
+            hangarllm.InternalServerError(message="overloaded", model="m", llm_provider="openai"),
             False,
             id="500 still falls back",
         ),

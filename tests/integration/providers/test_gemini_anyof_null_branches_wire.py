@@ -624,7 +624,7 @@ def _live_frames(gateway: Gateway, scenario_id: str) -> tuple[dict[str, JsonValu
 def deferred_live(tmp_path_factory: pytest.TempPathFactory) -> Iterator[OwnedProxy]:
     directory: Final = tmp_path_factory.mktemp("anyof-live")
     with gateway_from_environment() as gateway:
-        with owned_proxy_process(gateway, directory, {"LITELLM_GEMINI_LIVE_DEFER_SETUP": "true"}, workers=2) as proxy:
+        with owned_proxy_process(gateway, directory, {"HANGARLLM_GEMINI_LIVE_DEFER_SETUP": "true"}, workers=2) as proxy:
             yield proxy
 
 

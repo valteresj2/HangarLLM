@@ -30,7 +30,7 @@ _FIELDS: Final[dict[str, JsonValue]] = {
     "total": {"type": "number", "unit": "USD"},
 }
 _SPEND_QUERY: Final = (
-    'SELECT spend, status, call_type, model_group, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" '
+    'SELECT spend, status, call_type, model_group, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" '
     "WHERE request_id = %s"
 )
 _OWNED_TIMEOUT: Final = int(2 * graceful_stop_seconds() + 120)
@@ -127,8 +127,8 @@ def _spend_row(call_id: str) -> dict[str, JsonValue]:
 
 def _assert_billed(gateway: Gateway, response: httpx.Response, model: str) -> None:
     expected: Final = _expected_spend()
-    assert math.isclose(float(response.headers["x-litellm-response-cost"]), expected, rel_tol=1e-9), response.headers
-    call_id: Final = response.headers["x-litellm-call-id"]
+    assert math.isclose(float(response.headers["x-hangarllm-response-cost"]), expected, rel_tol=1e-9), response.headers
+    call_id: Final = response.headers["x-hangarllm-call-id"]
     row: Final = _spend_row(call_id)
     assert (row["status"], row["call_type"], row["model_group"], row["prompt_tokens"], row["completion_tokens"]) == (
         "success",
@@ -269,7 +269,7 @@ def test_cloudflare_errors_keep_their_status_and_log_an_unbilled_failure(gateway
         assert response.status_code == 422, response.text
         assert f"min above max {marker}" in response.text, response.text
         assert len(wire.drain()) >= 1
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert (row["status"], row["call_type"], row["model_group"], _number(row["spend"])) == (
             "failure",
             "aextraction",
@@ -308,12 +308,12 @@ def _owned_config(upstream_url: str) -> dict[str, JsonValue]:
         "guardrails": [
             {
                 "guardrail_name": _REQUEST_GUARDRAIL,
-                "litellm_params": {"guardrail": "litellm_content_filter", "mode": "pre_call", "patterns": email_filter},
+                "hangarllm_params": {"guardrail": "hangarllm_content_filter", "mode": "pre_call", "patterns": email_filter},
             },
             {
                 "guardrail_name": _RESPONSE_GUARDRAIL,
-                "litellm_params": {
-                    "guardrail": "litellm_content_filter",
+                "hangarllm_params": {
+                    "guardrail": "hangarllm_content_filter",
                     "mode": "post_call",
                     "patterns": email_filter,
                 },
@@ -322,7 +322,7 @@ def _owned_config(upstream_url: str) -> dict[str, JsonValue]:
         "model_list": [
             {
                 "model_name": _OWNED_MODEL,
-                "litellm_params": {"model": _CLAIRIC, "api_base": upstream_url, "api_key": _API_KEY},
+                "hangarllm_params": {"model": _CLAIRIC, "api_base": upstream_url, "api_key": _API_KEY},
             }
         ],
     }
@@ -359,7 +359,7 @@ def _owned_extract(rig: Rig, state: str, **extra: JsonValue) -> httpx.Response:
 
 
 def _applied_guardrails(response: httpx.Response) -> frozenset[str]:
-    return frozenset(name.strip() for name in response.headers.get("x-litellm-applied-guardrails", "").split(","))
+    return frozenset(name.strip() for name in response.headers.get("x-hangarllm-applied-guardrails", "").split(","))
 
 
 @pytest.mark.timeout(_OWNED_TIMEOUT)

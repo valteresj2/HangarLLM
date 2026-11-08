@@ -9,8 +9,8 @@ from unittest import mock
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.inception.completion.transformation import (
+import hangarllm
+from hangarllm.llms.inception.completion.transformation import (
     InceptionTextCompletionConfig,
 )
 
@@ -54,15 +54,15 @@ def test_inception_fim_supported_params_match_schema():
 
 
 def test_text_completion_inception_in_provider_lists():
-    from litellm.types.utils import LlmProviders
+    from hangarllm.types.utils import LlmProviders
 
     assert LlmProviders.TEXT_COMPLETION_INCEPTION == "text-completion-inception"
-    assert "text-completion-inception" in litellm.provider_list
+    assert "text-completion-inception" in hangarllm.provider_list
 
 
 def test_inception_get_supported_openai_params_dispatch():
-    """litellm.get_supported_openai_params routes the FIM provider to our config"""
-    params = litellm.get_supported_openai_params(
+    """hangarllm.get_supported_openai_params routes the FIM provider to our config"""
+    params = hangarllm.get_supported_openai_params(
         model="mercury-edit-2", custom_llm_provider="text-completion-inception"
     )
     assert "suffix" in params
@@ -74,12 +74,12 @@ def test_inception_validate_environment(provider):
     model = "inception/mercury-2" if provider == "inception" else "text-completion-inception/mercury-edit-2"
 
     with mock.patch.dict(os.environ, {}, clear=True):
-        result = litellm.validate_environment(model)
+        result = hangarllm.validate_environment(model)
         assert result["keys_in_environment"] is False
         assert "INCEPTION_API_KEY" in result["missing_keys"]
 
     with mock.patch.dict(os.environ, {"INCEPTION_API_KEY": "sk-x"}, clear=True):
-        result = litellm.validate_environment(model)
+        result = hangarllm.validate_environment(model)
         assert result["keys_in_environment"] is True
 
 
@@ -98,7 +98,7 @@ def test_inception_completion_endpoint_returns_chat_object():
         )
 
     with mock.patch("httpx.Client.send", new=fake_send):
-        r = litellm.completion(
+        r = hangarllm.completion(
             model="text-completion-inception/mercury-edit-2",
             messages=[{"role": "user", "content": "def add(a, b): return "}],
             api_key="sk-x",
@@ -123,7 +123,7 @@ async def test_inception_fim_async():
         )
 
     with mock.patch("httpx.AsyncClient.send", new=fake_asend):
-        r = await litellm.atext_completion(
+        r = await hangarllm.atext_completion(
             model="text-completion-inception/mercury-edit-2",
             prompt="def add(a, b): return ",
             suffix="\n",
@@ -175,7 +175,7 @@ def test_inception_fim_targets_fim_endpoint():
         )
 
     with mock.patch("httpx.Client.send", new=fake_send):
-        response = litellm.text_completion(
+        response = hangarllm.text_completion(
             model="text-completion-inception/mercury-edit-2",
             prompt="def add(a, b):\n    return ",
             suffix="\n",
@@ -193,9 +193,9 @@ def test_inception_fim_targets_fim_endpoint():
 
 def test_inception_fim_does_not_leak_global_api_key():
     """
-    Regression: the global litellm.api_key (commonly an OpenAI key) must not be
+    Regression: the global hangarllm.api_key (commonly an OpenAI key) must not be
     forwarded to Inception. Only an Inception-specific key (param,
-    litellm.inception_key, or INCEPTION_API_KEY) may be sent to the Inception base.
+    hangarllm.inception_key, or INCEPTION_API_KEY) may be sent to the Inception base.
     """
 
     captured = {}
@@ -210,10 +210,10 @@ def test_inception_fim_does_not_leak_global_api_key():
         )
 
     with mock.patch.dict(os.environ, {"INCEPTION_API_KEY": "sk-inception-correct"}, clear=True):
-        with mock.patch.object(litellm, "inception_key", None):
-            with mock.patch.object(litellm, "api_key", "sk-global-should-not-leak"):
+        with mock.patch.object(hangarllm, "inception_key", None):
+            with mock.patch.object(hangarllm, "api_key", "sk-global-should-not-leak"):
                 with mock.patch("httpx.Client.send", new=fake_send):
-                    litellm.text_completion(
+                    hangarllm.text_completion(
                         model="text-completion-inception/mercury-edit-2",
                         prompt="def add(a, b): return ",
                         max_tokens=10,
@@ -257,7 +257,7 @@ def test_inception_fim_extra_body_forwards_vllm_params():
         )
 
     with mock.patch("httpx.Client.send", new=fake_send):
-        litellm.text_completion(
+        hangarllm.text_completion(
             model="text-completion-inception/mercury-edit-2",
             prompt="def f(",
             suffix=")",

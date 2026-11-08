@@ -4,7 +4,7 @@ Static checks that every proxy Docker image installs the `bedrock-realtime` extr
 Bedrock Nova Sonic speech-to-speech (`/v1/realtime`) needs `aws-sdk-bedrock-runtime`,
 which only ships in the `bedrock-realtime` extra. An image whose `uv sync` stages
 omit the extra fails every Nova Sonic realtime session with
-"Missing aws_sdk_bedrock_runtime: pip install 'litellm[bedrock-realtime]' ...".
+"Missing aws_sdk_bedrock_runtime: pip install 'hangarllm[bedrock-realtime]' ...".
 """
 
 import os
@@ -14,7 +14,7 @@ from typing import Final
 
 import pytest
 
-from litellm.constants import BEDROCK_REALTIME_SDK_DISTRIBUTION, BEDROCK_REALTIME_SDK_SUPPORTED_RANGE
+from hangarllm.constants import BEDROCK_REALTIME_SDK_DISTRIBUTION, BEDROCK_REALTIME_SDK_SUPPORTED_RANGE
 
 if sys.version_info >= (3, 11):
     import tomllib

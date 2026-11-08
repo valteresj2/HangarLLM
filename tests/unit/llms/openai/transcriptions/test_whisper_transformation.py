@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.llms.openai.transcriptions.whisper_transformation import (
+from hangarllm.llms.openai.transcriptions.whisper_transformation import (
     OpenAIWhisperAudioTranscriptionConfig,
 )
 
@@ -25,7 +25,7 @@ class TestWhisperTransformRequestResponseFormat:
             model="whisper-1",
             audio_file=audio_file,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
         )
         return result.data
 

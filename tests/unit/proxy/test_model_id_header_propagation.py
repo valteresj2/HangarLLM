@@ -1,5 +1,5 @@
 """
-Test that x-litellm-model-id header is propagated correctly on error responses.
+Test that x-hangarllm-model-id header is propagated correctly on error responses.
 
 This test suite verifies the `maybe_get_model_id` method
 which is responsible for extracting model_id from different locations
@@ -9,38 +9,38 @@ depending on the request lifecycle stage.
 import pytest
 from unittest.mock import MagicMock
 
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from hangarllm.proxy._types import UserAPIKeyAuth
 
 
-def test_maybe_get_model_id_from_litellm_params():
+def test_maybe_get_model_id_from_hangarllm_params():
     """
-    Test extraction of model_id from logging_obj.litellm_params (used by /v1/chat/completions).
+    Test extraction of model_id from logging_obj.hangarllm_params (used by /v1/chat/completions).
     """
     # Create a ProxyBaseLLMRequestProcessing instance
     processor = ProxyBaseLLMRequestProcessing(data={})
 
-    # Create a mock logging object with model_info in litellm_params
+    # Create a mock logging object with model_info in hangarllm_params
     mock_logging_obj = MagicMock()
-    mock_logging_obj.litellm_params = {
-        "model_info": {"id": "test-model-id-from-litellm-params"}
+    mock_logging_obj.hangarllm_params = {
+        "model_info": {"id": "test-model-id-from-hangarllm-params"}
     }
 
     # Test extraction
     model_id = processor.maybe_get_model_id(mock_logging_obj)
 
-    assert model_id == "test-model-id-from-litellm-params"
+    assert model_id == "test-model-id-from-hangarllm-params"
 
 
-def test_maybe_get_model_id_from_litellm_params_nested():
+def test_maybe_get_model_id_from_hangarllm_params_nested():
     """
-    Test extraction of model_id from nested metadata in logging_obj.litellm_params.
+    Test extraction of model_id from nested metadata in logging_obj.hangarllm_params.
     """
     processor = ProxyBaseLLMRequestProcessing(data={})
 
     # Create a mock logging object with model_info nested in metadata
     mock_logging_obj = MagicMock()
-    mock_logging_obj.litellm_params = {
+    mock_logging_obj.hangarllm_params = {
         "metadata": {"model_info": {"id": "test-model-id-nested"}}
     }
 
@@ -58,9 +58,9 @@ def test_maybe_get_model_id_from_kwargs():
 
     # Create a mock logging object with model_info in kwargs
     mock_logging_obj = MagicMock()
-    mock_logging_obj.litellm_params = None
+    mock_logging_obj.hangarllm_params = None
     mock_logging_obj.kwargs = {
-        "litellm_params": {"model_info": {"id": "test-model-id-from-kwargs"}}
+        "hangarllm_params": {"model_info": {"id": "test-model-id-from-kwargs"}}
     }
 
     # Test extraction
@@ -75,12 +75,12 @@ def test_maybe_get_model_id_from_data():
     """
     # Create a processor with model_info in data
     processor = ProxyBaseLLMRequestProcessing(
-        data={"litellm_metadata": {"model_info": {"id": "test-model-id-from-data"}}}
+        data={"hangarllm_metadata": {"model_info": {"id": "test-model-id-from-data"}}}
     )
 
     # Create a mock logging object without model_info
     mock_logging_obj = MagicMock()
-    mock_logging_obj.litellm_params = {}
+    mock_logging_obj.hangarllm_params = {}
     mock_logging_obj.kwargs = {}
 
     # Test extraction - should fall back to self.data
@@ -96,7 +96,7 @@ def test_maybe_get_model_id_no_logging_obj():
     # Create a processor with model_info in data
     processor = ProxyBaseLLMRequestProcessing(
         data={
-            "litellm_metadata": {"model_info": {"id": "test-model-id-no-logging-obj"}}
+            "hangarllm_metadata": {"model_info": {"id": "test-model-id-no-logging-obj"}}
         }
     )
 
@@ -114,7 +114,7 @@ def test_maybe_get_model_id_not_found():
 
     # Create a mock logging object without model_info anywhere
     mock_logging_obj = MagicMock()
-    mock_logging_obj.litellm_params = {}
+    mock_logging_obj.hangarllm_params = {}
     mock_logging_obj.kwargs = {}
 
     # Test extraction - should return None
@@ -123,30 +123,30 @@ def test_maybe_get_model_id_not_found():
     assert model_id is None
 
 
-def test_maybe_get_model_id_priority_litellm_params_over_data():
+def test_maybe_get_model_id_priority_hangarllm_params_over_data():
     """
-    Test that model_id from logging_obj.litellm_params takes priority over self.data.
+    Test that model_id from logging_obj.hangarllm_params takes priority over self.data.
     """
     # Create a processor with model_info in both places
     processor = ProxyBaseLLMRequestProcessing(
-        data={"litellm_metadata": {"model_info": {"id": "model-id-from-data"}}}
+        data={"hangarllm_metadata": {"model_info": {"id": "model-id-from-data"}}}
     )
 
     # Create a mock logging object with model_info
     mock_logging_obj = MagicMock()
-    mock_logging_obj.litellm_params = {
-        "model_info": {"id": "model-id-from-litellm-params"}
+    mock_logging_obj.hangarllm_params = {
+        "model_info": {"id": "model-id-from-hangarllm-params"}
     }
 
-    # Test extraction - should prefer litellm_params
+    # Test extraction - should prefer hangarllm_params
     model_id = processor.maybe_get_model_id(mock_logging_obj)
 
-    assert model_id == "model-id-from-litellm-params"
+    assert model_id == "model-id-from-hangarllm-params"
 
 
 def test_get_custom_headers_includes_model_id():
     """
-    Test that get_custom_headers includes x-litellm-model-id when model_id is provided.
+    Test that get_custom_headers includes x-hangarllm-model-id when model_id is provided.
     """
     # Create mock user_api_key_dict with all required attributes
     mock_user_api_key_dict = MagicMock()
@@ -168,8 +168,8 @@ def test_get_custom_headers_includes_model_id():
     )
 
     # Verify model_id is in headers
-    assert "x-litellm-model-id" in headers
-    assert headers["x-litellm-model-id"] == "test-model-123"
+    assert "x-hangarllm-model-id" in headers
+    assert headers["x-hangarllm-model-id"] == "test-model-123"
 
 
 def test_get_custom_headers_without_model_id():
@@ -195,29 +195,29 @@ def test_get_custom_headers_without_model_id():
         hidden_params={},
     )
 
-    # x-litellm-model-id should not be in headers (or should be empty/None)
-    if "x-litellm-model-id" in headers:
-        assert headers["x-litellm-model-id"] in [None, ""]
+    # x-hangarllm-model-id should not be in headers (or should be empty/None)
+    if "x-hangarllm-model-id" in headers:
+        assert headers["x-hangarllm-model-id"] in [None, ""]
 
 
 class _FakeLoggingObj:
-    def __init__(self, litellm_params):
-        self.litellm_params = litellm_params
-        self.litellm_call_id = "test-call-id"
+    def __init__(self, hangarllm_params):
+        self.hangarllm_params = hangarllm_params
+        self.hangarllm_call_id = "test-call-id"
 
 
-@pytest.mark.parametrize("metadata_key", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_key", ["metadata", "hangarllm_metadata"])
 def test_get_custom_headers_includes_deployment_model_name(metadata_key):
     """
-    x-litellm-model-name should expose the underlying deployment model string,
-    which the router records under litellm_params[metadata]["deployment"].
+    x-hangarllm-model-name should expose the underlying deployment model string,
+    which the router records under hangarllm_params[metadata]["deployment"].
     """
     mock_user_api_key_dict = MagicMock()
     mock_user_api_key_dict.tpm_limit = 1000
     mock_user_api_key_dict.rpm_limit = 100
 
     logging_obj = _FakeLoggingObj(
-        litellm_params={metadata_key: {"deployment": "azure/gpt-4o-2024-08-06"}}
+        hangarllm_params={metadata_key: {"deployment": "azure/gpt-4o-2024-08-06"}}
     )
 
     headers = ProxyBaseLLMRequestProcessing.get_custom_headers(
@@ -225,33 +225,33 @@ def test_get_custom_headers_includes_deployment_model_name(metadata_key):
         model_id="deployment-uuid",
         request_data={},
         hidden_params={},
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
 
-    assert headers["x-litellm-model-name"] == "azure/gpt-4o-2024-08-06"
-    assert headers["x-litellm-model-id"] == "deployment-uuid"
+    assert headers["x-hangarllm-model-name"] == "azure/gpt-4o-2024-08-06"
+    assert headers["x-hangarllm-model-id"] == "deployment-uuid"
 
 
 def test_get_custom_headers_omits_model_name_when_deployment_missing():
     """
-    Without a deployment model string, x-litellm-model-name must not be emitted
+    Without a deployment model string, x-hangarllm-model-name must not be emitted
     (rather than leaking an empty/None value).
     """
     mock_user_api_key_dict = MagicMock()
     mock_user_api_key_dict.tpm_limit = 1000
     mock_user_api_key_dict.rpm_limit = 100
 
-    logging_obj = _FakeLoggingObj(litellm_params={"metadata": {}})
+    logging_obj = _FakeLoggingObj(hangarllm_params={"metadata": {}})
 
     headers = ProxyBaseLLMRequestProcessing.get_custom_headers(
         user_api_key_dict=mock_user_api_key_dict,
         model_id="deployment-uuid",
         request_data={},
         hidden_params={},
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
 
-    assert "x-litellm-model-name" not in headers
+    assert "x-hangarllm-model-name" not in headers
 
 
 def test_get_custom_headers_with_empty_string_model_id():
@@ -277,6 +277,6 @@ def test_get_custom_headers_with_empty_string_model_id():
         hidden_params={},
     )
 
-    # x-litellm-model-id should not be in headers (or should be empty)
-    if "x-litellm-model-id" in headers:
-        assert headers["x-litellm-model-id"] == ""
+    # x-hangarllm-model-id should not be in headers (or should be empty)
+    if "x-hangarllm-model-id" in headers:
+        assert headers["x-hangarllm-model-id"] == ""

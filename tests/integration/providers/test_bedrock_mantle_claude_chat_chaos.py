@@ -31,7 +31,7 @@ _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _MARKER: Final = re.compile(r"marker-([0-9a-f]{32})")
 _STARTED_WORKER: Final = re.compile(r"Started server process \[(\d+)\]")
 _ROWS_BY_CALL: Final = (
-    "SELECT litellm_call_id, status FROM \"LiteLLM_SpendLogs\" WHERE litellm_call_id = ANY(string_to_array(%s, ','))"
+    "SELECT hangarllm_call_id, status FROM \"HangarLLM_SpendLogs\" WHERE hangarllm_call_id = ANY(string_to_array(%s, ','))"
 )
 
 Endpoint = Literal["chat", "messages", "responses"]
@@ -143,8 +143,8 @@ def _spend_status_by_call(served: tuple[_Served, ...]) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(_ROWS_BY_CALL, (",".join(wanted),)), lambda found: len(found) >= len(wanted), seconds=70
     )
-    assert sorted(string_value(row["litellm_call_id"]) for row in rows) == wanted, rows
-    return {string_value(row["litellm_call_id"]): row["status"] for row in rows}
+    assert sorted(string_value(row["hangarllm_call_id"]) for row in rows) == wanted, rows
+    return {string_value(row["hangarllm_call_id"]): row["status"] for row in rows}
 
 
 async def _send(client: httpx.AsyncClient, key: str, model: str, call: _Call) -> _Served:
@@ -159,7 +159,7 @@ async def _send(client: httpx.AsyncClient, key: str, model: str, call: _Call) ->
         call=call,
         status=response.status_code,
         text=raw.decode(),
-        call_id=response.headers.get("x-litellm-call-id", ""),
+        call_id=response.headers.get("x-hangarllm-call-id", ""),
     )
 
 
@@ -272,7 +272,7 @@ def _chaos_config(wire: Wire, tmp_path: Path) -> Path:
         "model_list": [
             {
                 "model_name": _CONFIG_MODEL,
-                "litellm_params": {"model": f"bedrock_mantle/{_BACKEND}", "api_base": wire.url, "api_key": _API_KEY},
+                "hangarllm_params": {"model": f"bedrock_mantle/{_BACKEND}", "api_base": wire.url, "api_key": _API_KEY},
             }
         ],
     }

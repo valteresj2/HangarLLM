@@ -10,12 +10,12 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from prisma.actions import LiteLLM_VerificationTokenActions
+from prisma.actions import HangarLLM_VerificationTokenActions
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.proxy_server import app
-from litellm.proxy.utils import PrismaClient
-from litellm.types.tag_management import TagNewRequest
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.proxy_server import app
+from hangarllm.proxy.utils import PrismaClient
+from hangarllm.types.tag_management import TagNewRequest
 from tests.unit.redis.stores.spend_counters_double import FakeSpendCounters
 
 client = TestClient(app)
@@ -36,7 +36,7 @@ class _BudgetState:
 
 
 class FakeVerificationTokenTable:
-    """Stand-in for ``prisma_client.db.litellm_verificationtoken``.
+    """Stand-in for ``prisma_client.db.hangarllm_verificationtoken``.
 
     ``AsyncMock`` swallows any keyword argument, so a plain mock cannot catch a
     call that the generated prisma client would reject at runtime. This double
@@ -50,7 +50,7 @@ class FakeVerificationTokenTable:
         self.calls: list[dict[str, object]] = []
 
     async def find_many(self, **kwargs: object) -> tuple[Mock, ...]:
-        inspect.signature(LiteLLM_VerificationTokenActions.find_many).bind(
+        inspect.signature(HangarLLM_VerificationTokenActions.find_many).bind(
             self, **kwargs
         )
         self.calls.append(kwargs)
@@ -65,23 +65,23 @@ async def test_create_and_get_tag():
     from datetime import datetime
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     mock_user_auth = UserAPIKeyAuth(
         user_id="test-user-123",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
     app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
     try:
         with (
-            patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
-            patch("litellm.proxy.proxy_server.llm_router"),
+            patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
+            patch("hangarllm.proxy.proxy_server.llm_router"),
             patch(
-                "litellm.proxy.proxy_server.litellm_proxy_admin_name", "default_user_id"
+                "hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "default_user_id"
             ),
             patch(
-                "litellm.proxy.management_endpoints.tag_management_endpoints.get_deployments_by_model"
+                "hangarllm.proxy.management_endpoints.tag_management_endpoints.get_deployments_by_model"
             ) as mock_get_deployments,
         ):
             # Setup prisma mocks
@@ -89,10 +89,10 @@ async def test_create_and_get_tag():
             mock_prisma.db = mock_db
 
             # Mock find_unique to return None (tag doesn't exist)
-            mock_db.litellm_tagtable.find_unique = AsyncMock(return_value=None)
+            mock_db.hangarllm_tagtable.find_unique = AsyncMock(return_value=None)
 
             # Mock find_many for model lookup
-            mock_db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
+            mock_db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
 
             # Mock create to return the created tag
             created_tag = Mock()
@@ -105,7 +105,7 @@ async def test_create_and_get_tag():
             created_tag.created_at = datetime.now()
             created_tag.updated_at = datetime.now()
             created_tag.created_by = "test-user-123"
-            mock_db.litellm_tagtable.create = AsyncMock(return_value=created_tag)
+            mock_db.hangarllm_tagtable.create = AsyncMock(return_value=created_tag)
 
             # Mock get_deployments_by_model to return empty list
             mock_get_deployments.return_value = []
@@ -138,8 +138,8 @@ async def test_create_and_get_tag():
             retrieved_tag.created_at = datetime.now()
             retrieved_tag.updated_at = datetime.now()
             retrieved_tag.created_by = "test-user-123"
-            retrieved_tag.litellm_budget_table = None
-            mock_db.litellm_tagtable.find_many = AsyncMock(return_value=[retrieved_tag])
+            retrieved_tag.hangarllm_budget_table = None
+            mock_db.hangarllm_tagtable.find_many = AsyncMock(return_value=[retrieved_tag])
 
             # Test retrieving tag info
             info_data = {"names": ["test-tag"]}
@@ -161,19 +161,19 @@ async def test_update_tag():
     from datetime import datetime
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     mock_user_auth = UserAPIKeyAuth(
         user_id="test-user-123",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
     app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
     try:
         with (
-            patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+            patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
             patch(
-                "litellm.proxy.proxy_server.litellm_proxy_admin_name", "default_user_id"
+                "hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "default_user_id"
             ),
         ):
             # Setup prisma mocks
@@ -191,10 +191,10 @@ async def test_update_tag():
             existing_tag.created_by = "user-123"
 
             # Mock find_unique to return existing tag
-            mock_db.litellm_tagtable.find_unique = AsyncMock(return_value=existing_tag)
+            mock_db.hangarllm_tagtable.find_unique = AsyncMock(return_value=existing_tag)
 
             # Mock find_many for model lookup
-            mock_db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
+            mock_db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
 
             # Mock update to return updated tag
             updated_tag = Mock()
@@ -207,7 +207,7 @@ async def test_update_tag():
             updated_tag.created_at = datetime.now()
             updated_tag.updated_at = datetime.now()
             updated_tag.created_by = "user-123"
-            mock_db.litellm_tagtable.update = AsyncMock(return_value=updated_tag)
+            mock_db.hangarllm_tagtable.update = AsyncMock(return_value=updated_tag)
 
             # Update tag data
             update_data = {
@@ -236,8 +236,8 @@ async def test_update_tag():
 async def test_update_tag_changes_spend_and_counter_only_when_provided(
     spend_fields: Mapping[str, float | None],
 ) -> None:
-    from litellm.proxy.management_endpoints.tag_management_endpoints import update_tag
-    from litellm.types.tag_management import TagUpdateRequest
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import update_tag
+    from hangarllm.types.tag_management import TagUpdateRequest
 
     updated_tag: Final = SimpleNamespace(
         tag_name="reset-tag",
@@ -252,23 +252,23 @@ async def test_update_tag_changes_spend_and_counter_only_when_provided(
     spend: Final = FakeSpendCounters(redis=None)
     mock_prisma: Final = SimpleNamespace(
         db=SimpleNamespace(
-            litellm_tagtable=SimpleNamespace(
+            hangarllm_tagtable=SimpleNamespace(
                 find_unique=AsyncMock(return_value=updated_tag), update=update_row
             ),
-            litellm_proxymodeltable=SimpleNamespace(find_many=AsyncMock(return_value=[])),
+            hangarllm_proxymodeltable=SimpleNamespace(find_many=AsyncMock(return_value=[])),
         )
     )
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
         _tag_cache_doubles(),
-        patch("litellm.proxy.proxy_server.invalidate_spend_counter", new_callable=AsyncMock) as invalidate,
-        patch("litellm.proxy.proxy_server.spend_counter_cache") as counter_cache,
-        patch("litellm.proxy.proxy_server.spend_counter_store", spend.store()),
+        patch("hangarllm.proxy.proxy_server.invalidate_spend_counter", new_callable=AsyncMock) as invalidate,
+        patch("hangarllm.proxy.proxy_server.spend_counter_cache") as counter_cache,
+        patch("hangarllm.proxy.proxy_server.spend_counter_store", spend.store()),
     ):
         counter_cache.redis_cache = None
         response: Final = await update_tag(
             tag=TagUpdateRequest.model_validate({"name": "reset-tag", **spend_fields}),
-            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
 
     assert response["message"] == "Tag reset-tag updated successfully"
@@ -292,21 +292,21 @@ async def test_update_tag_changes_spend_and_counter_only_when_provided(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("spend", [float("nan"), float("inf"), float("-inf")])
 async def test_update_tag_rejects_non_finite_spend_before_writing(spend: float) -> None:
-    from litellm.proxy.management_endpoints.tag_management_endpoints import update_tag
-    from litellm.types.tag_management import TagUpdateRequest
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import update_tag
+    from hangarllm.types.tag_management import TagUpdateRequest
 
     update_row: Final = AsyncMock()
     mock_prisma: Final = SimpleNamespace(
-        db=SimpleNamespace(litellm_tagtable=SimpleNamespace(update=update_row))
+        db=SimpleNamespace(hangarllm_tagtable=SimpleNamespace(update=update_row))
     )
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.invalidate_spend_counter", new_callable=AsyncMock) as invalidate,
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.invalidate_spend_counter", new_callable=AsyncMock) as invalidate,
         pytest.raises(HTTPException) as error,
     ):
         await update_tag(
             tag=TagUpdateRequest(name="reset-tag", spend=spend),
-            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
     assert error.value.status_code == 400
     assert "spend must be a finite number" in str(error.value.detail)
@@ -317,8 +317,8 @@ async def test_update_tag_rejects_non_finite_spend_before_writing(spend: float) 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("redis_state", ["available", "absent", "error"])
 async def test_update_tag_overwrites_stale_counter_repopulated_during_tag_cache_eviction(redis_state: str) -> None:
-    from litellm.proxy.management_endpoints.tag_management_endpoints import update_tag
-    from litellm.types.tag_management import TagUpdateRequest
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import update_tag
+    from hangarllm.types.tag_management import TagUpdateRequest
 
     counter_key: Final = "spend:tag:overlap-reset-tag"
     spend: Final = FakeSpendCounters(redis=None if redis_state == "absent" else {}, fail=redis_state == "error")
@@ -333,10 +333,10 @@ async def test_update_tag_overwrites_stale_counter_repopulated_during_tag_cache_
     )
     mock_prisma: Final = SimpleNamespace(
         db=SimpleNamespace(
-            litellm_tagtable=SimpleNamespace(
+            hangarllm_tagtable=SimpleNamespace(
                 find_unique=AsyncMock(return_value=updated_tag), update=AsyncMock(return_value=updated_tag)
             ),
-            litellm_proxymodeltable=SimpleNamespace(find_many=AsyncMock(return_value=[])),
+            hangarllm_proxymodeltable=SimpleNamespace(find_many=AsyncMock(return_value=[])),
         )
     )
 
@@ -344,18 +344,18 @@ async def test_update_tag_overwrites_stale_counter_repopulated_during_tag_cache_
         spend.set_local(counter_key, 1.5, ttl_seconds=60)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
         patch(
-            "litellm.proxy.proxy_server.spend_counter_store", spend.store(),
+            "hangarllm.proxy.proxy_server.spend_counter_store", spend.store(),
         ),
         patch(
-            "litellm.proxy.management_endpoints.tag_management_endpoints._evict_tag_cache_keys",
+            "hangarllm.proxy.management_endpoints.tag_management_endpoints._evict_tag_cache_keys",
             overlapping_completion,
         ),
     ):
         await update_tag(
             tag=TagUpdateRequest(name="overlap-reset-tag", spend=0),
-            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
     assert spend.memory[counter_key] == 0
     if redis_state == "available":
@@ -367,7 +367,7 @@ async def test_update_tag_overwrites_stale_counter_repopulated_during_tag_cache_
 async def test_new_tag_persists_a_budget():
     from datetime import datetime
 
-    from litellm.proxy.management_endpoints.tag_management_endpoints import new_tag
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import new_tag
 
     budget_state = _BudgetState({"budget_id": "budget-1", "max_budget": None})
     created_tag = SimpleNamespace(
@@ -380,8 +380,8 @@ async def test_new_tag_persists_a_budget():
     )
     mock_db = Mock()
     mock_prisma = SimpleNamespace(db=mock_db, jsonify_object=lambda data: dict(data))
-    mock_db.litellm_tagtable.find_unique = AsyncMock(return_value=None)
-    mock_db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    mock_db.hangarllm_tagtable.find_unique = AsyncMock(return_value=None)
+    mock_db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
 
     async def create_budget(data, **_):
         budget_state.store(data)
@@ -391,25 +391,25 @@ async def test_new_tag_persists_a_budget():
         created_tag.budget_id = data["budget_id"]
         return created_tag
 
-    mock_db.litellm_budgettable.create = create_budget
-    mock_db.litellm_tagtable.create = create_tag
+    mock_db.hangarllm_budgettable.create = create_budget
+    mock_db.hangarllm_tagtable.create = create_tag
     with (
         patch(  # test-quality-ok: endpoint resolves the fake database through proxy_server
-            "litellm.proxy.proxy_server.prisma_client", mock_prisma
+            "hangarllm.proxy.proxy_server.prisma_client", mock_prisma
         ),
         patch(  # test-quality-ok: endpoint reads the audit actor from proxy_server
-            "litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"
+            "hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"
         ),
         patch(  # test-quality-ok: endpoint requires a router before the budget write
-            "litellm.proxy.proxy_server.llm_router", object()
+            "hangarllm.proxy.proxy_server.llm_router", object()
         ),
         patch(  # test-quality-ok: cache invalidation is outside this budget contract
-            "litellm.proxy.management_endpoints.tag_management_endpoints._evict_tag_cache_keys", new=AsyncMock()
+            "hangarllm.proxy.management_endpoints.tag_management_endpoints._evict_tag_cache_keys", new=AsyncMock()
         ),
     ):
         await new_tag(
             tag=TagNewRequest(name="budget-tag", max_budget=25.0),
-            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
 
     assert budget_state.get("max_budget") == 25.0
@@ -423,8 +423,8 @@ async def test_new_tag_budget_reads_the_row_spend_not_spend_from_before_the_tag_
     The new row starts at the spend it persists, and a restart reloads only that row, so the
     counter the budget check reads has to agree with it from the moment the tag is created.
     """
-    from litellm.proxy.management_endpoints.tag_management_endpoints import new_tag
-    from litellm.proxy.proxy_server import get_current_spend, increment_spend_counter_cache
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import new_tag
+    from hangarllm.proxy.proxy_server import get_current_spend, increment_spend_counter_cache
 
     counter_key: Final = "spend:tag:spent-before-budget-tag"
     await increment_spend_counter_cache(counter_key=counter_key, increment=5.0)
@@ -443,28 +443,28 @@ async def test_new_tag_budget_reads_the_row_spend_not_spend_from_before_the_tag_
         return created_tag
 
     mock_db: Final = Mock()
-    mock_db.litellm_tagtable.find_unique = AsyncMock(return_value=None)
-    mock_db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
-    mock_db.litellm_budgettable.create = AsyncMock(return_value=SimpleNamespace(budget_id="budget-1"))
-    mock_db.litellm_tagtable.create = create_tag
+    mock_db.hangarllm_tagtable.find_unique = AsyncMock(return_value=None)
+    mock_db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    mock_db.hangarllm_budgettable.create = AsyncMock(return_value=SimpleNamespace(budget_id="budget-1"))
+    mock_db.hangarllm_tagtable.create = create_tag
     with (
         patch(  # test-quality-ok: endpoint resolves the fake database through proxy_server
-            "litellm.proxy.proxy_server.prisma_client",
+            "hangarllm.proxy.proxy_server.prisma_client",
             SimpleNamespace(db=mock_db, jsonify_object=lambda data: dict(data)),
         ),
         patch(  # test-quality-ok: endpoint reads the audit actor from proxy_server
-            "litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"
+            "hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"
         ),
         patch(  # test-quality-ok: endpoint requires a router before the budget write
-            "litellm.proxy.proxy_server.llm_router", object()
+            "hangarllm.proxy.proxy_server.llm_router", object()
         ),
         patch(  # test-quality-ok: auth object cache invalidation is outside this counter contract
-            "litellm.proxy.management_endpoints.tag_management_endpoints._evict_tag_cache_keys", new=AsyncMock()
+            "hangarllm.proxy.management_endpoints.tag_management_endpoints._evict_tag_cache_keys", new=AsyncMock()
         ),
     ):
         await new_tag(
             tag=TagNewRequest(name="spent-before-budget-tag", max_budget=25.0),
-            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
 
     budget_check_spend: Final = await get_current_spend(
@@ -492,8 +492,8 @@ async def test_update_tag_clears_or_sets_only_provided_budget_fields(
 ) -> None:
     from datetime import datetime
 
-    from litellm.proxy.management_endpoints.tag_management_endpoints import update_tag
-    from litellm.types.tag_management import TagUpdateRequest
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import update_tag
+    from hangarllm.types.tag_management import TagUpdateRequest
 
     existing_tag: Final = SimpleNamespace(budget_id="budget-1")
     updated_tag: Final = SimpleNamespace(
@@ -512,27 +512,27 @@ async def test_update_tag_clears_or_sets_only_provided_budget_fields(
         PrismaClient,
         SimpleNamespace(
             db=SimpleNamespace(
-                litellm_tagtable=SimpleNamespace(find_unique=find_tag, update=update_tag_row),
-                litellm_proxymodeltable=SimpleNamespace(find_many=find_models),
-                litellm_budgettable=SimpleNamespace(update=update_budget),
+                hangarllm_tagtable=SimpleNamespace(find_unique=find_tag, update=update_tag_row),
+                hangarllm_proxymodeltable=SimpleNamespace(find_many=find_models),
+                hangarllm_budgettable=SimpleNamespace(update=update_budget),
             )
         ),
     )
 
     with (
         patch(  # test-quality-ok: endpoint resolves the fake database through proxy_server
-            "litellm.proxy.proxy_server.prisma_client", mock_prisma
+            "hangarllm.proxy.proxy_server.prisma_client", mock_prisma
         ),
         patch(  # test-quality-ok: endpoint reads the audit actor from proxy_server
-            "litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"
+            "hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"
         ),
         patch(  # test-quality-ok: cache invalidation is outside this budget contract
-            "litellm.proxy.management_endpoints.tag_management_endpoints._evict_tag_cache_keys", new=AsyncMock()
+            "hangarllm.proxy.management_endpoints.tag_management_endpoints._evict_tag_cache_keys", new=AsyncMock()
         ),
     ):
         await update_tag(
             tag=TagUpdateRequest.model_validate({"name": "budget-tag", **budget_fields}),
-            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
 
     if not should_update:
@@ -558,8 +558,8 @@ async def test_update_tag_clears_or_sets_only_provided_budget_fields(
 async def test_update_tag_explicit_null_clears_budget_duration():
     from datetime import datetime
 
-    from litellm.proxy.management_endpoints.tag_management_endpoints import update_tag
-    from litellm.types.tag_management import TagUpdateRequest
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import update_tag
+    from hangarllm.types.tag_management import TagUpdateRequest
 
     budget_state = _BudgetState({"budget_id": "budget-1", "budget_duration": "30d"})
     existing_tag = SimpleNamespace(budget_id="budget-1")
@@ -573,29 +573,29 @@ async def test_update_tag_explicit_null_clears_budget_duration():
     )
     mock_db = Mock()
     mock_prisma = SimpleNamespace(db=mock_db)
-    mock_db.litellm_tagtable.find_unique = AsyncMock(return_value=existing_tag)
-    mock_db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
-    mock_db.litellm_tagtable.update = AsyncMock(return_value=updated_tag)
+    mock_db.hangarllm_tagtable.find_unique = AsyncMock(return_value=existing_tag)
+    mock_db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    mock_db.hangarllm_tagtable.update = AsyncMock(return_value=updated_tag)
 
     async def update_budget(where, data, **_):
         budget_state.store(data)
         return budget_state.row()
 
-    mock_db.litellm_budgettable.update = update_budget
+    mock_db.hangarllm_budgettable.update = update_budget
     with (
         patch(  # test-quality-ok: endpoint resolves the fake database through proxy_server
-            "litellm.proxy.proxy_server.prisma_client", mock_prisma
+            "hangarllm.proxy.proxy_server.prisma_client", mock_prisma
         ),
         patch(  # test-quality-ok: endpoint reads the audit actor from proxy_server
-            "litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"
+            "hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"
         ),
         patch(  # test-quality-ok: cache invalidation is outside this budget contract
-            "litellm.proxy.management_endpoints.tag_management_endpoints._evict_tag_cache_keys", new=AsyncMock()
+            "hangarllm.proxy.management_endpoints.tag_management_endpoints._evict_tag_cache_keys", new=AsyncMock()
         ),
     ):
         await update_tag(
             tag=TagUpdateRequest(name="budget-tag", budget_duration=None),
-            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
 
     assert budget_state.get("budget_duration") is None
@@ -609,16 +609,16 @@ async def test_delete_tag():
     from datetime import datetime
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     mock_user_auth = UserAPIKeyAuth(
         user_id="test-user-123",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
     app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
     try:
-        with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
+        with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
             # Setup prisma mocks
             mock_db = Mock()
             mock_prisma.db = mock_db
@@ -633,10 +633,10 @@ async def test_delete_tag():
             existing_tag.created_by = "user-123"
 
             # Mock find_unique to return existing tag
-            mock_db.litellm_tagtable.find_unique = AsyncMock(return_value=existing_tag)
+            mock_db.hangarllm_tagtable.find_unique = AsyncMock(return_value=existing_tag)
 
             # Mock delete
-            mock_db.litellm_tagtable.delete = AsyncMock(return_value=existing_tag)
+            mock_db.hangarllm_tagtable.delete = AsyncMock(return_value=existing_tag)
 
             # Delete tag data
             delete_data = {"name": "test-tag"}
@@ -650,7 +650,7 @@ async def test_delete_tag():
             assert result["message"] == "Tag test-tag deleted successfully"
 
             # Verify delete was called
-            mock_db.litellm_tagtable.delete.assert_called_once()
+            mock_db.hangarllm_tagtable.delete.assert_called_once()
     finally:
         # Clean up dependency overrides
         app.dependency_overrides.clear()
@@ -672,9 +672,9 @@ def _tag_cache_doubles():
     recording_cache = _RecordingAuthCache()
     mock_publish = AsyncMock()
     with (
-        patch("litellm.proxy.proxy_server.user_api_key_cache", recording_cache),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", recording_cache),
         patch(
-            "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
+            "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
             mock_publish,
         ),
     ):
@@ -697,29 +697,29 @@ async def test_new_tag_invalidates_tag_and_registry_caches():
     from datetime import datetime
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
         user_id="test-user-123",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
     try:
         with (
             _tag_cache_doubles() as (recording_cache, mock_publish),
-            patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
-            patch("litellm.proxy.proxy_server.llm_router"),
+            patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
+            patch("hangarllm.proxy.proxy_server.llm_router"),
             patch(
-                "litellm.proxy.proxy_server.litellm_proxy_admin_name", "default_user_id"
+                "hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "default_user_id"
             ),
             patch(
-                "litellm.proxy.management_endpoints.tag_management_endpoints.get_deployments_by_model"
+                "hangarllm.proxy.management_endpoints.tag_management_endpoints.get_deployments_by_model"
             ) as mock_get_deployments,
         ):
             mock_db = Mock()
             mock_prisma.db = mock_db
-            mock_db.litellm_tagtable.find_unique = AsyncMock(return_value=None)
-            mock_db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
+            mock_db.hangarllm_tagtable.find_unique = AsyncMock(return_value=None)
+            mock_db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
             mock_get_deployments.return_value = []
 
             created_tag = Mock()
@@ -732,7 +732,7 @@ async def test_new_tag_invalidates_tag_and_registry_caches():
             created_tag.created_at = datetime.now()
             created_tag.updated_at = datetime.now()
             created_tag.created_by = "test-user-123"
-            mock_db.litellm_tagtable.create = AsyncMock(return_value=created_tag)
+            mock_db.hangarllm_tagtable.create = AsyncMock(return_value=created_tag)
 
             response = client.post(
                 "/tag/new",
@@ -753,19 +753,19 @@ async def test_update_tag_invalidates_only_the_tag_cache():
     from datetime import datetime
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
         user_id="test-user-123",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
     try:
         with (
             _tag_cache_doubles() as (recording_cache, mock_publish),
-            patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+            patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
             patch(
-                "litellm.proxy.proxy_server.litellm_proxy_admin_name", "default_user_id"
+                "hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "default_user_id"
             ),
         ):
             mock_db = Mock()
@@ -774,8 +774,8 @@ async def test_update_tag_invalidates_only_the_tag_cache():
             existing_tag = Mock()
             existing_tag.tag_name = "cache-tag"
             existing_tag.budget_id = None
-            mock_db.litellm_tagtable.find_unique = AsyncMock(return_value=existing_tag)
-            mock_db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
+            mock_db.hangarllm_tagtable.find_unique = AsyncMock(return_value=existing_tag)
+            mock_db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
 
             updated_tag = Mock()
             updated_tag.tag_name = "cache-tag"
@@ -787,7 +787,7 @@ async def test_update_tag_invalidates_only_the_tag_cache():
             updated_tag.created_at = datetime.now()
             updated_tag.updated_at = datetime.now()
             updated_tag.created_by = "test-user-123"
-            mock_db.litellm_tagtable.update = AsyncMock(return_value=updated_tag)
+            mock_db.hangarllm_tagtable.update = AsyncMock(return_value=updated_tag)
 
             response = client.post(
                 "/tag/update",
@@ -807,25 +807,25 @@ async def test_delete_tag_invalidates_tag_and_registry_caches():
     """Without this a deleted tag keeps its cached budget enforced until the TTL expires."""
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
         user_id="test-user-123",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
     try:
         with (
             _tag_cache_doubles() as (recording_cache, mock_publish),
-            patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+            patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
         ):
             mock_db = Mock()
             mock_prisma.db = mock_db
 
             existing_tag = Mock()
             existing_tag.tag_name = "cache-tag"
-            mock_db.litellm_tagtable.find_unique = AsyncMock(return_value=existing_tag)
-            mock_db.litellm_tagtable.delete = AsyncMock(return_value=existing_tag)
+            mock_db.hangarllm_tagtable.find_unique = AsyncMock(return_value=existing_tag)
+            mock_db.hangarllm_tagtable.delete = AsyncMock(return_value=existing_tag)
 
             response = client.post(
                 "/tag/delete",
@@ -849,16 +849,16 @@ async def test_list_tags_with_dynamic_tags():
     from datetime import datetime
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     mock_user_auth = UserAPIKeyAuth(
         user_id="test-user-123",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
     app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
     try:
-        with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
+        with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
             mock_db = Mock()
             mock_prisma.db = mock_db
 
@@ -873,11 +873,11 @@ async def test_list_tags_with_dynamic_tags():
             stored_tag.created_at = datetime(2025, 1, 1)
             stored_tag.updated_at = datetime(2025, 1, 1)
             stored_tag.created_by = "user-123"
-            stored_tag.litellm_budget_table = None
-            mock_db.litellm_tagtable.find_many = AsyncMock(return_value=[stored_tag])
+            stored_tag.hangarllm_budget_table = None
+            mock_db.hangarllm_tagtable.find_many = AsyncMock(return_value=[stored_tag])
 
             # Setup dynamic tags via group_by — includes one that overlaps with stored
-            mock_db.litellm_dailytagspend.group_by = AsyncMock(
+            mock_db.hangarllm_dailytagspend.group_by = AsyncMock(
                 return_value=[
                     {
                         "tag": "dynamic-tag-1",
@@ -930,16 +930,16 @@ async def test_list_tags_no_dynamic_tags():
     from datetime import datetime
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     mock_user_auth = UserAPIKeyAuth(
         user_id="test-user-123",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
     app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
     try:
-        with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
+        with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
             mock_db = Mock()
             mock_prisma.db = mock_db
 
@@ -953,10 +953,10 @@ async def test_list_tags_no_dynamic_tags():
             stored_tag.created_at = datetime(2025, 1, 1)
             stored_tag.updated_at = datetime(2025, 1, 1)
             stored_tag.created_by = "user-123"
-            stored_tag.litellm_budget_table = None
-            mock_db.litellm_tagtable.find_many = AsyncMock(return_value=[stored_tag])
+            stored_tag.hangarllm_budget_table = None
+            mock_db.hangarllm_tagtable.find_many = AsyncMock(return_value=[stored_tag])
 
-            mock_db.litellm_dailytagspend.group_by = AsyncMock(return_value=[])
+            mock_db.hangarllm_dailytagspend.group_by = AsyncMock(return_value=[])
 
             headers = {"Authorization": "Bearer sk-9876"}
             response = client.get("/tag/list", headers=headers)
@@ -979,26 +979,26 @@ async def test_internal_user_list_tags_only_returns_tags_used_by_their_keys():
     from datetime import datetime
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     mock_user_auth = UserAPIKeyAuth(
         api_key="current-owned-key",
         user_id="internal-user-123",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
     app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
     try:
-        with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
+        with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
             mock_db = Mock()
             mock_prisma.db = mock_db
 
             owned_key_record = Mock()
             owned_key_record.token = "owned-key"
             fake_token_table = FakeVerificationTokenTable([owned_key_record])
-            mock_db.litellm_verificationtoken = fake_token_table
+            mock_db.hangarllm_verificationtoken = fake_token_table
 
-            mock_db.litellm_dailytagspend.group_by = AsyncMock(
+            mock_db.hangarllm_dailytagspend.group_by = AsyncMock(
                 return_value=[
                     {
                         "tag": "stored-owned-tag",
@@ -1023,8 +1023,8 @@ async def test_internal_user_list_tags_only_returns_tags_used_by_their_keys():
             stored_tag.created_at = datetime(2025, 1, 1)
             stored_tag.updated_at = datetime(2025, 1, 1)
             stored_tag.created_by = "admin-user"
-            stored_tag.litellm_budget_table = None
-            mock_db.litellm_tagtable.find_many = AsyncMock(return_value=[stored_tag])
+            stored_tag.hangarllm_budget_table = None
+            mock_db.hangarllm_tagtable.find_many = AsyncMock(return_value=[stored_tag])
 
             response = client.get(
                 "/tag/list",
@@ -1039,7 +1039,7 @@ async def test_internal_user_list_tags_only_returns_tags_used_by_their_keys():
             assert fake_token_table.calls == [
                 {"where": {"user_id": "internal-user-123"}}
             ]
-            mock_db.litellm_dailytagspend.group_by.assert_awaited_once_with(
+            mock_db.hangarllm_dailytagspend.group_by.assert_awaited_once_with(
                 by=["tag"],
                 where={
                     "tag": {"not": None},
@@ -1048,9 +1048,9 @@ async def test_internal_user_list_tags_only_returns_tags_used_by_their_keys():
                 min={"created_at": True},
                 max={"updated_at": True},
             )
-            mock_db.litellm_tagtable.find_many.assert_awaited_once_with(
+            mock_db.hangarllm_tagtable.find_many.assert_awaited_once_with(
                 where={"tag_name": {"in": ["stored-owned-tag", "dynamic-owned-tag"]}},
-                include={"litellm_budget_table": True},
+                include={"hangarllm_budget_table": True},
             )
 
     finally:
@@ -1065,32 +1065,32 @@ async def test_internal_user_list_tags_does_not_500_on_unsupported_prisma_kwarg(
     ``find_many(select={"token": True})``, and the generated prisma client has no
     ``select`` kwarg. This reproduces the reported case exactly: a freshly created
     internal user with no tag spend yet, which must get an empty 200 rather than
-    "LiteLLM_VerificationTokenActions.find_many() got an unexpected keyword
+    "HangarLLM_VerificationTokenActions.find_many() got an unexpected keyword
     argument 'select'".
     """
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     mock_user_auth = UserAPIKeyAuth(
         api_key="new-user-key",
         user_id="brand-new-internal-user",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
     app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
     try:
-        with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
+        with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
             mock_db = Mock()
             mock_prisma.db = mock_db
 
             key_record = Mock()
             key_record.token = "new-user-key"
             fake_token_table = FakeVerificationTokenTable([key_record])
-            mock_db.litellm_verificationtoken = fake_token_table
+            mock_db.hangarllm_verificationtoken = fake_token_table
 
-            mock_db.litellm_dailytagspend.group_by = AsyncMock(return_value=[])
-            mock_db.litellm_tagtable.find_many = AsyncMock(return_value=[])
+            mock_db.hangarllm_dailytagspend.group_by = AsyncMock(return_value=[])
+            mock_db.hangarllm_tagtable.find_many = AsyncMock(return_value=[])
 
             response = client.get(
                 "/tag/list", headers={"Authorization": "Bearer new-user-key"}
@@ -1113,21 +1113,21 @@ async def test_list_tags_with_date_range_filters_dynamic_tags():
     """
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     mock_user_auth = UserAPIKeyAuth(
         user_id="test-user-123",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
     app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
     try:
-        with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
+        with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
             mock_db = Mock()
             mock_prisma.db = mock_db
-            mock_db.litellm_tagtable.find_many = AsyncMock(return_value=[])
+            mock_db.hangarllm_tagtable.find_many = AsyncMock(return_value=[])
             group_by_mock = AsyncMock(return_value=[])
-            mock_db.litellm_dailytagspend.group_by = group_by_mock
+            mock_db.hangarllm_dailytagspend.group_by = group_by_mock
 
             headers = {"Authorization": "Bearer sk-9876"}
             response = client.get(
@@ -1153,19 +1153,19 @@ async def test_internal_user_tag_daily_activity_is_scoped_to_their_keys():
     """
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.management_endpoints.tag_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import (
         get_tag_daily_activity,
     )
 
     mock_user_auth = UserAPIKeyAuth(
         user_id="internal-user-123",
-        user_role=LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+        user_role=HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY,
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+        patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
         patch(
-            "litellm.proxy.management_endpoints.tag_management_endpoints.get_daily_activity",
+            "hangarllm.proxy.management_endpoints.tag_management_endpoints.get_daily_activity",
             new_callable=AsyncMock,
         ) as mock_get_daily_activity,
     ):
@@ -1175,7 +1175,7 @@ async def test_internal_user_tag_daily_activity_is_scoped_to_their_keys():
         owned_key_record = Mock()
         owned_key_record.token = "owned-key"
         fake_token_table = FakeVerificationTokenTable([owned_key_record])
-        mock_db.litellm_verificationtoken = fake_token_table
+        mock_db.hangarllm_verificationtoken = fake_token_table
         mock_get_daily_activity.return_value = "daily-activity-response"
 
         result = await get_tag_daily_activity(
@@ -1200,19 +1200,19 @@ async def test_internal_user_tag_daily_activity_rejects_unowned_api_key_filter(a
     """
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.management_endpoints.tag_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import (
         get_tag_daily_activity,
     )
 
     mock_user_auth = UserAPIKeyAuth(
         user_id="internal-user-123",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+        patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
         patch(
-            "litellm.proxy.management_endpoints.tag_management_endpoints.get_daily_activity",
+            "hangarllm.proxy.management_endpoints.tag_management_endpoints.get_daily_activity",
             new_callable=AsyncMock,
         ) as mock_get_daily_activity,
     ):
@@ -1222,7 +1222,7 @@ async def test_internal_user_tag_daily_activity_rejects_unowned_api_key_filter(a
         owned_key_record = Mock()
         owned_key_record.token = "owned-key"
         fake_token_table = FakeVerificationTokenTable([owned_key_record])
-        mock_db.litellm_verificationtoken = fake_token_table
+        mock_db.hangarllm_verificationtoken = fake_token_table
         result = await get_tag_daily_activity(
             start_date="2025-01-01",
             end_date="2025-01-31",
@@ -1245,27 +1245,27 @@ async def test_internal_user_tag_daily_activity_scopes_to_current_key_without_us
     """
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.management_endpoints.tag_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import (
         get_tag_daily_activity,
     )
 
     mock_user_auth = UserAPIKeyAuth(
         api_key="current-owned-key",
         user_id=None,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+        patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
         patch(
-            "litellm.proxy.management_endpoints.tag_management_endpoints.get_daily_activity",
+            "hangarllm.proxy.management_endpoints.tag_management_endpoints.get_daily_activity",
             new_callable=AsyncMock,
         ) as mock_get_daily_activity,
     ):
         mock_db = Mock()
         mock_prisma.db = mock_db
         fake_token_table = FakeVerificationTokenTable([])
-        mock_db.litellm_verificationtoken = fake_token_table
+        mock_db.hangarllm_verificationtoken = fake_token_table
         mock_get_daily_activity.return_value = "daily-activity-response"
 
         result = await get_tag_daily_activity(
@@ -1290,26 +1290,26 @@ async def test_internal_user_tag_daily_activity_without_any_scoped_keys_returns_
     """
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.management_endpoints.tag_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import (
         get_tag_daily_activity,
     )
 
     mock_user_auth = UserAPIKeyAuth(
         user_id=None,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+        patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
         patch(
-            "litellm.proxy.management_endpoints.tag_management_endpoints.get_daily_activity",
+            "hangarllm.proxy.management_endpoints.tag_management_endpoints.get_daily_activity",
             new_callable=AsyncMock,
         ) as mock_get_daily_activity,
     ):
         mock_db = Mock()
         mock_prisma.db = mock_db
         fake_token_table = FakeVerificationTokenTable([])
-        mock_db.litellm_verificationtoken = fake_token_table
+        mock_db.hangarllm_verificationtoken = fake_token_table
 
         result = await get_tag_daily_activity(
             start_date="2025-01-01",
@@ -1330,16 +1330,16 @@ async def test_get_tag_daily_activity_requires_database_connection():
     Tag daily activity should fail with the same explicit DB error used by other
     tag endpoints instead of raising an AttributeError during scope resolution.
     """
-    from litellm.proxy.management_endpoints.tag_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import (
         get_tag_daily_activity,
     )
 
     mock_user_auth = UserAPIKeyAuth(
         user_id="internal-user-123",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", None):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", None):
         with pytest.raises(HTTPException) as exc_info:
             await get_tag_daily_activity(
                 start_date="2025-01-01",
@@ -1356,21 +1356,21 @@ async def test_list_tags_without_date_range_omits_date_filter():
     """When no date range is passed, the WHERE clause must not carry a date key."""
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     mock_user_auth = UserAPIKeyAuth(
         user_id="test-user-123",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
     app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
     try:
-        with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
+        with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
             mock_db = Mock()
             mock_prisma.db = mock_db
-            mock_db.litellm_tagtable.find_many = AsyncMock(return_value=[])
+            mock_db.hangarllm_tagtable.find_many = AsyncMock(return_value=[])
             group_by_mock = AsyncMock(return_value=[])
-            mock_db.litellm_dailytagspend.group_by = group_by_mock
+            mock_db.hangarllm_dailytagspend.group_by = group_by_mock
 
             headers = {"Authorization": "Bearer sk-9876"}
             response = client.get("/tag/list", headers=headers)
@@ -1397,20 +1397,20 @@ async def test_list_tags_without_date_range_omits_date_filter():
 async def test_list_tags_rejects_invalid_date_range(query, expected_detail_fragment):
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     mock_user_auth = UserAPIKeyAuth(
         user_id="test-user-123",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
     app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
     try:
-        with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
+        with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
             mock_db = Mock()
             mock_prisma.db = mock_db
-            mock_db.litellm_tagtable.find_many = AsyncMock(return_value=[])
-            mock_db.litellm_dailytagspend.group_by = AsyncMock(return_value=[])
+            mock_db.hangarllm_tagtable.find_many = AsyncMock(return_value=[])
+            mock_db.hangarllm_dailytagspend.group_by = AsyncMock(return_value=[])
 
             headers = {"Authorization": "Bearer sk-9876"}
             response = client.get(f"/tag/list{query}", headers=headers)
@@ -1429,10 +1429,10 @@ async def test_get_deployments_by_model_id():
     """
     from unittest.mock import Mock
 
-    from litellm.proxy.management_endpoints.tag_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import (
         get_deployments_by_model,
     )
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
     # Create a mock router
     mock_router = Mock()
@@ -1440,7 +1440,7 @@ async def test_get_deployments_by_model_id():
     # Setup mock to return deployment by model_id
     mock_deployment = Deployment(
         model_name="gpt-3.5-turbo",
-        litellm_params=LiteLLM_Params(model="gpt-3.5-turbo"),
+        hangarllm_params=HangarLLM_Params(model="gpt-3.5-turbo"),
         model_info=ModelInfo(),
     )
     mock_router.registry.return_value.deployment.return_value = mock_deployment
@@ -1459,10 +1459,10 @@ async def test_get_deployments_by_model_name():
     """
     from unittest.mock import Mock
 
-    from litellm.proxy.management_endpoints.tag_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import (
         get_deployments_by_model,
     )
-    from litellm.types.router import Deployment
+    from hangarllm.types.router import Deployment
 
     # Create a mock router
     mock_router = Mock()
@@ -1472,7 +1472,7 @@ async def test_get_deployments_by_model_name():
     mock_router.registry.return_value.deployments.return_value = [
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "test-key"},
+            "hangarllm_params": {"model": "gpt-3.5-turbo", "api_key": "test-key"},
             "model_info": {"id": "model-1", "description": "Test model"},
         }
     ]
@@ -1493,7 +1493,7 @@ async def test_get_deployments_by_model_not_found():
     """
     from unittest.mock import Mock
 
-    from litellm.proxy.management_endpoints.tag_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import (
         get_deployments_by_model,
     )
 
@@ -1519,12 +1519,12 @@ async def test_add_tag_to_deployment_preserves_encrypted_fields():
     """
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.management_endpoints.tag_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import (
         _add_tag_to_deployment,
     )
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
-    with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
+    with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
         # Setup prisma mocks
         mock_db = Mock()
         mock_prisma.db = mock_db
@@ -1532,7 +1532,7 @@ async def test_add_tag_to_deployment_preserves_encrypted_fields():
         # Mock the database model with encrypted fields
         db_model = Mock()
         db_model.model_id = "model-123"
-        db_model.litellm_params = {
+        db_model.hangarllm_params = {
             "model": "gpt-3.5-turbo",
             "api_key": "encrypted_api_key_value",  # This should be preserved
             "api_base": "https://api.openai.com",
@@ -1540,15 +1540,15 @@ async def test_add_tag_to_deployment_preserves_encrypted_fields():
         }
 
         # Mock find_unique to return the db model
-        mock_db.litellm_proxymodeltable.find_unique = AsyncMock(return_value=db_model)
+        mock_db.hangarllm_proxymodeltable.find_unique = AsyncMock(return_value=db_model)
 
         # Mock update
-        mock_db.litellm_proxymodeltable.update = AsyncMock(return_value=db_model)
+        mock_db.hangarllm_proxymodeltable.update = AsyncMock(return_value=db_model)
 
         # Create deployment
         deployment = Deployment(
             model_name="gpt-3.5-turbo",
-            litellm_params=LiteLLM_Params(model="gpt-3.5-turbo"),
+            hangarllm_params=HangarLLM_Params(model="gpt-3.5-turbo"),
             model_info=ModelInfo(id="model-123"),
         )
 
@@ -1556,16 +1556,16 @@ async def test_add_tag_to_deployment_preserves_encrypted_fields():
         await _add_tag_to_deployment(deployment, "test-tag")
 
         # Verify find_unique was called
-        mock_db.litellm_proxymodeltable.find_unique.assert_called_once_with(
+        mock_db.hangarllm_proxymodeltable.find_unique.assert_called_once_with(
             where={"model_id": "model-123"}
         )
 
         # Verify update was called with preserved encrypted fields
-        update_call = mock_db.litellm_proxymodeltable.update.call_args
+        update_call = mock_db.hangarllm_proxymodeltable.update.call_args
         assert update_call[1]["where"] == {"model_id": "model-123"}
 
-        # Parse the updated litellm_params
-        updated_params = json.loads(update_call[1]["data"]["litellm_params"])
+        # Parse the updated hangarllm_params
+        updated_params = json.loads(update_call[1]["data"]["hangarllm_params"])
 
         # Verify tag was added
         assert "tags" in updated_params
@@ -1581,24 +1581,24 @@ async def test_add_tag_to_deployment_preserves_encrypted_fields():
 @pytest.mark.asyncio
 async def test_add_tag_to_deployment_with_string_params():
     """
-    Test that _add_tag_to_deployment handles string litellm_params correctly
+    Test that _add_tag_to_deployment handles string hangarllm_params correctly
     """
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.management_endpoints.tag_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import (
         _add_tag_to_deployment,
     )
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
-    with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
+    with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
         # Setup prisma mocks
         mock_db = Mock()
         mock_prisma.db = mock_db
 
-        # Mock the database model with litellm_params as string
+        # Mock the database model with hangarllm_params as string
         db_model = Mock()
         db_model.model_id = "model-456"
-        db_model.litellm_params = json.dumps(
+        db_model.hangarllm_params = json.dumps(
             {
                 "model": "claude-3",
                 "api_key": "encrypted_claude_key",
@@ -1606,15 +1606,15 @@ async def test_add_tag_to_deployment_with_string_params():
         )
 
         # Mock find_unique to return the db model
-        mock_db.litellm_proxymodeltable.find_unique = AsyncMock(return_value=db_model)
+        mock_db.hangarllm_proxymodeltable.find_unique = AsyncMock(return_value=db_model)
 
         # Mock update
-        mock_db.litellm_proxymodeltable.update = AsyncMock(return_value=db_model)
+        mock_db.hangarllm_proxymodeltable.update = AsyncMock(return_value=db_model)
 
         # Create deployment
         deployment = Deployment(
             model_name="claude-3",
-            litellm_params=LiteLLM_Params(model="claude-3"),
+            hangarllm_params=HangarLLM_Params(model="claude-3"),
             model_info=ModelInfo(id="model-456"),
         )
 
@@ -1622,8 +1622,8 @@ async def test_add_tag_to_deployment_with_string_params():
         await _add_tag_to_deployment(deployment, "test-tag-2")
 
         # Verify update was called
-        update_call = mock_db.litellm_proxymodeltable.update.call_args
-        updated_params = json.loads(update_call[1]["data"]["litellm_params"])
+        update_call = mock_db.hangarllm_proxymodeltable.update.call_args
+        updated_params = json.loads(update_call[1]["data"]["hangarllm_params"])
 
         # Verify tag was added and encrypted field preserved
         assert "tags" in updated_params
@@ -1638,12 +1638,12 @@ async def test_add_tag_to_deployment_no_duplicate_tags():
     """
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.management_endpoints.tag_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import (
         _add_tag_to_deployment,
     )
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
-    with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
+    with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
         # Setup prisma mocks
         mock_db = Mock()
         mock_prisma.db = mock_db
@@ -1651,22 +1651,22 @@ async def test_add_tag_to_deployment_no_duplicate_tags():
         # Mock the database model with existing tags
         db_model = Mock()
         db_model.model_id = "model-789"
-        db_model.litellm_params = {
+        db_model.hangarllm_params = {
             "model": "gpt-4",
             "api_key": "encrypted_key",
             "tags": ["existing-tag", "another-tag"],
         }
 
         # Mock find_unique to return the db model
-        mock_db.litellm_proxymodeltable.find_unique = AsyncMock(return_value=db_model)
+        mock_db.hangarllm_proxymodeltable.find_unique = AsyncMock(return_value=db_model)
 
         # Mock update
-        mock_db.litellm_proxymodeltable.update = AsyncMock(return_value=db_model)
+        mock_db.hangarllm_proxymodeltable.update = AsyncMock(return_value=db_model)
 
         # Create deployment
         deployment = Deployment(
             model_name="gpt-4",
-            litellm_params=LiteLLM_Params(model="gpt-4"),
+            hangarllm_params=HangarLLM_Params(model="gpt-4"),
             model_info=ModelInfo(id="model-789"),
         )
 
@@ -1674,8 +1674,8 @@ async def test_add_tag_to_deployment_no_duplicate_tags():
         await _add_tag_to_deployment(deployment, "existing-tag")
 
         # Verify update was called
-        update_call = mock_db.litellm_proxymodeltable.update.call_args
-        updated_params = json.loads(update_call[1]["data"]["litellm_params"])
+        update_call = mock_db.hangarllm_proxymodeltable.update.call_args
+        updated_params = json.loads(update_call[1]["data"]["hangarllm_params"])
 
         # Verify no duplicate tags
         assert updated_params["tags"].count("existing-tag") == 1
@@ -1690,23 +1690,23 @@ async def test_add_tag_to_deployment_model_not_found():
     """
     from unittest.mock import AsyncMock, Mock
 
-    from litellm.proxy.management_endpoints.tag_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.tag_management_endpoints import (
         _add_tag_to_deployment,
     )
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
-    with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
+    with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
         # Setup prisma mocks
         mock_db = Mock()
         mock_prisma.db = mock_db
 
         # Mock find_unique to return None (model not found)
-        mock_db.litellm_proxymodeltable.find_unique = AsyncMock(return_value=None)
+        mock_db.hangarllm_proxymodeltable.find_unique = AsyncMock(return_value=None)
 
         # Create deployment
         deployment = Deployment(
             model_name="nonexistent-model",
-            litellm_params=LiteLLM_Params(model="nonexistent-model"),
+            hangarllm_params=HangarLLM_Params(model="nonexistent-model"),
             model_info=ModelInfo(id="model-999"),
         )
 
@@ -1733,7 +1733,7 @@ class _StoredTagTable:
                 created_at=datetime(2025, 1, 1),
                 updated_at=datetime(2025, 1, 2),
                 created_by="user-123",
-                litellm_budget_table=None,
+                hangarllm_budget_table=None,
             )
         ]
 
@@ -1754,21 +1754,21 @@ class _NoDynamicTagSpend:
 def test_tag_info_and_tag_list_return_the_stored_model_info_decoded(
     monkeypatch, stored_model_info, returned_model_info
 ):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     monkeypatch.setattr(
         proxy_server,
         "prisma_client",
         SimpleNamespace(
             db=SimpleNamespace(
-                litellm_tagtable=_StoredTagTable(stored_model_info),
-                litellm_dailytagspend=_NoDynamicTagSpend(),
+                hangarllm_tagtable=_StoredTagTable(stored_model_info),
+                hangarllm_dailytagspend=_NoDynamicTagSpend(),
             )
         ),
     )
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_id="test-user-123", user_role=LitellmUserRoles.PROXY_ADMIN
+        user_id="test-user-123", user_role=HangarllmUserRoles.PROXY_ADMIN
     )
     try:
         info_response = client.post("/tag/info", json={"names": ["routed-tag"]})

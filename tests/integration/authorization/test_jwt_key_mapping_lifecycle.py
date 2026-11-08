@@ -29,12 +29,12 @@ from tests.integration._support.database import read_rows, write_rows
 from tests.integration._support.process import owned_proxy
 from tests.integration._support.wire import Reply, Request, Wire, wire_server
 
-_AUDIENCE: Final = "litellm-integration"
+_AUDIENCE: Final = "hangarllm-integration"
 _CLIENT_CLAIM: Final = "client_id"
 _END_USER_CLAIM: Final = "eu"
 _KEY_ID: Final = "integration-signing-key"
 _UPSTREAM_KEY: Final = "synthetic-openai-key"
-_CHANNEL: Final = "litellm_proxy.auth_cache_invalidation"
+_CHANNEL: Final = "hangarllm_proxy.auth_cache_invalidation"
 _CHAT_BODY: Final = TypeAdapter(dict[str, JsonValue])
 pytestmark: Final = [pytest.mark.timeout(180), pytest.mark.shares_worker_state]
 
@@ -152,7 +152,7 @@ def _proxy_config(
                 "model_list": (
                     {
                         "model_name": model,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": f"openai/{model}",
                             "api_base": f"{upstream_url}/v1",
                             "api_key": _UPSTREAM_KEY,
@@ -160,21 +160,21 @@ def _proxy_config(
                     },
                 ),
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                     "disable_model_info_refresh": True,
                     "proxy_batch_write_at": 1,
                     "proxy_batch_polling_interval": 1,
                     "enable_jwt_auth": True,
-                    "litellm_jwtauth": {
+                    "hangarllm_jwtauth": {
                         "user_id_jwt_field": "sub",
                         "virtual_key_claim_field": _CLIENT_CLAIM,
                         "unregistered_jwt_client_behavior": "reject",
                         **({"issuers": issuers} if issuers else {}),
                     },
                 },
-                "litellm_settings": {
+                "hangarllm_settings": {
                     "enable_redis_auth_cache": True,
                     "cache": True,
                     "cache_params": {
@@ -341,7 +341,7 @@ def _assert_chat(gateway: Gateway, model: str, token: str, prompt: str, key_hash
     spend: Final = TypeAdapter(tuple[_SpendRow, ...]).validate_python(
         eventually(
             lambda: read_rows(
-                'SELECT api_key FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                'SELECT api_key FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                 (payload.id,),
             ),
             lambda rows: len(rows) == 1,
@@ -386,7 +386,7 @@ def _create_mapping(
 
 def _delete_mapping_if_present(gateway: Gateway, identity: str) -> None:
     rows: Final = TypeAdapter(tuple[_MappingIdRow, ...]).validate_python(
-        read_rows('SELECT id FROM "LiteLLM_JWTKeyMapping" WHERE id=%s', (identity,))
+        read_rows('SELECT id FROM "HangarLLM_JWTKeyMapping" WHERE id=%s', (identity,))
     )
     if not rows:
         return
@@ -410,7 +410,7 @@ def _mapping_info(gateway: Gateway, identity: str) -> _JWTMappingResponse:
 def _mapping_row(gateway: Gateway, identity: str) -> _JWTMappingRow:
     rows: Final = TypeAdapter(tuple[_JWTMappingRow, ...]).validate_python(
         read_rows(
-            'SELECT id, token, jwt_issuer, is_active FROM "LiteLLM_JWTKeyMapping" WHERE id=%s',
+            'SELECT id, token, jwt_issuer, is_active FROM "HangarLLM_JWTKeyMapping" WHERE id=%s',
             (identity,),
         )
     )
@@ -420,7 +420,7 @@ def _mapping_row(gateway: Gateway, identity: str) -> _JWTMappingRow:
 
 def _spend_count(gateway: Gateway, key_hash: str) -> int:
     rows: Final = TypeAdapter(tuple[_CountRow, ...]).validate_python(
-        read_rows('SELECT count(*) AS count FROM "LiteLLM_SpendLogs" WHERE api_key=%s', (key_hash,))
+        read_rows('SELECT count(*) AS count FROM "HangarLLM_SpendLogs" WHERE api_key=%s', (key_hash,))
     )
     assert len(rows) == 1
     return rows[0].count
@@ -733,7 +733,7 @@ def test_deleting_a_jwt_mapped_key_stops_its_mapping_on_both_workers(
         deletion: Final = first.request("POST", "/key/delete", {"keys": [key]})
         assert deletion.status_code == 200, deletion.text
         assert _DeleteResponse.model_validate_json(deletion.content).deleted_keys == (key,), deletion.text
-        assert read_rows('SELECT id FROM "LiteLLM_JWTKeyMapping" WHERE id=%s', (mapping.id,)) == []
+        assert read_rows('SELECT id FROM "HangarLLM_JWTKeyMapping" WHERE id=%s', (mapping.id,)) == []
         second_refusal: Final = eventually(
             lambda: _chat(second, model, token, prompts[2]),
             lambda response: response.status_code == 403,
@@ -773,8 +773,8 @@ def test_a_cached_mapping_to_a_key_row_that_is_gone_answers_the_generic_401_on_b
 
         update: Final = first.request("POST", "/key/update", {"key": key, "metadata": {"rotated": "out-of-band"}})
         assert update.status_code == 200, update.text
-        write_rows('DELETE FROM "LiteLLM_VerificationToken" WHERE token=%s', (key_hash,))
-        assert read_rows('SELECT id FROM "LiteLLM_JWTKeyMapping" WHERE id=%s', (mapping.id,)) == []
+        write_rows('DELETE FROM "HangarLLM_VerificationToken" WHERE token=%s', (key_hash,))
+        assert read_rows('SELECT id FROM "HangarLLM_JWTKeyMapping" WHERE id=%s', (mapping.id,)) == []
 
         second_refusal: Final = eventually(
             lambda: _chat(second, model, token, prompts[3]),
@@ -844,7 +844,7 @@ def test_issuer_scoped_mappings_with_the_same_claim_resolve_per_issuer(
         )
         rows: Final = TypeAdapter(tuple[_JWTMappingRow, ...]).validate_python(
             read_rows(
-                'SELECT id, token, jwt_issuer, is_active FROM "LiteLLM_JWTKeyMapping" '
+                'SELECT id, token, jwt_issuer, is_active FROM "HangarLLM_JWTKeyMapping" '
                 "WHERE jwt_claim_name=%s AND jwt_claim_value=%s ORDER BY jwt_issuer",
                 (_CLIENT_CLAIM, client_id),
             )
@@ -950,7 +950,7 @@ def _end_user_claim_config(directory: Path, model: str, upstream_url: str) -> Pa
                 "model_list": (
                     {
                         "model_name": model,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-4o-mini",
                             "api_base": f"{upstream_url}/v1",
                             "api_key": "integration-provider-key",
@@ -960,14 +960,14 @@ def _end_user_claim_config(directory: Path, model: str, upstream_url: str) -> Pa
                     },
                 ),
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                     "disable_model_info_refresh": True,
                     "proxy_batch_write_at": 1,
                     "proxy_batch_polling_interval": 1,
                     "enable_jwt_auth": True,
-                    "litellm_jwtauth": {
+                    "hangarllm_jwtauth": {
                         "user_id_jwt_field": "sub",
                         "user_id_upsert": True,
                         "virtual_key_claim_field": _CLIENT_CLAIM,
@@ -1014,7 +1014,7 @@ def _end_user_chat(
             **({"user": body_user} if body_user is not None else {}),
         },
         key=token,
-        headers={"x-litellm-end-user-id": header_user} if header_user is not None else None,
+        headers={"x-hangarllm-end-user-id": header_user} if header_user is not None else None,
     )
 
 
@@ -1023,7 +1023,7 @@ def _billed_end_user(response: httpx.Response) -> _EndUserSpendRow:
     identity: Final = _ChatResponse.model_validate_json(response.content).id
     rows: Final = TypeAdapter(tuple[_EndUserSpendRow, ...]).validate_python(
         eventually(
-            lambda: read_rows('SELECT api_key, end_user FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (identity,)),
+            lambda: read_rows('SELECT api_key, end_user FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (identity,)),
             lambda values: len(values) == 1,
             seconds=70,
         )
@@ -1032,7 +1032,7 @@ def _billed_end_user(response: httpx.Response) -> _EndUserSpendRow:
 
 
 def _customer_ids(user_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT user_id FROM "LiteLLM_EndUserTable" WHERE user_id=%s', (user_id,))
+    return read_rows('SELECT user_id FROM "HangarLLM_EndUserTable" WHERE user_id=%s', (user_id,))
 
 
 def _delete_customer_if_present(gateway: Gateway, user_id: str) -> None:
@@ -1044,12 +1044,12 @@ def _delete_customer_if_present(gateway: Gateway, user_id: str) -> None:
 
 def _forget_auto_registered_client(client_id: str, subject: str) -> None:
     write_rows(
-        'DELETE FROM "LiteLLM_VerificationToken" WHERE token IN '
-        '(SELECT token FROM "LiteLLM_JWTKeyMapping" WHERE jwt_claim_value = %s)',
+        'DELETE FROM "HangarLLM_VerificationToken" WHERE token IN '
+        '(SELECT token FROM "HangarLLM_JWTKeyMapping" WHERE jwt_claim_value = %s)',
         (client_id,),
     )
-    write_rows('DELETE FROM "LiteLLM_JWTKeyMapping" WHERE jwt_claim_value = %s', (client_id,))
-    write_rows('DELETE FROM "LiteLLM_UserTable" WHERE user_id = %s', (subject,))
+    write_rows('DELETE FROM "HangarLLM_JWTKeyMapping" WHERE jwt_claim_value = %s', (client_id,))
+    write_rows('DELETE FROM "HangarLLM_UserTable" WHERE user_id = %s', (subject,))
 
 
 def test_a_mapped_jwt_bills_and_registers_its_end_user_claim(end_user_claims: _EndUserClaimRuntime) -> None:
@@ -1128,7 +1128,7 @@ def test_an_auto_registered_client_keeps_its_end_user_claim_after_the_first_requ
         mapped: Final = _billed_end_user(_end_user_chat(end_user_claims, token))
 
         mappings: Final = read_rows(
-            'SELECT token FROM "LiteLLM_JWTKeyMapping" WHERE jwt_claim_name=%s AND jwt_claim_value=%s',
+            'SELECT token FROM "HangarLLM_JWTKeyMapping" WHERE jwt_claim_name=%s AND jwt_claim_value=%s',
             (_CLIENT_CLAIM, client_id),
         )
         assert len(mappings) == 1, mappings

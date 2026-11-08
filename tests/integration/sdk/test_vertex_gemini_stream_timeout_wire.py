@@ -13,8 +13,8 @@ import pytest
 from integration._support.vertex import service_account_json
 from integration._support.wire import Reply, Request, Wire, wire_server
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
 
 _MODEL: Final = "gemini-3.8-flash"
 _PROJECT: Final = "scripted-project"
@@ -80,7 +80,7 @@ def _text_of(chunk: object) -> str:
 
 
 def _complete_sync(route: str, wire: Wire, stream: bool) -> str:
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         **_deployment(route, wire), messages=_MESSAGES, stream=stream, timeout=_REQUEST_TIMEOUT_SECONDS
     )
     if stream:
@@ -89,7 +89,7 @@ def _complete_sync(route: str, wire: Wire, stream: bool) -> str:
 
 
 async def _complete_async(route: str, wire: Wire, stream: bool) -> str:
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         **_deployment(route, wire), messages=_MESSAGES, stream=stream, timeout=_REQUEST_TIMEOUT_SECONDS
     )
     if stream:
@@ -136,7 +136,7 @@ def test_stalled_stream_raises_at_the_request_timeout(client: str, route: str) -
 def test_stalled_body_raises_at_the_request_timeout(client: str) -> None:
     with wire_server(_peer(_body_that_stalls_half_way())) as wire:
         started: Final = time.monotonic()
-        with pytest.raises(litellm.Timeout):
+        with pytest.raises(hangarllm.Timeout):
             _before_the_hang_deadline(lambda: _complete(client, "vertex_ai", wire, stream=False))
         assert time.monotonic() - started >= _REQUEST_TIMEOUT_SECONDS
 

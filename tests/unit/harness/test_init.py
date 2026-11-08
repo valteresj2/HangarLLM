@@ -1,11 +1,11 @@
-"""Tests for litellm/harness/__init__.py: the public API surface."""
+"""Tests for hangarllm/harness/__init__.py: the public API surface."""
 
 from __future__ import annotations
 
 
-from litellm import harness
-from tests.test_litellm_rust.support.child_interpreter import run_child_interpreter
-from litellm.utils import ProviderConfigManager
+from hangarllm import harness
+from tests.test_hangarllm_rust.support.child_interpreter import run_child_interpreter
+from hangarllm.utils import ProviderConfigManager
 
 PUBLIC_NAMES = [
     "Harness",
@@ -56,9 +56,9 @@ ERROR_NAMES = [
     "OutputInvalid",
 ]
 LAZY_IMPORT_CHECK = (
-    "import sys, litellm\n"
-    "assert 'litellm.harness' not in sys.modules\n"
-    "h = litellm.harness\n"
+    "import sys, hangarllm\n"
+    "assert 'hangarllm.harness' not in sys.modules\n"
+    "h = hangarllm.harness\n"
     "assert h.Harness.CODEX.value == 'codex'\n"
     "assert 'starlette' not in sys.modules and 'uvicorn' not in sys.modules\n"
     "print('ok')\n"
@@ -76,7 +76,7 @@ def test_errors_share_base_class():
         assert issubclass(getattr(harness, name), harness.HarnessError)
 
 
-def test_litellm_harness_attribute_is_lazy():
+def test_hangarllm_harness_attribute_is_lazy():
     out = run_child_interpreter(LAZY_IMPORT_CHECK, timeout=120)
     assert out.returncode == 0, out.stderr
     assert out.stdout.strip() == "ok"
@@ -88,12 +88,12 @@ def test_adapter_registry_paths_cover_every_harness():
         assert config is not None and config.harness is member
 
 
-def test_litellm_agent_is_top_level_and_lazy():
+def test_hangarllm_agent_is_top_level_and_lazy():
     code = (
-        "import sys, litellm; assert 'litellm.harness' not in sys.modules; "
-        "assert litellm.agent is litellm.harness.agent; "
-        "assert litellm.Harness.CODEX.value == 'codex'; "
-        "assert litellm.ToolLoopOptions is litellm.harness.ToolLoopOptions"
+        "import sys, hangarllm; assert 'hangarllm.harness' not in sys.modules; "
+        "assert hangarllm.agent is hangarllm.harness.agent; "
+        "assert hangarllm.Harness.CODEX.value == 'codex'; "
+        "assert hangarllm.ToolLoopOptions is hangarllm.harness.ToolLoopOptions"
     )
     out = run_child_interpreter(code, timeout=120)
     assert out.returncode == 0, out.stderr

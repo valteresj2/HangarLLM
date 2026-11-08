@@ -7,8 +7,8 @@ import requests
 
 import responses
 
-from litellm.proxy.client import Client, ModelGroupsManagementClient
-from litellm.proxy.client.exceptions import UnauthorizedError
+from hangarllm.proxy.client import Client, ModelGroupsManagementClient
+from hangarllm.proxy.client.exceptions import UnauthorizedError
 
 
 @pytest.fixture
@@ -81,12 +81,12 @@ def test_info_with_mock_response(client):
             {
                 "model_group_name": "gpt4-group",
                 "models": ["gpt-4", "gpt-4-32k"],
-                "litellm_params": {"timeout": 30, "max_retries": 3},
+                "hangarllm_params": {"timeout": 30, "max_retries": 3},
             },
             {
                 "model_group_name": "azure-group",
                 "models": ["azure-gpt-4", "azure-gpt-35"],
-                "litellm_params": {
+                "hangarllm_params": {
                     "api_base": "https://azure-endpoint.com",
                     "api_version": "2023-05-15",
                 },

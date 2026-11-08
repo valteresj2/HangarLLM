@@ -9,9 +9,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.router_core import RouterCore
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.router_core import RouterCore
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment, rate_limit, server_error
 from tests.unit.test_router.core.streaming_helpers import (
     MESSAGE_START,
@@ -53,7 +53,7 @@ async def test_a_raised_mid_stream_error_not_before_the_first_chunk_flushes_held
     core: Final = make_core(model_list=GROUPS_AB, fallbacks=[{"a": ["b"]}], num_retries=0)
     stream: Final = await _open(core)
     seen: Final[list[object]] = []
-    with pytest.raises(litellm.RateLimitError, match="bridge original"):
+    with pytest.raises(hangarllm.RateLimitError, match="bridge original"):
         await drain_into(stream, seen)
     assert seen == [MESSAGE_START]
     assert host.deployments_called() == ["a"]
@@ -84,7 +84,7 @@ async def test_a_stream_retry_that_raises_before_opening_spends_a_retry_and_the_
     assert host.deployments_called() == ["a", "a", "a"]
     assert len(host.sleeps) == 2
     headers: Final = getattr(stream, "_hidden_params")["additional_headers"]
-    assert (headers["x-litellm-attempted-retries"], headers["x-litellm-max-retries"]) == (2, 2)
+    assert (headers["x-hangarllm-attempted-retries"], headers["x-hangarllm-max-retries"]) == (2, 2)
 
 
 async def test_a_request_retry_policy_that_is_not_a_retry_policy_streams_with_the_plain_budget(
@@ -100,4 +100,4 @@ async def test_a_request_retry_policy_that_is_not_a_retry_policy_streams_with_th
     frames: Final = await collect_bytes(stream)
     assert frames == [MESSAGE_START, text_delta("A"), MESSAGE_STOP]
     assert host.deployments_called() == ["a", "a"]
-    assert getattr(stream, "_hidden_params")["additional_headers"]["x-litellm-max-retries"] == 1
+    assert getattr(stream, "_hidden_params")["additional_headers"]["x-hangarllm-max-retries"] == 1

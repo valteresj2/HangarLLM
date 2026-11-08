@@ -35,7 +35,7 @@ def _data(gateway: Gateway, path: str, key: str, params: dict[str, str] | None =
 
 def _verification_row(key: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT user_id FROM "LiteLLM_VerificationToken" WHERE token = %s',
+        'SELECT user_id FROM "HangarLLM_VerificationToken" WHERE token = %s',
         (sha256(key.encode()).hexdigest(),),
     )
 

@@ -3,8 +3,8 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.rust_bridge import failures
+import hangarllm
+from hangarllm.rust_bridge import failures
 
 
 class UpstreamRateLimited(Exception):
@@ -17,7 +17,7 @@ def test_upstream_status_maps_onto_the_public_exception_contract() -> None:
 
     mapped: Final = failures.map_failure(upstream, "anthropic/claude-sonnet-4-5", "anthropic", MappingProxyType({}))
 
-    assert isinstance(mapped, litellm.RateLimitError)
+    assert isinstance(mapped, hangarllm.RateLimitError)
     assert mapped.llm_provider == "anthropic"
     assert mapped.model == "claude-sonnet-4-5"
 
@@ -26,7 +26,7 @@ def test_mapper_failure_keeps_the_native_error_as_context(monkeypatch: pytest.Mo
     def explode(**_kwargs: object) -> Exception:
         raise ValueError("mapper broke")
 
-    monkeypatch.setattr(litellm, "exception_type", explode)
+    monkeypatch.setattr(hangarllm, "exception_type", explode)
     native_error: Final = RuntimeError("native")
 
     mapped: Final = failures.map_failure(native_error, "mistral/mistral-ocr-latest", "mistral", MappingProxyType({}))
@@ -42,7 +42,7 @@ def test_kwargs_are_handed_to_the_mapper_as_owned_copies(monkeypatch: pytest.Mon
         seen.append(dict(kwargs))
         return RuntimeError("mapped")
 
-    monkeypatch.setattr(litellm, "exception_type", record)
+    monkeypatch.setattr(hangarllm, "exception_type", record)
     request_kwargs: Final = MappingProxyType({"metadata": {"user_id": "u"}})
 
     failures.map_failure(RuntimeError("native"), "gpt-4o", "openai", request_kwargs)

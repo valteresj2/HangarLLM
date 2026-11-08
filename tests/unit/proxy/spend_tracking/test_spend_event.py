@@ -4,10 +4,10 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.caching.caching import Cache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.spend_tracking.spend_event import (
+import hangarllm
+from hangarllm.caching.caching import Cache
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.spend_tracking.spend_event import (
     CACHE_OFF_KEY,
     SpendEventBuildError,
     SpendEventDecodeError,
@@ -16,7 +16,7 @@ from litellm.proxy.spend_tracking.spend_event import (
     is_offloadable_success,
     spend_event_callback_args,
 )
-from litellm.types.utils import LiteLLMBatch, ModelResponse, Usage
+from hangarllm.types.utils import HangarLLMBatch, ModelResponse, Usage
 
 _BIG_PROMPT: Final = "x" * 20_000
 _RESERVATION: Final = {
@@ -50,7 +50,7 @@ def _response(tool_name: str | None = None) -> ModelResponse:
 
 def _success_kwargs(preset_cache_key: str | None = "preset-key") -> dict:
     return {
-        "litellm_call_id": "call-1",
+        "hangarllm_call_id": "call-1",
         "call_type": "acompletion",
         "model": "gpt-4o",
         "custom_llm_provider": "openai",
@@ -60,7 +60,7 @@ def _success_kwargs(preset_cache_key: str | None = "preset-key") -> dict:
         "completion_start_time": datetime(2026, 1, 1, 0, 0, 1),
         "messages": [{"role": "user", "content": _BIG_PROMPT}],
         "tools": [{"type": "function", "function": {"name": "get_weather", "parameters": {"type": "object"}}}],
-        "litellm_params": {
+        "hangarllm_params": {
             "api_base": "https://api.openai.com",
             "preset_cache_key": preset_cache_key,
             "proxy_server_request": {"body": {"messages": [{"role": "user", "content": _BIG_PROMPT}]}},
@@ -74,7 +74,7 @@ def _success_kwargs(preset_cache_key: str | None = "preset-key") -> dict:
                 "model_group": "gpt-4o",
                 "model_info": {"id": "deployment-1"},
                 "tags": ["tag-a"],
-                "litellm_parent_otel_span": object(),
+                "hangarllm_parent_otel_span": object(),
             },
         },
         "standard_logging_object": {
@@ -87,7 +87,7 @@ def _success_kwargs(preset_cache_key: str | None = "preset-key") -> dict:
             "response": {"choices": [{"message": {"content": "y" * 20_000}}]},
             "model_parameters": {"temperature": 0.1},
             "metadata": {"user_api_key_hash": "hash-1", "usage_object": {"prompt_tokens": 5000}},
-            "hidden_params": {"litellm_overhead_time_ms": 3},
+            "hidden_params": {"hangarllm_overhead_time_ms": 3},
             "model_map_information": {},
         },
     }
@@ -110,7 +110,7 @@ def test_event_is_compact_and_omits_bodies_by_default():
     decoded: Final = json.loads(line)
     assert "messages" not in decoded["standard_logging_object"]
     assert "response" not in decoded["standard_logging_object"]
-    assert decoded["litellm_params"]["proxy_server_request"] is None
+    assert decoded["hangarllm_params"]["proxy_server_request"] is None
 
 
 def test_event_carries_bodies_when_spend_logs_store_them():
@@ -118,7 +118,7 @@ def test_event_carries_bodies_when_spend_logs_store_them():
     decoded: Final = json.loads(line)
     assert decoded["standard_logging_object"]["messages"][0]["content"] == _BIG_PROMPT
     assert decoded["standard_logging_object"]["response"]["choices"][0]["message"]["content"] == "y" * 20_000
-    assert decoded["litellm_params"]["proxy_server_request"]["body"]["messages"][0]["content"] == _BIG_PROMPT
+    assert decoded["hangarllm_params"]["proxy_server_request"]["body"]["messages"][0]["content"] == _BIG_PROMPT
 
 
 def test_round_trip_preserves_identity_usage_reservation_and_tools():
@@ -127,7 +127,7 @@ def test_round_trip_preserves_identity_usage_reservation_and_tools():
     assert not isinstance(event, SpendEventDecodeError)
     args: Final = spend_event_callback_args(event)
 
-    metadata: Final = args.kwargs["litellm_params"]["metadata"]
+    metadata: Final = args.kwargs["hangarllm_params"]["metadata"]
     assert metadata is not None
     assert (metadata["user_api_key"], metadata["user_api_key_team_id"], metadata["user_api_key_org_id"]) == (
         "hash-1",
@@ -136,7 +136,7 @@ def test_round_trip_preserves_identity_usage_reservation_and_tools():
     )
     assert metadata["user_api_key_budget_reservation"] == _RESERVATION
     assert "user_api_key_auth" not in metadata
-    assert "litellm_parent_otel_span" not in metadata
+    assert "hangarllm_parent_otel_span" not in metadata
     assert args.kwargs["standard_logging_object"]["request_model_access_groups"] == ["premium"]
     assert args.kwargs["standard_logging_object"]["response_cost"] == 0.0125
     assert args.kwargs["tools"] == ({"type": "function", "function": {"name": "get_weather"}},)
@@ -177,9 +177,9 @@ class _HashingCache(Cache):
     ],
 )
 def test_event_reuses_preset_cache_key_and_never_hashes(monkeypatch, cache, preset, expected):
-    monkeypatch.setattr(litellm, "cache", cache)
+    monkeypatch.setattr(hangarllm, "cache", cache)
     decoded: Final = json.loads(_build(_success_kwargs(preset_cache_key=preset), _response()))
-    assert decoded["litellm_params"]["preset_cache_key"] == expected
+    assert decoded["hangarllm_params"]["preset_cache_key"] == expected
 
 
 def test_unbuildable_kwargs_fall_back_to_in_process_tracking():
@@ -201,7 +201,7 @@ def test_batch_retrieves_and_video_status_polls_stay_in_process():
     assert is_offloadable_success(None, "avideo_status") is False
     assert (
         is_offloadable_success(
-            LiteLLMBatch(
+            HangarLLMBatch(
                 id="batch-1",
                 completion_window="24h",
                 created_at=1,

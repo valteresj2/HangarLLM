@@ -9,14 +9,14 @@ import pytest
 from fastapi import HTTPException, status
 
 
-from litellm.constants import (
+from hangarllm.constants import (
     EXPIRED_UI_SESSION_KEY_CLEANUP_JOB_NAME,
-    LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_BATCH_SIZE,
-    LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
+    HANGARLLM_EXPIRED_UI_SESSION_KEY_CLEANUP_BATCH_SIZE,
+    HANGARLLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
     UI_SESSION_TOKEN_TEAM_ID,
 )
-from litellm.proxy._types import LiteLLM_VerificationToken
-from litellm.proxy.common_utils.expired_ui_session_key_cleanup_manager import (
+from hangarllm.proxy._types import HangarLLM_VerificationToken
+from hangarllm.proxy.common_utils.expired_ui_session_key_cleanup_manager import (
     ExpiredUISessionKeyCleanupManager,
 )
 
@@ -35,18 +35,18 @@ class TestExpiredUISessionKeyCleanupManager:
 
         now = datetime(2026, 4, 25, 12, 0, 0, tzinfo=timezone.utc)
         mock_keys = [
-            LiteLLM_VerificationToken(
+            HangarLLM_VerificationToken(
                 token="expired-dashboard-token",
                 team_id=UI_SESSION_TOKEN_TEAM_ID,
                 expires=now - timedelta(seconds=1),
             )
         ]
-        mock_prisma_client.db.litellm_verificationtoken.find_many.return_value = (
+        mock_prisma_client.db.hangarllm_verificationtoken.find_many.return_value = (
             mock_keys
         )
 
         with patch(
-            "litellm.proxy.common_utils.expired_ui_session_key_cleanup_manager.datetime"
+            "hangarllm.proxy.common_utils.expired_ui_session_key_cleanup_manager.datetime"
         ) as mock_datetime:
             mock_datetime.now.return_value = now
             mock_datetime.side_effect = lambda *args, **kwargs: datetime(
@@ -55,12 +55,12 @@ class TestExpiredUISessionKeyCleanupManager:
 
             keys = await manager._find_expired_ui_session_keys()
 
-        mock_prisma_client.db.litellm_verificationtoken.find_many.assert_called_once_with(
+        mock_prisma_client.db.hangarllm_verificationtoken.find_many.assert_called_once_with(
             where={
                 "team_id": UI_SESSION_TOKEN_TEAM_ID,
                 "expires": {"lt": now},
             },
-            take=LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_BATCH_SIZE,
+            take=HANGARLLM_EXPIRED_UI_SESSION_KEY_CLEANUP_BATCH_SIZE,
         )
         assert keys == mock_keys
 
@@ -72,7 +72,7 @@ class TestExpiredUISessionKeyCleanupManager:
             prisma_client=mock_prisma_client,
             user_api_key_cache=mock_cache,
         )
-        expired_key = LiteLLM_VerificationToken(
+        expired_key = HangarLLM_VerificationToken(
             token="expired-dashboard-token",
             team_id=UI_SESSION_TOKEN_TEAM_ID,
             expires=datetime.now(timezone.utc) - timedelta(seconds=1),
@@ -80,7 +80,7 @@ class TestExpiredUISessionKeyCleanupManager:
         manager._find_expired_ui_session_keys = AsyncMock(return_value=[expired_key])
 
         with patch(
-            "litellm.proxy.common_utils.expired_ui_session_key_cleanup_manager.delete_verification_tokens",
+            "hangarllm.proxy.common_utils.expired_ui_session_key_cleanup_manager.delete_verification_tokens",
             new_callable=AsyncMock,
         ) as mock_delete_verification_tokens:
             mock_delete_verification_tokens.return_value = (
@@ -88,7 +88,7 @@ class TestExpiredUISessionKeyCleanupManager:
                 [expired_key],
             )
             with patch(
-                "litellm.proxy.common_utils.expired_ui_session_key_cleanup_manager.KeyManagementEventHooks.async_key_deleted_hook",
+                "hangarllm.proxy.common_utils.expired_ui_session_key_cleanup_manager.KeyManagementEventHooks.async_key_deleted_hook",
                 new_callable=AsyncMock,
             ) as mock_key_deleted_hook:
                 deleted_count = await manager.cleanup_expired_keys()
@@ -99,8 +99,8 @@ class TestExpiredUISessionKeyCleanupManager:
         assert call_kwargs["tokens"] == ["expired-dashboard-token"]
         assert call_kwargs["user_api_key_cache"] == mock_cache
         assert (
-            call_kwargs["litellm_changed_by"]
-            == LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME
+            call_kwargs["hangarllm_changed_by"]
+            == HANGARLLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME
         )
         assert call_kwargs["user_api_key_dict"].user_id == "system"
         mock_key_deleted_hook.assert_called_once()
@@ -112,8 +112,8 @@ class TestExpiredUISessionKeyCleanupManager:
             "failed_tokens": [],
         }
         assert (
-            hook_kwargs["litellm_changed_by"]
-            == LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME
+            hook_kwargs["hangarllm_changed_by"]
+            == HANGARLLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME
         )
 
     @pytest.mark.asyncio
@@ -125,12 +125,12 @@ class TestExpiredUISessionKeyCleanupManager:
             user_api_key_cache=mock_cache,
         )
         expired_keys = [
-            LiteLLM_VerificationToken(
+            HangarLLM_VerificationToken(
                 token="expired-dashboard-token-1",
                 team_id=UI_SESSION_TOKEN_TEAM_ID,
                 expires=datetime.now(timezone.utc) - timedelta(seconds=1),
             ),
-            LiteLLM_VerificationToken(
+            HangarLLM_VerificationToken(
                 token="expired-dashboard-token-2",
                 team_id=UI_SESSION_TOKEN_TEAM_ID,
                 expires=datetime.now(timezone.utc) - timedelta(seconds=1),
@@ -140,7 +140,7 @@ class TestExpiredUISessionKeyCleanupManager:
         manager._find_expired_ui_session_keys = AsyncMock(return_value=expired_keys)
 
         with patch(
-            "litellm.proxy.common_utils.expired_ui_session_key_cleanup_manager.delete_verification_tokens",
+            "hangarllm.proxy.common_utils.expired_ui_session_key_cleanup_manager.delete_verification_tokens",
             new_callable=AsyncMock,
         ) as mock_delete_verification_tokens:
             mock_delete_verification_tokens.return_value = (
@@ -148,7 +148,7 @@ class TestExpiredUISessionKeyCleanupManager:
                 expired_keys,
             )
             with patch(
-                "litellm.proxy.common_utils.expired_ui_session_key_cleanup_manager.KeyManagementEventHooks.async_key_deleted_hook",
+                "hangarllm.proxy.common_utils.expired_ui_session_key_cleanup_manager.KeyManagementEventHooks.async_key_deleted_hook",
                 new_callable=AsyncMock,
             ) as mock_key_deleted_hook:
                 deleted_count = await manager.cleanup_expired_keys()
@@ -169,12 +169,12 @@ class TestExpiredUISessionKeyCleanupManager:
             user_api_key_cache=mock_cache,
         )
         expired_keys = [
-            LiteLLM_VerificationToken(
+            HangarLLM_VerificationToken(
                 token="expired-dashboard-token-1",
                 team_id=UI_SESSION_TOKEN_TEAM_ID,
                 expires=datetime.now(timezone.utc) - timedelta(seconds=1),
             ),
-            LiteLLM_VerificationToken(
+            HangarLLM_VerificationToken(
                 token="expired-dashboard-token-2",
                 team_id=UI_SESSION_TOKEN_TEAM_ID,
                 expires=datetime.now(timezone.utc) - timedelta(seconds=1),
@@ -184,7 +184,7 @@ class TestExpiredUISessionKeyCleanupManager:
         manager._find_expired_ui_session_keys = AsyncMock(return_value=expired_keys)
 
         with patch(
-            "litellm.proxy.common_utils.expired_ui_session_key_cleanup_manager.delete_verification_tokens",
+            "hangarllm.proxy.common_utils.expired_ui_session_key_cleanup_manager.delete_verification_tokens",
             new_callable=AsyncMock,
         ) as mock_delete_verification_tokens:
             mock_delete_verification_tokens.return_value = (
@@ -195,7 +195,7 @@ class TestExpiredUISessionKeyCleanupManager:
                 [expired_keys[0]],
             )
             with patch(
-                "litellm.proxy.common_utils.expired_ui_session_key_cleanup_manager.KeyManagementEventHooks.async_key_deleted_hook",
+                "hangarllm.proxy.common_utils.expired_ui_session_key_cleanup_manager.KeyManagementEventHooks.async_key_deleted_hook",
                 new_callable=AsyncMock,
             ):
                 deleted_count = await manager.cleanup_expired_keys()
@@ -212,12 +212,12 @@ class TestExpiredUISessionKeyCleanupManager:
             user_api_key_cache=mock_cache,
         )
         expired_keys = [
-            LiteLLM_VerificationToken(
+            HangarLLM_VerificationToken(
                 token="expired-dashboard-token-1",
                 team_id=UI_SESSION_TOKEN_TEAM_ID,
                 expires=datetime.now(timezone.utc) - timedelta(seconds=1),
             ),
-            LiteLLM_VerificationToken(
+            HangarLLM_VerificationToken(
                 token="expired-dashboard-token-2",
                 team_id=UI_SESSION_TOKEN_TEAM_ID,
                 expires=datetime.now(timezone.utc) - timedelta(seconds=1),
@@ -227,7 +227,7 @@ class TestExpiredUISessionKeyCleanupManager:
         manager._find_expired_ui_session_keys = AsyncMock(return_value=expired_keys)
 
         with patch(
-            "litellm.proxy.common_utils.expired_ui_session_key_cleanup_manager.delete_verification_tokens",
+            "hangarllm.proxy.common_utils.expired_ui_session_key_cleanup_manager.delete_verification_tokens",
             new_callable=AsyncMock,
         ) as mock_delete_verification_tokens:
             mock_delete_verification_tokens.return_value = (
@@ -238,7 +238,7 @@ class TestExpiredUISessionKeyCleanupManager:
                 expired_keys,
             )
             with patch(
-                "litellm.proxy.common_utils.expired_ui_session_key_cleanup_manager.KeyManagementEventHooks.async_key_deleted_hook",
+                "hangarllm.proxy.common_utils.expired_ui_session_key_cleanup_manager.KeyManagementEventHooks.async_key_deleted_hook",
                 new_callable=AsyncMock,
             ):
                 deleted_count = await manager.cleanup_expired_keys()
@@ -253,7 +253,7 @@ class TestExpiredUISessionKeyCleanupManager:
             prisma_client=mock_prisma_client,
             user_api_key_cache=mock_cache,
         )
-        expired_key = LiteLLM_VerificationToken(
+        expired_key = HangarLLM_VerificationToken(
             token="expired-dashboard-token",
             team_id=UI_SESSION_TOKEN_TEAM_ID,
             expires=datetime.now(timezone.utc) - timedelta(seconds=1),
@@ -261,7 +261,7 @@ class TestExpiredUISessionKeyCleanupManager:
         manager._find_expired_ui_session_keys = AsyncMock(return_value=[expired_key])
 
         with patch(
-            "litellm.proxy.common_utils.expired_ui_session_key_cleanup_manager.delete_verification_tokens",
+            "hangarllm.proxy.common_utils.expired_ui_session_key_cleanup_manager.delete_verification_tokens",
             new_callable=AsyncMock,
         ) as mock_delete_verification_tokens:
             mock_delete_verification_tokens.side_effect = HTTPException(
@@ -269,7 +269,7 @@ class TestExpiredUISessionKeyCleanupManager:
                 detail={"error": "No keys found"},
             )
             with patch(
-                "litellm.proxy.common_utils.expired_ui_session_key_cleanup_manager.KeyManagementEventHooks.async_key_deleted_hook",
+                "hangarllm.proxy.common_utils.expired_ui_session_key_cleanup_manager.KeyManagementEventHooks.async_key_deleted_hook",
                 new_callable=AsyncMock,
             ) as mock_key_deleted_hook:
                 deleted_count = await manager.cleanup_expired_keys()
@@ -288,7 +288,7 @@ class TestExpiredUISessionKeyCleanupManager:
         manager._find_expired_ui_session_keys = AsyncMock(return_value=[])
 
         with patch(
-            "litellm.proxy.common_utils.expired_ui_session_key_cleanup_manager.delete_verification_tokens",
+            "hangarllm.proxy.common_utils.expired_ui_session_key_cleanup_manager.delete_verification_tokens",
             new_callable=AsyncMock,
         ) as mock_delete_verification_tokens:
             deleted_count = await manager.cleanup_expired_keys()

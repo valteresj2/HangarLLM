@@ -6,7 +6,7 @@ from e2e_http import Success, UnknownApiError
 from e2e_metadata import Domain, Mode, Provider, Subject, meta
 from guardrails_client import GuardrailsClient, poll_until_blocked
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 
 pytestmark = pytest.mark.e2e
 
@@ -22,7 +22,7 @@ def _create_video_model(client: GuardrailsClient, resources: ResourceManager) ->
     model_name = f"e2e-guard-video-{unique_marker()}"
     model_id = client.proxy.create_model(
         model_name,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=VIDEO_BACKEND,
             vertex_project="os.environ/VERTEXAI_PROJECT",
             vertex_location="os.environ/VERTEXAI_LOCATION",
@@ -36,7 +36,7 @@ def _create_video_model(client: GuardrailsClient, resources: ResourceManager) ->
 
 class TestKeyAttachedGuardrailOnVideos:
     @pytest.mark.covers(
-        "guardrail.litellm_content_filter.pre_call.blocks_video",
+        "guardrail.hangarllm_content_filter.pre_call.blocks_video",
         exercised_on=["videos"],
     )
     @meta(

@@ -5,8 +5,8 @@ import click
 import pytest
 from click.testing import CliRunner, Result
 
-from litellm.proxy.client.cli import cli
-from litellm.proxy.client.cli.interface import run_shell_line
+from hangarllm.proxy.client.cli import cli
+from hangarllm.proxy.client.cli.interface import run_shell_line
 
 GATEWAY: Final = "https://gateway.example.com"
 
@@ -127,9 +127,9 @@ def test_lite_with_its_own_options_inside_the_shell_runs_against_the_server_it_n
     assert credentials_endpoint.call_count == 0
 
 
-def test_a_lite_line_that_names_only_a_key_stays_on_the_shell_server_over_litellm_proxy_url(credentials_endpoint):
+def test_a_lite_line_that_names_only_a_key_stays_on_the_shell_server_over_hangarllm_proxy_url(credentials_endpoint):
     result: Final = _shell(
-        "lite --api-key sk-typed credentials list", env={"LITELLM_PROXY_URL": "https://elsewhere.example.com"}
+        "lite --api-key sk-typed credentials list", env={"HANGARLLM_PROXY_URL": "https://elsewhere.example.com"}
     )
 
     assert "shared-openai" in result.output

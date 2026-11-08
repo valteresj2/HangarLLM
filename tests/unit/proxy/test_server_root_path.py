@@ -1,6 +1,6 @@
 import os
 from unittest import mock
-from litellm.proxy import utils
+from hangarllm.proxy import utils
 
 
 # Test the utility function logic

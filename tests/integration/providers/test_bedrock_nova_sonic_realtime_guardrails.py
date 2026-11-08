@@ -73,8 +73,8 @@ def _blocked_phrase(
         {
             "guardrail": {
                 "guardrail_name": f"sonic-guardrail-{uuid.uuid4().hex[:12]}",
-                "litellm_params": {
-                    "guardrail": "litellm_content_filter",
+                "hangarllm_params": {
+                    "guardrail": "hangarllm_content_filter",
                     "mode": mode,
                     "default_on": True,
                     "realtime_violation_message": VIOLATION,
@@ -96,7 +96,7 @@ def _deployment(gateway: Gateway, scenario: Scenario, peer: BedrockRealtimePeer)
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": DEPLOYMENT,
                 "aws_region_name": "us-east-1",
                 "aws_access_key_id": "integration-dummy-key",

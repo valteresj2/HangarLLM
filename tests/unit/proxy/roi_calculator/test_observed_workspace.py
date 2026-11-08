@@ -3,16 +3,16 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.roi_calculator.github import SourceError
-from litellm.proxy.roi_calculator.observed_workspace import (
+from hangarllm.proxy.roi_calculator.github import SourceError
+from hangarllm.proxy.roi_calculator.observed_workspace import (
     combine_observed,
     scoped_data,
     source_details,
     summarize_workspace,
 )
-from litellm.proxy.roi_calculator.settings import StoredConnection
-from litellm.types.roi_calculator import ROIBranchSpend, ROISettings
-from litellm.types.roi_observed import ObservedData, ObservedIssue, ObservedPeriodData, ObservedPull, ObservedWindow
+from hangarllm.proxy.roi_calculator.settings import StoredConnection
+from hangarllm.types.roi_calculator import ROIBranchSpend, ROISettings
+from hangarllm.types.roi_observed import ObservedData, ObservedIssue, ObservedPeriodData, ObservedPull, ObservedWindow
 
 
 def _source(settings: ROISettings, issues: tuple[ObservedIssue, ...] | None = ()) -> ObservedData:

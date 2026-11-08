@@ -7,9 +7,9 @@ import pytest
 import respx
 from openai import AsyncAzureOpenAI, AzureOpenAI
 
-import litellm
-from litellm.cost_calculator import completion_cost
-from litellm.litellm_core_utils.audio_utils.utils import calculate_request_duration
+import hangarllm
+from hangarllm.cost_calculator import completion_cost
+from hangarllm.hangarllm_core_utils.audio_utils.utils import calculate_request_duration
 
 AUDIO_FILE: Final = Path(__file__).parents[3] / "gettysburg.wav"
 WHISPER_COST_PER_SECOND: Final = 0.0001
@@ -33,7 +33,7 @@ def _transcription_client() -> AzureOpenAI:
 
 def test_azure_transcription_keeps_the_azure_provider():
     with AUDIO_FILE.open("rb") as audio:
-        response = litellm.transcription(
+        response = hangarllm.transcription(
             model="azure/whisper-1",
             file=audio,
             api_base="https://example.openai.azure.com",
@@ -79,10 +79,10 @@ async def test_azure_transcribe_model_mapping():
     )
 
     with patch(
-        "litellm.llms.azure.audio_transcriptions.AzureAudioTranscription.get_azure_openai_client",
+        "hangarllm.llms.azure.audio_transcriptions.AzureAudioTranscription.get_azure_openai_client",
         return_value=mock_azure_client,
     ):
-        response = await litellm.atranscription(
+        response = await hangarllm.atranscription(
             model="azure/whisper-1",
             file=_audio_file(),
             response_format="json",
@@ -148,7 +148,7 @@ async def test_azure_transcription_parses_response_formats(
         azure_endpoint="https://example.cognitiveservices.azure.com",
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     ) as client:
-        response = await litellm.atranscription(
+        response = await hangarllm.atranscription(
             model="azure/whisper-1",
             file=_audio_file(),
             api_base="https://example.openai.azure.com",
@@ -169,16 +169,16 @@ async def test_azure_router_transcription_sends_the_default_api_version(
     monkeypatch: pytest.MonkeyPatch,
     api_version: str,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.delenv("AZURE_API_VERSION", raising=False)
     route: Final = respx_mock.route(host="transcribe-route.openai.azure.com").mock(
         return_value=httpx.Response(200, json={"text": "hello"})
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "transcriber",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-transcribe",
                     "api_key": "test-key",
                     "api_base": "https://transcribe-route.openai.azure.com",
@@ -192,16 +192,16 @@ async def test_azure_router_transcription_sends_the_default_api_version(
 
     sent_url: Final = route.calls.last.request.url
     assert sent_url.path == "/openai/deployments/gpt-transcribe/audio/transcriptions"
-    assert sent_url.params.get("api-version") == litellm.AZURE_DEFAULT_API_VERSION
+    assert sent_url.params.get("api-version") == hangarllm.AZURE_DEFAULT_API_VERSION
     assert response.text == "hello"
 
 
 @pytest.mark.parametrize(
     ("api_version", "expected_api_version"),
     [
-        ("v1", litellm.AZURE_DEFAULT_API_VERSION),
-        ("latest", litellm.AZURE_DEFAULT_API_VERSION),
-        ("preview", litellm.AZURE_DEFAULT_API_VERSION),
+        ("v1", hangarllm.AZURE_DEFAULT_API_VERSION),
+        ("latest", hangarllm.AZURE_DEFAULT_API_VERSION),
+        ("preview", hangarllm.AZURE_DEFAULT_API_VERSION),
         ("2025-03-01-preview", "2025-03-01-preview"),
     ],
 )
@@ -216,7 +216,7 @@ def test_azure_sync_transcription_uses_the_deployments_route(
         return_value=httpx.Response(200, json={"text": "hello"})
     )
 
-    response: Final = litellm.transcription(
+    response: Final = hangarllm.transcription(
         model="azure/gpt-transcribe",
         file=_audio_file(),
         api_key="test-key",

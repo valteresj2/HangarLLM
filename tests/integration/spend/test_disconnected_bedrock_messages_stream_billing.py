@@ -106,7 +106,7 @@ def test_client_disconnect_mid_bedrock_messages_stream_still_bills_terminal_usag
 
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id, status, prompt_tokens, completion_tokens, spend FROM "LiteLLM_SpendLogs" '
+                'SELECT request_id, status, prompt_tokens, completion_tokens, spend FROM "HangarLLM_SpendLogs" '
                 "WHERE api_key=%s",
                 (sha256(key.encode()).hexdigest(),),
             ),

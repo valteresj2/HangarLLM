@@ -7,7 +7,7 @@ from anthropic.types import RawContentBlockDeltaEvent, RawMessageDeltaEvent, Tex
 from e2e_config import unique_marker
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from sdk_clients import NO_PROXY_CACHE, SdkClients
 from structured_output import SENTIMENT_OUTPUT_FORMAT, SENTIMENT_PROMPT, assert_sentiment_json
@@ -51,7 +51,7 @@ def _register(proxy: ProxyClient, resources: ResourceManager, backend: str) -> s
     model = f"e2e-messages-bedrock-{unique_marker()}"
     model_id = proxy.create_model(
         model,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=backend,
             aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
             aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",

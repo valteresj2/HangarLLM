@@ -5,10 +5,10 @@ from typing import Final
 
 import pytest
 
-from litellm import sandbox
-from litellm.harness.errors import SandboxError
-from litellm.harness.sandbox import LocalSandbox, Process, Sandbox
-from litellm.harness.sandbox.local import collect_output, filtered_environ, is_secret_env_name
+from hangarllm import sandbox
+from hangarllm.harness.errors import SandboxError
+from hangarllm.harness.sandbox import LocalSandbox, Process, Sandbox
+from hangarllm.harness.sandbox.local import collect_output, filtered_environ, is_secret_env_name
 
 PY = sys.executable
 

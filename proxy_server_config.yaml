@@ -1,39 +1,39 @@
 model_list:
   - model_name: gpt-5-mini-end-user-test
-    litellm_params:
+    hangarllm_params:
       model: gpt-5-mini
       region_name: "eu"
     model_info:
       id: "1"
   - model_name: gpt-5-mini-end-user-test
-    litellm_params:
+    hangarllm_params:
       model: openai/gpt-5-mini
-      api_key: os.environ/OPENAI_API_KEY # The `os.environ/` prefix tells litellm to read this from the env. See https://docs.litellm.ai/docs/simple_proxy#load-api-keys-from-vault
+      api_key: os.environ/OPENAI_API_KEY # The `os.environ/` prefix tells hangarllm to read this from the env. See https://github.com/valteresj2/HangarLLM#readme
   - model_name: gpt-3.5-turbo
-    litellm_params:
+    hangarllm_params:
       model: openai/gpt-4.1-mini
-      api_key: os.environ/OPENAI_API_KEY # The `os.environ/` prefix tells litellm to read this from the env. See https://docs.litellm.ai/docs/simple_proxy#load-api-keys-from-vault
+      api_key: os.environ/OPENAI_API_KEY # The `os.environ/` prefix tells hangarllm to read this from the env. See https://github.com/valteresj2/HangarLLM#readme
   - model_name: gpt-3.5-turbo-large
-    litellm_params:
+    hangarllm_params:
       model: "gpt-4.1"
       api_key: os.environ/OPENAI_API_KEY
       rpm: 480
       timeout: 300
       stream_timeout: 60
   - model_name: gpt-4
-    litellm_params:
+    hangarllm_params:
       model: openai/gpt-4.1
-      api_key: os.environ/OPENAI_API_KEY # The `os.environ/` prefix tells litellm to read this from the env. See https://docs.litellm.ai/docs/simple_proxy#load-api-keys-from-vault
+      api_key: os.environ/OPENAI_API_KEY # The `os.environ/` prefix tells hangarllm to read this from the env. See https://github.com/valteresj2/HangarLLM#readme
       api_base: os.environ/RECORDER_OPENAI_BASE_URL # In CI, routes through the record/replay proxy; unset elsewhere -> direct to OpenAI
       rpm: 480
       timeout: 300
       stream_timeout: 60
   - model_name: sagemaker-completion-model
-    litellm_params:
+    hangarllm_params:
       model: sagemaker/berri-benchmarking-Llama-2-70b-chat-hf-4
       cost_per_second: 0.000420
   - model_name: text-embedding-ada-002
-    litellm_params:
+    hangarllm_params:
       model: openai/text-embedding-3-small
       api_key: os.environ/OPENAI_API_KEY
       api_base: os.environ/RECORDER_OPENAI_BASE_URL # In CI, routes through the record/replay proxy; unset elsewhere -> direct to OpenAI
@@ -41,59 +41,59 @@ model_list:
       mode: embedding
       base_model: text-embedding-3-small
   - model_name: dall-e-2 # dall-e-2 and dall-e-3 were deprecated 2026-05-12; alias to gpt-image-1
-    litellm_params:
+    hangarllm_params:
       model: openai/gpt-image-1
   - model_name: openai-dall-e-3 # dall-e-3 deprecated 2026-05-12; underlying now gpt-image-1
-    litellm_params:
+    hangarllm_params:
       model: gpt-image-1
   # In CI, RECORDER_OPENAI_BASE_URL points OpenAI models at the record/replay
   # proxy (tests/_openai_record_replay_proxy.py) so the spend/cost E2Es don't
   # depend on OpenAI's uptime every commit. Unset elsewhere, so it resolves to
   # None and falls back to api.openai.com.
   - model_name: gpt-image-1
-    litellm_params:
+    hangarllm_params:
       model: openai/gpt-image-1
       api_key: os.environ/OPENAI_API_KEY
       api_base: os.environ/RECORDER_OPENAI_BASE_URL
   - model_name: text-moderation-stable
-    litellm_params:
+    hangarllm_params:
       model: openai/omni-moderation-latest
       api_key: os.environ/OPENAI_API_KEY
       api_base: os.environ/RECORDER_OPENAI_BASE_URL
   - model_name: fake-openai-endpoint
-    litellm_params:
+    hangarllm_params:
       model: openai/gpt-5-mini
       api_key: fake-key
       api_base: os.environ/FAKE_OPENAI_API_BASE
   - model_name: fake-openai-endpoint-2
-    litellm_params:
+    hangarllm_params:
       model: openai/my-fake-model
       api_key: my-fake-key
       api_base: os.environ/FAKE_OPENAI_API_BASE
       stream_timeout: 0.001
       rpm: 1
   - model_name: fake-openai-endpoint-3
-    litellm_params:
+    hangarllm_params:
       model: openai/my-fake-model
       api_key: my-fake-key
       api_base: os.environ/FAKE_OPENAI_API_BASE
       stream_timeout: 0.001
       rpm: 1000
   - model_name: fake-openai-endpoint-4
-    litellm_params:
+    hangarllm_params:
       model: openai/my-fake-model
       api_key: my-fake-key
       api_base: os.environ/FAKE_OPENAI_API_BASE
       num_retries: 50
   - model_name: fake-openai-endpoint-3
-    litellm_params:
+    hangarllm_params:
       model: openai/my-fake-model-2
       api_key: my-fake-key
       api_base: os.environ/FAKE_OPENAI_API_BASE
       stream_timeout: 0.001
       rpm: 1000
   - model_name: bad-model
-    litellm_params:
+    hangarllm_params:
       model: openai/bad-model
       api_key: os.environ/OPENAI_API_KEY
       api_base: os.environ/FAKE_OPENAI_API_BASE
@@ -103,7 +103,7 @@ model_list:
     model_info:
       health_check_timeout: 1
   - model_name: good-model
-    litellm_params:
+    hangarllm_params:
       model: openai/bad-model
       api_key: os.environ/OPENAI_API_KEY
       api_base: os.environ/FAKE_OPENAI_API_BASE
@@ -111,66 +111,66 @@ model_list:
     model_info:
       health_check_timeout: 1
   - model_name: "*"
-    litellm_params:
+    hangarllm_params:
       model: openai/*
       api_key: os.environ/OPENAI_API_KEY
   - model_name: realtime-v1
-    litellm_params:
+    hangarllm_params:
       model: azure/gpt-realtime-20250828-standard
       api_version: "2025-08-28"
       realtime_protocol: GA # Possible values: "GA"/ "v1", "beta" 
 
   - model_name: realtime-beta
-    litellm_params:
+    hangarllm_params:
       model: azure/gpt-realtime-20250828-standard
       api_version: 2025-04-01-preview
 
 
   # provider specific wildcard routing
   - model_name: "anthropic/*"
-    litellm_params:
+    hangarllm_params:
       model: "anthropic/*"
       api_key: os.environ/ANTHROPIC_API_KEY
   - model_name: "bedrock/*"
-    litellm_params:
+    hangarllm_params:
       model: "bedrock/*"
   - model_name: "groq/*"
-    litellm_params:
+    hangarllm_params:
       model: "groq/*"
       api_key: os.environ/GROQ_API_KEY
   - model_name: mistral-embed
-    litellm_params:
+    hangarllm_params:
       model: mistral/mistral-embed
   - model_name: gpt-6-luna
-    litellm_params:
+    hangarllm_params:
       model: openai/gpt-6-luna
       reasoning_effort: none
       api_key: os.environ/OPENAI_API_KEY
   - model_name: gpt-instruct # [PROD TEST] - tests if `/health` automatically infers this to be a text completion model
-    litellm_params:
+    hangarllm_params:
       model: text-completion-openai/gpt-3.5-turbo-instruct
   - model_name: fake-openai-endpoint-5
-    litellm_params:
+    hangarllm_params:
       model: openai/my-fake-model
       api_key: my-fake-key
       api_base: os.environ/FAKE_OPENAI_API_BASE
       timeout: 1
   - model_name: badly-configured-openai-endpoint
-    litellm_params:
+    hangarllm_params:
       model: openai/my-fake-model
       api_key: my-fake-key
       api_base: https://exampleopenaiendpoint-production.up.railway.appxxxx/
   - model_name: gemini-2.5-flash
-    litellm_params:
+    hangarllm_params:
       model: gemini/gemini-2.5-flash
       api_key: os.environ/GOOGLE_API_KEY
   - model_name: gpt-5.5
-    litellm_params:
+    hangarllm_params:
       model: gpt-5.5
       api_key: os.environ/OPENAI_API_KEY
 
 
-litellm_settings:
+hangarllm_settings:
   # set_verbose: True  # Uncomment this if you want to see verbose logs; not recommended in production
   drop_params: True
   success_callback: ["prometheus"]
@@ -224,7 +224,7 @@ router_settings:
   model_group_alias: {"my-special-fake-model-alias-name": "fake-openai-endpoint-3"} 
 
 general_settings: 
-  master_key: os.environ/LITELLM_MASTER_KEY # [OPTIONAL] Use to enforce auth on proxy. See - https://docs.litellm.ai/docs/proxy/virtual_keys
+  master_key: os.environ/HANGARLLM_MASTER_KEY # [OPTIONAL] Use to enforce auth on proxy. See - https://github.com/valteresj2/HangarLLM#readme
   store_model_in_db: True
   proxy_budget_rescheduler_min_time: 60
   proxy_budget_rescheduler_max_time: 64
@@ -241,7 +241,7 @@ general_settings:
   # database_url: "postgresql://<user>:<password>@<host>:<port>/<dbname>" # [OPTIONAL] use for token-based auth to proxy
 
   pass_through_endpoints:
-    - path: "/v1/rerank"                                  # route you want to add to LiteLLM Proxy Server
+    - path: "/v1/rerank"                                  # route you want to add to HangarLLM Proxy Server
       target: "https://api.cohere.com/v1/rerank"          # URL this route should forward requests to
       headers:                                            # headers to forward to this URL
         content-type: application/json                    # (Optional) Extra Headers to pass to this endpoint 

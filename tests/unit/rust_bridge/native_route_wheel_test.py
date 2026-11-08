@@ -91,7 +91,7 @@ def native_response(status: int) -> bytes:
 
 
 def load_native(native_path: Path) -> object:
-    module_spec: Final = importlib.util.spec_from_file_location("litellm.rust_bridge._native", native_path)
+    module_spec: Final = importlib.util.spec_from_file_location("hangarllm.rust_bridge._native", native_path)
     if module_spec is None or module_spec.loader is None:
         raise RuntimeError("cannot create native extension import specification")
     native_module: Final = importlib.util.module_from_spec(module_spec)
@@ -237,7 +237,7 @@ def verify_wheel(wheel: Path) -> int:
         native_members: Final = tuple(
             member
             for member in archive.infolist()
-            if member.filename.startswith("litellm/rust_bridge/_native.") and member.filename.endswith(".so")
+            if member.filename.startswith("hangarllm/rust_bridge/_native.") and member.filename.endswith(".so")
         )
         if len(native_members) != 1:
             raise AssertionError(f"expected one native extension, found {len(native_members)}")

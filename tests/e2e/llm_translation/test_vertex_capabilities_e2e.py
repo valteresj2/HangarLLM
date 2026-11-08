@@ -8,7 +8,7 @@ from typing_extensions import NotRequired, ReadOnly
 from e2e_config import unique_marker
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from sdk_clients import SdkClients
 
@@ -44,7 +44,7 @@ def _register(proxy: ProxyClient, resources: ResourceManager, base: str, model: 
     model_name: Final = f"{base}-{unique_marker()}"
     model_id: Final = proxy.create_model(
         model_name,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=model,
             vertex_project="os.environ/VERTEXAI_PROJECT",
             vertex_location=location,

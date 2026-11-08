@@ -5,12 +5,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from pydantic import ValidationError
 
-from litellm.integrations.SlackAlerting.slack_alerting import SlackAlerting
-from litellm.integrations.SlackAlerting.user_spend_alerts import (
+from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
+from hangarllm.integrations.SlackAlerting.user_spend_alerts import (
     UserSpendRow,
     evaluate_user_spend,
 )
-from litellm.types.integrations.slack_alerting import (
+from hangarllm.types.integrations.slack_alerting import (
     DEFAULT_ALERT_TYPES,
     AlertType,
     SlackAlertingArgs,

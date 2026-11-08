@@ -15,15 +15,15 @@ import pytest
 import respx
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.llms.anthropic.messages.adapters.handler import (
-    LiteLLMMessagesToCompletionTransformationHandler,
+import hangarllm
+from hangarllm.llms.anthropic.messages.adapters.handler import (
+    HangarLLMMessagesToCompletionTransformationHandler,
 )
-from litellm.llms.anthropic.messages.adapters.streaming_iterator import (
+from hangarllm.llms.anthropic.messages.adapters.streaming_iterator import (
     AnthropicStreamWrapper,
 )
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolParam
-from litellm.types.utils import ModelResponseStream
+from hangarllm.types.llms.openai import AllMessageValues, ChatCompletionToolParam
+from hangarllm.types.utils import ModelResponseStream
 
 _EVENT: Final = TypeAdapter(Mapping[str, object])
 _MESSAGES: Final = TypeAdapter(list[AllMessageValues])
@@ -51,7 +51,7 @@ def _assert_start_and_provider_final_usage(
         next(event for event in events if event["type"] == "message_start")["message"]
     )
     final: Final = next(event for event in events if event["type"] == "message_delta")
-    expected: Final = litellm.token_counter(
+    expected: Final = hangarllm.token_counter(
         model="kimi-k2",
         messages=_MESSAGES.validate_python(request["messages"]),
         tools=_TOOLS.validate_python(request["tools"]),
@@ -71,8 +71,8 @@ def test_sync_message_start_opt_in_preserves_provider_final_usage(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, estimate_enabled: bool | str | None
 ) -> None:
     if estimate_enabled is not None:
-        monkeypatch.setattr(litellm, "anthropic_messages_estimate_initial_input_tokens", estimate_enabled)
-    stream: Final = LiteLLMMessagesToCompletionTransformationHandler.anthropic_messages_handler(
+        monkeypatch.setattr(hangarllm, "anthropic_messages_estimate_initial_input_tokens", estimate_enabled)
+    stream: Final = HangarLLMMessagesToCompletionTransformationHandler.anthropic_messages_handler(
         max_tokens=16,
         messages=MESSAGES,
         system="Reply with a short greeting.",
@@ -92,8 +92,8 @@ async def test_async_message_start_opt_in_preserves_provider_final_usage(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, estimate_enabled: bool | str | None
 ) -> None:
     if estimate_enabled is not None:
-        monkeypatch.setattr(litellm, "anthropic_messages_estimate_initial_input_tokens", estimate_enabled)
-    stream: Final = await LiteLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
+        monkeypatch.setattr(hangarllm, "anthropic_messages_estimate_initial_input_tokens", estimate_enabled)
+    stream: Final = await HangarLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
         max_tokens=16,
         messages=MESSAGES,
         system="Reply with a short greeting.",
@@ -118,8 +118,8 @@ class _FailingUpstream:
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_disabled_initial_estimate_skips_token_counting(monkeypatch: pytest.MonkeyPatch, is_async: bool) -> None:
     counter: Final = Mock(side_effect=AssertionError("disabled estimation must not count tokens"))
-    monkeypatch.setattr(litellm, "anthropic_messages_estimate_initial_input_tokens", False)
-    monkeypatch.setattr(litellm, "token_counter", counter)
+    monkeypatch.setattr(hangarllm, "anthropic_messages_estimate_initial_input_tokens", False)
+    monkeypatch.setattr(hangarllm, "token_counter", counter)
     wrapper: Final = AnthropicStreamWrapper(
         _FailingUpstream(), model="kimi-k2", completion_request={"messages": MESSAGES}
     )
@@ -138,10 +138,10 @@ async def test_disabled_initial_estimate_skips_token_counting(monkeypatch: pytes
 def test_sync_initial_estimate_counts_content_blocks(
     messages: list[AllMessageValues], respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "anthropic_messages_estimate_initial_input_tokens", True)
+    monkeypatch.setattr(hangarllm, "anthropic_messages_estimate_initial_input_tokens", True)
     image: Final = respx_mock.get("https://image.example/test.png").respond(503)
     wrapper: Final = AnthropicStreamWrapper(iter([]), model="gpt-4o", completion_request={"messages": messages})
-    expected: Final = litellm.token_counter(model="gpt-4o", messages=messages, use_default_image_token_count=True)
+    expected: Final = hangarllm.token_counter(model="gpt-4o", messages=messages, use_default_image_token_count=True)
     first: Final = _EVENT.validate_python(next(wrapper))
     message: Final = _EVENT.validate_python(first["message"])
     assert message["usage"] == {
@@ -158,10 +158,10 @@ def test_sync_initial_estimate_counts_content_blocks(
 async def test_async_initial_estimate_counts_content_blocks(
     messages: list[AllMessageValues], respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "anthropic_messages_estimate_initial_input_tokens", True)
+    monkeypatch.setattr(hangarllm, "anthropic_messages_estimate_initial_input_tokens", True)
     image: Final = respx_mock.get("https://image.example/test.png").respond(503)
     wrapper: Final = AnthropicStreamWrapper(iter([]), model="gpt-4o", completion_request={"messages": messages})
-    expected: Final = litellm.token_counter(model="gpt-4o", messages=messages, use_default_image_token_count=True)
+    expected: Final = hangarllm.token_counter(model="gpt-4o", messages=messages, use_default_image_token_count=True)
     first: Final = _EVENT.validate_python(await anext(wrapper))
     message: Final = _EVENT.validate_python(first["message"])
     assert message["usage"] == {
@@ -177,7 +177,7 @@ async def test_async_initial_estimate_counts_content_blocks(
 def test_sync_initial_estimate_fallback_does_not_consume_upstream(
     prompt: Mapping[str, object], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "anthropic_messages_estimate_initial_input_tokens", True)
+    monkeypatch.setattr(hangarllm, "anthropic_messages_estimate_initial_input_tokens", True)
     wrapper: Final = AnthropicStreamWrapper(_FailingUpstream(), model="kimi-k2", completion_request=prompt)
     first: Final = _EVENT.validate_python(next(wrapper))
     message: Final = _EVENT.validate_python(first["message"])
@@ -195,7 +195,7 @@ def test_sync_initial_estimate_fallback_does_not_consume_upstream(
 async def test_async_initial_estimate_fallback_does_not_consume_upstream(
     prompt: Mapping[str, object], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "anthropic_messages_estimate_initial_input_tokens", True)
+    monkeypatch.setattr(hangarllm, "anthropic_messages_estimate_initial_input_tokens", True)
     wrapper: Final = AnthropicStreamWrapper(_FailingUpstream(), model="kimi-k2", completion_request=prompt)
     first: Final = _EVENT.validate_python(await anext(wrapper))
     message: Final = _EVENT.validate_python(first["message"])
@@ -225,7 +225,7 @@ CHAT_SSE_BODY = (
 
 
 def _logging_obj(call_id: str):
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     return Logging(
         model="kimi-k2",
@@ -233,7 +233,7 @@ def _logging_obj(call_id: str):
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime.datetime.now(datetime.timezone.utc),
-        litellm_call_id=call_id,
+        hangarllm_call_id=call_id,
         function_id="1234",
     )
 
@@ -248,7 +248,7 @@ def _streamed_message_id(raw_events: list[bytes]) -> str:
 def _intercept_groq(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("GROQ_API_KEY", "gsk-lit6825-test")
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     respx_mock.post(GROQ_CHAT_URL).respond(
         status_code=200,
         headers={"Content-Type": "text/event-stream"},
@@ -260,13 +260,13 @@ def _intercept_groq(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatc
 async def test_async_streaming_hands_the_logging_object_the_message_id_the_caller_is_streamed():
     logging_obj = _logging_obj("6825beef-0000-4000-8000-000000000010")
 
-    sse = await LiteLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
+    sse = await HangarLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
         max_tokens=1024,
         messages=MESSAGES,
         model="groq/kimi-k2",
         stream=True,
         custom_llm_provider="groq",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
     streamed_id = _streamed_message_id([chunk async for chunk in sse])
 
@@ -277,13 +277,13 @@ async def test_async_streaming_hands_the_logging_object_the_message_id_the_calle
 def test_sync_streaming_hands_the_logging_object_the_message_id_the_caller_is_streamed():
     logging_obj = _logging_obj("6825beef-0000-4000-8000-000000000011")
 
-    sse = LiteLLMMessagesToCompletionTransformationHandler.anthropic_messages_handler(
+    sse = HangarLLMMessagesToCompletionTransformationHandler.anthropic_messages_handler(
         max_tokens=1024,
         messages=MESSAGES,
         model="groq/kimi-k2",
         stream=True,
         custom_llm_provider="groq",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
     streamed_id = _streamed_message_id(list(sse))
 

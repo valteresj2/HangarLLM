@@ -10,9 +10,9 @@ from integration._support.client import list_value, object_value, string_value
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm import CustomStreamWrapper, ModelResponse
-from litellm.types.utils import Choices, StreamingChoices
+import hangarllm
+from hangarllm import CustomStreamWrapper, ModelResponse
+from hangarllm.types.utils import Choices, StreamingChoices
 
 _OPUS_4_8: Final = "us.anthropic.claude-opus-4-8"
 _JSON_TOOL: Final = "json_tool_call"
@@ -130,7 +130,7 @@ def test_sync_call_retries_a_native_output_rejection_once_with_the_json_tool(
     route: str, stream: bool, marker_hex: str
 ) -> None:
     with wire_server(_bedrock_without_native_output) as wire:
-        response: Final = litellm.completion(**_request(route, stream, wire, marker_hex))
+        response: Final = hangarllm.completion(**_request(route, stream, wire, marker_hex))
         content: Final = (
             "".join(_delta_content(chunk) for chunk in response)
             if isinstance(response, CustomStreamWrapper)
@@ -145,7 +145,7 @@ async def test_async_call_retries_a_native_output_rejection_once_with_the_json_t
     route: str, stream: bool, marker_hex: str
 ) -> None:
     with wire_server(_bedrock_without_native_output) as wire:
-        response: Final = await litellm.acompletion(**_request(route, stream, wire, marker_hex))
+        response: Final = await hangarllm.acompletion(**_request(route, stream, wire, marker_hex))
         content: Final = (
             "".join([_delta_content(chunk) async for chunk in response])
             if isinstance(response, CustomStreamWrapper)
@@ -191,7 +191,7 @@ def _sent_bodies(
             **request_params,
             **({} if model_info is None else {"model_info": model_info}),
         }
-        _consume(litellm.completion(**{key: value for key, value in request.items() if value is not None}))
+        _consume(hangarllm.completion(**{key: value for key, value in request.items() if value is not None}))
         return tuple(_JSON.validate_json(sent.body) for sent in wire.drain())
 
 
@@ -283,7 +283,7 @@ async def _messages_bodies(
     route: str, marker_hex: str, model_info: Mapping[str, object] | None
 ) -> tuple[Mapping[str, JsonValue], ...]:
     with wire_server(_messages_bedrock_without_native_output) as wire:
-        await litellm.anthropic_messages(
+        await hangarllm.anthropic_messages(
             model=f"bedrock/{route}/{_OPUS_4_8}",
             messages=[{"role": "user", "content": f"Name a city. probe {marker_hex}"}],
             api_base=wire.url,
@@ -325,7 +325,7 @@ def test_the_retry_signs_with_the_credentials_of_a_deprecated_aws_bedrock_client
             for key, value in _request(route, stream, wire, marker_hex).items()
             if key not in {"api_key", "aws_region_name"}
         }
-        _consume(litellm.completion(**request, aws_bedrock_client=aws_bedrock_client))
+        _consume(hangarllm.completion(**request, aws_bedrock_client=aws_bedrock_client))
         sent: Final = wire.drain()
 
     assert len(sent) == 2

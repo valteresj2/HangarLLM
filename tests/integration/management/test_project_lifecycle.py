@@ -28,8 +28,8 @@ from integration._support.process import CONFIGURATION, OwnedProxy, group_member
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import JsonValue
 
-from litellm.models.user import LiteLLM_UserTable
-from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
+from hangarllm.models.user import HangarLLM_UserTable
+from hangarllm.proxy.auth.auth_checks import ExperimentalUIJWTToken
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
@@ -57,8 +57,8 @@ def _ownership_config(directory: Path) -> Path:
 def _project_rows(project_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
         'SELECT p.project_id, p.project_alias, p.description, p.team_id, p.models, p.blocked, '
-        'p.budget_id, b.max_budget FROM "LiteLLM_ProjectTable" AS p '
-        'LEFT JOIN "LiteLLM_BudgetTable" AS b ON b.budget_id = p.budget_id '
+        'p.budget_id, b.max_budget FROM "HangarLLM_ProjectTable" AS p '
+        'LEFT JOIN "HangarLLM_BudgetTable" AS b ON b.budget_id = p.budget_id '
         'WHERE p.project_id = %s',
         (project_id,),
     )
@@ -66,83 +66,83 @@ def _project_rows(project_id: str) -> list[dict[str, JsonValue]]:
 
 def _key_rows(key: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT token, key_alias, team_id, project_id FROM "LiteLLM_VerificationToken" WHERE token = %s',
+        'SELECT token, key_alias, team_id, project_id FROM "HangarLLM_VerificationToken" WHERE token = %s',
         (sha256(key.encode()).hexdigest(),),
     )
 
 
 def _key_permission_and_budget_ids(key: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT object_permission_id, budget_id FROM "LiteLLM_VerificationToken" WHERE token = %s',
+        'SELECT object_permission_id, budget_id FROM "HangarLLM_VerificationToken" WHERE token = %s',
         (sha256(key.encode()).hexdigest(),),
     )
 
 
 def _key_state_rows(key: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT to_jsonb(k) AS key_row, to_jsonb(b) AS budget_row FROM "LiteLLM_VerificationToken" AS k '
-        'LEFT JOIN "LiteLLM_BudgetTable" AS b ON b.budget_id = k.budget_id WHERE k.token = %s',
+        'SELECT to_jsonb(k) AS key_row, to_jsonb(b) AS budget_row FROM "HangarLLM_VerificationToken" AS k '
+        'LEFT JOIN "HangarLLM_BudgetTable" AS b ON b.budget_id = k.budget_id WHERE k.token = %s',
         (sha256(key.encode()).hexdigest(),),
     )
 
 
 def _project_state_rows(project_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT to_jsonb(p) AS project_row, to_jsonb(b) AS budget_row FROM "LiteLLM_ProjectTable" AS p '
-        'LEFT JOIN "LiteLLM_BudgetTable" AS b ON b.budget_id = p.budget_id WHERE p.project_id = %s',
+        'SELECT to_jsonb(p) AS project_row, to_jsonb(b) AS budget_row FROM "HangarLLM_ProjectTable" AS p '
+        'LEFT JOIN "HangarLLM_BudgetTable" AS b ON b.budget_id = p.budget_id WHERE p.project_id = %s',
         (project_id,),
     )
 
 
 def _object_permission_rows(permission_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT * FROM "LiteLLM_ObjectPermissionTable" WHERE object_permission_id = %s',
+        'SELECT * FROM "HangarLLM_ObjectPermissionTable" WHERE object_permission_id = %s',
         (permission_id,),
     )
 
 
 def _object_permission_table_rows() -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT to_jsonb(p) AS row FROM "LiteLLM_ObjectPermissionTable" AS p ORDER BY object_permission_id',
+        'SELECT to_jsonb(p) AS row FROM "HangarLLM_ObjectPermissionTable" AS p ORDER BY object_permission_id',
         (),
     )
 
 
 def _budget_table_rows() -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT to_jsonb(b) AS row FROM "LiteLLM_BudgetTable" AS b ORDER BY budget_id',
+        'SELECT to_jsonb(b) AS row FROM "HangarLLM_BudgetTable" AS b ORDER BY budget_id',
         (),
     )
 
 
 def _budget_rows(budget_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT to_jsonb(b) AS row FROM "LiteLLM_BudgetTable" AS b WHERE budget_id = %s',
+        'SELECT to_jsonb(b) AS row FROM "HangarLLM_BudgetTable" AS b WHERE budget_id = %s',
         (budget_id,),
     )
 
 
 def _clear_key_object_permission(key: str, permission_id: str) -> None:
     write_rows(
-        'UPDATE "LiteLLM_VerificationToken" SET object_permission_id = NULL WHERE token = %s',
+        'UPDATE "HangarLLM_VerificationToken" SET object_permission_id = NULL WHERE token = %s',
         (sha256(key.encode()).hexdigest(),),
     )
     write_rows(
-        'DELETE FROM "LiteLLM_ObjectPermissionTable" WHERE object_permission_id = %s',
+        'DELETE FROM "HangarLLM_ObjectPermissionTable" WHERE object_permission_id = %s',
         (permission_id,),
     )
 
 
 def _deleted_key_rows(key: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT to_jsonb(d) AS row FROM "LiteLLM_DeletedVerificationToken" AS d WHERE d.token = %s',
+        'SELECT to_jsonb(d) AS row FROM "HangarLLM_DeletedVerificationToken" AS d WHERE d.token = %s',
         (sha256(key.encode()).hexdigest(),),
     )
 
 
 def _deprecated_key_rows(key: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT to_jsonb(d) AS row FROM "LiteLLM_DeprecatedVerificationToken" AS d WHERE d.token = %s',
+        'SELECT to_jsonb(d) AS row FROM "HangarLLM_DeprecatedVerificationToken" AS d WHERE d.token = %s',
         (sha256(key.encode()).hexdigest(),),
     )
 
@@ -154,8 +154,8 @@ def _cli_session_token(
     monkeypatch: pytest.MonkeyPatch,
     max_budget: float | None = None,
 ) -> str:
-    monkeypatch.setenv("LITELLM_SALT_KEY", _OWNED_PROXY_SALT_KEY)
-    user: Final = LiteLLM_UserTable(
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", _OWNED_PROXY_SALT_KEY)
+    user: Final = HangarLLM_UserTable(
         user_id=user_id,
         user_role="internal_user",
         teams=[team_id] if team_id is not None else [],
@@ -384,7 +384,7 @@ def test_service_account_generate_rejects_foreign_team_project_without_writing_k
         assert _object_permission_table_rows() == object_permission_rows_before
         assert (
             read_rows(
-                'SELECT token FROM "LiteLLM_VerificationToken" WHERE project_id = %s AND key_alias = %s',
+                'SELECT token FROM "HangarLLM_VerificationToken" WHERE project_id = %s AND key_alias = %s',
                 (project_b, alias),
             )
             == []
@@ -397,7 +397,7 @@ def test_key_generate_unowned_project_accepts_any_team(ownership_gateway: Gatewa
         team_a: Final = scenario.team(models=[model])
         team_b: Final = scenario.team(models=[model])
         project: Final = scenario.project(team_a, models=[model])
-        write_rows('UPDATE "LiteLLM_ProjectTable" SET team_id = NULL WHERE project_id = %s', (project,))
+        write_rows('UPDATE "HangarLLM_ProjectTable" SET team_id = NULL WHERE project_id = %s', (project,))
         team_key: Final = scenario.key(team_id=team_b, project_id=project, models=[model])
         teamless_key: Final = scenario.key(project_id=project, models=[model])
         chats: Final = tuple(
@@ -437,7 +437,7 @@ def test_legacy_mismatched_key_keeps_serving_and_stays_editable(
             project: Final = scenario.project(team_a, models=[model])
             key: Final = scenario.key(team_id=team_a, project_id=project, models=[model])
             write_rows(
-                'UPDATE "LiteLLM_VerificationToken" SET team_id = %s WHERE token = %s',
+                'UPDATE "HangarLLM_VerificationToken" SET team_id = %s WHERE token = %s',
                 (team_b, sha256(key.encode()).hexdigest()),
             )
             marker: Final = f"ownership-{uuid4().hex}"
@@ -461,7 +461,7 @@ def test_stored_team_mismatch_allows_key_edits_and_detach(ownership_gateway: Gat
         project: Final = scenario.project(team_a, models=[model])
         key: Final = scenario.key(team_id=team_a, project_id=project, models=[model])
         write_rows(
-            'UPDATE "LiteLLM_VerificationToken" SET team_id = %s WHERE token = %s',
+            'UPDATE "HangarLLM_VerificationToken" SET team_id = %s WHERE token = %s',
             (team_b, sha256(key.encode()).hexdigest()),
         )
         alias: Final = f"stored-mismatch-{uuid4().hex}"
@@ -601,7 +601,7 @@ def test_key_update_ambiguous_mcp_permission_error_precedes_project_ownership(ow
         _create_mcp_server(ownership_gateway, second_id, f"name{uuid4().hex}", f"alias{uuid4().hex}")
         scenario.cleanups.callback(_delete_mcp_server, ownership_gateway, second_id)
         write_rows(
-            'UPDATE "LiteLLM_MCPServerTable" SET alias = %s WHERE server_id = %s',
+            'UPDATE "HangarLLM_MCPServerTable" SET alias = %s WHERE server_id = %s',
             (identifier, second_id),
         )
         team_permissions: Final = {"mcp_servers": [first_id, second_id]}
@@ -844,11 +844,11 @@ def test_ownership_checks_wait_for_row_locks_without_failing_readiness(
             with psycopg.connect(os.environ["DATABASE_URL"]) as connection:
                 connection.execute("BEGIN")
                 connection.execute(
-                    'SELECT project_id FROM "LiteLLM_ProjectTable" WHERE project_id = %s FOR UPDATE',
+                    'SELECT project_id FROM "HangarLLM_ProjectTable" WHERE project_id = %s FOR UPDATE',
                     (project,),
                 )
                 connection.execute(
-                    'SELECT token FROM "LiteLLM_VerificationToken" WHERE token = %s FOR UPDATE',
+                    'SELECT token FROM "HangarLLM_VerificationToken" WHERE token = %s FOR UPDATE',
                     (sha256(key.encode()).hexdigest(),),
                 )
                 locked.set()
@@ -917,7 +917,7 @@ def test_ownership_enforced_after_worker_kill(ownership_gateway: Gateway, tmp_pa
         with owned_proxy_process(
             ownership_gateway,
             tmp_path / "worker-kill",
-            {"LITELLM_SALT_KEY": _OWNED_PROXY_SALT_KEY},
+            {"HANGARLLM_SALT_KEY": _OWNED_PROXY_SALT_KEY},
             workers=2,
         ) as owned:
             with owned.gateway.scenario() as scenario:
@@ -1014,7 +1014,7 @@ def ownership_proxy(tmp_path_factory: pytest.TempPathFactory) -> Iterator[OwnedP
         with owned_proxy_process(
             gateway,
             directory,
-            {"LITELLM_SALT_KEY": _OWNED_PROXY_SALT_KEY},
+            {"HANGARLLM_SALT_KEY": _OWNED_PROXY_SALT_KEY},
             config=_ownership_config(directory),
             workers=2,
         ) as owned:
@@ -1107,7 +1107,7 @@ def test_project_delete_with_attached_key_refuses_and_preserves_state(gateway: G
         project_before: Final = _project_rows(project)
         key_before: Final = read_rows(
             'SELECT token, key_alias, models, metadata, max_budget, team_id, project_id, budget_id '
-            'FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (digest,),
         )
         assert len(project_before) == 1
@@ -1119,7 +1119,7 @@ def test_project_delete_with_attached_key_refuses_and_preserves_state(gateway: G
         assert _project_rows(project) == project_before
         assert read_rows(
             'SELECT token, key_alias, models, metadata, max_budget, team_id, project_id, budget_id '
-            'FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (digest,),
         ) == key_before
 
@@ -1152,7 +1152,7 @@ def test_key_generate_rejects_foreign_team_project(ownership_gateway: Gateway) -
         assert _object_permission_table_rows() == object_permission_rows_before
         assert (
             read_rows(
-                'SELECT token FROM "LiteLLM_VerificationToken" WHERE project_id = %s AND team_id = %s',
+                'SELECT token FROM "HangarLLM_VerificationToken" WHERE project_id = %s AND team_id = %s',
                 (project_b, team_a),
             )
             == []
@@ -1170,7 +1170,7 @@ def test_key_generate_rejects_missing_team_for_owned_project(ownership_gateway: 
         _discard_unexpected_key(ownership_gateway, unbound)
         assert unbound.status_code == 400, unbound.text
         assert read_rows(
-            'SELECT token FROM "LiteLLM_VerificationToken" WHERE project_id = %s AND team_id IS NULL',
+            'SELECT token FROM "HangarLLM_VerificationToken" WHERE project_id = %s AND team_id IS NULL',
             (project_b,),
         ) == []
 
@@ -1330,7 +1330,7 @@ def test_key_regenerate_rejects_outsider_moving_own_key_into_foreign_team_projec
         assert response.status_code == 403, response.text
         assert _key_rows(target) == before
         assert _deleted_key_rows(target) == []
-        assert read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE project_id = %s', (project_b,)) == []
+        assert read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE project_id = %s', (project_b,)) == []
         chat: Final = ownership_gateway.request(
             "POST",
             "/v1/chat/completions",
@@ -1367,7 +1367,7 @@ def test_key_regenerate_rejects_team_admin_moving_team_key_into_foreign_team_pro
         assert response.status_code == 403, response.text
         assert _key_rows(target) == before
         assert _deleted_key_rows(target) == []
-        assert read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE project_id = %s', (project_b,)) == []
+        assert read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE project_id = %s', (project_b,)) == []
         chat: Final = ownership_gateway.request(
             "POST",
             "/v1/chat/completions",
@@ -1427,7 +1427,7 @@ def test_key_generation_rejects_missing_project_without_writing_key(ownership_ga
         assert key_generation.status_code == 404, key_generation.text
         assert (
             read_rows(
-                'SELECT token FROM "LiteLLM_VerificationToken" WHERE project_id = %s',
+                'SELECT token FROM "HangarLLM_VerificationToken" WHERE project_id = %s',
                 (missing_project_id,),
             )
             == []
@@ -1442,7 +1442,7 @@ def test_key_generation_rejects_missing_project_without_writing_key(ownership_ga
         assert service_account_generation.status_code == 404, service_account_generation.text
         assert (
             read_rows(
-                'SELECT token FROM "LiteLLM_VerificationToken" WHERE project_id = %s',
+                'SELECT token FROM "HangarLLM_VerificationToken" WHERE project_id = %s',
                 (missing_project_id,),
             )
             == []
@@ -1476,7 +1476,7 @@ def test_key_regenerate_routes_reject_missing_project_without_changing_key(owner
             assert _deprecated_key_rows(key) == []
             assert (
                 read_rows(
-                    'SELECT token FROM "LiteLLM_VerificationToken" WHERE project_id = %s',
+                    'SELECT token FROM "HangarLLM_VerificationToken" WHERE project_id = %s',
                     (missing_project_id,),
                 )
                 == []
@@ -1516,7 +1516,7 @@ def test_key_generate_nonmember_organization_error_precedes_project_ownership(
         assert f"Caller is not a member of organization_id={organization_id}" in response.text
         assert (
             read_rows(
-                'SELECT token FROM "LiteLLM_VerificationToken" WHERE project_id = %s',
+                'SELECT token FROM "HangarLLM_VerificationToken" WHERE project_id = %s',
                 (project,),
             )
             == []
@@ -1536,7 +1536,7 @@ def test_key_generate_duplicate_alias_error_precedes_project_ownership(
         caller_id: Final = scenario.member(caller_team, role="admin")
         caller_token: Final = _cli_session_token(caller_id, caller_team, monkeypatch=monkeypatch)
         existing_alias_rows: Final = read_rows(
-            'SELECT token FROM "LiteLLM_VerificationToken" WHERE key_alias = %s',
+            'SELECT token FROM "HangarLLM_VerificationToken" WHERE key_alias = %s',
             (key_alias,),
         )
         response: Final = ownership_gateway.request(
@@ -1555,13 +1555,13 @@ def test_key_generate_duplicate_alias_error_precedes_project_ownership(
         assert f"Key with alias '{key_alias}' already exists" in response.text
         assert len(existing_alias_rows) == 1
         assert read_rows(
-            'SELECT token FROM "LiteLLM_VerificationToken" WHERE key_alias = %s',
+            'SELECT token FROM "HangarLLM_VerificationToken" WHERE key_alias = %s',
             (key_alias,),
         ) == existing_alias_rows
         assert len(_key_rows(existing_key)) == 1
         assert (
             read_rows(
-                'SELECT token FROM "LiteLLM_VerificationToken" WHERE project_id = %s',
+                'SELECT token FROM "HangarLLM_VerificationToken" WHERE project_id = %s',
                 (project,),
             )
             == []
@@ -1596,7 +1596,7 @@ def test_key_generate_budget_ceiling_precedes_project_ownership(
         assert "max_budget (5.0) cannot exceed the caller's own max_budget (1.0)" in response.text
         assert (
             read_rows(
-                'SELECT token FROM "LiteLLM_VerificationToken" WHERE project_id = %s',
+                'SELECT token FROM "HangarLLM_VerificationToken" WHERE project_id = %s',
                 (project,),
             )
             == []
@@ -1720,7 +1720,7 @@ def test_project_update_allows_moving_project_without_keys(ownership_gateway: Ga
         assert len(moved_project) == 1
         assert moved_project[0]["team_id"] == team_b
         assert read_rows(
-            'SELECT token FROM "LiteLLM_VerificationToken" WHERE project_id = %s',
+            'SELECT token FROM "HangarLLM_VerificationToken" WHERE project_id = %s',
             (unattached_project,),
         ) == []
 
@@ -1733,7 +1733,7 @@ def test_project_update_rejects_moving_project_with_teamless_key(ownership_gatew
         project: Final = scenario.project(team_a, models=[model])
         key: Final = scenario.key(team_id=team_a, project_id=project, models=[model])
         write_rows(
-            'UPDATE "LiteLLM_VerificationToken" SET team_id = NULL WHERE token = %s',
+            'UPDATE "HangarLLM_VerificationToken" SET team_id = NULL WHERE token = %s',
             (sha256(key.encode()).hexdigest(),),
         )
         project_before: Final = _project_rows(project)

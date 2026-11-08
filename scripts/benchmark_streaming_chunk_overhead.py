@@ -25,20 +25,20 @@ from dataclasses import asdict, dataclass
 from typing import Callable, List, Optional
 from unittest.mock import MagicMock
 
-# Silence litellm's "Provider List" warnings emitted by get_llm_provider
+# Silence hangarllm's "Provider List" warnings emitted by get_llm_provider
 # when it sees synthetic model names — we're not exercising provider
 # routing, only the per-chunk wrapper hot path.
-os.environ.setdefault("LITELLM_LOG", "ERROR")
-logging.getLogger("LiteLLM").setLevel(logging.ERROR)
+os.environ.setdefault("HANGARLLM_LOG", "ERROR")
+logging.getLogger("HangarLLM").setLevel(logging.ERROR)
 
-import litellm  # noqa: E402
+import hangarllm  # noqa: E402
 
-litellm.suppress_debug_info = True
+hangarllm.suppress_debug_info = True
 
-from litellm.litellm_core_utils.streaming_handler import (
+from hangarllm.hangarllm_core_utils.streaming_handler import (
     CustomStreamWrapper,
 )  # noqa: E402
-from litellm.types.utils import (  # noqa: E402
+from hangarllm.types.utils import (  # noqa: E402
     Delta,
     GenericStreamingChunk as GChunk,
     ModelResponseStream,
@@ -55,7 +55,7 @@ def _make_logging_obj(provider: str) -> MagicMock:
     logging_obj = MagicMock()
     logging_obj.model_call_details = {
         "custom_llm_provider": provider,
-        "litellm_params": {},
+        "hangarllm_params": {},
     }
     logging_obj.call_type = "completion"
     logging_obj.stream_options = None

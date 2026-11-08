@@ -7,19 +7,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Add litellm to path
-import litellm
+# Add hangarllm to path
+import hangarllm
 
 
 def test_deepseek_supported_openai_params(monkeypatch):
     """
     Test "reasoning_effort" is an openai param supported for the DeepSeek model on deepinfra
     """
-    from litellm.llms.deepinfra.chat.transformation import DeepInfraConfig
+    from hangarllm.llms.deepinfra.chat.transformation import DeepInfraConfig
 
     # Ensure we're using the local model cost map
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
     supported_openai_params = DeepInfraConfig().get_supported_openai_params(
         model="deepinfra/deepseek-ai/DeepSeek-V3.1"
@@ -40,7 +40,7 @@ def test_deepinfra_tool_message_content_transformation():
 
     Related to issue #13982
     """
-    from litellm.llms.deepinfra.chat.transformation import DeepInfraConfig
+    from hangarllm.llms.deepinfra.chat.transformation import DeepInfraConfig
 
     config = DeepInfraConfig()
 
@@ -158,7 +158,7 @@ async def test_deepinfra_tool_message_content_transformation_async():
 
     Related to issue #13982
     """
-    from litellm.llms.deepinfra.chat.transformation import DeepInfraConfig
+    from hangarllm.llms.deepinfra.chat.transformation import DeepInfraConfig
 
     config = DeepInfraConfig()
 
@@ -206,7 +206,7 @@ async def test_deepinfra_tool_message_content_transformation_async():
 
 @pytest.mark.parametrize("is_async", [False, True], ids=["sync", "async"])
 async def test_deepinfra_request_stringifies_tool_content_without_touching_the_callers_message(is_async: bool) -> None:
-    from litellm.llms.deepinfra.chat.transformation import DeepInfraConfig
+    from hangarllm.llms.deepinfra.chat.transformation import DeepInfraConfig
 
     config: Final = DeepInfraConfig()
     messages: Final = [
@@ -225,7 +225,7 @@ async def test_deepinfra_request_stringifies_tool_content_without_touching_the_c
         "model": "deepseek-ai/DeepSeek-V3.2",
         "messages": messages,
         "optional_params": {},
-        "litellm_params": {},
+        "hangarllm_params": {},
         "headers": {},
     }
 

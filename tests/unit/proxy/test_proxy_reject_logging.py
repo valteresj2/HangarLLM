@@ -23,22 +23,22 @@ import pytest
 from fastapi import Request, Response
 from starlette.datastructures import URL
 
-import litellm
-from litellm import Router, mock_completion
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.hangar.guardrails.secret_detection import (
+import hangarllm
+from hangarllm import Router, mock_completion
+from hangarllm.caching.caching import DualCache
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.hangar.guardrails.secret_detection import (
     _ENTERPRISE_SecretDetection,
 )
-from litellm.proxy.proxy_server import (
+from hangarllm.proxy.proxy_server import (
     Depends,
     HTTPException,
     chat_completion,
     completion,
     embeddings,
 )
-from litellm.proxy.utils import ProxyLogging, hash_token
+from hangarllm.proxy.utils import ProxyLogging, hash_token
 
 
 class testLogger(CustomLogger):
@@ -80,7 +80,7 @@ def router() -> Router:
         model_list=[
             {
                 "model_name": "fake-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/fake",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "api_key": "sk-98765",
@@ -96,13 +96,13 @@ def _register_proxy_test_logger(callback_logger: testLogger) -> None:
 
     ``function_setup`` dedupes by object identity; each parametrized case
     constructs a new ``testLogger`` and must replace the global lists, not
-    only ``litellm.callbacks``.
+    only ``hangarllm.callbacks``.
     """
-    litellm.callbacks = [callback_logger]
-    litellm.success_callback = [callback_logger]
-    litellm.failure_callback = [callback_logger]
-    litellm._async_success_callback = [callback_logger]
-    litellm._async_failure_callback = [callback_logger]
+    hangarllm.callbacks = [callback_logger]
+    hangarllm.success_callback = [callback_logger]
+    hangarllm.failure_callback = [callback_logger]
+    hangarllm._async_success_callback = [callback_logger]
+    hangarllm._async_failure_callback = [callback_logger]
 
 
 @pytest.mark.parametrize(
@@ -135,16 +135,16 @@ def _register_proxy_test_logger(callback_logger: testLogger) -> None:
 async def test_chat_completion_request_with_redaction(route, body, router, monkeypatch):
     """
     IMPORTANT Enterprise Test - Do not delete it:
-    Makes a /chat/completions request on LiteLLM Proxy
+    Makes a /chat/completions request on HangarLLM Proxy
 
     Ensures that the secret is redacted EVEN on the callback
     """
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "llm_router", router)
     _test_logger = testLogger()
     _register_proxy_test_logger(_test_logger)
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     # Prepare the query string
     query_params = "param1=value1&param2=value2"

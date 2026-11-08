@@ -8,44 +8,44 @@ from typing import Final
 import pytest
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from litellm.models.access_group import LiteLLM_AccessGroupTable
-from litellm.models.autorouter_session import LiteLLM_AutoRouterSession
-from litellm.models.budget import (
-    LiteLLM_BudgetTable,
-    LiteLLM_BudgetTableFull,
-    LiteLLM_TeamMemberTable,
+from hangarllm.models.access_group import HangarLLM_AccessGroupTable
+from hangarllm.models.autorouter_session import HangarLLM_AutoRouterSession
+from hangarllm.models.budget import (
+    HangarLLM_BudgetTable,
+    HangarLLM_BudgetTableFull,
+    HangarLLM_TeamMemberTable,
 )
-from litellm.models.config import LiteLLM_Config
-from litellm.models.credentials import CreateCredentialItem, CredentialItem
-from litellm.models.end_user import LiteLLM_EndUserTable
-from litellm.models.managed_files import (
-    LiteLLM_ManagedFileTable,
-    LiteLLM_ManagedVectorStoresTable,
+from hangarllm.models.config import HangarLLM_Config
+from hangarllm.models.credentials import CreateCredentialItem, CredentialItem
+from hangarllm.models.end_user import HangarLLM_EndUserTable
+from hangarllm.models.managed_files import (
+    HangarLLM_ManagedFileTable,
+    HangarLLM_ManagedVectorStoresTable,
 )
-from litellm.models.mcp_server import LiteLLM_MCPServerTable
-from litellm.models.model import LiteLLM_ProxyModelTable
-from litellm.models.object_permission import LiteLLM_ObjectPermissionTable
-from litellm.models.organization import LiteLLM_OrganizationTable
-from litellm.models.project import LiteLLM_ProjectTable
-from litellm.models.skills import LiteLLM_SkillsTable
-from litellm.models.spend_logs import LiteLLM_ErrorLogs, LiteLLM_SpendLogs
-from litellm.models.tag import LiteLLM_TagTable
-from litellm.models.team import (
-    LiteLLM_DeletedTeamTable,
-    LiteLLM_TeamTable,
-    LiteLLM_TeamTableCachedObj,
+from hangarllm.models.mcp_server import HangarLLM_MCPServerTable
+from hangarllm.models.model import HangarLLM_ProxyModelTable
+from hangarllm.models.object_permission import HangarLLM_ObjectPermissionTable
+from hangarllm.models.organization import HangarLLM_OrganizationTable
+from hangarllm.models.project import HangarLLM_ProjectTable
+from hangarllm.models.skills import HangarLLM_SkillsTable
+from hangarllm.models.spend_logs import HangarLLM_ErrorLogs, HangarLLM_SpendLogs
+from hangarllm.models.tag import HangarLLM_TagTable
+from hangarllm.models.team import (
+    HangarLLM_DeletedTeamTable,
+    HangarLLM_TeamTable,
+    HangarLLM_TeamTableCachedObj,
 )
-from litellm.models.team_membership import LiteLLM_TeamMembership
-from litellm.models.user import LiteLLM_UserTable
-from litellm.models.verification_token import (
-    LiteLLM_DeletedVerificationToken,
-    LiteLLM_VerificationToken,
+from hangarllm.models.team_membership import HangarLLM_TeamMembership
+from hangarllm.models.user import HangarLLM_UserTable
+from hangarllm.models.verification_token import (
+    HangarLLM_DeletedVerificationToken,
+    HangarLLM_VerificationToken,
 )
 
 
 class TestBudget:
     def test_budget_creation(self):
-        budget = LiteLLM_BudgetTable(
+        budget = HangarLLM_BudgetTable(
             budget_id="test-budget-id",
             max_budget=100.0,
             soft_budget=80.0,
@@ -65,13 +65,13 @@ class TestBudget:
         assert budget.allowed_models == ["gpt-4"]
 
     def test_budget_defaults(self):
-        budget = LiteLLM_BudgetTable()
+        budget = HangarLLM_BudgetTable()
         assert budget.budget_id is None
         assert budget.max_budget is None
         assert budget.allowed_models is None
 
     def test_effective_max_budget_applies_unexpired_increase(self):
-        budget = LiteLLM_BudgetTable(
+        budget = HangarLLM_BudgetTable(
             max_budget=100.0,
             temp_budget_increase=50.0,
             temp_budget_expiry=datetime(2100, 1, 1),
@@ -80,23 +80,23 @@ class TestBudget:
 
     def test_effective_max_budget_ignores_expired_increase(self):
         expiry = datetime(2020, 1, 1, tzinfo=timezone.utc)
-        budget = LiteLLM_BudgetTable(max_budget=100.0, temp_budget_increase=50.0, temp_budget_expiry=expiry)
+        budget = HangarLLM_BudgetTable(max_budget=100.0, temp_budget_increase=50.0, temp_budget_expiry=expiry)
         assert budget.effective_max_budget(now=datetime(2026, 1, 1, tzinfo=timezone.utc)) == 100.0
         assert budget.effective_max_budget(now=expiry) == 100.0
 
     def test_effective_max_budget_without_increase(self):
         now = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        assert LiteLLM_BudgetTable(max_budget=100.0).effective_max_budget(now=now) == 100.0
-        assert LiteLLM_BudgetTable(max_budget=None, temp_budget_increase=50.0).effective_max_budget(now=now) is None
+        assert HangarLLM_BudgetTable(max_budget=100.0).effective_max_budget(now=now) == 100.0
+        assert HangarLLM_BudgetTable(max_budget=None, temp_budget_increase=50.0).effective_max_budget(now=now) is None
 
     def test_active_temp_budget_increase_is_independent_of_max_budget(self):
         now = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        bare = LiteLLM_BudgetTable(max_budget=None, temp_budget_increase=50.0, temp_budget_expiry=datetime(2100, 1, 1))
+        bare = HangarLLM_BudgetTable(max_budget=None, temp_budget_increase=50.0, temp_budget_expiry=datetime(2100, 1, 1))
         assert bare.active_temp_budget_increase(now=now) == 50.0
         assert bare.effective_max_budget(now=now) is None
-        expired = LiteLLM_BudgetTable(max_budget=None, temp_budget_increase=50.0, temp_budget_expiry=now)
+        expired = HangarLLM_BudgetTable(max_budget=None, temp_budget_increase=50.0, temp_budget_expiry=now)
         assert expired.active_temp_budget_increase(now=now) == 0.0
-        assert LiteLLM_BudgetTable(max_budget=None).active_temp_budget_increase(now=now) == 0.0
+        assert HangarLLM_BudgetTable(max_budget=None).active_temp_budget_increase(now=now) == 0.0
 
 
 class TestCredentials:
@@ -126,10 +126,10 @@ class TestCredentials:
 
 class TestModel:
     def test_model_creation(self):
-        model = LiteLLM_ProxyModelTable(
+        model = HangarLLM_ProxyModelTable(
             model_id="test-model-id",
             model_name="gpt-4",
-            litellm_params={"model": "gpt-4", "api_key": "test"},
+            hangarllm_params={"model": "gpt-4", "api_key": "test"},
             model_info={"team_id": "team-123", "team_public_model_name": "my-gpt4"},
         )
         assert model.model_id == "test-model-id"
@@ -138,57 +138,57 @@ class TestModel:
         assert model.team_public_model_name == "my-gpt4"
 
     def test_is_blocked(self):
-        model_blocked = LiteLLM_ProxyModelTable(model_id="m1", model_name="test", litellm_params={}, blocked=True)
-        model_unblocked = LiteLLM_ProxyModelTable(model_id="m2", model_name="test", litellm_params={}, blocked=False)
+        model_blocked = HangarLLM_ProxyModelTable(model_id="m1", model_name="test", hangarllm_params={}, blocked=True)
+        model_unblocked = HangarLLM_ProxyModelTable(model_id="m2", model_name="test", hangarllm_params={}, blocked=False)
         assert model_blocked.is_blocked
         assert not model_unblocked.is_blocked
 
     def test_parses_json_string_fields(self):
-        model = LiteLLM_ProxyModelTable(
+        model = HangarLLM_ProxyModelTable(
             model_id="m1",
             model_name="gpt-4",
-            litellm_params='{"model": "gpt-4"}',
+            hangarllm_params='{"model": "gpt-4"}',
             model_info='{"team_id": "t1"}',
         )
-        assert model.litellm_params == {"model": "gpt-4"}
+        assert model.hangarllm_params == {"model": "gpt-4"}
         assert model.model_info == {"team_id": "t1"}
 
     def test_response_type_adapter_accepts_pydantic_row(self):
         class PrismaModelRow(BaseModel):
             model_id: str
             model_name: str
-            litellm_params: dict[str, str]
+            hangarllm_params: dict[str, str]
             model_info: dict[str, str] | None = None
             blocked: bool = False
 
         row = PrismaModelRow(
             model_id="m1",
             model_name="gpt-4",
-            litellm_params={"model": "gpt-4"},
+            hangarllm_params={"model": "gpt-4"},
             model_info={"team_id": "t1"},
             blocked=True,
         )
 
-        model = TypeAdapter(LiteLLM_ProxyModelTable | None).validate_python(
+        model = TypeAdapter(HangarLLM_ProxyModelTable | None).validate_python(
             row,
             from_attributes=True,
         )
 
         assert model is not None
         assert model.model_id == "m1"
-        assert model.litellm_params == {"model": "gpt-4"}
+        assert model.hangarllm_params == {"model": "gpt-4"}
         assert model.model_info == {"team_id": "t1"}
         assert model.blocked is True
 
     def test_team_helpers_none_when_no_model_info(self):
-        model = LiteLLM_ProxyModelTable(model_id="m1", model_name="gpt-4", litellm_params={}, model_info=None)
+        model = HangarLLM_ProxyModelTable(model_id="m1", model_name="gpt-4", hangarllm_params={}, model_info=None)
         assert model.team_id is None
         assert model.team_public_model_name is None
 
 
 class TestObjectPermission:
     def test_object_permission_creation(self):
-        perm = LiteLLM_ObjectPermissionTable(
+        perm = HangarLLM_ObjectPermissionTable(
             object_permission_id="test-perm-id",
             mcp_servers=["server1", "server2"],
             vector_stores=["vs1"],
@@ -204,7 +204,7 @@ class TestObjectPermission:
         assert perm.blocked_tools == ["dangerous_tool"]
 
     def test_object_permission_tool_permissions(self):
-        perm = LiteLLM_ObjectPermissionTable(
+        perm = HangarLLM_ObjectPermissionTable(
             object_permission_id="perm-tools",
             mcp_tool_permissions={"server1": ["tool1", "tool2"]},
         )
@@ -213,7 +213,7 @@ class TestObjectPermission:
 
 class TestOrganization:
     def test_organization_creation(self):
-        org = LiteLLM_OrganizationTable(
+        org = HangarLLM_OrganizationTable(
             organization_id="org-123",
             organization_alias="My Org",
             budget_id="budget-123",
@@ -229,7 +229,7 @@ class TestOrganization:
 
 class TestProject:
     def test_project_creation(self):
-        project = LiteLLM_ProjectTable(
+        project = HangarLLM_ProjectTable(
             project_id="proj-123",
             project_alias="My Project",
             team_id="team-123",
@@ -241,7 +241,7 @@ class TestProject:
 
 class TestTeam:
     def test_team_creation(self):
-        team = LiteLLM_TeamTable(
+        team = HangarLLM_TeamTable(
             team_id="team-123",
             team_alias="Engineering",
             admins=["user1"],
@@ -258,7 +258,7 @@ class TestTeam:
         assert team.max_budget == 1000.0
 
     def test_members_with_roles_parsing(self):
-        team = LiteLLM_TeamTable(
+        team = HangarLLM_TeamTable(
             team_id="t2",
             members_with_roles=[
                 {"user_id": "user1", "role": "admin"},
@@ -270,11 +270,11 @@ class TestTeam:
         assert team.members_with_roles[0].role == "admin"
 
     def test_members_with_roles_empty_dict_coerced(self):
-        team = LiteLLM_TeamTable(team_id="t3", members_with_roles={})
+        team = HangarLLM_TeamTable(team_id="t3", members_with_roles={})
         assert team.members_with_roles == []
 
     def test_json_string_fields_parsed(self):
-        team = LiteLLM_TeamTable(
+        team = HangarLLM_TeamTable(
             team_id="t4",
             metadata='{"k": "v"}',
             model_max_budget='{"gpt-4": 5.0}',
@@ -283,11 +283,11 @@ class TestTeam:
         assert team.model_max_budget == {"gpt-4": 5.0}
 
     def test_cached_team(self):
-        cached = LiteLLM_TeamTableCachedObj(team_id="t1", last_refreshed_at=1234567890.0)
+        cached = HangarLLM_TeamTableCachedObj(team_id="t1", last_refreshed_at=1234567890.0)
         assert cached.last_refreshed_at == 1234567890.0
 
     def test_deleted_team(self):
-        deleted = LiteLLM_DeletedTeamTable(
+        deleted = HangarLLM_DeletedTeamTable(
             team_id="t1",
             deleted_by="admin",
             deleted_at=datetime.utcnow(),
@@ -298,7 +298,7 @@ class TestTeam:
 
 class TestUser:
     def test_user_creation(self):
-        user = LiteLLM_UserTable(
+        user = HangarLLM_UserTable(
             user_id="user-123",
             user_email="test@example.com",
             teams=["team1", "team2"],
@@ -310,15 +310,15 @@ class TestUser:
         assert len(user.teams) == 2
 
     def test_is_over_budget(self):
-        user = LiteLLM_UserTable(user_id="u1", max_budget=100.0, spend=150.0)
-        user_no_budget = LiteLLM_UserTable(user_id="u2", spend=1000.0)
+        user = HangarLLM_UserTable(user_id="u1", max_budget=100.0, spend=150.0)
+        user_no_budget = HangarLLM_UserTable(user_id="u2", spend=1000.0)
 
         assert user.is_over_budget()
         assert not user_no_budget.is_over_budget()
 
     def test_has_model_access(self):
-        user_with_models = LiteLLM_UserTable(user_id="u1", models=["gpt-4"])
-        user_no_models = LiteLLM_UserTable(user_id="u2", models=[])
+        user_with_models = HangarLLM_UserTable(user_id="u1", models=["gpt-4"])
+        user_no_models = HangarLLM_UserTable(user_id="u2", models=[])
 
         assert user_with_models.has_model_access("gpt-4")
         assert not user_with_models.has_model_access("gpt-3")
@@ -327,16 +327,16 @@ class TestUser:
     def test_password_hash_excluded_from_serialization(self):
         import json
 
-        from litellm.proxy._types import LiteLLM_UserTableWithKeyCount
+        from hangarllm.proxy._types import HangarLLM_UserTableWithKeyCount
 
         secret = "$2b$12$abcdefghijklmnopqrstuv"
-        user = LiteLLM_UserTable(user_id="u1", user_email="a@b.c", password=secret)
+        user = HangarLLM_UserTable(user_id="u1", user_email="a@b.c", password=secret)
 
         assert user.password == secret
         assert "password" not in user.model_dump()
         assert "password" not in json.loads(user.model_dump_json())
 
-        with_keys = LiteLLM_UserTableWithKeyCount(user_id="u1", user_email="a@b.c", password=secret, key_count=2)
+        with_keys = HangarLLM_UserTableWithKeyCount(user_id="u1", user_email="a@b.c", password=secret, key_count=2)
         assert with_keys.password == secret
         assert "password" not in with_keys.model_dump()
         assert "password" not in json.loads(with_keys.model_dump_json())
@@ -344,7 +344,7 @@ class TestUser:
 
 class TestVerificationToken:
     def test_verification_token_creation(self):
-        token = LiteLLM_VerificationToken(
+        token = HangarLLM_VerificationToken(
             token="sk-test123",
             key_name="Test Key",
             user_id="user-123",
@@ -364,13 +364,13 @@ class TestVerificationToken:
         assert token.allowed_routes == ["/chat/completions"]
 
     def test_expires_accepts_string_and_datetime(self):
-        as_str = LiteLLM_VerificationToken(token="t1", expires="2024-12-31T23:59:59Z")
-        as_dt = LiteLLM_VerificationToken(token="t2", expires=datetime.utcnow())
+        as_str = HangarLLM_VerificationToken(token="t1", expires="2024-12-31T23:59:59Z")
+        as_dt = HangarLLM_VerificationToken(token="t2", expires=datetime.utcnow())
         assert as_str.expires == "2024-12-31T23:59:59Z"
         assert isinstance(as_dt.expires, datetime)
 
     def test_deleted_verification_token(self):
-        deleted = LiteLLM_DeletedVerificationToken(
+        deleted = HangarLLM_DeletedVerificationToken(
             token="t1",
             deleted_by="admin",
             deleted_at=datetime.utcnow(),
@@ -380,24 +380,24 @@ class TestVerificationToken:
         assert deleted.token == "t1"
 
     def test_total_spend_is_carried_separately_from_resettable_spend(self):
-        token = LiteLLM_VerificationToken(token="t1", spend=0.0, total_spend=12.5)
+        token = HangarLLM_VerificationToken(token="t1", spend=0.0, total_spend=12.5)
         assert token.model_dump()["total_spend"] == 12.5
         assert token.model_dump()["spend"] == 0.0
 
-        deleted = LiteLLM_DeletedVerificationToken.model_validate({**token.model_dump(), "deleted_by": "admin"})
+        deleted = HangarLLM_DeletedVerificationToken.model_validate({**token.model_dump(), "deleted_by": "admin"})
         assert deleted.total_spend == 12.5
 
 
 class TestConfigTable:
     def test_config_creation(self):
-        cfg = LiteLLM_Config(param_name="general_settings", param_value={"k": "v"})
+        cfg = HangarLLM_Config(param_name="general_settings", param_value={"k": "v"})
         assert cfg.param_name == "general_settings"
         assert cfg.param_value == {"k": "v"}
 
 
 class TestSkillsTable:
     def test_skills_creation(self):
-        skill = LiteLLM_SkillsTable(
+        skill = HangarLLM_SkillsTable(
             skill_id="s1",
             display_title="My Skill",
             source="custom",
@@ -409,14 +409,14 @@ class TestSkillsTable:
         assert skill.file_content == b"zipbytes"
 
     def test_skills_defaults(self):
-        skill = LiteLLM_SkillsTable(skill_id="s2")
+        skill = HangarLLM_SkillsTable(skill_id="s2")
         assert skill.source == "custom"
         assert skill.metadata is None
 
 
 class TestAccessGroupTable:
     def test_access_group_creation(self):
-        ag = LiteLLM_AccessGroupTable(
+        ag = HangarLLM_AccessGroupTable(
             access_group_id="ag1",
             access_group_name="group-a",
             access_model_names=["gpt-4"],
@@ -430,7 +430,7 @@ class TestAccessGroupTable:
 
 class TestTagTable:
     def test_tag_creation(self):
-        tag = LiteLLM_TagTable(
+        tag = HangarLLM_TagTable(
             tag_name="prod",
             models=["gpt-4"],
             spend=12.5,
@@ -441,14 +441,14 @@ class TestTagTable:
         assert tag.spend == 12.5
 
     def test_tag_set_model_info_coerces_none(self):
-        tag = LiteLLM_TagTable(tag_name="t", spend=None, models=None)
+        tag = HangarLLM_TagTable(tag_name="t", spend=None, models=None)
         assert tag.spend == 0.0
         assert tag.models == []
 
 
 class TestEndUserTable:
     def test_end_user_creation(self):
-        eu = LiteLLM_EndUserTable(
+        eu = HangarLLM_EndUserTable(
             user_id="eu1",
             blocked=False,
             spend=5.0,
@@ -461,7 +461,7 @@ class TestEndUserTable:
         assert eu.default_model == "gpt-4"
 
     def test_end_user_spend_coerced_when_none(self):
-        eu = LiteLLM_EndUserTable(user_id="eu2", blocked=True, spend=None)
+        eu = HangarLLM_EndUserTable(user_id="eu2", blocked=True, spend=None)
         assert eu.spend == 0.0
 
     def test_end_user_from_model_instance(self):
@@ -471,7 +471,7 @@ class TestEndUserTable:
             spend: float | None = None
 
         record = MockPrismaRecord(user_id="u3", blocked=True, spend=None)
-        table = LiteLLM_EndUserTable.model_validate(record, from_attributes=True)
+        table = HangarLLM_EndUserTable.model_validate(record, from_attributes=True)
         assert table.user_id == "u3"
         assert table.spend == 0.0
         assert table.blocked is True
@@ -480,19 +480,19 @@ class TestEndUserTable:
 class TestBudgetTableFull:
     def test_full_adds_server_managed_fields(self):
         now = datetime.now()
-        budget = LiteLLM_BudgetTableFull(budget_id="b1", max_budget=10.0, created_at=now, budget_reset_at=now)
+        budget = HangarLLM_BudgetTableFull(budget_id="b1", max_budget=10.0, created_at=now, budget_reset_at=now)
         assert budget.created_at == now
         assert budget.budget_reset_at == now
         assert budget.max_budget == 10.0
 
     def test_full_requires_created_at(self):
         with pytest.raises(ValidationError):
-            LiteLLM_BudgetTableFull(budget_id="b1")
+            HangarLLM_BudgetTableFull(budget_id="b1")
 
 
 class TestTeamMemberTable:
     def test_tracks_user_within_team(self):
-        member = LiteLLM_TeamMemberTable(user_id="u1", team_id="t1", spend=3.0, budget_id="b1", max_budget=5.0)
+        member = HangarLLM_TeamMemberTable(user_id="u1", team_id="t1", spend=3.0, budget_id="b1", max_budget=5.0)
         assert member.user_id == "u1"
         assert member.team_id == "t1"
         assert member.spend == 3.0
@@ -501,38 +501,38 @@ class TestTeamMemberTable:
 
 class TestTeamMembership:
     def test_safe_get_limits_with_budget_table(self):
-        membership = LiteLLM_TeamMembership(
+        membership = HangarLLM_TeamMembership(
             user_id="u1",
             team_id="t1",
-            litellm_budget_table=LiteLLM_BudgetTable(rpm_limit=100, tpm_limit=2000),
+            hangarllm_budget_table=HangarLLM_BudgetTable(rpm_limit=100, tpm_limit=2000),
         )
         assert membership.safe_get_team_member_rpm_limit() == 100
         assert membership.safe_get_team_member_tpm_limit() == 2000
 
     def test_safe_get_limits_without_budget_table(self):
-        membership = LiteLLM_TeamMembership(user_id="u1", team_id="t1")
+        membership = HangarLLM_TeamMembership(user_id="u1", team_id="t1")
         assert membership.safe_get_team_member_rpm_limit() is None
         assert membership.safe_get_team_member_tpm_limit() is None
 
     def test_full_budget_variant_parsed_for_server_fields(self):
         now = datetime.now()
-        membership = LiteLLM_TeamMembership(
+        membership = HangarLLM_TeamMembership(
             user_id="u1",
             team_id="t1",
-            litellm_budget_table={
+            hangarllm_budget_table={
                 "budget_id": "b1",
                 "rpm_limit": 7,
                 "created_at": now,
                 "budget_reset_at": now,
             },
         )
-        assert isinstance(membership.litellm_budget_table, LiteLLM_BudgetTableFull)
+        assert isinstance(membership.hangarllm_budget_table, HangarLLM_BudgetTableFull)
         assert membership.safe_get_team_member_rpm_limit() == 7
 
 
 class TestMCPServerTable:
     def test_mcp_server_defaults(self):
-        server = LiteLLM_MCPServerTable(server_id="s1", transport="sse")
+        server = HangarLLM_MCPServerTable(server_id="s1", transport="sse")
         assert server.server_id == "s1"
         assert server.transport == "sse"
         assert server.status == "unknown"
@@ -544,12 +544,12 @@ class TestMCPServerTable:
 
     def test_mcp_server_requires_transport(self):
         with pytest.raises(ValidationError):
-            LiteLLM_MCPServerTable(server_id="s1")
+            HangarLLM_MCPServerTable(server_id="s1")
 
 
 class TestSpendLogs:
     def test_spend_logs_creation(self):
-        log = LiteLLM_SpendLogs(
+        log = HangarLLM_SpendLogs(
             request_id="r1",
             api_key="sk-1",
             call_type="completion",
@@ -567,7 +567,7 @@ class TestSpendLogs:
     def test_spend_logs_parse_database_timestamps(self):
         created_at = datetime(2026, 8, 18, 12, 0, 0)
         updated_at = datetime(2026, 8, 18, 12, 5, 0)
-        log = LiteLLM_SpendLogs(
+        log = HangarLLM_SpendLogs(
             request_id="r1",
             api_key="sk-1",
             call_type="completion",
@@ -582,14 +582,14 @@ class TestSpendLogs:
         assert log.updated_at == updated_at
 
     def test_error_logs_creation(self):
-        log = LiteLLM_ErrorLogs(request_id="r1", startTime=None, endTime=None, status_code="500")
+        log = HangarLLM_ErrorLogs(request_id="r1", startTime=None, endTime=None, status_code="500")
         assert log.request_id == "r1"
         assert log.status_code == "500"
 
 
 class TestManagedTables:
     def test_managed_file_table(self):
-        table = LiteLLM_ManagedFileTable(
+        table = HangarLLM_ManagedFileTable(
             unified_file_id="f1",
             model_mappings={"gpt-4": "file-abc"},
             flat_model_file_ids=["file-abc"],
@@ -599,7 +599,7 @@ class TestManagedTables:
         assert table.flat_model_file_ids == ["file-abc"]
 
     def test_managed_vector_stores_table(self):
-        table = LiteLLM_ManagedVectorStoresTable(
+        table = HangarLLM_ManagedVectorStoresTable(
             vector_store_id="vs1",
             custom_llm_provider="openai",
             vector_store_name=None,
@@ -607,8 +607,8 @@ class TestManagedTables:
             vector_store_metadata=None,
             created_at=None,
             updated_at=None,
-            litellm_credential_name=None,
-            litellm_params=None,
+            hangarllm_credential_name=None,
+            hangarllm_params=None,
             team_id=None,
             user_id=None,
         )
@@ -624,39 +624,39 @@ class TestProxyModelTableResponseSerialization:
     def test_validates_from_an_existing_instance(self):
         from pydantic import TypeAdapter
 
-        built: Final = LiteLLM_ProxyModelTable(
+        built: Final = HangarLLM_ProxyModelTable(
             model_id="m-1",
             model_name="claude-sonnet-5-provider",
-            litellm_params={"model": "anthropic/claude-sonnet-5"},
+            hangarllm_params={"model": "anthropic/claude-sonnet-5"},
             blocked=True,
         )
 
-        serialized = TypeAdapter(LiteLLM_ProxyModelTable | None).validate_python(built, from_attributes=True)
+        serialized = TypeAdapter(HangarLLM_ProxyModelTable | None).validate_python(built, from_attributes=True)
 
         assert serialized is not None
         assert serialized.model_id == "m-1"
         assert serialized.blocked is True
-        assert serialized.litellm_params == {"model": "anthropic/claude-sonnet-5"}
+        assert serialized.hangarllm_params == {"model": "anthropic/claude-sonnet-5"}
 
     def test_still_parses_json_string_columns(self):
         """The DB stores these columns as JSON strings, which is why the validator exists."""
-        parsed: Final = LiteLLM_ProxyModelTable.model_validate(
+        parsed: Final = HangarLLM_ProxyModelTable.model_validate(
             {
                 "model_id": "m-2",
                 "model_name": "n",
-                "litellm_params": '{"model": "anthropic/claude-haiku-4-5"}',
+                "hangarllm_params": '{"model": "anthropic/claude-haiku-4-5"}',
                 "model_info": '{"id": "m-2"}',
             }
         )
 
-        assert parsed.litellm_params == {"model": "anthropic/claude-haiku-4-5"}
+        assert parsed.hangarllm_params == {"model": "anthropic/claude-haiku-4-5"}
         assert parsed.model_info == {"id": "m-2"}
 
 
 class TestAutoRouterSession:
     @staticmethod
-    def _row(baseline_models: dict[str, int], estimated_turns: int = 3) -> LiteLLM_AutoRouterSession:
-        return LiteLLM_AutoRouterSession(
+    def _row(baseline_models: dict[str, int], estimated_turns: int = 3) -> HangarLLM_AutoRouterSession:
+        return HangarLLM_AutoRouterSession(
             api_key="k",
             session_id="s",
             router_name="auto",

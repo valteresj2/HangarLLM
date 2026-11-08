@@ -4,16 +4,16 @@ from types import MappingProxyType
 import pytest
 from fastapi import HTTPException
 
-from litellm.integrations.custom_guardrail import ModifyResponseException
-from litellm.llms.openai.completion.guardrail_translation.handler import OpenAITextCompletionHandler
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.grayswan import grayswan as grayswan_module
-from litellm.proxy.guardrails.guardrail_hooks.grayswan.grayswan import (
+from hangarllm.integrations.custom_guardrail import ModifyResponseException
+from hangarllm.llms.openai.completion.guardrail_translation.handler import OpenAITextCompletionHandler
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.grayswan import grayswan as grayswan_module
+from hangarllm.proxy.guardrails.guardrail_hooks.grayswan.grayswan import (
     GraySwanGuardrail,
     GraySwanGuardrailAPIError,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import TextChoices, TextCompletionResponse
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import TextChoices, TextCompletionResponse
 
 
 @pytest.fixture
@@ -85,12 +85,12 @@ def test_prepare_payload_forwards_only_scan_id_header(
                 "authorization": "Bearer secret",
             }
         },
-        "litellm_metadata": {"request_id": "request-123"},
+        "hangarllm_metadata": {"request_id": "request-123"},
     }
 
     payload = grayswan_guardrail._prepare_payload(messages, {}, request_data)
 
-    assert payload["litellm_metadata"] == {
+    assert payload["hangarllm_metadata"] == {
         "request_id": "request-123",
         "headers": {"SHADE_SCAN_ID": "scan-123"},
     }
@@ -106,7 +106,7 @@ def test_prepare_payload_merges_scan_id_with_existing_metadata_headers(
                 "shade_scan_id": "scan-123",
             }
         },
-        "litellm_metadata": {
+        "hangarllm_metadata": {
             "request_id": "request-123",
             "headers": {"x-existing": "keep-me"},
         },
@@ -114,7 +114,7 @@ def test_prepare_payload_merges_scan_id_with_existing_metadata_headers(
 
     payload = grayswan_guardrail._prepare_payload(messages, {}, request_data)
 
-    assert payload["litellm_metadata"] == {
+    assert payload["hangarllm_metadata"] == {
         "request_id": "request-123",
         "headers": {
             "x-existing": "keep-me",
@@ -123,7 +123,7 @@ def test_prepare_payload_merges_scan_id_with_existing_metadata_headers(
     }
 
 
-def test_prepare_payload_sanitizes_headers_when_litellm_metadata_absent(
+def test_prepare_payload_sanitizes_headers_when_hangarllm_metadata_absent(
     monkeypatch: pytest.MonkeyPatch,
     grayswan_guardrail: GraySwanGuardrail,
 ) -> None:
@@ -140,7 +140,7 @@ def test_prepare_payload_sanitizes_headers_when_litellm_metadata_absent(
 
     payload = grayswan_guardrail._prepare_payload(messages, {}, request_data)
 
-    assert "litellm_metadata" not in payload
+    assert "hangarllm_metadata" not in payload
 
 
 def test_prepare_payload_extracts_headers_from_logging_obj(
@@ -153,7 +153,7 @@ def test_prepare_payload_extracts_headers_from_logging_obj(
         (),
         {
             "model_call_details": {
-                "litellm_params": {
+                "hangarllm_params": {
                     "metadata": {
                         "headers": {
                             "shade_scan_id": "scan-from-logging",
@@ -167,7 +167,7 @@ def test_prepare_payload_extracts_headers_from_logging_obj(
 
     payload = grayswan_guardrail._prepare_payload(messages, {}, request_data, logging_obj)
 
-    assert payload["litellm_metadata"] == {
+    assert payload["hangarllm_metadata"] == {
         "headers": {"shade_scan_id": "scan-from-logging"},
     }
 
@@ -179,7 +179,7 @@ def test_prepare_payload_ignores_logging_obj_without_model_call_details(
 
     payload = grayswan_guardrail._prepare_payload(messages, {}, {}, object())
 
-    assert "litellm_metadata" not in payload
+    assert "hangarllm_metadata" not in payload
 
 
 def test_process_response_does_not_block_under_threshold(
@@ -548,13 +548,13 @@ def test_format_violation_message() -> None:
     assert "Mutation effort to make the harmful intention disguised was DETECTED" in message
 
 
-def test_prepare_payload_includes_litellm_metadata(
+def test_prepare_payload_includes_hangarllm_metadata(
     grayswan_guardrail: GraySwanGuardrail,
 ) -> None:
-    """Verify _prepare_payload forwards litellm_metadata from request_data."""
+    """Verify _prepare_payload forwards hangarllm_metadata from request_data."""
     messages = [{"role": "user", "content": "hello"}]
     request_data = {
-        "litellm_metadata": {
+        "hangarllm_metadata": {
             "user_api_key_user_id": "user-123",
             "user_api_key_team_id": "team-456",
             "user_api_key_spend": 0,
@@ -564,39 +564,39 @@ def test_prepare_payload_includes_litellm_metadata(
     payload = grayswan_guardrail._prepare_payload(messages, {}, request_data)
 
     assert payload is not None
-    assert "litellm_metadata" in payload
-    assert payload["litellm_metadata"]["user_api_key_user_id"] == "user-123"
-    assert payload["litellm_metadata"]["user_api_key_team_id"] == "team-456"
+    assert "hangarllm_metadata" in payload
+    assert payload["hangarllm_metadata"]["user_api_key_user_id"] == "user-123"
+    assert payload["hangarllm_metadata"]["user_api_key_team_id"] == "team-456"
 
 
-def test_ensure_litellm_metadata_populates_from_user_api_key_dict() -> None:
-    """Verify _ensure_litellm_metadata populates litellm_metadata."""
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
-        _ensure_litellm_metadata,
+def test_ensure_hangarllm_metadata_populates_from_user_api_key_dict() -> None:
+    """Verify _ensure_hangarllm_metadata populates hangarllm_metadata."""
+    from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+        _ensure_hangarllm_metadata,
     )
 
     user_auth = UserAPIKeyAuth(user_id="u1", team_id="t1", api_key="sk-test-hashed")
     data: dict = {}
 
-    _ensure_litellm_metadata(data, user_auth)
+    _ensure_hangarllm_metadata(data, user_auth)
 
-    assert "litellm_metadata" in data
-    assert data["litellm_metadata"]["user_api_key_user_id"] == "u1"
-    assert data["litellm_metadata"]["user_api_key_team_id"] == "t1"
+    assert "hangarllm_metadata" in data
+    assert data["hangarllm_metadata"]["user_api_key_user_id"] == "u1"
+    assert data["hangarllm_metadata"]["user_api_key_team_id"] == "t1"
 
 
-def test_ensure_litellm_metadata_noop_when_already_present() -> None:
-    """Verify _ensure_litellm_metadata does not overwrite existing litellm_metadata."""
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
-        _ensure_litellm_metadata,
+def test_ensure_hangarllm_metadata_noop_when_already_present() -> None:
+    """Verify _ensure_hangarllm_metadata does not overwrite existing hangarllm_metadata."""
+    from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+        _ensure_hangarllm_metadata,
     )
 
     user_auth = UserAPIKeyAuth(user_id="should-not-appear")
-    data: dict = {"litellm_metadata": {"existing": "value"}}
+    data: dict = {"hangarllm_metadata": {"existing": "value"}}
 
-    _ensure_litellm_metadata(data, user_auth)
+    _ensure_hangarllm_metadata(data, user_auth)
 
-    assert data["litellm_metadata"] == {"existing": "value"}
+    assert data["hangarllm_metadata"] == {"existing": "value"}
 
 
 class _CapturingClient:
@@ -672,7 +672,7 @@ async def test_post_call_sends_request_conversation_and_tools() -> None:
 
     await guardrail.apply_guardrail(
         inputs={"texts": ["response text"]},
-        request_data={**_REQUEST_DATA, "litellm_logging_obj": _LoggingObj("acompletion")},
+        request_data={**_REQUEST_DATA, "hangarllm_logging_obj": _LoggingObj("acompletion")},
         input_type="response",
         logging_obj=_LoggingObj("acompletion"),
     )
@@ -700,7 +700,7 @@ async def test_post_call_scans_and_blocks_tool_call_only_response() -> None:
     with pytest.raises(HTTPException) as exc:
         await guardrail.apply_guardrail(
             inputs={"tool_calls": [tool_call]},
-            request_data={**_REQUEST_DATA, "litellm_logging_obj": _LoggingObj("acompletion")},
+            request_data={**_REQUEST_DATA, "hangarllm_logging_obj": _LoggingObj("acompletion")},
             input_type="response",
             logging_obj=_LoggingObj("acompletion"),
         )
@@ -722,7 +722,7 @@ async def test_post_call_honors_skip_system_and_skip_tool() -> None:
 
     await guardrail.apply_guardrail(
         inputs={"texts": ["response text"]},
-        request_data={**_REQUEST_DATA, "litellm_logging_obj": _LoggingObj("acompletion")},
+        request_data={**_REQUEST_DATA, "hangarllm_logging_obj": _LoggingObj("acompletion")},
         input_type="response",
         logging_obj=_LoggingObj("acompletion"),
     )
@@ -744,7 +744,7 @@ async def test_post_call_scan_only_tool_results_scopes_context_and_tools() -> No
 
     await guardrail.apply_guardrail(
         inputs={"texts": ["response text"]},
-        request_data={**_REQUEST_DATA, "litellm_logging_obj": _LoggingObj("acompletion")},
+        request_data={**_REQUEST_DATA, "hangarllm_logging_obj": _LoggingObj("acompletion")},
         input_type="response",
         logging_obj=_LoggingObj("acompletion"),
     )
@@ -770,7 +770,7 @@ async def test_post_call_merges_response_text_and_tool_calls_into_one_message() 
     }
     await guardrail.apply_guardrail(
         inputs={"texts": ["response text"], "tool_calls": [tool_call]},
-        request_data={**_REQUEST_DATA, "litellm_logging_obj": _LoggingObj("acompletion")},
+        request_data={**_REQUEST_DATA, "hangarllm_logging_obj": _LoggingObj("acompletion")},
         input_type="response",
         logging_obj=_LoggingObj("acompletion"),
     )
@@ -795,7 +795,7 @@ async def test_post_call_multi_choice_texts_and_tool_calls_stay_split() -> None:
     }
     await guardrail.apply_guardrail(
         inputs={"texts": ["first answer", "second answer"], "tool_calls": [tool_call]},
-        request_data={**_REQUEST_DATA, "litellm_logging_obj": _LoggingObj("acompletion")},
+        request_data={**_REQUEST_DATA, "hangarllm_logging_obj": _LoggingObj("acompletion")},
         input_type="response",
         logging_obj=_LoggingObj("acompletion"),
     )
@@ -819,7 +819,7 @@ async def test_post_call_prefers_request_route_over_logging_call_type() -> None:
         inputs={"texts": ["response text"]},
         request_data={
             **_REQUEST_DATA,
-            "litellm_metadata": {"user_api_key_request_route": "/v1/chat/completions"},
+            "hangarllm_metadata": {"user_api_key_request_route": "/v1/chat/completions"},
         },
         input_type="response",
         logging_obj=_LoggingObj("responses"),
@@ -841,7 +841,7 @@ async def test_post_call_surface_without_messages_sends_response_only() -> None:
 
     await guardrail.apply_guardrail(
         inputs={"texts": ["response text"]},
-        request_data={**_REQUEST_DATA, "litellm_logging_obj": _LoggingObj("aembedding")},
+        request_data={**_REQUEST_DATA, "hangarllm_logging_obj": _LoggingObj("aembedding")},
         input_type="response",
         logging_obj=_LoggingObj("aembedding"),
     )
@@ -911,4 +911,4 @@ async def test_post_call_never_forwards_the_proxy_key_metadata_of_the_request_me
         },
     )
 
-    assert "litellm_metadata" not in client.calls[0]["json"]
+    assert "hangarllm_metadata" not in client.calls[0]["json"]

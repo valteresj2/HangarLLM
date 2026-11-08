@@ -1,7 +1,7 @@
 general_settings:
   proxy_batch_write_at: 5
   enable_jwt_auth: true
-  litellm_jwtauth:
+  hangarllm_jwtauth:
     user_id_jwt_field: sub
     user_email_jwt_field: email
     team_ids_jwt_field: groups
@@ -16,7 +16,7 @@ general_settings:
   proxy_budget_rescheduler_min_time: 15
   proxy_budget_rescheduler_max_time: 20
 
-litellm_settings:
+hangarllm_settings:
   drop_params: true
   default_redis_ttl: 20
   request_timeout: 600
@@ -48,36 +48,36 @@ router_settings:
 
 model_list:
   - model_name: gpt-5.5
-    litellm_params:
+    hangarllm_params:
       model: openai/gpt-5.5
       api_key: os.environ/OPENAI_API_KEY
   - model_name: claude-haiku-4-5
-    litellm_params:
+    hangarllm_params:
       model: anthropic/claude-haiku-4-5
       api_key: os.environ/ANTHROPIC_API_KEY
   - model_name: gemini-2.5-flash-vertex
-    litellm_params:
+    hangarllm_params:
       model: vertex_ai/gemini-2.5-flash
       vertex_project: os.environ/VERTEXAI_PROJECT
       vertex_location: us-central1
       vertex_credentials: os.environ/VERTEXAI_CREDENTIALS
   - model_name: gemini-2.5-flash
-    litellm_params:
+    hangarllm_params:
       model: gemini/gemini-2.5-flash
       api_key: os.environ/GEMINI_API_KEY
   - model_name: e2e-alias-rl-target
-    litellm_params:
+    hangarllm_params:
       model: anthropic/claude-haiku-4-5
       api_key: os.environ/ANTHROPIC_API_KEY
       default_api_key_rpm_limit: 3
   - model_name: openai-text-embedding-3-small
-    litellm_params:
+    hangarllm_params:
       model: openai/text-embedding-3-small
       api_key: os.environ/OPENAI_API_KEY
 
 search_tools:
   - search_tool_name: e2e-search
-    litellm_params:
+    hangarllm_params:
       search_provider: perplexity
       api_key: os.environ/PERPLEXITY_API_KEY
 

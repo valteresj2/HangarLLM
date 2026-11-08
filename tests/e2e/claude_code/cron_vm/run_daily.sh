@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Daily Claude Code compatibility-matrix populator.
 #
-# Runs daily as the Render cron job `litellm-compat-matrix`, built from
+# Runs daily as the Render cron job `hangarllm-compat-matrix`, built from
 # the Dockerfile in this directory (see README.md). The flow is:
 #
-#   1. Resolve the latest LiteLLM final release tag from the GitHub
+#   1. Resolve the latest HangarLLM final release tag from the GitHub
 #      Releases API.
 #   2. Update a long-lived worktree at $WORKTREE to that tag and `uv sync` it.
 #   3. Resolve the Claude Code CLI version under test (the newest npm
@@ -21,9 +21,9 @@
 #      CLI (`build_matrix.py`) that wraps the existing
 #      `matrix_builder.build_from_paths` to produce the published
 #      compatibility-matrix.json.
-#   7. `gh repo clone` litellm-docs, write the JSON to a deterministic
-#      branch (`compat-matrix/<litellm>-<claude>-<UTC-date>`), commit,
-#      push the branch straight to BerriAI/litellm-docs (mateo-berri has
+#   7. `gh repo clone` hangarllm-docs, write the JSON to a deterministic
+#      branch (`compat-matrix/<hangarllm>-<claude>-<UTC-date>`), commit,
+#      push the branch straight to valteresj2/HangarLLM-docs (mateo-berri has
 #      write access), `gh pr create`, then — *only if no cell regressed
 #      green→red versus the currently-published matrix* — enable squash
 #      auto-merge so the PR merges itself once required checks pass. A
@@ -40,7 +40,7 @@
 # docs branch, we skip the push entirely.
 #
 # Required commands on $PATH: git, uv, gh, jq, curl.
-# Required state: a litellm checkout at $LITELLM_REPO (this file lives in
+# Required state: a hangarllm checkout at $HANGARLLM_REPO (this file lives in
 # it); $WORKTREE is created on first run.
 #
 # Override any default by setting the matching env var; see README.md
@@ -48,11 +48,11 @@
 
 set -Eeuo pipefail
 
-LITELLM_REPO="${LITELLM_REPO:-${HOME}/litellm/litellm}"
-WORKTREE="${LITELLM_WORKTREE:-${HOME}/litellm-cron-worktree}"
+HANGARLLM_REPO="${HANGARLLM_REPO:-${HOME}/hangarllm/hangarllm}"
+WORKTREE="${HANGARLLM_WORKTREE:-${HOME}/hangarllm-cron-worktree}"
 PROXY_PORT="${PROXY_PORT:-4100}"
 PROXY_API_KEY="${PROXY_API_KEY:-sk-$(openssl rand -hex 16)}"
-DOCS_REPO="${DOCS_REPO:-BerriAI/litellm-docs}"
+DOCS_REPO="${DOCS_REPO:-valteresj2/HangarLLM-docs}"
 DOCS_BRANCH="${DOCS_BRANCH:-main}"
 DOCS_TARGET_PATH="${DOCS_TARGET_PATH:-src/data/compatibility-matrix.json}"
 SKIP_PUBLISH="${SKIP_PUBLISH:-0}"
@@ -68,13 +68,13 @@ CLAUDE_CODE_VERSION="${CLAUDE_CODE_VERSION:-}"
 # UV_PYTHON_INSTALL_DIR below) so everything the run writes lives inside
 # the worktree.
 CRON_PYTHON_VERSION="${CRON_PYTHON_VERSION:-3.12}"
-# Merge method for auto-merge. BerriAI/litellm-docs only allows squash
+# Merge method for auto-merge. valteresj2/HangarLLM-docs only allows squash
 # merges (merge-commit and rebase are disabled at the repo level), so
 # `squash` is the only valid value here unless that changes upstream.
 AUTO_MERGE_METHOD="${AUTO_MERGE_METHOD:-squash}"
 
 POPULATOR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKDIR="$(mktemp -d -t litellm-compat-matrix.XXXXXX)"
+WORKDIR="$(mktemp -d -t hangarllm-compat-matrix.XXXXXX)"
 PROXY_PID_FILE="${WORKDIR}/proxy.pid"
 
 # Cleanup is intentionally aggressive: it can run on normal exit, on a
@@ -83,7 +83,7 @@ PROXY_PID_FILE="${WORKDIR}/proxy.pid"
 # order and stop as soon as the proxy port is free:
 #
 #   1. SIGTERM the pid recorded in proxy.pid.
-#   2. SIGKILL anything from `pgrep -f "litellm.*--port ${PROXY_PORT}"`
+#   2. SIGKILL anything from `pgrep -f "hangarllm.*--port ${PROXY_PORT}"`
 #      that survived. This catches the common case where the recorded
 #      pid was the sh wrapper, not the long-lived python child.
 #   3. ss -K on the port (kernel kills sockets but not processes;
@@ -105,9 +105,9 @@ cleanup() {
   fi
   # Belt-and-braces: any python or uv talking to ${PROXY_PORT} that
   # survived the SIGTERM gets SIGKILL'd by name.
-  pgrep -f "litellm.*--port[ =]?${PROXY_PORT}([^0-9]|$)" 2>/dev/null \
+  pgrep -f "hangarllm.*--port[ =]?${PROXY_PORT}([^0-9]|$)" 2>/dev/null \
     | xargs -r kill -KILL 2>/dev/null || true
-  pgrep -f "${WORKTREE}/.uv-bin/uv.*run litellm" 2>/dev/null \
+  pgrep -f "${WORKTREE}/.uv-bin/uv.*run hangarllm" 2>/dev/null \
     | xargs -r kill -KILL 2>/dev/null || true
   rm -rf "${WORKDIR}"
   exit "${rc}"
@@ -121,7 +121,7 @@ for cmd in git uv gh jq curl; do
   command -v "${cmd}" >/dev/null 2>&1 || die "missing required command: ${cmd}"
 done
 
-# Publishing pushes the branch straight to BerriAI/litellm-docs and opens
+# Publishing pushes the branch straight to valteresj2/HangarLLM-docs and opens
 # the PR as mateo-berri, who has write access on the docs repo. On
 # Render the PAT arrives as a secret file under ${CREDENTIALS_DIRECTORY},
 # NOT via an env var: several suite cells let the model-driven claude CLI
@@ -152,7 +152,7 @@ fi
 # 1. Resolve versions
 # ---------------------------------------------------------------------------
 
-# Newest PEP 440 *final* release on BerriAI/litellm. LiteLLM moved off
+# Newest PEP 440 *final* release on valteresj2/HangarLLM. HangarLLM moved off
 # the legacy `vX.Y.Z-stable` tag convention to PEP 440: a final/stable
 # release is now a bare `vX.Y.Z` tag, while pre-releases carry a
 # `-rc.N` / `-dev.N` segment (and the old `…-stable` / `…-stable.patch.N`
@@ -161,7 +161,7 @@ fi
 # -- and skip drafts. The numeric version_key sort handles 1.10 > 1.9.
 #
 # Paginate through the releases endpoint instead of grabbing only page 1
-# (default page_size=30). LiteLLM ships multiple pre-releases per day, so
+# (default page_size=30). HangarLLM ships multiple pre-releases per day, so
 # it's common to need to walk past 30+ entries before hitting the most
 # recent final release. We cap at 5 pages (500 releases) which is
 # conservatively beyond the worst observed gap.
@@ -175,9 +175,9 @@ for page in 1 2 3 4 5; do
   PAGE_JSON="${WORKDIR}/releases.page${page}.json"
   curl -fsS \
     -H 'Accept: application/vnd.github+json' \
-    -H 'User-Agent: litellm-compat-matrix' \
+    -H 'User-Agent: hangarllm-compat-matrix' \
     "${GH_AUTH_HEADER[@]}" \
-    "https://api.github.com/repos/BerriAI/litellm/releases?per_page=100&page=${page}" \
+    "https://api.github.com/repos/valteresj2/HangarLLM/releases?per_page=100&page=${page}" \
     >"${PAGE_JSON}"
   jq -s '.[0] + .[1]' "${RELEASES_JSON}" "${PAGE_JSON}" >"${RELEASES_JSON}.merged"
   mv "${RELEASES_JSON}.merged" "${RELEASES_JSON}"
@@ -191,7 +191,7 @@ for page in 1 2 3 4 5; do
     break
   fi
 done
-LITELLM_VERSION="$(
+HANGARLLM_VERSION="$(
   jq -r '
     [ .[]
       | select((.draft // false) == false)
@@ -205,20 +205,20 @@ LITELLM_VERSION="$(
     | last // empty
   ' "${RELEASES_JSON}"
 )"
-[[ -n "${LITELLM_VERSION}" ]] || die "could not resolve latest PEP 440 final release (vX.Y.Z) in 5 pages of releases"
-log "resolved litellm: ${LITELLM_VERSION}"
+[[ -n "${HANGARLLM_VERSION}" ]] || die "could not resolve latest PEP 440 final release (vX.Y.Z) in 5 pages of releases"
+log "resolved hangarllm: ${HANGARLLM_VERSION}"
 
 # ---------------------------------------------------------------------------
 # 2. Update the worktree to that tag
 # ---------------------------------------------------------------------------
 
 if [[ ! -d "${WORKTREE}/.git" ]]; then
-  log "first run: cloning litellm into ${WORKTREE}"
+  log "first run: cloning hangarllm into ${WORKTREE}"
   mkdir -p "$(dirname "${WORKTREE}")"
-  git clone --filter=blob:none https://github.com/BerriAI/litellm.git "${WORKTREE}"
+  git clone --filter=blob:none https://github.com/valteresj2/HangarLLM.git "${WORKTREE}"
 fi
 
-log "updating worktree to ${LITELLM_VERSION}"
+log "updating worktree to ${HANGARLLM_VERSION}"
 git -C "${WORKTREE}" fetch --tags --force
 git -C "${WORKTREE}" reset --hard
 # Keep the venv, the .uv-bin cache, and the .uv-python managed
@@ -228,10 +228,10 @@ git -C "${WORKTREE}" reset --hard
 # tests/e2e/ shim) so each run starts clean before the shim below
 # rewrites it from the dev checkout.
 git -C "${WORKTREE}" clean -fdx -e .venv -e .uv-bin -e .uv-python
-git -C "${WORKTREE}" checkout --force "${LITELLM_VERSION}"
+git -C "${WORKTREE}" checkout --force "${HANGARLLM_VERSION}"
 
 # Always rebuild tests/e2e/ in the worktree from the dev checkout,
-# regardless of what the resolved ${LITELLM_VERSION} tag ships: the
+# regardless of what the resolved ${HANGARLLM_VERSION} tag ships: the
 # matrix populator's job is to exercise *today's* tests against the
 # latest stable proxy, and the dev checkout carries the most recent
 # test fixes that haven't yet rolled into a stable release.
@@ -246,14 +246,14 @@ git -C "${WORKTREE}" checkout --force "${LITELLM_VERSION}"
 # pytest puts tests/e2e/ itself on sys.path (it has no __init__.py, while
 # claude_code/ does), which is what resolves both the `claude_code.*`
 # and the bare `proxy_client` / `e2e_http` imports inside the suite.
-[[ -d "${LITELLM_REPO}/tests/e2e/claude_code" ]] \
-  || die "no shim source at ${LITELLM_REPO}/tests/e2e/claude_code"
-log "shimming tests/e2e/ from ${LITELLM_REPO} (always-overwrite)"
+[[ -d "${HANGARLLM_REPO}/tests/e2e/claude_code" ]] \
+  || die "no shim source at ${HANGARLLM_REPO}/tests/e2e/claude_code"
+log "shimming tests/e2e/ from ${HANGARLLM_REPO} (always-overwrite)"
 rm -rf "${WORKTREE}/tests/e2e"
 mkdir -p "${WORKTREE}/tests/e2e"
-cp -r "${LITELLM_REPO}/tests/e2e/." "${WORKTREE}/tests/e2e/"
+cp -r "${HANGARLLM_REPO}/tests/e2e/." "${WORKTREE}/tests/e2e/"
 
-# litellm pins an exact uv version in pyproject.toml's [tool.uv]
+# hangarllm pins an exact uv version in pyproject.toml's [tool.uv]
 # `required-version` field, so a system uv that's newer or older
 # refuses to sync. We pin our own local copy at the version the
 # checked-out tag asks for, cached under .uv-bin/ inside the worktree
@@ -298,12 +298,12 @@ else
     rm -rf "${UV_TMPDIR}"
   fi
 fi
-# `--extra proxy` pulls fastapi/uvicorn/etc. so `uv run litellm` can
+# `--extra proxy` pulls fastapi/uvicorn/etc. so `uv run hangarllm` can
 # actually serve. `--group proxy-dev` brings in pytest and the rest of
 # what tests/e2e/claude_code/ needs. `--python` pins the venv to
 # ${CRON_PYTHON_VERSION}; the first run after a version bump recreates
 # the venv from scratch (a one-time cold sync). `--no-install-project`
-# leaves litellm itself out: the tag builds a Rust extension through
+# leaves hangarllm itself out: the tag builds a Rust extension through
 # maturin, which needs a C and Rust toolchain the image does not carry,
 # so the published PyPI wheel (what users install) goes in right after,
 # and every later `uv run` passes `--no-sync` so uv never tries to put
@@ -311,9 +311,9 @@ fi
 export UV_PYTHON_INSTALL_DIR="${WORKTREE}/.uv-python"
 log "uv sync --frozen --group proxy-dev --extra proxy --no-install-project --python ${CRON_PYTHON_VERSION} (uv ${PINNED_UV_VERSION:-system})"
 (cd "${WORKTREE}" && "${WORKTREE_UV}" sync --frozen --group proxy-dev --extra proxy --no-install-project --python "${CRON_PYTHON_VERSION}")
-LITELLM_WHEEL_VERSION="${LITELLM_VERSION#v}"
-log "installing the published litellm==${LITELLM_WHEEL_VERSION} wheel from PyPI"
-"${WORKTREE_UV}" pip install --python "${WORKTREE}/.venv/bin/python" --no-deps --no-build "litellm==${LITELLM_WHEEL_VERSION}"
+HANGARLLM_WHEEL_VERSION="${HANGARLLM_VERSION#v}"
+log "installing the published hangarllm==${HANGARLLM_WHEEL_VERSION} wheel from PyPI"
+"${WORKTREE_UV}" pip install --python "${WORKTREE}/.venv/bin/python" --no-deps --no-build "hangarllm==${HANGARLLM_WHEEL_VERSION}"
 
 PROXY_CONFIG="${WORKTREE}/tests/e2e/claude_code/test_config.yaml"
 [[ -f "${PROXY_CONFIG}" ]] || die "proxy config not found at ${PROXY_CONFIG} (shim incomplete?)"
@@ -345,9 +345,9 @@ CLAUDE_CLI_DIR="${WORKDIR}/claude-cli"
 log "starting proxy on 127.0.0.1:${PROXY_PORT}"
 # Bind the proxy to loopback only. The populator proxy is talked to
 # exclusively by the pytest run on the same host (the health check and
-# the test env set `LITELLM_PROXY_URL=http://127.0.0.1:...`),
+# the test env set `HANGARLLM_PROXY_URL=http://127.0.0.1:...`),
 # so there's no reason to expose it on the container's external interfaces.
-# Without `--host`, `litellm` defaults to 0.0.0.0, so a predictable proxy key
+# Without `--host`, `hangarllm` defaults to 0.0.0.0, so a predictable proxy key
 # would allow anything that can reach :${PROXY_PORT} on the host to authenticate
 # and burn upstream provider credentials.
 #
@@ -355,10 +355,10 @@ log "starting proxy on 127.0.0.1:${PROXY_PORT}"
 # SIGTERM the whole tree by passing the pgid as a negative pid. We
 # write that pid to a file so cleanup() doesn't need to remember a
 # variable that might be stale by the time the trap fires.
-setsid env LITELLM_MASTER_KEY="${PROXY_API_KEY}" bash -c '
+setsid env HANGARLLM_MASTER_KEY="${PROXY_API_KEY}" bash -c '
   echo "$$" > "$0"
   cd "$1"
-  exec "$2" run --no-sync litellm --config "$3" --host 127.0.0.1 --port "$4"
+  exec "$2" run --no-sync hangarllm --config "$3" --host 127.0.0.1 --port "$4"
 ' "${PROXY_PID_FILE}" "${WORKTREE}" "${WORKTREE_UV}" "${PROXY_CONFIG}" "${PROXY_PORT}" \
   >"${WORKDIR}/proxy.log" 2>&1 &
 disown
@@ -391,8 +391,8 @@ log "running pytest"
 set +e
 (
   cd "${WORKTREE}" \
-    && LITELLM_PROXY_URL="http://127.0.0.1:${PROXY_PORT}" \
-       LITELLM_MASTER_KEY="${PROXY_API_KEY}" \
+    && HANGARLLM_PROXY_URL="http://127.0.0.1:${PROXY_PORT}" \
+       HANGARLLM_MASTER_KEY="${PROXY_API_KEY}" \
        COMPAT_RESULTS_PATH="${RESULTS_JSON}" \
        PATH="${CLAUDE_CLI_DIR}:${PATH}" \
        "${WORKTREE_UV}" run --no-sync pytest "${PYTEST_ARGS[@]}"
@@ -418,7 +418,7 @@ log "building ${MATRIX_JSON}"
        --manifest "${WORKTREE}/tests/e2e/claude_code/manifest.yaml" \
        --results "${RESULTS_JSON}" \
        --output "${MATRIX_JSON}" \
-       --litellm-version "${LITELLM_VERSION}" \
+       --hangarllm-version "${HANGARLLM_VERSION}" \
        --claude-code-version "${CLAUDE_CODE_VERSION}"
 )
 
@@ -434,15 +434,15 @@ if [[ "${SKIP_PUBLISH}" == "1" ]]; then
 fi
 
 DATE_UTC="$(date -u +%Y-%m-%d)"
-BRANCH_NAME="compat-matrix/${LITELLM_VERSION}-${CLAUDE_CODE_VERSION}-${DATE_UTC}"
-DOCS_CLONE="${WORKDIR}/litellm-docs"
+BRANCH_NAME="compat-matrix/${HANGARLLM_VERSION}-${CLAUDE_CODE_VERSION}-${DATE_UTC}"
+DOCS_CLONE="${WORKDIR}/hangarllm-docs"
 
 log "cloning ${DOCS_REPO}@${DOCS_BRANCH}"
 GH_TOKEN="${GITHUB_TOKEN}" gh repo clone "${DOCS_REPO}" "${DOCS_CLONE}" -- --depth 1 --branch "${DOCS_BRANCH}"
 
 cd "${DOCS_CLONE}"
-git config user.email "litellm-bot@berri.ai"
-git config user.name "litellm-compat-matrix-bot"
+git config user.email "hangarllm-bot@berri.ai"
+git config user.name "hangarllm-compat-matrix-bot"
 git checkout -b "${BRANCH_NAME}"
 
 # Snapshot the currently-published matrix *before* we overwrite it, so the
@@ -499,14 +499,14 @@ GENERATED_AT="$(jq -r '.generated_at' "${MATRIX_JSON}")"
 COMMIT_MSG="$(cat <<EOF
 Update Claude Code compatibility matrix
 
-litellm_version: ${LITELLM_VERSION}
+hangarllm_version: ${HANGARLLM_VERSION}
 claude_code_version: ${CLAUDE_CODE_VERSION}
 generated_at: ${GENERATED_AT}
 EOF
 )"
 git commit -m "${COMMIT_MSG}"
 
-# Push the branch straight to BerriAI/litellm-docs. mateo-berri has write
+# Push the branch straight to valteresj2/HangarLLM-docs. mateo-berri has write
 # access on the docs repo, so there's no fork hop: the PR is a same-repo
 # branch PR. The temp remote carries the token in its URL, so we add it,
 # push, then immediately remove it so the token never lingers in
@@ -554,7 +554,7 @@ else
   PR_REGRESSION_SECTION=""
 fi
 
-PR_TITLE="chore(compat-matrix): refresh for ${LITELLM_VERSION} + claude-code ${CLAUDE_CODE_VERSION}"
+PR_TITLE="chore(compat-matrix): refresh for ${HANGARLLM_VERSION} + claude-code ${CLAUDE_CODE_VERSION}"
 PR_BODY="$(cat <<EOF
 Automated daily refresh of the Claude Code compatibility matrix.
 
@@ -562,7 +562,7 @@ ${PR_REGRESSION_SECTION}
 
 | Field | Value |
 | --- | --- |
-| litellm_version | \`${LITELLM_VERSION}\` |
+| hangarllm_version | \`${HANGARLLM_VERSION}\` |
 | claude_code_version | \`${CLAUDE_CODE_VERSION}\` |
 | generated_at | \`${GENERATED_AT}\` |
 

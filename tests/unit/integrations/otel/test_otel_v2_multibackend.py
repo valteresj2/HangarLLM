@@ -14,8 +14,8 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
 
-from litellm.integrations.otel.model.config import ExporterSpec, OpenTelemetryV2Config
-from litellm.integrations.otel.plumbing.providers import build_tracer_provider
+from hangarllm.integrations.otel.model.config import ExporterSpec, OpenTelemetryV2Config
+from hangarllm.integrations.otel.plumbing.providers import build_tracer_provider
 
 
 def test_two_exporters_receive_the_same_span():

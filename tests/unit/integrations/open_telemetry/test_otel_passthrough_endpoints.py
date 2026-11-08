@@ -6,10 +6,10 @@ import asyncio
 import pytest
 from fastapi import HTTPException
 
-from litellm.caching.dual_cache import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.utils import ProxyLogging
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.utils import ProxyLogging
 
 from ._helpers import (
     assert_server_span_attrs,
@@ -58,7 +58,7 @@ VERTEX_PATH = "/vertex_ai/v1/projects/p/locations/us-central1/publishers/google/
         (make_fastapi_http_exception(502, "wrapped 502"), 502),
     ],
     ids=[
-        "401-litellm-auth",
+        "401-hangarllm-auth",
         "400-upstream",
         "403-upstream",
         "404-upstream",

@@ -43,7 +43,7 @@ from integration.providers._cache_control_marks_support import (
 from openai.types.responses import ResponseInputParam
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.utils import get_prompt_cache_min_tokens
+from hangarllm.utils import get_prompt_cache_min_tokens
 
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _HOUR: Final[dict[str, JsonValue]] = {"type": "ephemeral", "ttl": "1h"}
@@ -124,7 +124,7 @@ def _tool_items(marker: str, *, output_mark: JsonValue = None, call_mark: JsonVa
 
 
 def _call_id_of(response: httpx.Response) -> str:
-    return response.headers["x-litellm-call-id"] if "x-litellm-call-id" in response.headers else ""
+    return response.headers["x-hangarllm-call-id"] if "x-hangarllm-call-id" in response.headers else ""
 
 
 def _send(gateway: Gateway, body: dict[str, JsonValue], *, key: str | None = None) -> _Answer:
@@ -1121,7 +1121,7 @@ def test_input_tokens_counts_marked_items_without_their_marks(gateway: Gateway) 
     assert _JSON_OBJECT.validate_json(response.text) == {
         "object": "response.input_tokens",
         "input_tokens": _COUNTED_TOKENS,
-        "litellm_count_source": "provider",
+        "hangarllm_count_source": "provider",
     }
     assert counted.target.endswith("/count_tokens"), counted.target
     assert anthropic_labels(counted) == []
@@ -1203,7 +1203,7 @@ def test_input_tokens_reads_each_input_shape_without_item_marks(gateway: Gateway
     assert _JSON_OBJECT.validate_json(response.text) == {
         "object": "response.input_tokens",
         "input_tokens": _COUNTED_TOKENS,
-        "litellm_count_source": "provider",
+        "hangarllm_count_source": "provider",
     }
     assert [anthropic_labels(request) for request in counted] == [[]]
 

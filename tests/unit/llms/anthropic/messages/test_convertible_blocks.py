@@ -6,17 +6,17 @@ from typing import Final
 import pytest
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.llms.anthropic.messages.adapters.transformation import LiteLLMAnthropicMessagesAdapter
-from litellm.llms.anthropic.messages.convertible_blocks import (
+from hangarllm.llms.anthropic.messages.adapters.transformation import HangarLLMAnthropicMessagesAdapter
+from hangarllm.llms.anthropic.messages.convertible_blocks import (
     malformed_tool_result_text_error,
     unconvertible_anthropic_blocks,
     unconvertible_blocks_error,
 )
-from litellm.llms.anthropic.messages.responses_adapters.transformation import (
-    LiteLLMAnthropicToResponsesAPIAdapter,
+from hangarllm.llms.anthropic.messages.responses_adapters.transformation import (
+    HangarLLMAnthropicToResponsesAPIAdapter,
 )
-from litellm.llms.vertex_ai.count_tokens.context import gemini_count_contents
-from litellm.types.llms.anthropic import AllAnthropicPassThroughMessageValues
+from hangarllm.llms.vertex_ai.count_tokens.context import gemini_count_contents
+from hangarllm.types.llms.anthropic import AllAnthropicPassThroughMessageValues
 
 _JSON_OBJECTS: Final = TypeAdapter(list[dict[str, JsonValue]])
 
@@ -58,9 +58,9 @@ def _adapter_messages(role: str, block: Mapping[str, object]) -> list[AllAnthrop
 def _converted_by_both_adapters(role: str, block: Mapping[str, object]) -> tuple[bool, bool]:
     messages: Final = _adapter_messages(role, block)
     chat: Final = _JSON_OBJECTS.validate_python(
-        LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(messages=messages)
+        HangarLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(messages=messages)
     )
-    responses: Final = LiteLLMAnthropicToResponsesAPIAdapter().translate_messages_to_responses_input(messages)
+    responses: Final = HangarLLMAnthropicToResponsesAPIAdapter().translate_messages_to_responses_input(messages)
     chat_kept: Final = any(
         message.get("content") or message.get("tool_calls") or message.get("thinking_blocks") for message in chat
     )
@@ -108,7 +108,7 @@ def _tool_turn(inner: Mapping[str, object]) -> tuple[Mapping[str, object], ...]:
 def _sent_by_each_counter(inner: Mapping[str, object]) -> tuple[str, str]:
     messages: Final = _tool_turn(inner)
     gemini: Final = asyncio.run(gemini_count_contents(messages, "anthropic", "gemini-2.5-flash", "gemini", {}))
-    openai: Final = LiteLLMAnthropicToResponsesAPIAdapter().translate_messages_to_responses_input(
+    openai: Final = HangarLLMAnthropicToResponsesAPIAdapter().translate_messages_to_responses_input(
         [dict(message) for message in messages]  # pyright: ignore[reportArgumentType]  # sends block shapes the TypedDicts leave out on purpose
     )
     return json.dumps(gemini, default=str), json.dumps(openai, default=str)
@@ -171,10 +171,10 @@ def _replayed_web_search(encrypted_content: str) -> tuple[Mapping[str, object], 
                     "content": [
                         {
                             "type": "web_search_result",
-                            "url": "https://docs.litellm.ai/release_notes",
+                            "url": "https://github.com/valteresj2/HangarLLM#readme",
                             "title": "Release notes",
                             "encrypted_content": encrypted_content,
-                            "snippet": "LiteLLM ships a weekly release candidate.",
+                            "snippet": "HangarLLM ships a weekly release candidate.",
                         }
                     ],
                 },

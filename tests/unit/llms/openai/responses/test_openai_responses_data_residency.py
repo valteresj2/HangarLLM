@@ -1,6 +1,6 @@
 """
-Tests that data_residency is correctly populated on the litellm logging
-object's litellm_params for OpenAI Responses paths, even when
+Tests that data_residency is correctly populated on the hangarllm logging
+object's hangarllm_params for OpenAI Responses paths, even when
 custom_llm_provider is resolved from the model string inside responses()
 rather than passed explicitly.
 """
@@ -8,7 +8,7 @@ rather than passed explicitly.
 import json
 from unittest.mock import MagicMock, patch
 
-import litellm
+import hangarllm
 
 
 def _make_responses_api_response_body() -> dict:
@@ -55,7 +55,7 @@ def _make_mock_http_client(response_body: dict) -> MagicMock:
 def _capture_logging_obj():
     captured = {}
 
-    real_init = litellm.Logging.__init__
+    real_init = hangarllm.Logging.__init__
 
     def init_spy(self, *args, **kwargs):
         real_init(self, *args, **kwargs)
@@ -67,19 +67,19 @@ def _capture_logging_obj():
 def test_responses_eu_api_base_sets_data_residency():
     """When api_base is a regional OpenAI host and custom_llm_provider is
     inferred from the model (not passed explicitly), data_residency must end
-    up on the logging object's litellm_params so the cost calculator can apply
+    up on the logging object's hangarllm_params so the cost calculator can apply
     the regional uplift."""
     mock_client = _make_mock_http_client(_make_responses_api_response_body())
     captured, init_spy = _capture_logging_obj()
 
     with (
         patch(
-            "litellm.llms.custom_httpx.llm_http_handler.get_httpx_client",
+            "hangarllm.llms.custom_httpx.llm_http_handler.get_httpx_client",
             return_value=mock_client,
         ),
-        patch.object(litellm.Logging, "__init__", init_spy),
+        patch.object(hangarllm.Logging, "__init__", init_spy),
     ):
-        litellm.responses(
+        hangarllm.responses(
             model="gpt-4.1",
             input="hi",
             api_base="https://eu.api.openai.com/v1",
@@ -87,7 +87,7 @@ def test_responses_eu_api_base_sets_data_residency():
         )
 
     logging_obj = captured["logging_obj"]
-    assert logging_obj.litellm_params.get("data_residency") == "eu"
+    assert logging_obj.hangarllm_params.get("data_residency") == "eu"
 
 
 def test_responses_us_api_base_sets_data_residency():
@@ -96,12 +96,12 @@ def test_responses_us_api_base_sets_data_residency():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.llm_http_handler.get_httpx_client",
+            "hangarllm.llms.custom_httpx.llm_http_handler.get_httpx_client",
             return_value=mock_client,
         ),
-        patch.object(litellm.Logging, "__init__", init_spy),
+        patch.object(hangarllm.Logging, "__init__", init_spy),
     ):
-        litellm.responses(
+        hangarllm.responses(
             model="gpt-4.1",
             input="hi",
             api_base="https://us.api.openai.com/v1",
@@ -109,7 +109,7 @@ def test_responses_us_api_base_sets_data_residency():
         )
 
     logging_obj = captured["logging_obj"]
-    assert logging_obj.litellm_params.get("data_residency") == "us"
+    assert logging_obj.hangarllm_params.get("data_residency") == "us"
 
 
 def test_responses_fedramp_api_base_sets_data_residency():
@@ -118,12 +118,12 @@ def test_responses_fedramp_api_base_sets_data_residency():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.llm_http_handler.get_httpx_client",
+            "hangarllm.llms.custom_httpx.llm_http_handler.get_httpx_client",
             return_value=mock_client,
         ),
-        patch.object(litellm.Logging, "__init__", init_spy),
+        patch.object(hangarllm.Logging, "__init__", init_spy),
     ):
-        litellm.responses(
+        hangarllm.responses(
             model="gpt-4.1",
             input="hi",
             api_base="https://gov.api.openai.com/v1",
@@ -131,7 +131,7 @@ def test_responses_fedramp_api_base_sets_data_residency():
         )
 
     logging_obj = captured["logging_obj"]
-    assert logging_obj.litellm_params.get("data_residency") == "fedramp"
+    assert logging_obj.hangarllm_params.get("data_residency") == "fedramp"
 
 
 def test_responses_global_api_base_leaves_data_residency_none():
@@ -140,12 +140,12 @@ def test_responses_global_api_base_leaves_data_residency_none():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.llm_http_handler.get_httpx_client",
+            "hangarllm.llms.custom_httpx.llm_http_handler.get_httpx_client",
             return_value=mock_client,
         ),
-        patch.object(litellm.Logging, "__init__", init_spy),
+        patch.object(hangarllm.Logging, "__init__", init_spy),
     ):
-        litellm.responses(
+        hangarllm.responses(
             model="gpt-4.1",
             input="hi",
             api_base="https://api.openai.com/v1",
@@ -153,4 +153,4 @@ def test_responses_global_api_base_leaves_data_residency_none():
         )
 
     logging_obj = captured["logging_obj"]
-    assert logging_obj.litellm_params.get("data_residency") is None
+    assert logging_obj.hangarllm_params.get("data_residency") is None

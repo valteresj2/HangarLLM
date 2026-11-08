@@ -130,11 +130,11 @@ def _upstream(request: Request) -> Reply:
     return _chat_reply(marker, stream)
 
 
-def _config(tmp_path: Path, **litellm_settings: object) -> Path:
+def _config(tmp_path: Path, **hangarllm_settings: object) -> Path:
     config: Final = _PROXY_CONFIG.validate_python(yaml.safe_load(STOCK_CONFIG.read_text()))
-    settings: Final = {**_SETTINGS.validate_python(config["litellm_settings"]), **litellm_settings}
+    settings: Final = {**_SETTINGS.validate_python(config["hangarllm_settings"]), **hangarllm_settings}
     path: Final = tmp_path / "langtrace.yaml"
-    path.write_text(yaml.safe_dump({**config, "litellm_settings": settings}))
+    path.write_text(yaml.safe_dump({**config, "hangarllm_settings": settings}))
     return path
 
 
@@ -164,7 +164,7 @@ def _assert_prompted_with(span: Span, marker: str) -> Span:
     return span
 
 
-def _spans_carrying(batches: Sequence[Request], marker: str, name: str | None = "litellm_request") -> tuple[Span, ...]:
+def _spans_carrying(batches: Sequence[Request], marker: str, name: str | None = "hangarllm_request") -> tuple[Span, ...]:
     return tuple(
         span for span in _spans(batches) if name in (None, span.name) and marker.encode() in span.SerializeToString()
     )
@@ -368,7 +368,7 @@ def test_langtrace_exports_cache_hit_twin_as_its_own_span(gateway: Gateway, tmp_
         second: Final = rig.proxy.request(
             "POST", "/v1/chat/completions", {"model": rig.model, "messages": [{"role": "user", "content": marker}]}
         )
-        assert second.status_code == 200 and second.headers.get("x-litellm-cache-key"), second.headers
+        assert second.status_code == 200 and second.headers.get("x-hangarllm-cache-key"), second.headers
         assert second.json()["id"] == first.json()["id"], second.text
         assert rig.provider_hits(marker) == 1
         batches: Final = eventually(
@@ -524,7 +524,7 @@ def test_langtrace_otel_v2_route_still_targets_collector_v1_traces(gateway: Gate
     marker: Final = _marker()
     with wire_server(_upstream) as provider, wire_server(_accepted) as collector:
         overrides: Final = {
-            "LITELLM_OTEL_V2": "true",
+            "HANGARLLM_OTEL_V2": "true",
             "LANGTRACE_API_KEY": "unused-by-the-collector-route",
             "OTEL_EXPORTER_OTLP_ENDPOINT": collector.url,
             "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",

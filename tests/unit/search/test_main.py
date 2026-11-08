@@ -7,10 +7,10 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.search.cost_calculator import search_provider_cost_per_query
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_model_cost_map import GetModelCostMap
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.search.cost_calculator import search_provider_cost_per_query
 
 EXA_SEARCH_URL: Final = "https://api.exa.ai/search"
 TAVILY_SEARCH_URL: Final = "https://api.tavily.com/search"
@@ -29,29 +29,29 @@ SEARCH_MODE_PRICES: Final = {
 
 @pytest.fixture
 def _local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "model_cost", GetModelCostMap.load_local_model_cost_map())
+    monkeypatch.setattr(hangarllm, "model_cost", GetModelCostMap.load_local_model_cost_map())
 
 
 @pytest.fixture
 def _search_mode_prices(_local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch) -> None:
     for model, price in SEARCH_MODE_PRICES.items():
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             model,
-            {"input_cost_per_query": price, "litellm_provider": model.split("/", 1)[0], "mode": "search"},
+            {"input_cost_per_query": price, "hangarllm_provider": model.split("/", 1)[0], "mode": "search"},
         )
 
 
 def _proxy_style_logging_obj() -> Logging:
     """The proxy builds the logging object from the request body before the router adds the search tool's
-    litellm_params, so the per-tool price only reaches cost tracking if the search call itself records it."""
+    hangarllm_params, so the per-tool price only reaches cost tracking if the search call itself records it."""
     return Logging(
         model="exa-search",
         messages=[],
         stream=False,
         call_type="search",
         start_time=datetime.datetime.now(),
-        litellm_call_id="search-tool-price",
+        hangarllm_call_id="search-tool-price",
         function_id="f",
     )
 
@@ -63,18 +63,18 @@ def test_search_bills_search_tool_input_cost_per_query(respx_mock: respx.MockRou
     configured_price: Final = 0.05
     assert map_price not in (0.0, configured_price)
 
-    map_priced: Final = litellm.search(
-        query="litellm release notes",
+    map_priced: Final = hangarllm.search(
+        query="hangarllm release notes",
         search_provider="exa_ai",
         api_key="test-exa-key",
-        litellm_logging_obj=_proxy_style_logging_obj(),
+        hangarllm_logging_obj=_proxy_style_logging_obj(),
     )
-    tool_priced: Final = litellm.search(
-        query="litellm release notes",
+    tool_priced: Final = hangarllm.search(
+        query="hangarllm release notes",
         search_provider="exa_ai",
         api_key="test-exa-key",
         input_cost_per_query=configured_price,
-        litellm_logging_obj=_proxy_style_logging_obj(),
+        hangarllm_logging_obj=_proxy_style_logging_obj(),
     )
 
     assert map_priced._hidden_params["response_cost"] == pytest.approx(map_price)
@@ -97,19 +97,19 @@ def test_unpriced_fallback_search_tool_is_billed_at_its_own_price_not_the_failed
     assert map_price != primary_price
     shared_by_every_fallback_attempt: Final = _proxy_style_logging_obj()
 
-    with pytest.raises(litellm.InternalServerError):
-        litellm.search(
-            query="litellm release notes",
+    with pytest.raises(hangarllm.InternalServerError):
+        hangarllm.search(
+            query="hangarllm release notes",
             search_provider="exa_ai",
             api_key="test-exa-key",
             input_cost_per_query=primary_price,
-            litellm_logging_obj=shared_by_every_fallback_attempt,
+            hangarllm_logging_obj=shared_by_every_fallback_attempt,
         )
-    fallback: Final = litellm.search(
-        query="litellm release notes",
+    fallback: Final = hangarllm.search(
+        query="hangarllm release notes",
         search_provider="exa_ai",
         api_key="test-exa-key",
-        litellm_logging_obj=shared_by_every_fallback_attempt,
+        hangarllm_logging_obj=shared_by_every_fallback_attempt,
     )
 
     assert fallback._hidden_params["response_cost"] == pytest.approx(map_price)
@@ -169,7 +169,7 @@ def test_a_registered_search_model_keeps_its_own_price_for_an_advanced_search() 
 @pytest.fixture
 def _loaded_catalog_prices(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {key: dict(entry) for key, entry in GetModelCostMap.loaded_model_cost_map().items()},
     )
@@ -184,9 +184,9 @@ MODE_CASES: Final = (
 
 def _register(monkeypatch: pytest.MonkeyPatch, entry: str, price: float) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         entry,
-        {"input_cost_per_query": price, "litellm_provider": entry.split("/", 1)[0], "mode": "search"},
+        {"input_cost_per_query": price, "hangarllm_provider": entry.split("/", 1)[0], "mode": "search"},
     )
 
 
@@ -258,8 +258,8 @@ def test_a_runtime_price_on_the_mode_entry_wins_over_a_runtime_price_on_the_gene
 @pytest.mark.usefixtures("_search_mode_prices")
 def test_sync_tavily_advanced_search_reports_the_advanced_price(respx_mock: respx.MockRouter) -> None:
     respx_mock.post(TAVILY_SEARCH_URL).respond(json={"results": [{"title": "t", "url": "https://example.com"}]})
-    response: Final = litellm.search(
-        query="litellm release notes", search_provider="tavily", api_key="test-tavily-key", search_depth="advanced"
+    response: Final = hangarllm.search(
+        query="hangarllm release notes", search_provider="tavily", api_key="test-tavily-key", search_depth="advanced"
     )
     assert json.loads(respx_mock.calls.last.request.content)["search_depth"] == "advanced"
     assert response.hidden_params["response_cost"] == pytest.approx(0.007)
@@ -270,12 +270,12 @@ def test_sync_tavily_advanced_search_reports_the_advanced_price(respx_mock: resp
 async def test_async_linkup_deep_search_reports_the_deep_price(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post(LINKUP_SEARCH_URL).respond(
         json={"results": [{"type": "text", "name": "t", "url": "https://example.com", "content": "c"}]}
     )
-    response: Final = await litellm.asearch(
-        query="litellm release notes", search_provider="linkup", api_key="test-linkup-key", depth="deep"
+    response: Final = await hangarllm.asearch(
+        query="hangarllm release notes", search_provider="linkup", api_key="test-linkup-key", depth="deep"
     )
     assert json.loads(respx_mock.calls.last.request.content)["depth"] == "deep"
     assert response.hidden_params["response_cost"] == pytest.approx(0.011)

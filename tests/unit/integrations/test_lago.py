@@ -5,9 +5,9 @@ from typing import Final
 import httpx
 import pytest
 
-from litellm.integrations.lago import LagoLogger
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.types.utils import ModelResponse, Usage
+from hangarllm.integrations.lago import LagoLogger
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.types.utils import ModelResponse, Usage
 
 CALL_TIME: Final = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
@@ -35,7 +35,7 @@ def test_lago_event_bills_the_response_token_usage_to_the_end_user(lago_env: Non
         kwargs={
             "model": "gpt-4o",
             "response_cost": 0.002,
-            "litellm_params": {"metadata": {}, "proxy_server_request": {"body": {"user": "end-user-1"}}},
+            "hangarllm_params": {"metadata": {}, "proxy_server_request": {"body": {"user": "end-user-1"}}},
         },
         response_obj=response,
         start_time=CALL_TIME,

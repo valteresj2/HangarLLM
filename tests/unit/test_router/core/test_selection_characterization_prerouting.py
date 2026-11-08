@@ -1,7 +1,7 @@
 """
 Characterization of what runs before a router core's strategy picks: pre-routing strategies (the
 complexity router, chosen among tag-scoped markers), the strategy marker deployments they are
-registered from, tier ``litellm_params`` pinned onto the request, alias-marker params forwarded to
+registered from, tier ``hangarllm_params`` pinned onto the request, alias-marker params forwarded to
 the routed call, the Claude Code session router binding, and the ``Router(plugins=[...])``
 routing-plugin pipeline.
 """
@@ -13,9 +13,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.router_core import RouterCore
-from litellm.types.router import RoutingContext
+import hangarllm
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import RoutingContext
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment
 from tests.unit.test_router.core.selection_helpers import MESSAGES, MakeCore, picked_ids
 
@@ -34,7 +34,7 @@ TIERS: Final = {"SIMPLE": "small", "MEDIUM": "big", "COMPLEX": "big", "REASONING
 ALL_BIG: Final = {"SIMPLE": "big", "MEDIUM": "big", "COMPLEX": "big", "REASONING": "big"}
 
 ONLY_MARKERS_MESSAGE: Final = (
-    "litellm.BadRequestError: You passed in model={model}. Every deployment for it is a strategy router marker "
+    "hangarllm.BadRequestError: You passed in model={model}. Every deployment for it is a strategy router marker "
     "(auto_router/...), which is not a callable model, and no pre-routing strategy selected a deployment for "
     "this request"
 )
@@ -46,11 +46,11 @@ def _complexity_router(
     name: str = "smart",
     tiers: Mapping[str, object] = TIERS,
     deployment_id: str = "marker",
-    **params: object,  # kwargs-ok: extra marker litellm_params
+    **params: object,  # kwargs-ok: extra marker hangarllm_params
 ) -> dict[str, object]:  # mutable-ok: a model_list entry
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {"tiers": dict(tiers)},
             "complexity_router_default_model": "big",
@@ -62,7 +62,7 @@ def _complexity_router(
 
 def _tiered(
     **marker_params: object,
-) -> list[dict[str, object]]:  # mutable-ok: a model_list  # kwargs-ok: marker litellm_params
+) -> list[dict[str, object]]:  # mutable-ok: a model_list  # kwargs-ok: marker hangarllm_params
     return [deployment("small", "s"), deployment("big", "b"), _complexity_router(**marker_params)]
 
 
@@ -162,7 +162,7 @@ def test_a_complexity_router_without_tiers_or_a_default_model_is_rejected(make_c
 @pytest.mark.asyncio
 async def test_the_healthy_listing_of_a_router_name_refuses_the_marker(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=_tiered())
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.select("smart", {}, kind="healthy")
     assert str(raised.value) == ONLY_MARKERS_MESSAGE.format(model="smart")
 
@@ -170,15 +170,15 @@ async def test_the_healthy_listing_of_a_router_name_refuses_the_marker(make_core
 @pytest.mark.asyncio
 async def test_pass_through_selection_of_a_router_name_refuses_the_marker(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=_tiered())
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.select("smart", {}, kind="pass_through", messages=MESSAGES)  # pyright: ignore[reportCallIssue]
     assert str(raised.value) == ONLY_MARKERS_MESSAGE.format(model="smart")
 
 
 @pytest.mark.asyncio
-async def test_selecting_a_marker_by_its_id_refuses_it_naming_its_litellm_model(make_core: MakeCore) -> None:
+async def test_selecting_a_marker_by_its_id_refuses_it_naming_its_hangarllm_model(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=_tiered())
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.select("marker", {}, messages=MESSAGES)  # pyright: ignore[reportCallIssue]
     assert str(raised.value) == ONLY_MARKERS_MESSAGE.format(model="auto_router/complexity_router")
 
@@ -188,7 +188,7 @@ def test_the_sync_path_never_runs_pre_routing_and_refuses_the_marker(
     make_core: MakeCore, host: ScriptedHost, entry: str
 ) -> None:
     core: Final = make_core(model_list=_tiered())
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         _sync_entry(core, entry, "smart")
     assert str(raised.value) == ONLY_MARKERS_MESSAGE.format(model="smart")
     assert host.calls == []
@@ -260,16 +260,16 @@ async def test_without_tag_filtering_an_unmatched_tag_still_takes_the_first_mark
     assert chosen["model_info"]["id"] == "s"  # pyright: ignore[reportIndexIssue]
 
 
-# --- tier litellm_params and alias-marker params -------------------------------------------------------------
+# --- tier hangarllm_params and alias-marker params -------------------------------------------------------------
 
 PINNED_TIERS: Final = {
     **TIERS,
-    "SIMPLE": {"model_name": "small", "litellm_params": {"temperature": 0.1, "max_tokens": 7}},
+    "SIMPLE": {"model_name": "small", "hangarllm_params": {"temperature": 0.1, "max_tokens": 7}},
 }
 
 
 @pytest.mark.asyncio
-async def test_tier_litellm_params_override_the_callers_params_on_the_call(
+async def test_tier_hangarllm_params_override_the_callers_params_on_the_call(
     make_core: MakeCore, host: ScriptedHost
 ) -> None:
     core: Final = make_core(model_list=_tiered(tiers=PINNED_TIERS))
@@ -282,7 +282,7 @@ async def test_tier_litellm_params_override_the_callers_params_on_the_call(
 
 
 @pytest.mark.asyncio
-async def test_tier_litellm_params_are_pinned_onto_the_request_by_select(make_core: MakeCore) -> None:
+async def test_tier_hangarllm_params_are_pinned_onto_the_request_by_select(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=_tiered(tiers=PINNED_TIERS))
     request: Final[dict[str, object]] = {"temperature": 0.9, "max_completion_tokens": 100}
     await core.select("smart", request, messages=MESSAGES)  # pyright: ignore[reportCallIssue]
@@ -292,7 +292,7 @@ async def test_tier_litellm_params_are_pinned_onto_the_request_by_select(make_co
 
 
 @pytest.mark.asyncio
-async def test_tier_litellm_params_apply_only_to_their_tier(make_core: MakeCore, host: ScriptedHost) -> None:
+async def test_tier_hangarllm_params_apply_only_to_their_tier(make_core: MakeCore, host: ScriptedHost) -> None:
     core: Final = make_core(model_list=_tiered(tiers=PINNED_TIERS))
     await core.acompletion(model="smart", messages=HARD_MESSAGES, temperature=0.9)  # pyright: ignore[reportAttributeAccessIssue]
     assert host.deployments_called() == ["b"]

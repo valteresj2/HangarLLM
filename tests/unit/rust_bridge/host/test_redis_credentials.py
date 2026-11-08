@@ -4,7 +4,7 @@ from typing import Final
 import pytest
 from redis.credentials import CredentialProvider
 
-from litellm.rust_bridge.host.redis_credentials import credentials
+from hangarllm.rust_bridge.host.redis_credentials import credentials
 
 
 class _SyncOnly(CredentialProvider):

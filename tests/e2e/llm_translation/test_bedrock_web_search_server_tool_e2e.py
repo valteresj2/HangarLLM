@@ -4,7 +4,7 @@ Bedrock hosts none of Anthropic's ``web_search_*`` server tools, so a
 ``/v1/messages`` request carrying one is rejected outright with
 400 "The provided request is not valid" if it reaches AWS unchanged. What makes
 it work is web-search interception: the hooks rewrite the native tool into
-LiteLLM's own search tool before the upstream call, Bedrock calls that tool, the
+HangarLLM's own search tool before the upstream call, Bedrock calls that tool, the
 gateway runs the search, and the agentic loop feeds the results back for the
 model to synthesize. The response is then rebuilt in the native shape, so a
 client's citations panel sees ``server_tool_use`` and ``web_search_tool_result``
@@ -19,14 +19,14 @@ Prerequisites beyond AWS credentials: the proxy config must switch interception
 on and declare a search backend. The callback entry is load-bearing; the params
 block alone does not activate it.
 
-    litellm_settings:
+    hangarllm_settings:
       callbacks: ["websearch_interception"]
       websearch_interception_params:
         enabled_providers: ["bedrock"]
         search_tool_name: e2e-search
     search_tools:
       - search_tool_name: e2e-search
-        litellm_params:
+        hangarllm_params:
           search_provider: searxng
           api_base: http://127.0.0.1:8391
 """
@@ -38,7 +38,7 @@ from anthropic.types import WebSearchTool20250305Param
 from e2e_config import unique_marker
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from sdk_clients import NO_PROXY_CACHE, SdkClients
 
@@ -81,7 +81,7 @@ class TestBedrockWebSearchServerTool:
         model = f"e2e-bedrock-websearch-{unique_marker()}"
         model_id = proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=BEDROCK_INVOKE_BACKEND,
                 aws_region_name="us-east-1",
             ),

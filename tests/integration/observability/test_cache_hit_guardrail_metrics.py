@@ -20,11 +20,11 @@ from prometheus_client.parser import text_string_to_metric_families
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
-GUARDRAIL_PATH: Final = "/beta/litellm_basic_guardrail_api"
-DEPLOYMENT_FAILURE: Final = "litellm_deployment_failure_responses_total"
-DEPLOYMENT_REQUESTS: Final = "litellm_deployment_total_requests_total"
-DEPLOYMENT_STATE: Final = "litellm_deployment_state"
-PROXY_FAILED: Final = "litellm_proxy_failed_requests_metric_total"
+GUARDRAIL_PATH: Final = "/beta/hangarllm_basic_guardrail_api"
+DEPLOYMENT_FAILURE: Final = "hangarllm_deployment_failure_responses_total"
+DEPLOYMENT_REQUESTS: Final = "hangarllm_deployment_total_requests_total"
+DEPLOYMENT_STATE: Final = "hangarllm_deployment_state"
+PROXY_FAILED: Final = "hangarllm_proxy_failed_requests_metric_total"
 
 
 def _chat_sse(marker: str) -> tuple[bytes, ...]:
@@ -148,15 +148,15 @@ def _guardrail_config(
     ttl: int | None = None,
 ) -> Path:
     config: dict = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["callbacks"] = ["prometheus"]
+    config["hangarllm_settings"]["callbacks"] = ["prometheus"]
     if local_cache:
-        config["litellm_settings"]["cache_params"] = {"type": "local"}
+        config["hangarllm_settings"]["cache_params"] = {"type": "local"}
     if ttl is not None:
-        config["litellm_settings"]["cache_params"]["ttl"] = ttl
+        config["hangarllm_settings"]["cache_params"]["ttl"] = ttl
     config["guardrails"] = [
         {
             "guardrail_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "generic_guardrail_api",
                 "mode": mode,
                 "default_on": default_on,
@@ -271,7 +271,7 @@ def _populated_failures(samples: tuple, rig: Rig, api_provider: str) -> float:
             if sample.name == DEPLOYMENT_FAILURE
             and sample.labels.get("model_id") == rig.deployment_id
             and sample.labels.get("api_provider") == api_provider
-            and sample.labels.get("litellm_model_name") != ""
+            and sample.labels.get("hangarllm_model_name") != ""
         )
     )
 
@@ -306,7 +306,7 @@ def _expect_metrics(
 def _spend_rows(call_id: str) -> tuple[dict, ...]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, custom_llm_provider, model_id, status FROM "LiteLLM_SpendLogs" '
+            'SELECT request_id, custom_llm_provider, model_id, status FROM "HangarLLM_SpendLogs" '
             "WHERE request_id = %s OR request_id LIKE %s",
             (call_id, call_id + "\\_%"),
         ),
@@ -324,7 +324,7 @@ def _assert_spend(call_id: str, rig: Rig, api_provider: str = "openai") -> None:
 
 
 def _call_id(reject: httpx.Response) -> str:
-    return reject.headers["x-litellm-call-id"]
+    return reject.headers["x-hangarllm-call-id"]
 
 
 def _chat_body(model: str, text: str, guardrail: str | None, stream: bool = False) -> dict:
@@ -640,7 +640,7 @@ def test_cache_hit_reject_metrics_aggregate_across_workers(gateway: Gateway, tmp
 
 
 def test_cache_hit_reject_deployment_metric_set_diff(gateway: Gateway, tmp_path: Path) -> None:
-    """E4: exact expected label sets on litellm_deployment_* and litellm_proxy_failed_requests_metric."""
+    """E4: exact expected label sets on hangarllm_deployment_* and hangarllm_proxy_failed_requests_metric."""
     marker: Final = uuid.uuid4().hex
     with _rig(gateway, tmp_path, marker) as rig:
         text: Final = "cache hit control e4 " + marker

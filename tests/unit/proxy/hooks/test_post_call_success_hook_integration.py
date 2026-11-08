@@ -10,10 +10,10 @@ from typing import Any
 from unittest.mock import patch, MagicMock
 
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.utils import ModelResponse, Choices, Message, Usage
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.types.utils import ModelResponse, Choices, Message, Usage
 
 
 class ResponseTransformerLogger(CustomLogger):
@@ -56,9 +56,9 @@ async def test_success_hook_transforms_response():
     """
     transformer = ResponseTransformerLogger(transform_content="Modified response")
 
-    with patch("litellm.callbacks", [transformer]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [transformer]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -112,9 +112,9 @@ async def test_success_hook_returns_none_keeps_original():
 
     logger = NoOpLogger()
 
-    with patch("litellm.callbacks", [logger]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [logger]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -180,9 +180,9 @@ async def test_success_hook_chains_multiple_callbacks():
     callback1 = AddFieldLogger("field1", "value1")
     callback2 = AddFieldLogger("field2", "value2")
 
-    with patch("litellm.callbacks", [callback1, callback2]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [callback1, callback2]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -229,9 +229,9 @@ async def test_success_hook_handles_exceptions():
 
     logger = FailingLogger()
 
-    with patch("litellm.callbacks", [logger]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [logger]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 

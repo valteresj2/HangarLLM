@@ -38,7 +38,7 @@ def _deployment_params(upstream_url: str) -> dict[str, object]:
 
 def _user_config(upstream_url: str) -> dict[str, object]:
     return {
-        "model_list": [{"model_name": "user-config-deployment", "litellm_params": _deployment_params(upstream_url)}],
+        "model_list": [{"model_name": "user-config-deployment", "hangarllm_params": _deployment_params(upstream_url)}],
         "num_retries": 0,
     }
 
@@ -51,7 +51,7 @@ def _opt_in_config(directory: Path, upstream_url: str) -> Path:
                 "model_list": [
                     {
                         "model_name": "admin-deployment",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-4.1-mini",
                             "api_base": upstream_url + "/v1",
                             "api_key": "sk-admin-configured",
@@ -59,7 +59,7 @@ def _opt_in_config(directory: Path, upstream_url: str) -> Path:
                     }
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                     "allow_client_side_credentials": True,
@@ -97,7 +97,7 @@ def _identity_in_deployment(upstream_url: str, identity_param: str) -> dict[str,
         "model_list": [
             {
                 "model_name": "user-config-deployment",
-                "litellm_params": {**_deployment_params(upstream_url), identity_param: "caller-chosen"},
+                "hangarllm_params": {**_deployment_params(upstream_url), identity_param: "caller-chosen"},
             }
         ],
         "num_retries": 0,
@@ -105,7 +105,7 @@ def _identity_in_deployment(upstream_url: str, identity_param: str) -> dict[str,
 
 
 def _identity_in_defaults(upstream_url: str, identity_param: str) -> dict[str, object]:
-    return {**_user_config(upstream_url), "default_litellm_params": {identity_param: "caller-chosen"}}
+    return {**_user_config(upstream_url), "default_hangarllm_params": {identity_param: "caller-chosen"}}
 
 
 @pytest.mark.timeout(2 * graceful_stop_seconds() + 120)

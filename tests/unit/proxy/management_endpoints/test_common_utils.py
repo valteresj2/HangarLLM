@@ -1,5 +1,5 @@
 """
-Tests for litellm/proxy/management_endpoints/common_utils.py
+Tests for hangarllm/proxy/management_endpoints/common_utils.py
 
 Covers the fix for GitHub issue #20304:
 Empty guardrails/policies arrays sent by the UI should NOT trigger the
@@ -16,17 +16,17 @@ import pytest
 from fastapi import HTTPException
 from pydantic import BaseModel
 
-from litellm import Router
-from litellm.proxy._types import (
-    LiteLLM_BudgetTable,
-    LiteLLM_OrganizationMembershipTable,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
-    LitellmUserRoles,
+from hangarllm import Router
+from hangarllm.proxy._types import (
+    HangarLLM_BudgetTable,
+    HangarLLM_OrganizationMembershipTable,
+    HangarLLM_TeamTable,
+    HangarLLM_UserTable,
+    HangarllmUserRoles,
     Member,
     UserAPIKeyAuth,
 )
-from litellm.proxy.management_endpoints.common_utils import (
+from hangarllm.proxy.management_endpoints.common_utils import (
     _has_non_empty_value,
     _org_admin_can_invite_user,
     _team_admin_can_invite_user,
@@ -38,7 +38,7 @@ from litellm.proxy.management_endpoints.common_utils import (
     user_has_admin_privileges,
     upsert_budget_and_membership,
 )
-from litellm.types.utils import BudgetConfig
+from hangarllm.types.utils import BudgetConfig
 
 
 @pytest.mark.asyncio
@@ -52,9 +52,9 @@ from litellm.types.utils import BudgetConfig
 async def test_shared_default_clone_keeps_inheriting_updated_team_model_caps(
     budget_patch: dict[str, object],
 ) -> None:
-    from litellm.proxy.auth.user_api_key_auth import _load_team_member_default_model_budget
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, team_membership_reservation_cache_key
-    from litellm.proxy._types import LiteLLM_TeamMembership
+    from hangarllm.proxy.auth.user_api_key_auth import _load_team_member_default_model_budget
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, team_membership_reservation_cache_key
+    from hangarllm.proxy._types import HangarLLM_TeamMembership
 
     source_caps = {"claude-sonnet-4-6": {"max_budget": 3.0, "budget_duration": "1d"}}
     default_caps = {"claude-sonnet-4-6": {"max_budget": 1.0, "budget_duration": "1d"}}
@@ -73,7 +73,7 @@ async def test_shared_default_clone_keeps_inheriting_updated_team_model_caps(
         create=AsyncMock(return_value=SimpleNamespace(budget_id="private-budget")),
     )
     membership_table = SimpleNamespace(upsert=AsyncMock())
-    tx = SimpleNamespace(litellm_budgettable=budget_table, litellm_teammembership=membership_table)
+    tx = SimpleNamespace(hangarllm_budgettable=budget_table, hangarllm_teammembership=membership_table)
     token = UserAPIKeyAuth(user_id="member-1", team_id="team-1")
 
     await upsert_budget_and_membership(
@@ -92,22 +92,22 @@ async def test_shared_default_clone_keeps_inheriting_updated_team_model_caps(
     model_max_budget: Final = budget_table.create.await_args.kwargs["data"]["model_max_budget"]
     assert isinstance(model_max_budget, str)
     assert model_max_budget == "{}"
-    membership = LiteLLM_TeamMembership(
+    membership = HangarLLM_TeamMembership(
         user_id="member-1",
         team_id="team-1",
         budget_id="private-budget",
-        litellm_budget_table=LiteLLM_BudgetTable(budget_id="private-budget", model_max_budget={}),
+        hangarllm_budget_table=HangarLLM_BudgetTable(budget_id="private-budget", model_max_budget={}),
     )
     user_api_key_cache: Final = UserApiKeyCache()
     await user_api_key_cache.async_set_cache(
         key=team_membership_reservation_cache_key(user_id="member-1", team_id="team-1"),
         value=membership,
-        model_type=LiteLLM_TeamMembership,
+        model_type=HangarLLM_TeamMembership,
     )
     await user_api_key_cache.async_set_cache(
         key="team_member_default_budget:default-budget",
-        value=LiteLLM_BudgetTable(budget_id="default-budget", model_max_budget=default_caps),
-        model_type=LiteLLM_BudgetTable,
+        value=HangarLLM_BudgetTable(budget_id="default-budget", model_max_budget=default_caps),
+        model_type=HangarLLM_BudgetTable,
     )
     team_object = SimpleNamespace(
         team_id="team-1",
@@ -129,7 +129,7 @@ async def test_shared_default_clone_keeps_inheriting_updated_team_model_caps(
 @pytest.mark.asyncio
 async def test_empty_model_budget_patch_on_team_default_keeps_membership_attached() -> None:
     tx: Final = MagicMock()
-    tx.litellm_budgettable.find_unique = AsyncMock(
+    tx.hangarllm_budgettable.find_unique = AsyncMock(
         return_value=SimpleNamespace(
             model_dump=MagicMock(
                 return_value={
@@ -140,10 +140,10 @@ async def test_empty_model_budget_patch_on_team_default_keeps_membership_attache
             )
         )
     )
-    tx.litellm_budgettable.create = AsyncMock()
-    tx.litellm_budgettable.update = AsyncMock()
-    tx.litellm_teammembership.upsert = AsyncMock()
-    tx.litellm_teammembership.update = AsyncMock()
+    tx.hangarllm_budgettable.create = AsyncMock()
+    tx.hangarllm_budgettable.update = AsyncMock()
+    tx.hangarllm_teammembership.upsert = AsyncMock()
+    tx.hangarllm_teammembership.update = AsyncMock()
 
     await upsert_budget_and_membership(
         tx,
@@ -155,14 +155,14 @@ async def test_empty_model_budget_patch_on_team_default_keeps_membership_attache
         team_default_budget_id="default-budget",
     )
 
-    tx.litellm_budgettable.create.assert_not_awaited()
-    tx.litellm_budgettable.update.assert_not_awaited()
-    tx.litellm_teammembership.upsert.assert_not_awaited()
-    tx.litellm_teammembership.update.assert_not_awaited()
+    tx.hangarllm_budgettable.create.assert_not_awaited()
+    tx.hangarllm_budgettable.update.assert_not_awaited()
+    tx.hangarllm_teammembership.upsert.assert_not_awaited()
+    tx.hangarllm_teammembership.update.assert_not_awaited()
 
 
 class TestUpdateMetadataFieldsEmptyCollections:
-    @patch("litellm.proxy.management_endpoints.common_utils.premium_user_check")
+    @patch("hangarllm.proxy.management_endpoints.common_utils.premium_user_check")
     def test_empty_list_does_not_trigger_premium_check(self, mock_premium_check):
         """Empty lists for premium fields must not trigger the premium check."""
         updated_kv = {
@@ -174,7 +174,7 @@ class TestUpdateMetadataFieldsEmptyCollections:
         update_metadata_fields(updated_kv=updated_kv)
         mock_premium_check.assert_not_called()
 
-    @patch("litellm.proxy.management_endpoints.common_utils.premium_user_check")
+    @patch("hangarllm.proxy.management_endpoints.common_utils.premium_user_check")
     def test_empty_list_still_updates_metadata(self, mock_premium_check):
         """
         Empty lists must still be moved into metadata so users can clear
@@ -194,7 +194,7 @@ class TestUpdateMetadataFieldsEmptyCollections:
         assert updated_kv["metadata"]["guardrails"] == []
         assert updated_kv["metadata"]["policies"] == []
 
-    @patch("litellm.proxy.management_endpoints.common_utils.premium_user_check")
+    @patch("hangarllm.proxy.management_endpoints.common_utils.premium_user_check")
     def test_empty_dict_does_not_trigger_premium_check(self, mock_premium_check):
         """Empty dicts for premium fields must not trigger the premium check."""
         updated_kv = {
@@ -204,7 +204,7 @@ class TestUpdateMetadataFieldsEmptyCollections:
         update_metadata_fields(updated_kv=updated_kv)
         mock_premium_check.assert_not_called()
 
-    @patch("litellm.proxy.management_endpoints.common_utils.premium_user_check")
+    @patch("hangarllm.proxy.management_endpoints.common_utils.premium_user_check")
     def test_empty_dict_still_updates_metadata(self, mock_premium_check):
         """
         Empty dicts must still be moved into metadata so users can clear
@@ -220,7 +220,7 @@ class TestUpdateMetadataFieldsEmptyCollections:
         ), "secret_manager_settings should be popped from top-level"
         assert updated_kv["metadata"]["secret_manager_settings"] == {}
 
-    @patch("litellm.proxy.management_endpoints.common_utils.premium_user_check")
+    @patch("hangarllm.proxy.management_endpoints.common_utils.premium_user_check")
     def test_none_value_does_not_trigger_premium_check(self, mock_premium_check):
         """None values for premium fields should be silently ignored."""
         updated_kv = {
@@ -231,7 +231,7 @@ class TestUpdateMetadataFieldsEmptyCollections:
         update_metadata_fields(updated_kv=updated_kv)
         mock_premium_check.assert_not_called()
 
-    @patch("litellm.proxy.management_endpoints.common_utils.premium_user_check")
+    @patch("hangarllm.proxy.management_endpoints.common_utils.premium_user_check")
     def test_absent_fields_do_not_trigger_premium_check(self, mock_premium_check):
         """Fields not present in the dict should not trigger premium check."""
         updated_kv = {
@@ -241,7 +241,7 @@ class TestUpdateMetadataFieldsEmptyCollections:
         update_metadata_fields(updated_kv=updated_kv)
         mock_premium_check.assert_not_called()
 
-    @patch("litellm.proxy.management_endpoints.common_utils.premium_user_check")
+    @patch("hangarllm.proxy.management_endpoints.common_utils.premium_user_check")
     def test_non_empty_list_triggers_premium_check(self, mock_premium_check):
         """Non-empty lists for premium fields should trigger the premium check."""
         updated_kv = {
@@ -251,7 +251,7 @@ class TestUpdateMetadataFieldsEmptyCollections:
         update_metadata_fields(updated_kv=updated_kv)
         mock_premium_check.assert_called()
 
-    @patch("litellm.proxy.management_endpoints.common_utils.premium_user_check")
+    @patch("hangarllm.proxy.management_endpoints.common_utils.premium_user_check")
     def test_non_empty_value_triggers_premium_check(self, mock_premium_check):
         """Non-empty string values for premium fields should trigger the premium check."""
         updated_kv = {
@@ -261,7 +261,7 @@ class TestUpdateMetadataFieldsEmptyCollections:
         update_metadata_fields(updated_kv=updated_kv)
         mock_premium_check.assert_called()
 
-    @patch("litellm.proxy.management_endpoints.common_utils.premium_user_check")
+    @patch("hangarllm.proxy.management_endpoints.common_utils.premium_user_check")
     def test_non_empty_list_updates_metadata(self, mock_premium_check):
         """Non-empty lists should be moved into metadata."""
         updated_kv = {
@@ -272,7 +272,7 @@ class TestUpdateMetadataFieldsEmptyCollections:
         assert "guardrails" not in updated_kv
         assert updated_kv["metadata"]["guardrails"] == ["my-guardrail"]
 
-    @patch("litellm.proxy.management_endpoints.common_utils.premium_user_check")
+    @patch("hangarllm.proxy.management_endpoints.common_utils.premium_user_check")
     def test_false_boolean_does_not_trigger_premium_check(self, mock_premium_check):
         """
         Regression #30285: /team/update sends disable_global_guardrails=False
@@ -283,7 +283,7 @@ class TestUpdateMetadataFieldsEmptyCollections:
         update_metadata_fields(updated_kv=updated_kv)
         mock_premium_check.assert_not_called()
 
-    @patch("litellm.proxy.management_endpoints.common_utils.premium_user_check")
+    @patch("hangarllm.proxy.management_endpoints.common_utils.premium_user_check")
     def test_false_boolean_still_updates_metadata(self, mock_premium_check):
         """A falsy boolean must still be moved into metadata so it persists."""
         updated_kv = {"team_id": "test-team", "disable_global_guardrails": False}
@@ -291,14 +291,14 @@ class TestUpdateMetadataFieldsEmptyCollections:
         assert "disable_global_guardrails" not in updated_kv
         assert updated_kv["metadata"]["disable_global_guardrails"] is False
 
-    @patch("litellm.proxy.management_endpoints.common_utils.premium_user_check")
+    @patch("hangarllm.proxy.management_endpoints.common_utils.premium_user_check")
     def test_true_boolean_triggers_premium_check(self, mock_premium_check):
         """Control: enabling the premium feature (True) still requires a license."""
         updated_kv = {"team_id": "test-team", "disable_global_guardrails": True}
         update_metadata_fields(updated_kv=updated_kv)
         mock_premium_check.assert_called()
 
-    @patch("litellm.proxy.management_endpoints.common_utils.premium_user_check")
+    @patch("hangarllm.proxy.management_endpoints.common_utils.premium_user_check")
     def test_ui_typical_payload_does_not_trigger_premium_check(
         self, mock_premium_check
     ):
@@ -327,10 +327,10 @@ class TestUserHasAdminView:
     @pytest.mark.parametrize(
         "user_role,expected",
         [
-            (LitellmUserRoles.PROXY_ADMIN, True),
-            (LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY, True),
-            (LitellmUserRoles.INTERNAL_USER, False),
-            (LitellmUserRoles.INTERNAL_USER_VIEW_ONLY, False),
+            (HangarllmUserRoles.PROXY_ADMIN, True),
+            (HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY, True),
+            (HangarllmUserRoles.INTERNAL_USER, False),
+            (HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY, False),
         ],
     )
     def test_user_has_admin_view_by_role(self, user_role, expected):
@@ -344,21 +344,21 @@ class TestUserHasAdminView:
         auth_admin = UserAPIKeyAuth(
             user_id="u1",
             api_key="sk-xxx",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
         )
         auth_user = UserAPIKeyAuth(
             user_id="u2",
             api_key="sk-yyy",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
         assert user_api_key_has_admin_view(auth_admin) is True
         assert user_api_key_has_admin_view(auth_user) is False
 
 
 def test_published_enterprise_import_of_team_admin_check_still_answers():
-    from litellm.proxy.management_endpoints.common_utils import _is_user_team_admin
+    from hangarllm.proxy.management_endpoints.common_utils import _is_user_team_admin
 
-    team = LiteLLM_TeamTable(team_id="t1", members_with_roles=[Member(user_id="admin", role="admin")])
+    team = HangarLLM_TeamTable(team_id="t1", members_with_roles=[Member(user_id="admin", role="admin")])
     assert _is_user_team_admin(UserAPIKeyAuth(user_id="admin"), team) is True
     assert _is_user_team_admin(UserAPIKeyAuth(user_id="outsider"), team) is False
 
@@ -368,7 +368,7 @@ class TestOrgAdminCanInviteUser:
 
     def _make_membership(self, org_id: str, user_role: str):
         now = datetime.now(timezone.utc)
-        return LiteLLM_OrganizationMembershipTable(
+        return HangarLLM_OrganizationMembershipTable(
             user_id="u",
             organization_id=org_id,
             user_role=user_role,
@@ -390,17 +390,17 @@ class TestOrgAdminCanInviteUser:
         self, admin_orgs, target_orgs, expected
     ):
         """Parametrized test: can invite when target is in org where admin has ORG_ADMIN role."""
-        admin_user = LiteLLM_UserTable(
+        admin_user = HangarLLM_UserTable(
             user_id="admin",
             organization_memberships=[
-                self._make_membership(oid, LitellmUserRoles.ORG_ADMIN.value)
+                self._make_membership(oid, HangarllmUserRoles.ORG_ADMIN.value)
                 for oid in admin_orgs
             ],
         )
-        target_user = LiteLLM_UserTable(
+        target_user = HangarLLM_UserTable(
             user_id="target",
             organization_memberships=[
-                self._make_membership(oid, LitellmUserRoles.INTERNAL_USER.value)
+                self._make_membership(oid, HangarllmUserRoles.INTERNAL_USER.value)
                 for oid in target_orgs
             ],
         )
@@ -408,16 +408,16 @@ class TestOrgAdminCanInviteUser:
 
     def test_org_admin_can_invite_user_no_shared_org(self):
         """Test returns False when admin has no org admin role."""
-        admin_user = LiteLLM_UserTable(
+        admin_user = HangarLLM_UserTable(
             user_id="admin",
             organization_memberships=[
-                self._make_membership("org1", LitellmUserRoles.INTERNAL_USER.value),
+                self._make_membership("org1", HangarllmUserRoles.INTERNAL_USER.value),
             ],
         )
-        target_user = LiteLLM_UserTable(
+        target_user = HangarLLM_UserTable(
             user_id="target",
             organization_memberships=[
-                self._make_membership("org1", LitellmUserRoles.INTERNAL_USER.value),
+                self._make_membership("org1", HangarllmUserRoles.INTERNAL_USER.value),
             ],
         )
         assert _org_admin_can_invite_user(admin_user, target_user) is False
@@ -443,8 +443,8 @@ class TestTeamAdminCanInviteUser:
         mock_auth = MagicMock()
         mock_auth.user_id = "admin"
 
-        admin_user = LiteLLM_UserTable(user_id="admin", teams=admin_teams)
-        target_user = LiteLLM_UserTable(user_id="target", teams=target_teams)
+        admin_user = HangarLLM_UserTable(user_id="admin", teams=admin_teams)
+        target_user = HangarLLM_UserTable(user_id="target", teams=target_teams)
 
         def make_team(tid, is_admin):
             m = [{"user_id": "admin", "role": "admin"}] if is_admin else []
@@ -454,7 +454,7 @@ class TestTeamAdminCanInviteUser:
             return obj
 
         teams = [make_team(tid, tid in user_is_admin_in) for tid in admin_teams]
-        mock_prisma.db.litellm_teamtable.find_many = AsyncMock(return_value=teams)
+        mock_prisma.db.hangarllm_teamtable.find_many = AsyncMock(return_value=teams)
 
         result = await _team_admin_can_invite_user(
             user_api_key_dict=mock_auth,
@@ -470,8 +470,8 @@ class TestTeamAdminCanInviteUser:
         mock_prisma = MagicMock()
         mock_auth = MagicMock()
         mock_auth.user_id = "admin"
-        admin_user = LiteLLM_UserTable(user_id="admin", teams=[])
-        target_user = LiteLLM_UserTable(user_id="target", teams=["t1"])
+        admin_user = HangarLLM_UserTable(user_id="admin", teams=[])
+        target_user = HangarLLM_UserTable(user_id="target", teams=["t1"])
 
         result = await _team_admin_can_invite_user(
             user_api_key_dict=mock_auth,
@@ -491,7 +491,7 @@ class TestUserHasAdminPrivileges:
         auth = UserAPIKeyAuth(
             user_id="admin",
             api_key="sk-x",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
         )
         result = await user_has_admin_privileges(
             user_api_key_dict=auth,
@@ -505,7 +505,7 @@ class TestUserHasAdminPrivileges:
         auth = UserAPIKeyAuth(
             user_id="user1",
             api_key="sk-x",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
         result = await user_has_admin_privileges(
             user_api_key_dict=auth,
@@ -523,7 +523,7 @@ class TestAdminCanInviteUser:
         auth = UserAPIKeyAuth(
             user_id="admin",
             api_key="sk-x",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
         )
         result = await admin_can_invite_user(
             target_user_id="any-user",
@@ -538,7 +538,7 @@ class TestAdminCanInviteUser:
         auth = UserAPIKeyAuth(
             user_id="user1",
             api_key="sk-x",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
         result = await admin_can_invite_user(
             target_user_id="other-user",
@@ -562,9 +562,9 @@ class TestSetObjectMetadataField:
         self, field_name, value, should_call_premium
     ):
         """Parametrized test: premium fields trigger _premium_user_check."""
-        team = LiteLLM_TeamTable(team_id="t1", metadata={})
+        team = HangarLLM_TeamTable(team_id="t1", metadata={})
         with patch(
-            "litellm.proxy.management_endpoints.common_utils.premium_user_check"
+            "hangarllm.proxy.management_endpoints.common_utils.premium_user_check"
         ) as mock_premium:
             set_object_metadata_field(team, field_name, value)
             if should_call_premium:
@@ -575,9 +575,9 @@ class TestSetObjectMetadataField:
 
     def test_set_object_metadata_field_initializes_metadata_if_none(self):
         """Test initializes metadata dict when object has None."""
-        team = LiteLLM_TeamTable(team_id="t1", metadata=None)
+        team = HangarLLM_TeamTable(team_id="t1", metadata=None)
         with patch(
-            "litellm.proxy.management_endpoints.common_utils.premium_user_check"
+            "hangarllm.proxy.management_endpoints.common_utils.premium_user_check"
         ):
             set_object_metadata_field(team, "model_rpm_limit", {"x": 1})
         assert team.metadata == {"model_rpm_limit": {"x": 1}}
@@ -586,24 +586,24 @@ class TestSetObjectMetadataField:
         """
         Per-MCP-server rpm limits are stored in the metadata JSON column, not a
         dedicated DB column. The key/team management endpoints rely on
-        LiteLLM_ManagementEndpoint_MetadataFields to move the request field into
+        HangarLLM_ManagementEndpoint_MetadataFields to move the request field into
         metadata; this regression guards that mcp_rpm_limit is in that list and
         round-trips through the same loop the endpoints use.
         """
-        from litellm.proxy._types import LiteLLM_ManagementEndpoint_MetadataFields
+        from hangarllm.proxy._types import HangarLLM_ManagementEndpoint_MetadataFields
 
-        assert "mcp_rpm_limit" in LiteLLM_ManagementEndpoint_MetadataFields
+        assert "mcp_rpm_limit" in HangarLLM_ManagementEndpoint_MetadataFields
 
         from types import SimpleNamespace
 
-        team = LiteLLM_TeamTable(team_id="t1", metadata={})
+        team = HangarLLM_TeamTable(team_id="t1", metadata={})
         mcp_rpm_limit = {"github": 100}
         data = SimpleNamespace(mcp_rpm_limit=mcp_rpm_limit)
 
         with patch(
-            "litellm.proxy.management_endpoints.common_utils.premium_user_check"
+            "hangarllm.proxy.management_endpoints.common_utils.premium_user_check"
         ):
-            for field in LiteLLM_ManagementEndpoint_MetadataFields:
+            for field in HangarLLM_ManagementEndpoint_MetadataFields:
                 if getattr(data, field, None) is not None:
                     set_object_metadata_field(team, field, getattr(data, field))
 
@@ -617,27 +617,27 @@ class TestRequireCallerUserIdForNonAdmin:
     """
 
     def test_returns_user_id_when_present(self):
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             require_caller_user_id_for_non_admin,
         )
 
         key_dict = UserAPIKeyAuth(
             user_id="user-abc",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
         assert require_caller_user_id_for_non_admin(key_dict) == "user-abc"
 
     def test_raises_403_when_user_id_is_none(self):
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             require_caller_user_id_for_non_admin,
         )
 
         # Simulates a service-account key (user_id forced to None at key creation)
         service_account_key = UserAPIKeyAuth(
             user_id=None,
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
         with pytest.raises(HTTPException) as exc_info:
             require_caller_user_id_for_non_admin(service_account_key)
@@ -651,14 +651,14 @@ class TestValidateFiniteSpend:
     bypass `spend >= max_budget` enforcement (NaN/-inf compare false)."""
 
     def test_none_is_allowed(self):
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             validate_finite_spend,
         )
 
         assert validate_finite_spend(None) is None
 
     def test_finite_value_is_allowed(self):
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             validate_finite_spend,
         )
 
@@ -675,7 +675,7 @@ class TestValidateFiniteSpend:
     def test_non_finite_is_rejected(self, bad):
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             validate_finite_spend,
         )
 
@@ -690,7 +690,7 @@ class TestValidateFiniteSpendErrorDetail:
     def test_rejection_detail_is_exact(self):
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             validate_finite_spend,
         )
 
@@ -713,7 +713,7 @@ class TestValidateBudgetDuration:
     """
 
     def test_none_is_allowed(self):
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             validate_budget_duration,
         )
 
@@ -721,7 +721,7 @@ class TestValidateBudgetDuration:
 
     @pytest.mark.parametrize("duration", ["30s", "5m", "1h", "1d", "7d", "30d", "1mo"])
     def test_positive_durations_are_allowed(self, duration):
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             validate_budget_duration,
         )
 
@@ -731,7 +731,7 @@ class TestValidateBudgetDuration:
     def test_non_advancing_durations_are_rejected(self, duration):
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             validate_budget_duration,
         )
 
@@ -742,7 +742,7 @@ class TestValidateBudgetDuration:
     def test_rejection_detail_is_exact(self):
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             validate_budget_duration,
         )
 
@@ -760,13 +760,13 @@ class TestRequireCallerUserIdErrorDetail:
     def test_rejection_detail_is_exact(self):
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             require_caller_user_id_for_non_admin,
         )
 
         service_account_key = UserAPIKeyAuth(
             user_id=None,
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
         with pytest.raises(HTTPException) as exc_info:
             require_caller_user_id_for_non_admin(service_account_key)
@@ -782,14 +782,14 @@ class TestCheckPassthroughRoutesCallerPermission:
 
     def _non_admin(self):
         return UserAPIKeyAuth(
-            user_id="u1", api_key="sk-x", user_role=LitellmUserRoles.INTERNAL_USER
+            user_id="u1", api_key="sk-x", user_role=HangarllmUserRoles.INTERNAL_USER
         )
 
     def test_top_level_routes_rejected_with_default_entity(self):
         from fastapi import HTTPException
         from pydantic import BaseModel
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             check_passthrough_routes_caller_permission,
         )
 
@@ -810,7 +810,7 @@ class TestCheckPassthroughRoutesCallerPermission:
         from fastapi import HTTPException
         from pydantic import BaseModel
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             check_passthrough_routes_caller_permission,
         )
 
@@ -829,7 +829,7 @@ class TestCheckPassthroughRoutesCallerPermission:
     def test_tolerates_data_missing_passthrough_and_metadata_fields(self):
         from pydantic import BaseModel
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             check_passthrough_routes_caller_permission,
         )
 
@@ -849,7 +849,7 @@ class TestCheckPassthroughRoutesCallerPermission:
         from fastapi import HTTPException
         from pydantic import BaseModel
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             check_passthrough_routes_caller_permission,
         )
 
@@ -886,12 +886,12 @@ class TestDeniedPassthroughRoutesCallerPermission:
         ids=["cleared", "replaced", "dropped-by-metadata-replace", "dropped-by-null-metadata"],
     )
     def test_non_admin_cannot_change_an_existing_deny_list(self, kwargs: dict[str, object], field: str) -> None:
-        from litellm.proxy.management_endpoints.common_utils import check_passthrough_routes_caller_permission
+        from hangarllm.proxy.management_endpoints.common_utils import check_passthrough_routes_caller_permission
 
         with pytest.raises(HTTPException) as exc_info:
             check_passthrough_routes_caller_permission(
                 _DenyRouteData.model_validate(kwargs),
-                UserAPIKeyAuth(user_id="u1", user_role=LitellmUserRoles.INTERNAL_USER),
+                UserAPIKeyAuth(user_id="u1", user_role=HangarllmUserRoles.INTERNAL_USER),
                 existing_metadata=_EXISTING_DENY,
             )
 
@@ -908,30 +908,30 @@ class TestDeniedPassthroughRoutesCallerPermission:
         ids=["resent-top-level", "resent-in-metadata", "unrelated-field"],
     )
     def test_non_admin_may_leave_an_existing_deny_list_unchanged(self, kwargs: dict[str, object]) -> None:
-        from litellm.proxy.management_endpoints.common_utils import check_passthrough_routes_caller_permission
+        from hangarllm.proxy.management_endpoints.common_utils import check_passthrough_routes_caller_permission
 
         check_passthrough_routes_caller_permission(
             _DenyRouteData.model_validate(kwargs),
-            UserAPIKeyAuth(user_id="u1", user_role=LitellmUserRoles.INTERNAL_USER),
+            UserAPIKeyAuth(user_id="u1", user_role=HangarllmUserRoles.INTERNAL_USER),
             existing_metadata=_EXISTING_DENY,
         )
 
     def test_non_admin_may_send_null_metadata_when_no_deny_list_exists(self) -> None:
-        from litellm.proxy.management_endpoints.common_utils import check_passthrough_routes_caller_permission
+        from hangarllm.proxy.management_endpoints.common_utils import check_passthrough_routes_caller_permission
 
         check_passthrough_routes_caller_permission(
             _DenyRouteData(metadata=None),
-            UserAPIKeyAuth(user_id="u1", user_role=LitellmUserRoles.INTERNAL_USER),
+            UserAPIKeyAuth(user_id="u1", user_role=HangarllmUserRoles.INTERNAL_USER),
             existing_metadata={"team": "core"},
         )
 
     def test_malformed_metadata_deny_entries_are_rejected_even_for_proxy_admins(self) -> None:
-        from litellm.proxy.management_endpoints.common_utils import check_passthrough_routes_caller_permission
+        from hangarllm.proxy.management_endpoints.common_utils import check_passthrough_routes_caller_permission
 
         with pytest.raises(HTTPException) as exc_info:
             check_passthrough_routes_caller_permission(
                 _DenyRouteData(metadata={"denied_passthrough_routes": [123, None]}),
-                UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+                UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
             )
 
         assert exc_info.value.status_code == 400
@@ -946,18 +946,18 @@ class TestCheckDisableGlobalGuardrailsCallerPermission:
 
     def _non_admin(self):
         return UserAPIKeyAuth(
-            user_id="u1", api_key="sk-x", user_role=LitellmUserRoles.INTERNAL_USER
+            user_id="u1", api_key="sk-x", user_role=HangarllmUserRoles.INTERNAL_USER
         )
 
     def _admin(self):
         return UserAPIKeyAuth(
-            user_id="u2", api_key="sk-y", user_role=LitellmUserRoles.PROXY_ADMIN
+            user_id="u2", api_key="sk-y", user_role=HangarllmUserRoles.PROXY_ADMIN
         )
 
     def test_top_level_flag_rejected_with_default_entity(self):
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             check_disable_global_guardrails_caller_permission,
         )
 
@@ -970,7 +970,7 @@ class TestCheckDisableGlobalGuardrailsCallerPermission:
     def test_metadata_flag_rejected_with_default_entity(self):
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             check_disable_global_guardrails_caller_permission,
         )
 
@@ -985,7 +985,7 @@ class TestCheckDisableGlobalGuardrailsCallerPermission:
     def test_explicit_false_with_metadata_true_is_rejected(self):
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             check_disable_global_guardrails_caller_permission,
         )
 
@@ -1000,7 +1000,7 @@ class TestCheckDisableGlobalGuardrailsCallerPermission:
     def test_rejection_names_the_team_entity(self):
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             check_disable_global_guardrails_caller_permission,
         )
 
@@ -1010,7 +1010,7 @@ class TestCheckDisableGlobalGuardrailsCallerPermission:
         assert exc_info.value.detail == {"error": "Only proxy admins can set `disable_global_guardrails` on a team."}
 
     def test_false_and_absent_flag_do_not_raise(self):
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             check_disable_global_guardrails_caller_permission,
         )
 
@@ -1025,7 +1025,7 @@ class TestCheckDisableGlobalGuardrailsCallerPermission:
 
     def test_unchanged_stored_flag_does_not_raise(self):
         """Re-sending a flag that is already stored is not an opt-out."""
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             check_disable_global_guardrails_caller_permission,
         )
 
@@ -1043,7 +1043,7 @@ class TestCheckDisableGlobalGuardrailsCallerPermission:
     def test_stored_false_does_not_exempt(self):
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             check_disable_global_guardrails_caller_permission,
         )
 
@@ -1059,7 +1059,7 @@ class TestCheckDisableGlobalGuardrailsCallerPermission:
         assert exc_info.value.detail == {"error": "Only proxy admins can set `disable_global_guardrails` on a key."}
 
     def test_proxy_admin_may_set_the_flag(self):
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             check_disable_global_guardrails_caller_permission,
         )
 
@@ -1102,7 +1102,7 @@ def test_non_proxy_admin_cannot_change_require_trace_id(
         check_require_trace_id_caller_permission(
             require_trace_id,
             metadata,
-            UserAPIKeyAuth(user_id="u1", user_role=LitellmUserRoles.INTERNAL_USER),
+            UserAPIKeyAuth(user_id="u1", user_role=HangarllmUserRoles.INTERNAL_USER),
             metadata_sent=metadata_sent,
             existing_metadata=existing_metadata,
         )
@@ -1136,7 +1136,7 @@ def test_non_proxy_admin_can_preserve_or_omit_require_trace_id(
         check_require_trace_id_caller_permission(
             require_trace_id,
             metadata,
-            UserAPIKeyAuth(user_id="u1", user_role=LitellmUserRoles.INTERNAL_USER),
+            UserAPIKeyAuth(user_id="u1", user_role=HangarllmUserRoles.INTERNAL_USER),
             metadata_sent=metadata_sent,
             existing_metadata=existing_metadata,
         )
@@ -1149,7 +1149,7 @@ def test_proxy_admin_can_flip_stored_require_trace_id() -> None:
         check_require_trace_id_caller_permission(
             False,
             None,
-            UserAPIKeyAuth(user_id="u2", user_role=LitellmUserRoles.PROXY_ADMIN),
+            UserAPIKeyAuth(user_id="u2", user_role=HangarllmUserRoles.PROXY_ADMIN),
             metadata_sent=False,
             existing_metadata={"require_trace_id": True},
         )
@@ -1159,17 +1159,17 @@ def test_proxy_admin_can_flip_stored_require_trace_id() -> None:
 
 class TestTeamMemberHasPermission:
     def test_requires_caller_to_be_a_team_member(self):
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             team_member_has_permission,
         )
 
-        team = LiteLLM_TeamTable(
+        team = HangarLLM_TeamTable(
             team_id="t1",
             team_member_permissions=["/key/generate"],
             members_with_roles=[Member(user_id="someone-else", role="user")],
         )
         key = UserAPIKeyAuth(
-            user_id="u1", api_key="sk-x", user_role=LitellmUserRoles.INTERNAL_USER
+            user_id="u1", api_key="sk-x", user_role=HangarllmUserRoles.INTERNAL_USER
         )
         assert team_member_has_permission(key, team, "/key/generate") is False
 
@@ -1179,10 +1179,10 @@ class TestUserHasAdminPrivilegesGuard:
     async def test_no_user_lookup_when_prisma_is_none(self):
         """With no DB the guard short-circuits before any user lookup."""
         auth = UserAPIKeyAuth(
-            user_id="user1", api_key="sk-x", user_role=LitellmUserRoles.INTERNAL_USER
+            user_id="user1", api_key="sk-x", user_role=HangarllmUserRoles.INTERNAL_USER
         )
         mock_get_user = AsyncMock(return_value=None)
-        with patch("litellm.proxy.auth.auth_checks.get_user_object", mock_get_user):
+        with patch("hangarllm.proxy.auth.auth_checks.get_user_object", mock_get_user):
             result = await user_has_admin_privileges(
                 user_api_key_dict=auth, prisma_client=None
             )
@@ -1193,23 +1193,23 @@ class TestUserHasAdminPrivilegesGuard:
     async def test_org_admin_membership_grants_privileges(self):
         """With DB + user_id present, an ORG_ADMIN membership yields True."""
         auth = UserAPIKeyAuth(
-            user_id="user1", api_key="sk-x", user_role=LitellmUserRoles.INTERNAL_USER
+            user_id="user1", api_key="sk-x", user_role=HangarllmUserRoles.INTERNAL_USER
         )
         now = datetime.now(timezone.utc)
-        user_obj = LiteLLM_UserTable(
+        user_obj = HangarLLM_UserTable(
             user_id="user1",
             organization_memberships=[
-                LiteLLM_OrganizationMembershipTable(
+                HangarLLM_OrganizationMembershipTable(
                     user_id="user1",
                     organization_id="org1",
-                    user_role=LitellmUserRoles.ORG_ADMIN.value,
+                    user_role=HangarllmUserRoles.ORG_ADMIN.value,
                     created_at=now,
                     updated_at=now,
                 )
             ],
         )
         mock_get_user = AsyncMock(return_value=user_obj)
-        with patch("litellm.proxy.auth.auth_checks.get_user_object", mock_get_user):
+        with patch("hangarllm.proxy.auth.auth_checks.get_user_object", mock_get_user):
             result = await user_has_admin_privileges(
                 user_api_key_dict=auth, prisma_client=MagicMock()
             )
@@ -1220,10 +1220,10 @@ class TestAdminCanInviteUserGuard:
     @pytest.mark.asyncio
     async def test_no_user_lookup_when_prisma_is_none(self):
         auth = UserAPIKeyAuth(
-            user_id="admin1", api_key="sk-x", user_role=LitellmUserRoles.INTERNAL_USER
+            user_id="admin1", api_key="sk-x", user_role=HangarllmUserRoles.INTERNAL_USER
         )
         mock_get_user = AsyncMock(return_value=None)
-        with patch("litellm.proxy.auth.auth_checks.get_user_object", mock_get_user):
+        with patch("hangarllm.proxy.auth.auth_checks.get_user_object", mock_get_user):
             result = await admin_can_invite_user(
                 target_user_id="target1",
                 user_api_key_dict=auth,
@@ -1236,11 +1236,11 @@ class TestAdminCanInviteUserGuard:
     async def test_org_admin_can_invite_user_in_shared_org(self):
         now = datetime.now(timezone.utc)
         auth = UserAPIKeyAuth(
-            user_id="admin1", api_key="sk-x", user_role=LitellmUserRoles.INTERNAL_USER
+            user_id="admin1", api_key="sk-x", user_role=HangarllmUserRoles.INTERNAL_USER
         )
 
         def membership(role):
-            return LiteLLM_OrganizationMembershipTable(
+            return HangarLLM_OrganizationMembershipTable(
                 user_id="x",
                 organization_id="org1",
                 user_role=role,
@@ -1248,16 +1248,16 @@ class TestAdminCanInviteUserGuard:
                 updated_at=now,
             )
 
-        admin_obj = LiteLLM_UserTable(
+        admin_obj = HangarLLM_UserTable(
             user_id="admin1",
-            organization_memberships=[membership(LitellmUserRoles.ORG_ADMIN.value)],
+            organization_memberships=[membership(HangarllmUserRoles.ORG_ADMIN.value)],
         )
-        target_obj = LiteLLM_UserTable(
+        target_obj = HangarLLM_UserTable(
             user_id="target1",
-            organization_memberships=[membership(LitellmUserRoles.INTERNAL_USER.value)],
+            organization_memberships=[membership(HangarllmUserRoles.INTERNAL_USER.value)],
         )
         mock_get_user = AsyncMock(side_effect=[admin_obj, target_obj])
-        with patch("litellm.proxy.auth.auth_checks.get_user_object", mock_get_user):
+        with patch("hangarllm.proxy.auth.auth_checks.get_user_object", mock_get_user):
             result = await admin_can_invite_user(
                 target_user_id="target1",
                 user_api_key_dict=auth,
@@ -1272,8 +1272,8 @@ class TestTeamAdminCanInviteUserQuery:
         mock_prisma = MagicMock()
         mock_auth = MagicMock()
         mock_auth.user_id = "admin"
-        admin_user = LiteLLM_UserTable(user_id="admin", teams=["t1", "t2"])
-        target_user = LiteLLM_UserTable(user_id="target", teams=["t2"])
+        admin_user = HangarLLM_UserTable(user_id="admin", teams=["t1", "t2"])
+        target_user = HangarLLM_UserTable(user_id="target", teams=["t2"])
 
         def make_team(tid):
             obj = MagicMock()
@@ -1285,7 +1285,7 @@ class TestTeamAdminCanInviteUserQuery:
             return obj
 
         find_many = AsyncMock(return_value=[make_team("t1"), make_team("t2")])
-        mock_prisma.db.litellm_teamtable.find_many = find_many
+        mock_prisma.db.hangarllm_teamtable.find_many = find_many
 
         await _team_admin_can_invite_user(
             user_api_key_dict=mock_auth,
@@ -1299,9 +1299,9 @@ class TestTeamAdminCanInviteUserQuery:
 
 class TestSetObjectMetadataFieldPremiumArg:
     def test_premium_check_receives_the_field_name(self):
-        team = LiteLLM_TeamTable(team_id="t1", metadata={})
+        team = HangarLLM_TeamTable(team_id="t1", metadata={})
         with patch(
-            "litellm.proxy.management_endpoints.common_utils.premium_user_check"
+            "hangarllm.proxy.management_endpoints.common_utils.premium_user_check"
         ) as mock_premium:
             set_object_metadata_field(team, "guardrails", ["g1"])
             mock_premium.assert_called_once_with("guardrails")
@@ -1310,7 +1310,7 @@ class TestSetObjectMetadataFieldPremiumArg:
 class TestUpdateMetadataFieldMove:
     def test_none_valued_field_is_not_moved_into_metadata(self):
         """A None value must leave the field untouched (guard requires non-None)."""
-        from litellm.proxy.management_endpoints.common_utils import (
+        from hangarllm.proxy.management_endpoints.common_utils import (
             _update_metadata_field,
         )
 
@@ -1321,7 +1321,7 @@ class TestUpdateMetadataFieldMove:
     def test_set_premium_field_is_moved_into_metadata(self):
         updated_kv = {"guardrails": ["g1"]}
         with patch(
-            "litellm.proxy.management_endpoints.common_utils.premium_user_check"
+            "hangarllm.proxy.management_endpoints.common_utils.premium_user_check"
         ):
             update_metadata_fields(updated_kv)
         assert "guardrails" not in updated_kv
@@ -1368,7 +1368,7 @@ class TestUpdateMetadataFieldsPremiumCheck:
     """
 
     @patch(
-        "litellm.proxy.management_endpoints.common_utils.premium_user_check",
+        "hangarllm.proxy.management_endpoints.common_utils.premium_user_check",
         side_effect=Exception("Should not be called"),
     )
     def test_empty_policies_skips_premium_check(self, mock_check):
@@ -1382,7 +1382,7 @@ class TestUpdateMetadataFieldsPremiumCheck:
         mock_check.assert_not_called()
 
     @patch(
-        "litellm.proxy.management_endpoints.common_utils.premium_user_check",
+        "hangarllm.proxy.management_endpoints.common_utils.premium_user_check",
         side_effect=Exception("Should not be called"),
     )
     def test_empty_guardrails_skips_premium_check(self, mock_check):
@@ -1395,7 +1395,7 @@ class TestUpdateMetadataFieldsPremiumCheck:
         mock_check.assert_not_called()
 
     @patch(
-        "litellm.proxy.management_endpoints.common_utils.premium_user_check",
+        "hangarllm.proxy.management_endpoints.common_utils.premium_user_check",
         side_effect=Exception("Should not be called"),
     )
     def test_empty_string_team_member_key_duration_skips_premium_check(
@@ -1410,7 +1410,7 @@ class TestUpdateMetadataFieldsPremiumCheck:
         mock_check.assert_not_called()
 
     @patch(
-        "litellm.proxy.management_endpoints.common_utils.premium_user_check",
+        "hangarllm.proxy.management_endpoints.common_utils.premium_user_check",
         side_effect=Exception("Should not be called"),
     )
     def test_full_ui_payload_with_empty_premium_fields_skips_premium_check(
@@ -1432,7 +1432,7 @@ class TestUpdateMetadataFieldsPremiumCheck:
         mock_check.assert_not_called()
 
     @patch(
-        "litellm.proxy.management_endpoints.common_utils.premium_user_check",
+        "hangarllm.proxy.management_endpoints.common_utils.premium_user_check",
     )
     def test_non_empty_policies_triggers_premium_check(self, mock_check):
         """policies: ['real-policy'] SHOULD trigger premium user check."""
@@ -1444,7 +1444,7 @@ class TestUpdateMetadataFieldsPremiumCheck:
         mock_check.assert_called()
 
     @patch(
-        "litellm.proxy.management_endpoints.common_utils.premium_user_check",
+        "hangarllm.proxy.management_endpoints.common_utils.premium_user_check",
     )
     def test_non_empty_guardrails_triggers_premium_check(self, mock_check):
         """guardrails: ['my-guardrail'] SHOULD trigger premium user check."""
@@ -1456,7 +1456,7 @@ class TestUpdateMetadataFieldsPremiumCheck:
         mock_check.assert_called()
 
     @patch(
-        "litellm.proxy.management_endpoints.common_utils.premium_user_check",
+        "hangarllm.proxy.management_endpoints.common_utils.premium_user_check",
     )
     def test_non_empty_team_member_key_duration_triggers_premium_check(
         self, mock_check
@@ -1485,17 +1485,17 @@ async def test_router_weights_validate_current_deployment_scope(
     db_model: bool, stored_name: str | None, owner: str | None,
     public_name: str | None, error: str | None,
 ) -> None:
-    from litellm.proxy.management_endpoints.router_weights import validate_router_settings_weights
+    from hangarllm.proxy.management_endpoints.router_weights import validate_router_settings_weights
 
     info = {"team_id": owner, "team_public_model_name": public_name}
     router = Router(model_list=[{
         "model_name": "group",
-        "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "test"},
+        "hangarllm_params": {"model": "openai/gpt-5.4-mini", "api_key": "test"},
         "model_info": {"id": "id", "db_model": db_model, **info},
     }])
     rows = [SimpleNamespace(model_id="id", model_name=stored_name, model_info=info)] if stored_name else []
     table = SimpleNamespace(find_many=AsyncMock(return_value=rows))
-    db = SimpleNamespace(db=SimpleNamespace(litellm_proxymodeltable=table))
+    db = SimpleNamespace(db=SimpleNamespace(hangarllm_proxymodeltable=table))
     validation = validate_router_settings_weights(
         {"weights": {"group": {"id": 1}}}, team_id="team", prisma_client=db, llm_router=router,
     )
@@ -1524,7 +1524,7 @@ async def test_router_weights_validate_current_deployment_scope(
     ids=["negative", "inf", "nan", "no_cap", "no_duration", "bad_duration", "blank_model", "tpm_limit", "rpm_limit"],
 )
 def test_validate_team_model_max_budget_rejects_unenforceable_entries(model_max_budget, error) -> None:
-    from litellm.proxy.management_endpoints.common_utils import validate_team_model_max_budget
+    from hangarllm.proxy.management_endpoints.common_utils import validate_team_model_max_budget
 
     with pytest.raises(HTTPException) as exc:
         validate_team_model_max_budget(model_max_budget=model_max_budget, premium_user=True)
@@ -1533,7 +1533,7 @@ def test_validate_team_model_max_budget_rejects_unenforceable_entries(model_max_
 
 
 def test_validate_team_model_max_budget_accepts_a_zero_cap_and_prefixed_models() -> None:
-    from litellm.proxy.management_endpoints.common_utils import validate_team_model_max_budget
+    from hangarllm.proxy.management_endpoints.common_utils import validate_team_model_max_budget
 
     assert (
         validate_team_model_max_budget(
@@ -1548,7 +1548,7 @@ def test_validate_team_model_max_budget_accepts_a_zero_cap_and_prefixed_models()
 
 
 def test_validate_team_model_max_budget_is_license_gated_only_when_set() -> None:
-    from litellm.proxy.management_endpoints.common_utils import validate_team_model_max_budget
+    from hangarllm.proxy.management_endpoints.common_utils import validate_team_model_max_budget
 
     validate_team_model_max_budget(model_max_budget=None, premium_user=False)
     validate_team_model_max_budget(model_max_budget={}, premium_user=False)

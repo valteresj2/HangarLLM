@@ -3,8 +3,8 @@ import sys
 
 import pytest
 
-from litellm.proxy._types import ProxyException
-from litellm.proxy.openai_files_endpoints.batch_file_validation import (
+from hangarllm.proxy._types import ProxyException
+from hangarllm.proxy.openai_files_endpoints.batch_file_validation import (
     BATCH_LINE_SHAPE,
     PASSTHROUGH_BATCH_LINE_SHAPE,
     BatchFileEmpty,
@@ -17,7 +17,7 @@ from litellm.proxy.openai_files_endpoints.batch_file_validation import (
     check_batch_file_upload,
     raise_batch_file_validation_failure,
 )
-from litellm.proxy.openai_files_endpoints.file_usage_caps import FileUsageLimit
+from hangarllm.proxy.openai_files_endpoints.file_usage_caps import FileUsageLimit
 
 VALID_LINE = (
     b'{"custom_id": "req-1", "method": "POST", "url": "/v1/chat/completions",'

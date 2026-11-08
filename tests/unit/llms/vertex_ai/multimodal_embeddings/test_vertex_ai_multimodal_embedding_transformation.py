@@ -5,10 +5,10 @@ import httpx
 import pytest
 
 
-from litellm.llms.vertex_ai.multimodal_embeddings.transformation import (
+from hangarllm.llms.vertex_ai.multimodal_embeddings.transformation import (
     VertexAIMultimodalEmbeddingConfig,
 )
-from litellm.types.llms.vertex_ai import Instance, InstanceImage, InstanceVideo
+from hangarllm.types.llms.vertex_ai import Instance, InstanceImage, InstanceVideo
 
 
 class TestVertexMultimodalEmbedding:
@@ -147,7 +147,7 @@ class TestVertexMultimodalEmbedding:
         """Test that the dimensions parameter is forwarded as dimension
         in the request body parameters field.
 
-        Fixes: https://github.com/BerriAI/litellm/issues/24392
+        Fixes: upstream issue 24392
         """
         optional_params = {}
         optional_params = self.config.map_openai_params(

@@ -1,5 +1,5 @@
 """
-Unit tests for litellm/llms/anthropic/batches/handler.py
+Unit tests for hangarllm/llms/anthropic/batches/handler.py
 
 AnthropicBatchesHandler is the HTTP/auth glue for retrieving Anthropic Message
 Batches. It resolves credentials, builds the retrieve URL + auth headers via the
@@ -7,7 +7,7 @@ provider config, fires a single GET against the async httpx client, and hands th
 response to the config's transform. These tests mock ONLY the genuine I/O seams -
 the async httpx client (network) and credential resolution (secret managers /
 env) - and assert exactly which seam fired, with what URL/headers, and that the
-parsed result is the LiteLLMBatch the transform produced.
+parsed result is the HangarLLMBatch the transform produced.
 
 The sync ``retrieve_batch`` dispatch (``_is_async`` true -> coroutine, false ->
 asyncio.run) is exercised directly.
@@ -21,8 +21,8 @@ import httpx
 import pytest
 
 
-from litellm.llms.anthropic.batches.handler import AnthropicBatchesHandler
-from litellm.types.utils import LiteLLMBatch
+from hangarllm.llms.anthropic.batches.handler import AnthropicBatchesHandler
+from hangarllm.types.utils import HangarLLMBatch
 
 
 def _ok_batch_response():
@@ -51,7 +51,7 @@ def patched_client():
     fake_client = MagicMock()
     fake_client.get = AsyncMock(return_value=_ok_batch_response())
     with patch(
-        "litellm.llms.anthropic.batches.handler.get_async_httpx_client",
+        "hangarllm.llms.anthropic.batches.handler.get_async_httpx_client",
         return_value=fake_client,
     ) as factory:
         yield fake_client, factory
@@ -81,7 +81,7 @@ async def test_aretrieve_batch_fires_get_with_correct_url_and_headers(handler, p
     assert headers["anthropic-beta"] == "message-batches-2024-09-24"
 
     # Response parsed through the config transform.
-    assert isinstance(batch, LiteLLMBatch)
+    assert isinstance(batch, HangarLLMBatch)
     assert batch.id == "msgbatch_abc"
     assert batch.status == "completed"
     assert batch.request_counts.completed == 2
@@ -89,7 +89,7 @@ async def test_aretrieve_batch_fires_get_with_correct_url_and_headers(handler, p
 
 @pytest.mark.asyncio
 async def test_aretrieve_batch_uses_anthropic_provider_for_client(handler, patched_client):
-    from litellm.types.utils import LlmProviders
+    from hangarllm.types.utils import LlmProviders
 
     _, factory = patched_client
     await handler.aretrieve_batch(
@@ -166,7 +166,7 @@ async def test_aretrieve_batch_raises_for_status(handler):
     fake_client = MagicMock()
     fake_client.get = AsyncMock(return_value=error_response)
     with patch(
-        "litellm.llms.anthropic.batches.handler.get_async_httpx_client",
+        "hangarllm.llms.anthropic.batches.handler.get_async_httpx_client",
         return_value=fake_client,
     ):
         with pytest.raises(httpx.HTTPStatusError):
@@ -204,7 +204,7 @@ async def test_aretrieve_batch_builds_default_logging_obj_when_absent(handler, p
     # logging_obj=None -> handler constructs a real Logging object; the call
     # must still complete (no AttributeError on a missing logger).
     _, _ = patched_client
-    with patch("litellm.litellm_core_utils.litellm_logging.Logging") as logging_cls:
+    with patch("hangarllm.hangarllm_core_utils.hangarllm_logging.Logging") as logging_cls:
         logging_cls.return_value = MagicMock()
         batch = await handler.aretrieve_batch(
             batch_id="msgbatch_abc",
@@ -246,7 +246,7 @@ async def test_retrieve_batch_async_returns_coroutine(handler, patched_client):
 
 
 def test_retrieve_batch_sync_runs_to_result(handler, patched_client):
-    # _is_async=False -> asyncio.run(...) returns the resolved LiteLLMBatch.
+    # _is_async=False -> asyncio.run(...) returns the resolved HangarLLMBatch.
     batch = handler.retrieve_batch(
         _is_async=False,
         batch_id="msgbatch_abc",
@@ -255,7 +255,7 @@ def test_retrieve_batch_sync_runs_to_result(handler, patched_client):
         timeout=60.0,
         max_retries=0,
     )
-    assert isinstance(batch, LiteLLMBatch)
+    assert isinstance(batch, HangarLLMBatch)
     assert batch.id == "msgbatch_abc"
     assert batch.status == "completed"
 
@@ -297,9 +297,9 @@ async def test_aretrieve_batch_wif_exchange_does_not_block_event_loop(handler, p
     """Regression: aretrieve_batch called the synchronous validate_environment
     directly, so a cold WIF mint ran inline on the event loop and froze every
     other concurrent coroutine until the exchange finished."""
-    from litellm.llms.anthropic import common_utils as anthropic_common_utils
-    from litellm.llms.anthropic.wif import get_anthropic_wif_token
-    from litellm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
+    from hangarllm.llms.anthropic import common_utils as anthropic_common_utils
+    from hangarllm.llms.anthropic.wif import get_anthropic_wif_token
+    from hangarllm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
 
     fake_client, _ = patched_client
     for name in (
@@ -315,8 +315,8 @@ async def test_aretrieve_batch_wif_exchange_does_not_block_event_loop(handler, p
     poster = _BlockingPoster()
     engine = JwtBearerTokenExchangeEngine(poster=poster)
 
-    def routed_through_injected_engine(litellm_params, api_base, model):
-        return get_anthropic_wif_token(litellm_params, api_base, model, engine)
+    def routed_through_injected_engine(hangarllm_params, api_base, model):
+        return get_anthropic_wif_token(hangarllm_params, api_base, model, engine)
 
     monkeypatch.setattr(anthropic_common_utils, "get_anthropic_wif_token", routed_through_injected_engine)
 

@@ -1,6 +1,6 @@
 # HangarLLM roadmap
 
-HangarLLM is derived from LiteLLM (MIT) at commit `709b27e2` (v1.110.0). This file lists the known gaps of the first release and the planned work.
+This file lists the known gaps of the first release and the planned work.
 
 ## Known gaps
 

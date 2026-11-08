@@ -14,12 +14,12 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.router_core import RouterCore
-from litellm.types.utils import Usage
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.router_core import RouterCore
+from hangarllm.types.utils import Usage
 from tests.unit.test_router.core.scripted_host import (
     ScriptedHost,
     bad_request,
@@ -71,7 +71,7 @@ async def test_a_stream_that_fails_on_its_first_chunk_is_retried_inside_the_atte
     assert await collect_texts(stream) == "ok"
     assert host.deployments_called() == ["a", "a"]
     assert len(host.sleeps) == 1
-    assert headers(stream)["x-litellm-attempted-retries"] == 1
+    assert headers(stream)["x-hangarllm-attempted-retries"] == 1
 
 
 async def test_a_stream_that_fails_on_its_first_chunk_falls_back_after_its_retries(
@@ -85,7 +85,7 @@ async def test_a_stream_that_fails_on_its_first_chunk_falls_back_after_its_retri
     assert host.deployments_called() == ["a", "a", "a", "b"]
     assert len(host.sleeps) == 3
     assert model_id(stream) == "b"
-    assert headers(stream)["x-litellm-attempted-fallbacks"] == 1
+    assert headers(stream)["x-hangarllm-attempted-fallbacks"] == 1
 
 
 async def test_a_first_chunk_failure_with_nowhere_to_go_raises_the_provider_error_from_the_call(
@@ -93,7 +93,7 @@ async def test_a_first_chunk_failure_with_nowhere_to_go_raises_the_provider_erro
 ) -> None:
     host.answer("openai/a", chat_stream("x", error=rate_limit(message="first chunk"), fail_after=0))
     core = make_core(model_list=[deployment("a", "a")], num_retries=0)
-    with pytest.raises(litellm.RateLimitError, match="first chunk"):
+    with pytest.raises(hangarllm.RateLimitError, match="first chunk"):
         await open_stream(core)
 
 
@@ -102,7 +102,7 @@ async def test_a_first_chunk_bad_request_is_raised_from_the_call_without_retry(
 ) -> None:
     host.answer("openai/a", chat_stream("x", error=bad_request(message="nope"), fail_after=0))
     core = make_core(model_list=GROUPS_AB, num_retries=2)
-    with pytest.raises(litellm.BadRequestError, match="nope"):
+    with pytest.raises(hangarllm.BadRequestError, match="nope"):
         await open_stream(core)
     assert host.deployments_called() == ["a"]
 
@@ -133,7 +133,7 @@ async def test_a_stream_that_ends_after_content_without_a_finish_reason_raises_w
     host.answer("openai/a", chat_stream("partial", finish=False))
     core = build(make_core)
     stream = await open_stream(core)
-    with pytest.raises(litellm.APIConnectionError, match="Stream ended before a finish_reason was received"):
+    with pytest.raises(hangarllm.APIConnectionError, match="Stream ended before a finish_reason was received"):
         await collect_texts(stream)
     assert host.deployments_called() == ["a"]
 
@@ -148,7 +148,7 @@ async def test_a_mid_stream_error_after_content_raises_the_provider_error_not_mi
     host.answer("openai/b", chat_stream("B"))
     core = build(make_core)
     stream = await open_stream(core)
-    with pytest.raises(litellm.RateLimitError, match="cut after content") as raised:
+    with pytest.raises(hangarllm.RateLimitError, match="cut after content") as raised:
         await collect_texts(stream)
     assert not isinstance(raised.value, MidStreamFallbackError)
     assert host.deployments_called() == ["a"]
@@ -161,7 +161,7 @@ async def test_a_mid_stream_error_after_content_delivers_the_text_before_it(
     core = build(make_core)
     stream = await open_stream(core)
     received: list[object] = []
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await drain_into(stream, received)
     assert "".join(getattr(chunk, "choices")[0].delta.content or "" for chunk in received) == "hello"
 
@@ -209,7 +209,7 @@ async def test_a_mid_stream_error_before_content_without_fallbacks_raises_the_pr
     host.answer("openai/a", chat_stream(error=rate_limit(message="no fallback"), leading_role_chunk=True))
     core = make_core(model_list=GROUPS_AB, num_retries=0)
     stream = await open_stream(core)
-    with pytest.raises(litellm.RateLimitError, match="no fallback") as raised:
+    with pytest.raises(hangarllm.RateLimitError, match="no fallback") as raised:
         await collect_texts(stream)
     assert not isinstance(raised.value, MidStreamFallbackError)
     assert host.deployments_called() == ["a"]
@@ -222,7 +222,7 @@ async def test_disable_fallbacks_on_the_request_raises_a_mid_stream_error_before
     host.answer("openai/b", chat_stream("B"))
     core = build(make_core)
     stream = await open_stream(core, disable_fallbacks=True)
-    with pytest.raises(litellm.RateLimitError, match="disabled"):
+    with pytest.raises(hangarllm.RateLimitError, match="disabled"):
         await collect_texts(stream)
     assert host.deployments_called() == ["a"]
 
@@ -257,7 +257,7 @@ async def test_when_the_mid_stream_fallback_also_fails_the_primary_provider_erro
     host.answer("openai/b", server_error())
     core = build(make_core)
     stream = await open_stream(core)
-    with pytest.raises(litellm.RateLimitError, match="primary"):
+    with pytest.raises(hangarllm.RateLimitError, match="primary"):
         await collect_texts(stream)
     assert host.deployments_called() == ["a", "b"]
 
@@ -272,7 +272,7 @@ async def test_a_mid_stream_server_error_before_content_falls_through_order_tier
     assert await collect_texts(stream) == "A2"
     assert host.deployments_called() == ["a1", "a2"]
     assert model_id(stream) == "a2"
-    assert headers(stream)["x-litellm-model-group"] == "a"
+    assert headers(stream)["x-hangarllm-model-group"] == "a"
 
 
 async def test_a_mid_stream_bad_request_before_content_is_raised_without_fallback(
@@ -282,7 +282,7 @@ async def test_a_mid_stream_bad_request_before_content_is_raised_without_fallbac
     host.answer("openai/b", chat_stream("B"))
     core = build(make_core)
     stream = await open_stream(core)
-    with pytest.raises(litellm.BadRequestError, match="client error"):
+    with pytest.raises(hangarllm.BadRequestError, match="client error"):
         await collect_texts(stream)
     assert host.deployments_called() == ["a"]
 
@@ -294,7 +294,7 @@ async def test_a_mid_stream_content_policy_error_before_content_is_raised_withou
     host.answer("openai/b", chat_stream("B"))
     core = build(make_core, fallbacks=None, content_policy_fallbacks=[{"a": ["b"]}])
     stream = await open_stream(core)
-    with pytest.raises(litellm.ContentPolicyViolationError):
+    with pytest.raises(hangarllm.ContentPolicyViolationError):
         await collect_texts(stream)
     assert host.deployments_called() == ["a"]
 
@@ -317,7 +317,7 @@ async def test_a_mid_stream_context_window_error_after_content_is_raised(
     host.answer("openai/b", chat_stream("B"))
     core = build(make_core, context_window_fallbacks=[{"a": ["b"]}])
     stream = await open_stream(core)
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         await collect_texts(stream)
     assert host.deployments_called() == ["a"]
 
@@ -333,8 +333,8 @@ async def test_a_stream_without_fallback_reports_the_serving_deployment(
     stream = await open_stream(core)
     await collect_texts(stream)
     assert model_id(stream) == "a"
-    assert headers(stream)["x-litellm-model-group"] == "a"
-    assert headers(stream)["x-litellm-attempted-fallbacks"] == 0
+    assert headers(stream)["x-hangarllm-model-group"] == "a"
+    assert headers(stream)["x-hangarllm-attempted-fallbacks"] == 0
 
 
 async def test_after_a_mid_stream_fallback_the_stream_reports_the_fallback_deployment(
@@ -347,9 +347,9 @@ async def test_after_a_mid_stream_fallback_the_stream_reports_the_fallback_deplo
     await collect_texts(stream)
     assert model_id(stream) == "b"
     assert headers(stream) == {
-        "x-litellm-model-group": "b",
-        "x-litellm-attempted-retries": 0,
-        "x-litellm-attempted-fallbacks": 1,
+        "x-hangarllm-model-group": "b",
+        "x-hangarllm-attempted-retries": 0,
+        "x-hangarllm-attempted-fallbacks": 1,
     }
 
 
@@ -364,7 +364,7 @@ async def test_after_a_mid_stream_fallback_each_fallback_chunk_carries_the_fallb
     fallback_chunks = chunks[1:]
     assert fallback_chunks
     assert all(chunk._hidden_params.get("model_id") == "b" for chunk in fallback_chunks)
-    assert fallback_chunks[-1]._hidden_params["additional_headers"]["x-litellm-model-group"] == "b"
+    assert fallback_chunks[-1]._hidden_params["additional_headers"]["x-hangarllm-model-group"] == "b"
 
 
 async def test_when_the_mid_stream_fallback_fails_the_stream_still_reports_the_primary(
@@ -374,10 +374,10 @@ async def test_when_the_mid_stream_fallback_fails_the_stream_still_reports_the_p
     host.answer("openai/b", server_error())
     core = build(make_core)
     stream = await open_stream(core)
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await collect_texts(stream)
     assert model_id(stream) == "a"
-    assert headers(stream)["x-litellm-model-group"] == "a"
+    assert headers(stream)["x-hangarllm-model-group"] == "a"
 
 
 # --- mid-stream continuation -------------------------------------------------------------------
@@ -397,7 +397,7 @@ async def test_continuation_off_by_default_raises_after_content(make_core: MakeC
     host.answer(PREFILL_MODEL, chat_stream(" world"))
     core = build(make_core, model_list=[deployment("a", "a"), deployment("b", "b", model=PREFILL_MODEL)])
     stream = await open_stream(core)
-    with pytest.raises(litellm.RateLimitError, match="cut"):
+    with pytest.raises(hangarllm.RateLimitError, match="cut"):
         await collect_texts(stream)
     assert host.deployments_called() == ["a"]
 
@@ -444,7 +444,7 @@ async def test_continuation_declines_when_the_request_ends_in_a_plain_assistant_
     core = continuation_core(make_core)
     messages = [*MESSAGES, {"role": "assistant", "content": "earlier"}]
     stream = await core.acompletion(model="a", messages=messages, stream=True)  # pyright: ignore[reportAttributeAccessIssue]  # endpoint method
-    with pytest.raises(litellm.RateLimitError, match="cut"):
+    with pytest.raises(hangarllm.RateLimitError, match="cut"):
         await collect_texts(stream)
     assert host.deployments_called() == ["a"]
 
@@ -467,7 +467,7 @@ async def test_continuation_raises_the_provider_error_when_the_output_ceiling_is
     host.answer(PREFILL_MODEL, chat_stream(" friend"))
     core = continuation_core(make_core)
     stream = await open_stream(core, max_tokens=2)
-    with pytest.raises(litellm.RateLimitError, match="spent"):
+    with pytest.raises(hangarllm.RateLimitError, match="spent"):
         await collect_texts(stream)
     assert host.deployments_called() == ["a"]
 
@@ -479,7 +479,7 @@ async def test_continuation_never_lands_on_a_fallback_that_cannot_take_a_prefill
     host.answer("openai/b", chat_stream("B"))
     core = build(make_core, enable_mid_stream_fallback_continuation=True)
     stream = await open_stream(core)
-    with pytest.raises(litellm.RateLimitError, match="no prefill target"):
+    with pytest.raises(hangarllm.RateLimitError, match="no prefill target"):
         await collect_texts(stream)
     assert host.deployments_called() == ["a"]
 
@@ -499,7 +499,7 @@ async def test_continuation_declines_a_constrained_request(
     host.answer(PREFILL_MODEL, chat_stream(" world"))
     core = continuation_core(make_core)
     stream = await open_stream(core, **request_kwargs)
-    with pytest.raises(litellm.RateLimitError, match="constrained"):
+    with pytest.raises(hangarllm.RateLimitError, match="constrained"):
         await collect_texts(stream)
     assert host.deployments_called() == ["a"]
 
@@ -511,7 +511,7 @@ async def test_continuation_declines_a_fallback_target_that_overrides_request_pa
     host.answer(PREFILL_MODEL, chat_stream(" world"))
     core = continuation_core(make_core, fallbacks=[{"a": [{"model": "b", "temperature": 0.1}]}])
     stream = await open_stream(core)
-    with pytest.raises(litellm.RateLimitError, match="override"):
+    with pytest.raises(hangarllm.RateLimitError, match="override"):
         await collect_texts(stream)
     assert host.deployments_called() == ["a"]
 
@@ -540,7 +540,7 @@ def recorded(
     return record
 
 
-def owe_a_served_round(logging_obj: LiteLLMLogging) -> None:
+def owe_a_served_round(logging_obj: HangarLLMLogging) -> None:
     """What an agentic follow-up that failed leaves on the attempt: a stash its success log must also bill."""
     logging_obj.record_served_rounds_for_failure(((Usage(prompt_tokens=1, completion_tokens=1, total_tokens=2), 0.5),))
 
@@ -548,7 +548,7 @@ def owe_a_served_round(logging_obj: LiteLLMLogging) -> None:
 async def test_continuation_bills_the_priced_partial_on_the_fallbacks_log(
     make_core: MakeCore, host: ScriptedHost, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(LiteLLMLogging, "response_cost_calculator", lambda *_args, **_kwargs: 0.25)
+    monkeypatch.setattr(HangarLLMLogging, "response_cost_calculator", lambda *_args, **_kwargs: 0.25)
     opened: Final[list[CustomStreamWrapper]] = []
     host.answer("openai/a", chat_stream("he", "llo", error=rate_limit()))
     host.answer(PREFILL_MODEL, recorded(chat_stream(" world"), opened))
@@ -601,7 +601,7 @@ async def test_an_open_stream_holds_its_max_parallel_requests_slot_until_consume
     host.answer("openai/a", chat_stream("x"))
     core = make_core(model_list=[deployment("a", "a", max_parallel_requests=1)], num_retries=0)
     first = await open_stream(core)
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await asyncio.wait_for(open_stream(core), 5)
     await collect_texts(first)
     second = await asyncio.wait_for(open_stream(core), 5)
@@ -626,7 +626,7 @@ def test_sync_stream_raises_the_provider_error_after_content(make_core: MakeCore
     host.answer("openai/b", chat_stream("B", sync=True))
     core = build(make_core)
     stream = core.completion(model="a", messages=MESSAGES, stream=True)  # pyright: ignore[reportAttributeAccessIssue]  # endpoint method
-    with pytest.raises(litellm.RateLimitError, match="sync cut"):
+    with pytest.raises(hangarllm.RateLimitError, match="sync cut"):
         collect_texts_sync(stream)
     assert host.deployments_called() == ["a"]
 
@@ -638,7 +638,7 @@ def test_sync_stream_never_continues_after_content_even_with_continuation_on(
     host.answer(PREFILL_MODEL, chat_stream(" world", sync=True))
     core = continuation_core(make_core)
     stream = core.completion(model="a", messages=MESSAGES, stream=True)  # pyright: ignore[reportAttributeAccessIssue]  # endpoint method
-    with pytest.raises(litellm.RateLimitError, match="sync no continuation"):
+    with pytest.raises(hangarllm.RateLimitError, match="sync no continuation"):
         collect_texts_sync(stream)
     assert host.deployments_called() == ["a"]
 
@@ -650,7 +650,7 @@ def test_sync_stream_disable_fallbacks_raises_a_mid_stream_error_before_content(
     host.answer("openai/b", chat_stream("B", sync=True))
     core = build(make_core)
     stream = core.completion(model="a", messages=MESSAGES, stream=True, disable_fallbacks=True)  # pyright: ignore[reportAttributeAccessIssue]  # endpoint method
-    with pytest.raises(litellm.RateLimitError, match="sync disabled"):
+    with pytest.raises(hangarllm.RateLimitError, match="sync disabled"):
         collect_texts_sync(stream)
     assert host.deployments_called() == ["a"]
 
@@ -669,7 +669,7 @@ def test_sync_stream_when_the_fallback_fails_raises_the_primary_error(make_core:
     host.answer("openai/b", server_error())
     core = build(make_core)
     stream = core.completion(model="a", messages=MESSAGES, stream=True)  # pyright: ignore[reportAttributeAccessIssue]  # endpoint method
-    with pytest.raises(litellm.RateLimitError, match="sync primary"):
+    with pytest.raises(hangarllm.RateLimitError, match="sync primary"):
         collect_texts_sync(stream)
     assert host.deployments_called() == ["a", "b"]
 
@@ -691,7 +691,7 @@ def test_sync_stream_when_the_fallback_fails_raises_the_primary_error(make_core:
             {"service_tier": "flex", "stream_timeout": 2},
             2,
         ),
-        ({"default_litellm_params": {"stream_timeout": 8}}, {}, {}, 8),
+        ({"default_hangarllm_params": {"stream_timeout": 8}}, {}, {}, 8),
     ],
     ids=[
         "router",
@@ -700,7 +700,7 @@ def test_sync_stream_when_the_fallback_fails_raises_the_primary_error(make_core:
         "service-tier-over-deployment",
         "unmatched-service-tier-uses-deployment",
         "request-over-service-tier",
-        "default-litellm-params",
+        "default-hangarllm-params",
     ],
 )
 async def test_the_stream_timeout_comes_from_request_then_tier_then_deployment_then_router(

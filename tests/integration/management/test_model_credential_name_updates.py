@@ -27,7 +27,7 @@ def _delete_credential_if_present(gateway: Gateway, name: str) -> None:
 def _delete_credential(gateway: Gateway, name: str) -> None:
     response: Final = gateway.request("DELETE", f"/credentials/{name}")
     assert response.status_code == 200, response.text
-    assert read_rows('SELECT credential_name FROM "LiteLLM_CredentialsTable" WHERE credential_name = %s', (name,)) == []
+    assert read_rows('SELECT credential_name FROM "HangarLLM_CredentialsTable" WHERE credential_name = %s', (name,)) == []
 
 
 def _model_with_credential(gateway: Gateway, scenario: Scenario, credential: str, **model_info: JsonValue) -> str:
@@ -35,10 +35,10 @@ def _model_with_credential(gateway: Gateway, scenario: Scenario, credential: str
         "/model/new",
         {
             "model_name": f"integration-{uuid.uuid4().hex}",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_base": f"{gateway.upstream_url}/v1",
-                "litellm_credential_name": credential,
+                "hangarllm_credential_name": credential,
                 "rpm": 5,
             },
             "model_info": dict(model_info),
@@ -50,9 +50,9 @@ def _model_with_credential(gateway: Gateway, scenario: Scenario, credential: str
 
 
 def _stored_params(gateway: Gateway, identity: str) -> dict[str, JsonValue]:
-    entries: Final = gateway.get("/model/info", {"litellm_model_id": identity})["data"]
+    entries: Final = gateway.get("/model/info", {"hangarllm_model_id": identity})["data"]
     assert isinstance(entries, list) and len(entries) == 1, entries
-    return object_value(object_value(entries[0])["litellm_params"])
+    return object_value(object_value(entries[0])["hangarllm_params"])
 
 
 def _error(response: httpx.Response) -> dict[str, JsonValue]:
@@ -66,12 +66,12 @@ def test_unrelated_patch_succeeds_when_resent_credential_name_is_dangling(gatewa
         identity: Final = _model_with_credential(gateway, scenario, credential)
         _delete_credential(gateway, credential)
         before: Final = _stored_params(gateway, identity)
-        assert before["litellm_credential_name"] == credential
+        assert before["hangarllm_credential_name"] == credential
         assert before["rpm"] == 5
         patched: Final = gateway.request(
             "PATCH",
             f"/model/{identity}/update",
-            {"litellm_params": {"litellm_credential_name": before["litellm_credential_name"], "rpm": 7}},
+            {"hangarllm_params": {"hangarllm_credential_name": before["hangarllm_credential_name"], "rpm": 7}},
         )
         assert patched.status_code == 200, patched.text
         after: Final = _stored_params(gateway, identity)
@@ -91,25 +91,25 @@ def test_non_admin_detach_and_empty_credential_name_still_rejected(gateway: Gate
         identity: Final = _model_with_credential(gateway, scenario, credential, team_id=team)
         before: Final = _stored_params(gateway, identity)
         detached: Final = gateway.request(
-            "PATCH", f"/model/{identity}/update", {"litellm_params": {"litellm_credential_name": None}}, key=team_admin
+            "PATCH", f"/model/{identity}/update", {"hangarllm_params": {"hangarllm_credential_name": None}}, key=team_admin
         )
         assert detached.status_code == 403, detached.text
         assert _error(detached) == {
-            "message": "Only a proxy admin can detach a stored credential (litellm_credential_name) on a model. "
+            "message": "Only a proxy admin can detach a stored credential (hangarllm_credential_name) on a model. "
             "Your role=internal_user.",
             "type": "auth_error",
-            "param": "litellm_credential_name",
+            "param": "hangarllm_credential_name",
             "code": "403",
         }
         emptied: Final = gateway.request(
-            "PATCH", f"/model/{identity}/update", {"litellm_params": {"litellm_credential_name": ""}}
+            "PATCH", f"/model/{identity}/update", {"hangarllm_params": {"hangarllm_credential_name": ""}}
         )
         assert emptied.status_code == 400, emptied.text
         assert _error(emptied) == {
-            "message": "litellm_credential_name cannot be an empty string. Send null to detach the stored credential "
+            "message": "hangarllm_credential_name cannot be an empty string. Send null to detach the stored credential "
             "or omit the field to leave it unchanged.",
             "type": "validation_error",
-            "param": "litellm_credential_name",
+            "param": "hangarllm_credential_name",
             "code": "400",
         }
         assert _stored_params(gateway, identity) == before
@@ -124,13 +124,13 @@ def test_changing_credential_name_to_missing_credential_is_rejected(gateway: Gat
         before: Final = _stored_params(gateway, identity)
         missing: Final = f"credential-{uuid.uuid4().hex}"
         rejected: Final = gateway.request(
-            "PATCH", f"/model/{identity}/update", {"litellm_params": {"litellm_credential_name": missing, "rpm": 7}}
+            "PATCH", f"/model/{identity}/update", {"hangarllm_params": {"hangarllm_credential_name": missing, "rpm": 7}}
         )
         assert rejected.status_code == 400, rejected.text
         assert _error(rejected) == {
             "message": f"Credential '{missing}' not found. Create it via /credentials before attaching it to a model.",
             "type": "validation_error",
-            "param": "litellm_credential_name",
+            "param": "hangarllm_credential_name",
             "code": "400",
         }
         assert _stored_params(gateway, identity) == before

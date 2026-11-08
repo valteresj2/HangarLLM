@@ -6,14 +6,14 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
-from litellm.llms.azure_ai.common_utils import AZURE_AI_AGENTS_SCOPE
-from litellm.llms.azure_ai.responses.transformation import AzureAIResponsesAPIConfig
-from litellm.responses.main import _will_bridge_to_chat_completions
-from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
+from hangarllm.llms.azure_ai.common_utils import AZURE_AI_AGENTS_SCOPE
+from hangarllm.llms.azure_ai.responses.transformation import AzureAIResponsesAPIConfig
+from hangarllm.responses.main import _will_bridge_to_chat_completions
+from hangarllm.types.llms.openai import ResponsesAPIOptionalRequestParams
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.utils import ProviderConfigManager
 
 FOUNDRY_PROJECT_BASE = "https://res.services.ai.azure.com/api/projects/proj"
 FOUNDRY_RESPONSES_URL = f"{FOUNDRY_PROJECT_BASE}/openai/v1/responses"
@@ -28,10 +28,10 @@ WEATHER_TOOL = {
 
 @pytest.fixture(autouse=True)
 def clear_azure_ai_env(monkeypatch):
-    monkeypatch.setattr(litellm, "api_base", None)
-    monkeypatch.setattr(litellm, "api_key", None)
-    monkeypatch.setattr(litellm, "enable_azure_ad_token_refresh", False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "enable_azure_ad_token_refresh", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     for env_var in (
         "AZURE_AI_API_BASE",
         "AZURE_AI_API_KEY",
@@ -139,24 +139,24 @@ def test_will_bridge_to_chat_completions_follows_host(api_base, bridged):
     ],
 )
 def test_get_complete_url(api_base, expected):
-    assert AzureAIResponsesAPIConfig().get_complete_url(api_base=api_base, litellm_params={}) == expected
+    assert AzureAIResponsesAPIConfig().get_complete_url(api_base=api_base, hangarllm_params={}) == expected
 
 
 def test_get_complete_url_ignores_api_version():
     url = AzureAIResponsesAPIConfig().get_complete_url(
-        api_base=FOUNDRY_PROJECT_BASE, litellm_params={"api_version": "2025-04-01-preview"}
+        api_base=FOUNDRY_PROJECT_BASE, hangarllm_params={"api_version": "2025-04-01-preview"}
     )
     assert url == FOUNDRY_RESPONSES_URL
 
 
 def test_get_complete_url_uses_env_api_base(monkeypatch):
     monkeypatch.setenv("AZURE_AI_API_BASE", FOUNDRY_PROJECT_BASE)
-    assert AzureAIResponsesAPIConfig().get_complete_url(api_base=None, litellm_params={}) == FOUNDRY_RESPONSES_URL
+    assert AzureAIResponsesAPIConfig().get_complete_url(api_base=None, hangarllm_params={}) == FOUNDRY_RESPONSES_URL
 
 
 def test_get_complete_url_raises_without_api_base():
     with pytest.raises(ValueError, match="AZURE_AI_API_BASE"):
-        AzureAIResponsesAPIConfig().get_complete_url(api_base=None, litellm_params={})
+        AzureAIResponsesAPIConfig().get_complete_url(api_base=None, hangarllm_params={})
 
 
 def test_native_websocket_stays_off():
@@ -174,7 +174,7 @@ def test_validate_environment_sends_the_api_key_the_way_the_endpoint_takes_it(ap
     headers = AzureAIResponsesAPIConfig().validate_environment(
         headers={"x-custom": "1"},
         model="gpt-5.6-luna",
-        litellm_params=GenericLiteLLMParams(api_key="secret", api_base=api_base),
+        hangarllm_params=GenericHangarLLMParams(api_key="secret", api_base=api_base),
     )
     assert headers == {"x-custom": "1", **expected_auth, "Content-Type": "application/json"}
 
@@ -182,7 +182,7 @@ def test_validate_environment_sends_the_api_key_the_way_the_endpoint_takes_it(ap
 def test_validate_environment_reads_api_key_from_env(monkeypatch):
     monkeypatch.setenv("AZURE_AI_API_KEY", "env-secret")
     headers = AzureAIResponsesAPIConfig().validate_environment(
-        headers={}, model="gpt-5.6-luna", litellm_params=GenericLiteLLMParams(api_base="https://res.services.ai.azure.com")
+        headers={}, model="gpt-5.6-luna", hangarllm_params=GenericHangarLLMParams(api_base="https://res.services.ai.azure.com")
     )
     assert headers["api-key"] == "env-secret"
 
@@ -191,7 +191,7 @@ def test_validate_environment_uses_entra_token_without_api_key():
     headers = AzureAIResponsesAPIConfig().validate_environment(
         headers={},
         model="gpt-5.6-luna",
-        litellm_params=GenericLiteLLMParams(azure_ad_token="entra-token", api_base=FOUNDRY_PROJECT_BASE),
+        hangarllm_params=GenericHangarLLMParams(azure_ad_token="entra-token", api_base=FOUNDRY_PROJECT_BASE),
     )
     assert headers["Authorization"] == "Bearer entra-token"
     assert "api-key" not in headers
@@ -200,7 +200,7 @@ def test_validate_environment_uses_entra_token_without_api_key():
 def test_validate_environment_raises_without_credentials():
     with pytest.raises(ValueError, match="AZURE_AI_API_KEY"):
         AzureAIResponsesAPIConfig().validate_environment(
-            headers={}, model="gpt-5.6-luna", litellm_params=GenericLiteLLMParams(api_base=FOUNDRY_PROJECT_BASE)
+            headers={}, model="gpt-5.6-luna", hangarllm_params=GenericHangarLLMParams(api_base=FOUNDRY_PROJECT_BASE)
         )
 
 
@@ -256,7 +256,7 @@ async def test_aresponses_sends_reasoning_and_tools_to_native_endpoint(model, ap
         return_value=httpx.Response(200, json=_responses_payload(expected_model))
     )
 
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model=model,
         input="What is the weather in SF?",
         reasoning_effort="high",
@@ -276,7 +276,7 @@ async def test_aresponses_catalog_name_remapped_to_azure_sends_bare_deployment_n
         return_value=httpx.Response(200, json=_responses_payload("gpt-5.4-nano"))
     )
 
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model="azure_ai/gpt-5.4-nano",
         input="What is the weather in SF?",
         api_base="https://res.openai.azure.com",
@@ -293,8 +293,8 @@ async def test_router_aresponses_sends_bare_deployment_name(model, api_base, exp
     route = respx.post(url__regex=r".*/openai/v1/responses(\?.*)?$").mock(
         return_value=httpx.Response(200, json=_responses_payload(expected_model))
     )
-    router = litellm.Router(
-        model_list=[{"model_name": "gpt-5.6", "litellm_params": {"model": model, "api_base": api_base, "api_key": "fake-key"}}],
+    router = hangarllm.Router(
+        model_list=[{"model_name": "gpt-5.6", "hangarllm_params": {"model": model, "api_base": api_base, "api_key": "fake-key"}}],
         num_retries=0,
     )
 
@@ -313,7 +313,7 @@ async def test_aresponses_serverless_host_stays_on_chat_bridge():
     )
     responses_route = respx.post(url__regex=r".*/responses$")
 
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model="azure_ai/gpt-5.6-luna-20260710154139",
         input="What is the weather in SF?",
         tools=[WEATHER_TOOL],
@@ -338,14 +338,14 @@ def test_foundry_responses_effort_gate_reads_the_azure_ai_row(
     the azure/ twin. The rows are made to disagree on low, a level neither real row flags, so a
     leak from the wrong row cannot hide behind rows that happen to agree."""
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "azure_ai/gpt-6-sol",
-        {**litellm.model_cost["azure_ai/gpt-6-sol"], "supports_low_reasoning_effort": False},
+        {**hangarllm.model_cost["azure_ai/gpt-6-sol"], "supports_low_reasoning_effort": False},
     )
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "azure/gpt-6-sol",
-        {**litellm.model_cost["azure/gpt-6-sol"], "supports_low_reasoning_effort": True},
+        {**hangarllm.model_cost["azure/gpt-6-sol"], "supports_low_reasoning_effort": True},
     )
 
     dropped: Final = AzureAIResponsesAPIConfig().map_openai_params(
@@ -355,7 +355,7 @@ def test_foundry_responses_effort_gate_reads_the_azure_ai_row(
     )
     assert "reasoning" not in dropped
 
-    with pytest.raises(litellm.UnsupportedParamsError):
+    with pytest.raises(hangarllm.UnsupportedParamsError):
         AzureAIResponsesAPIConfig().map_openai_params(
             response_api_optional_params=_responses_params(reasoning={"effort": "low"}),
             model="gpt-6-sol",
@@ -377,14 +377,14 @@ def test_foundry_responses_none_unlocks_temperature_off_the_azure_ai_row(
     with the azure/ twin turned off for none, the Foundry row still lets none through and, only
     then, a non-default temperature."""
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "azure_ai/gpt-6-sol",
-        {**litellm.model_cost["azure_ai/gpt-6-sol"], "supports_none_reasoning_effort": True},
+        {**hangarllm.model_cost["azure_ai/gpt-6-sol"], "supports_none_reasoning_effort": True},
     )
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "azure/gpt-6-sol",
-        {**litellm.model_cost["azure/gpt-6-sol"], "supports_none_reasoning_effort": False},
+        {**hangarllm.model_cost["azure/gpt-6-sol"], "supports_none_reasoning_effort": False},
     )
 
     params: Final = AzureAIResponsesAPIConfig().map_openai_params(
@@ -411,7 +411,7 @@ async def test_aresponses_sends_agent_reference_instead_of_model(model, expected
         return_value=httpx.Response(200, json=_responses_payload("gpt-4.1"))
     )
 
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model=model, input="What is 2+2?", max_output_tokens=50, api_base=FOUNDRY_PROJECT_BASE, api_key="fake-key"
     )
 
@@ -424,12 +424,12 @@ async def test_aresponses_sends_agent_reference_instead_of_model(model, expected
     assert body["max_output_tokens"] == 50
 
 
-def _support_agent_router(model: str = "azure_ai/agents/support-agent") -> litellm.Router:
-    return litellm.Router(
+def _support_agent_router(model: str = "azure_ai/agents/support-agent") -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "support-agent",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": model,
                     "api_base": FOUNDRY_PROJECT_BASE,
                     "api_key": "fake-key",
@@ -461,7 +461,7 @@ CALLER_PLACEMENTS = [
 async def test_router_aresponses_rejects_another_agent_without_drop_params(caller_fields, placement):
     route = respx.post(url__regex=r".*/openai/v1/responses(\?.*)?$")
 
-    with pytest.raises(litellm.UnsupportedParamsError, match="support-agent"):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="support-agent"):
         await _support_agent_router().aresponses(model="support-agent", input="What is 2+2?", **placement(caller_fields))
 
     assert not route.called
@@ -531,7 +531,7 @@ async def test_router_aresponses_rejects_another_version_of_a_pinned_agent_witho
     route = respx.post(url__regex=r".*/openai/v1/responses(\?.*)?$")
     caller_fields: Final = {"agent_reference": {"type": "agent_reference", "name": "support-agent", "version": "3"}}
 
-    with pytest.raises(litellm.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="drop_params"):
         await _support_agent_router("azure_ai/agents/support-agent:2").aresponses(
             model="support-agent", input="What is 2+2?", **placement(caller_fields)
         )
@@ -572,7 +572,7 @@ async def test_router_aresponses_keeps_a_version_requested_at_the_top_level_or_i
 async def test_router_aresponses_rejects_different_versions_at_the_top_level_and_in_extra_body():
     route = respx.post(url__regex=r".*/openai/v1/responses(\?.*)?$")
 
-    with pytest.raises(litellm.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="drop_params"):
         await _support_agent_router().aresponses(
             model="support-agent",
             input="What is 2+2?",
@@ -599,7 +599,7 @@ async def test_aresponses_drops_agent_owned_params_under_drop_params():
         return_value=httpx.Response(200, json=_responses_payload("gpt-4.1"))
     )
 
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model="azure_ai/agents/support-agent",
         input="What is 2+2?",
         tool_choice="auto",
@@ -621,7 +621,7 @@ async def test_aresponses_reaches_the_agent_when_the_deployment_declares_reasoni
         return_value=httpx.Response(200, json=_responses_payload("gpt-4.1"))
     )
 
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model="azure_ai/agents/support-agent",
         input="What is 2+2?",
         max_output_tokens=50,
@@ -641,8 +641,8 @@ async def test_aresponses_reaches_the_agent_when_the_deployment_declares_reasoni
 async def test_aresponses_rejects_agent_owned_params_without_drop_params(param):
     route = respx.post(url__regex=r".*/openai/v1/responses(\?.*)?$")
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=param):
-        await litellm.aresponses(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=param):
+        await hangarllm.aresponses(
             model="azure_ai/agents/support-agent",
             input="What is 2+2?",
             api_base=FOUNDRY_PROJECT_BASE,
@@ -673,7 +673,7 @@ async def test_aresponses_sends_instructions_to_the_agent_as_a_leading_system_me
         return_value=httpx.Response(200, json=_responses_payload("gpt-4.1"))
     )
 
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model="azure_ai/agents/support-agent",
         input=request_input,
         instructions="Answer in French",
@@ -691,8 +691,8 @@ async def test_aresponses_sends_instructions_to_the_agent_as_a_leading_system_me
 async def test_aresponses_rejects_instructions_on_a_previous_response_turn_without_drop_params():
     route = respx.post(url__regex=r".*/openai/v1/responses(\?.*)?$")
 
-    with pytest.raises(litellm.UnsupportedParamsError, match="instructions"):
-        await litellm.aresponses(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="instructions"):
+        await hangarllm.aresponses(
             model="azure_ai/agents/support-agent",
             input="And 3+3?",
             instructions="Answer in French",
@@ -709,8 +709,8 @@ async def test_aresponses_rejects_instructions_on_a_previous_response_turn_witho
 async def test_acompact_responses_rejects_a_foundry_agent_without_calling_the_project():
     route = respx.post(url__regex=r".*/openai/v1/responses/compact(\?.*)?$")
 
-    with pytest.raises(litellm.UnsupportedParamsError, match="compact"):
-        await litellm.acompact_responses(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="compact"):
+        await hangarllm.acompact_responses(
             model="azure_ai/agents/support-agent",
             input="What is 2+2?",
             api_base=FOUNDRY_PROJECT_BASE,
@@ -727,7 +727,7 @@ async def test_aresponses_drops_instructions_on_a_previous_response_turn_under_d
         return_value=httpx.Response(200, json=_responses_payload("gpt-4.1"))
     )
 
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model="azure_ai/agents/support-agent",
         input="And 3+3?",
         instructions="Answer in French",
@@ -763,7 +763,7 @@ async def test_aresponses_hides_only_an_agents_own_instructions(model, response_
         return_value=httpx.Response(200, json={**_responses_payload("gpt-4.1"), **response_fields})
     )
 
-    response = await litellm.aresponses(
+    response = await hangarllm.aresponses(
         model=model, input="What is 2+2?", api_base=FOUNDRY_PROJECT_BASE, api_key="fake-key"
     )
 
@@ -775,8 +775,8 @@ async def test_aresponses_hides_only_an_agents_own_instructions(model, response_
 @pytest.mark.parametrize(
     "follow_up,method,path",
     [
-        (litellm.aget_responses, "GET", "/openai/v1/responses/resp_123"),
-        (litellm.acancel_responses, "POST", "/openai/v1/responses/resp_123/cancel"),
+        (hangarllm.aget_responses, "GET", "/openai/v1/responses/resp_123"),
+        (hangarllm.acancel_responses, "POST", "/openai/v1/responses/resp_123/cancel"),
     ],
 )
 @pytest.mark.parametrize(
@@ -824,7 +824,7 @@ async def test_aresponses_streams_answers_from_foundry_without_an_agents_own_ins
         return_value=httpx.Response(200, text=stream_body, headers={"content-type": "text/event-stream"})
     )
 
-    stream = await litellm.aresponses(
+    stream = await hangarllm.aresponses(
         model=model,
         input="What is 2+2?",
         stream=True,
@@ -862,9 +862,9 @@ async def test_aresponses_mints_the_service_principal_token_for_the_project_scop
         return_value=httpx.Response(200, json=_responses_payload("gpt-4.1"))
     )
 
-    with patch("litellm.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch to assert the scope a project entry requests and the bearer it sends; live service principal path proven by the PR's Foundry e2e QA
+    with patch("hangarllm.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch to assert the scope a project entry requests and the bearer it sends; live service principal path proven by the PR's Foundry e2e QA
         mock_entra_id.return_value = lambda: "agent-sp-token"
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model=model,
             input="What is 2+2?",
             api_base=FOUNDRY_PROJECT_BASE,
@@ -887,9 +887,9 @@ async def test_aget_responses_mints_the_service_principal_token_for_the_project_
         return_value=httpx.Response(200, json=_responses_payload("gpt-4.1"))
     )
 
-    with patch("litellm.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch to assert the scope a follow-up on a project endpoint requests; live service principal path proven by the PR's Foundry e2e QA
+    with patch("hangarllm.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch to assert the scope a follow-up on a project endpoint requests; live service principal path proven by the PR's Foundry e2e QA
         mock_entra_id.return_value = lambda: "project-sp-token"
-        response = await litellm.aget_responses(
+        response = await hangarllm.aget_responses(
             response_id="resp_123",
             custom_llm_provider="azure_ai",
             model="azure_ai/agents/support-agent",
@@ -928,7 +928,7 @@ async def test_acompletion_reaches_the_agent_through_the_project_responses_api()
         return_value=httpx.Response(200, json=_agent_answer_payload("4"))
     )
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="azure_ai/agents/support-agent",
         messages=[{"role": "system", "content": "Answer in French"}, {"role": "user", "content": "What is 2+2?"}],
         api_base=FOUNDRY_PROJECT_BASE,

@@ -25,9 +25,9 @@ def _build_agents_client():
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.google_endpoints.agents_endpoints import router as agents_router
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.google_endpoints.agents_endpoints import router as agents_router
 
     app = FastAPI()
     app.include_router(agents_router)
@@ -35,7 +35,7 @@ def _build_agents_client():
     async def _fake_user_api_key_auth():
         return UserAPIKeyAuth(
             api_key="sk-test",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
         )
 
     app.dependency_overrides[user_api_key_auth] = _fake_user_api_key_auth
@@ -59,7 +59,7 @@ def _patch_proxy_server_imports(client=None):
         "version": "0.0.0",
     }
     return patch(
-        "litellm.proxy.google_endpoints.agents_endpoints._proxy_server_imports",
+        "hangarllm.proxy.google_endpoints.agents_endpoints._proxy_server_imports",
         return_value=mock_srv,
     )
 
@@ -68,7 +68,7 @@ def _patch_base_process(return_value=None):
     if return_value is None:
         return_value = {"name": "agents/my-agent", "displayName": "My Agent"}
     return patch(
-        "litellm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
+        "hangarllm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
         new_callable=AsyncMock,
         return_value=return_value,
     )

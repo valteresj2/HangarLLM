@@ -2,7 +2,7 @@ from collections.abc import Mapping
 
 import pytest
 
-from litellm.llms.laya.common_utils import laya_response_model
+from hangarllm.llms.laya.common_utils import laya_response_model
 
 
 @pytest.mark.parametrize(

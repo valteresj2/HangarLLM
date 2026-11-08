@@ -8,7 +8,7 @@ import yaml
 from fastapi.testclient import TestClient
 
 
-import litellm
+import hangarllm
 from tests._master_key import MASTER_KEY
 
 pytestmark = pytest.mark.flaky(condition=False)
@@ -21,7 +21,7 @@ def _initialize_proxy_with_config(config: dict, tmp_path) -> TestClient:
     IMPORTANT: proxy_server.initialize() mutates module-level globals. We must call
     cleanup_router_config_variables() before initializing to prevent cross-test bleed.
     """
-    from litellm.proxy.proxy_server import (
+    from hangarllm.proxy.proxy_server import (
         app,
         cleanup_router_config_variables,
         initialize,
@@ -36,15 +36,15 @@ def _initialize_proxy_with_config(config: dict, tmp_path) -> TestClient:
     return TestClient(app)
 
 
-def _make_minimal_chat_completion_response(model: str) -> litellm.ModelResponse:
-    response = litellm.ModelResponse()
+def _make_minimal_chat_completion_response(model: str) -> hangarllm.ModelResponse:
+    response = hangarllm.ModelResponse()
     response.model = model
     response.choices[0].message.content = "hello"  # type: ignore[union-attr]
     response.choices[0].finish_reason = "stop"  # type: ignore[union-attr]
     return response
 
 
-def _make_model_response_stream_chunk(model: str) -> litellm.ModelResponseStream:
+def _make_model_response_stream_chunk(model: str) -> hangarllm.ModelResponseStream:
     """
     Create a minimal OpenAI-compatible chat.completion.chunk object.
     """
@@ -61,7 +61,7 @@ def _make_model_response_stream_chunk(model: str) -> litellm.ModelResponseStream
             }
         ],
     }
-    return litellm.ModelResponseStream(**chunk_dict)
+    return hangarllm.ModelResponseStream(**chunk_dict)
 
 
 def _decode_sse_chunk(chunk) -> str:
@@ -69,7 +69,7 @@ def _decode_sse_chunk(chunk) -> str:
 
 
 def _make_response_created_event(model: str | None):
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         ResponseCreatedEvent,
         ResponsesAPIResponse,
         ResponsesAPIStreamEvents,
@@ -82,14 +82,14 @@ def _make_response_created_event(model: str | None):
 
 
 def test_restamp_streaming_chunk_skips_matching_model():
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     chunk = _make_model_response_stream_chunk("client-model")
 
     result, model_mismatch_logged = _restamp_streaming_chunk_model(
         chunk=chunk,
         requested_model_from_client="client-model",
-        request_data={"litellm_call_id": "test-call-id"},
+        request_data={"hangarllm_call_id": "test-call-id"},
         model_mismatch_logged=False,
     )
 
@@ -99,7 +99,7 @@ def test_restamp_streaming_chunk_skips_matching_model():
 
 
 def test_serialize_streaming_chunk_omits_a_missing_model_instead_of_null():
-    from litellm.proxy.proxy_server import _serialize_streaming_chunk
+    from hangarllm.proxy.proxy_server import _serialize_streaming_chunk
 
     chunk = _make_model_response_stream_chunk("client-model")
     chunk.model = None  # type: ignore[assignment]
@@ -124,7 +124,7 @@ def test_proxy_chat_completion_does_not_return_provider_prefixed_model(tmp_path,
             "model_list": [
                 {
                     "model_name": client_model,
-                    "litellm_params": {"model": internal_model},
+                    "hangarllm_params": {"model": internal_model},
                 }
             ],
         },
@@ -132,7 +132,7 @@ def test_proxy_chat_completion_does_not_return_provider_prefixed_model(tmp_path,
     )
 
     # Patch router call to avoid making any real network request.
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(
         proxy_server.llm_router,  # type: ignore[arg-type]
@@ -178,8 +178,8 @@ async def test_proxy_streaming_chunks_do_not_return_provider_prefixed_model(
     client_model = "vllm-model"
     internal_model = f"hosted_vllm/{client_model}"
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     # Patch proxy_logging_obj hooks so async_data_generator yields exactly our chunk.
     async def _iterator_hook(
@@ -252,8 +252,8 @@ async def test_proxy_streaming_chunks_use_client_requested_model_before_alias_ma
     canonical_model = "vllm-model"
     internal_model = f"hosted_vllm/{canonical_model}"
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     async def _iterator_hook(
         user_api_key_dict: UserAPIKeyAuth,
@@ -295,7 +295,7 @@ async def test_proxy_streaming_chunks_use_client_requested_model_before_alias_ma
         user_api_key_dict=user_api_key_dict,
         request_data={
             "model": canonical_model,
-            "_litellm_client_requested_model": client_model_alias,
+            "_hangarllm_client_requested_model": client_model_alias,
         },
     )
 
@@ -324,8 +324,8 @@ async def test_proxy_streaming_azure_model_router_preserves_actual_model(monkeyp
     router_model = "azure_ai/model_router"
     actual_model_used = "azure_ai/gpt-5-nano-2025-08-07"
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     async def _iterator_hook(
         user_api_key_dict: UserAPIKeyAuth,
@@ -367,7 +367,7 @@ async def test_proxy_streaming_azure_model_router_preserves_actual_model(monkeyp
         user_api_key_dict=user_api_key_dict,
         request_data={
             "model": router_model,
-            "_litellm_client_requested_model": router_model,
+            "_hangarllm_client_requested_model": router_model,
         },
     )
 
@@ -397,8 +397,8 @@ async def test_proxy_streaming_fastest_response_preserves_winning_model(monkeypa
     comma_separated_models = "openai/gpt-4o,gemini/gemini-2.5-flash"
     winning_model = "gemini-2.5-flash"
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     async def _iterator_hook(
         user_api_key_dict: UserAPIKeyAuth,
@@ -440,7 +440,7 @@ async def test_proxy_streaming_fastest_response_preserves_winning_model(monkeypa
         user_api_key_dict=user_api_key_dict,
         request_data={
             "model": comma_separated_models,
-            "_litellm_client_requested_model": comma_separated_models,
+            "_hangarllm_client_requested_model": comma_separated_models,
             "fastest_response": True,
         },
     )
@@ -459,13 +459,13 @@ async def test_proxy_streaming_fastest_response_preserves_winning_model(monkeypa
 
 
 def test_restamp_streaming_chunk_rewrites_nested_response_model():
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     chunk = _make_response_created_event("hosted_vllm/some-model")
     result, _ = _restamp_streaming_chunk_model(
         chunk=chunk,
         requested_model_from_client="client-model",
-        request_data={"litellm_call_id": "test-call-id"},
+        request_data={"hangarllm_call_id": "test-call-id"},
         model_mismatch_logged=False,
     )
 
@@ -474,7 +474,7 @@ def test_restamp_streaming_chunk_rewrites_nested_response_model():
 
 
 def _make_response_completed_event(model: str):
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         ResponseCompletedEvent,
         ResponsesAPIResponse,
         ResponsesAPIStreamEvents,
@@ -487,13 +487,13 @@ def _make_response_completed_event(model: str):
 
 
 def test_restamp_streaming_chunk_rewrites_nested_model_on_completed_event():
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     chunk = _make_response_completed_event("hosted_vllm/some-model")
     result, _ = _restamp_streaming_chunk_model(
         chunk=chunk,
         requested_model_from_client="client-model",
-        request_data={"litellm_call_id": "test-call-id"},
+        request_data={"hangarllm_call_id": "test-call-id"},
         model_mismatch_logged=False,
     )
 
@@ -503,8 +503,8 @@ def test_restamp_streaming_chunk_rewrites_nested_model_on_completed_event():
 
 @pytest.mark.parametrize("event_type", ["response.in_progress", "response.failed", "response.incomplete"])
 def test_restamp_streaming_chunk_rewrites_nested_model_on_other_lifecycle_events(event_type):
-    from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     payload = {
         "type": event_type,
@@ -515,7 +515,7 @@ def test_restamp_streaming_chunk_rewrites_nested_model_on_other_lifecycle_events
     result, _ = _restamp_streaming_chunk_model(
         chunk=chunk,
         requested_model_from_client="client-model",
-        request_data={"litellm_call_id": "test-call-id"},
+        request_data={"hangarllm_call_id": "test-call-id"},
         model_mismatch_logged=False,
     )
 
@@ -524,13 +524,13 @@ def test_restamp_streaming_chunk_rewrites_nested_model_on_other_lifecycle_events
 
 
 def test_restamp_streaming_chunk_leaves_nested_none_model_untouched():
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     chunk = _make_response_created_event(None)
     result, _ = _restamp_streaming_chunk_model(
         chunk=chunk,
         requested_model_from_client="client-model",
-        request_data={"litellm_call_id": "test-call-id"},
+        request_data={"hangarllm_call_id": "test-call-id"},
         model_mismatch_logged=False,
     )
 
@@ -539,8 +539,8 @@ def test_restamp_streaming_chunk_leaves_nested_none_model_untouched():
 
 @pytest.mark.parametrize("event_type", ["response.output_text.delta", "response.custom_event"])
 def test_restamp_streaming_chunk_does_not_add_nested_response_to_other_events(event_type):
-    from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     chunk = OpenAIResponsesAPIConfig.get_event_model_class(event_type).model_validate(
         {
@@ -555,7 +555,7 @@ def test_restamp_streaming_chunk_does_not_add_nested_response_to_other_events(ev
     result, _ = _restamp_streaming_chunk_model(
         chunk=chunk,
         requested_model_from_client="client-model",
-        request_data={"litellm_call_id": "test-call-id"},
+        request_data={"hangarllm_call_id": "test-call-id"},
         model_mismatch_logged=False,
     )
 
@@ -564,8 +564,8 @@ def test_restamp_streaming_chunk_does_not_add_nested_response_to_other_events(ev
 
 
 def test_restamp_streaming_chunk_keeps_nested_model_when_raw_name_requested():
-    from litellm.constants import RETURN_RAW_MODEL_NAME_METADATA_KEY
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.constants import RETURN_RAW_MODEL_NAME_METADATA_KEY
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     chunk = _make_response_created_event("hosted_vllm/some-model")
     result, _ = _restamp_streaming_chunk_model(
@@ -579,13 +579,13 @@ def test_restamp_streaming_chunk_keeps_nested_model_when_raw_name_requested():
 
 
 def test_restamp_streaming_chunk_uses_fallback_model_for_nested_response():
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     chunk = _make_response_created_event("hosted_vllm/some-model")
     result, _ = _restamp_streaming_chunk_model(
         chunk=chunk,
         requested_model_from_client="client-model",
-        request_data={"litellm_call_id": "test-call-id"},
+        request_data={"hangarllm_call_id": "test-call-id"},
         model_mismatch_logged=False,
         fallback_was_attempted=True,
         fallback_model_from_metadata="fallback-public",
@@ -605,8 +605,8 @@ async def test_proxy_responses_stream_reports_requested_model_in_nested_response
     client_model = "vllm-model"
     internal_model = f"hosted_vllm/{client_model}"
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     async def _iterator_hook(
         user_api_key_dict: UserAPIKeyAuth,
@@ -648,8 +648,8 @@ async def test_proxy_responses_stream_reports_requested_model_in_nested_response
 
 
 def test_restamp_streaming_chunk_rewrites_nested_model_on_queued_event():
-    from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     queued_payload = {
         "type": "response.queued",
@@ -660,7 +660,7 @@ def test_restamp_streaming_chunk_rewrites_nested_model_on_queued_event():
     result, _ = _restamp_streaming_chunk_model(
         chunk=chunk,
         requested_model_from_client="client-model",
-        request_data={"litellm_call_id": "test-call-id"},
+        request_data={"hangarllm_call_id": "test-call-id"},
         model_mismatch_logged=False,
     )
 
@@ -669,8 +669,8 @@ def test_restamp_streaming_chunk_rewrites_nested_model_on_queued_event():
 
 
 def test_restamp_streaming_chunk_rewrites_nested_model_when_lifecycle_event_kept_raw_response():
-    from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     partial_response = {"id": "resp_test", "object": "response", "status": "in_progress", "model": "gpt-backend-2026-01-01"}
     chunk = OpenAIResponsesAPIConfig().transform_streaming_response(
@@ -681,7 +681,7 @@ def test_restamp_streaming_chunk_rewrites_nested_model_when_lifecycle_event_kept
     result, _ = _restamp_streaming_chunk_model(
         chunk=chunk,
         requested_model_from_client="client-model",
-        request_data={"litellm_call_id": "test-call-id"},
+        request_data={"hangarllm_call_id": "test-call-id"},
         model_mismatch_logged=False,
     )
 
@@ -690,15 +690,15 @@ def test_restamp_streaming_chunk_rewrites_nested_model_when_lifecycle_event_kept
 
 
 def test_restamp_streaming_chunk_leaves_generic_event_without_nested_response_untouched():
-    from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     shell_payload = {"type": "response.shell_call.in_progress", "sequence_number": 3, "item_id": "sh_1"}
     chunk = OpenAIResponsesAPIConfig.get_event_model_class(shell_payload["type"]).model_validate(shell_payload)
     result, _ = _restamp_streaming_chunk_model(
         chunk=chunk,
         requested_model_from_client="client-model",
-        request_data={"litellm_call_id": "test-call-id"},
+        request_data={"hangarllm_call_id": "test-call-id"},
         model_mismatch_logged=False,
     )
 
@@ -707,9 +707,9 @@ def test_restamp_streaming_chunk_leaves_generic_event_without_nested_response_un
 
 @pytest.mark.parametrize("stream_started", [False, True])
 def test_restamp_streaming_chunk_rewrites_nested_model_in_guardrail_block_frames(stream_started):
-    from litellm.exceptions import ModifyResponseException
-    from litellm.llms.openai.responses.guardrail_translation.handler import OpenAIResponsesHandler
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.exceptions import ModifyResponseException
+    from hangarllm.llms.openai.responses.guardrail_translation.handler import OpenAIResponsesHandler
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     sent_before_block = (
         [{"type": "response.created", "response": {"id": "resp_live", "model": "gpt-backend-2026-01-01"}}]
@@ -729,7 +729,7 @@ def test_restamp_streaming_chunk_rewrites_nested_model_in_guardrail_block_frames
         _restamp_streaming_chunk_model(
             chunk=frame,
             requested_model_from_client="client-model",
-            request_data={"litellm_call_id": "test-call-id"},
+            request_data={"hangarllm_call_id": "test-call-id"},
             model_mismatch_logged=False,
         )[0]
         for frame in frames
@@ -749,13 +749,13 @@ def test_restamp_streaming_chunk_rewrites_nested_model_in_guardrail_block_frames
 
 
 def test_restamp_streaming_chunk_rewrites_nested_model_on_dict_lifecycle_events():
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     chunk = {"type": "response.completed", "response": {"id": "resp_test", "model": "gpt-backend-2026-01-01"}}
     result, _ = _restamp_streaming_chunk_model(
         chunk=chunk,
         requested_model_from_client="client-model",
-        request_data={"litellm_call_id": "test-call-id"},
+        request_data={"hangarllm_call_id": "test-call-id"},
         model_mismatch_logged=False,
     )
 
@@ -778,12 +778,12 @@ _BACKEND_COMPLETED_EVENT = b'{"type":"response.completed","response":{"id":"resp
     ],
 )
 def test_restamp_streaming_chunk_rewrites_nested_model_on_every_sse_data_line(frame):
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     result, _ = _restamp_streaming_chunk_model(
         chunk=frame,
         requested_model_from_client="client-model",
-        request_data={"litellm_call_id": "test-call-id"},
+        request_data={"hangarllm_call_id": "test-call-id"},
         model_mismatch_logged=False,
     )
 
@@ -811,7 +811,7 @@ _SKIPPED_RESTAMPS = {
 
 @pytest.mark.parametrize("skip", _SKIPPED_RESTAMPS.keys())
 def test_restamp_streaming_chunk_keeps_nested_model_where_the_top_level_model_is_kept(skip):
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     requested_model, request_data = _SKIPPED_RESTAMPS[skip]
     frame = b"data: " + _BACKEND_COMPLETED_EVENT + b"\n\n"
@@ -830,13 +830,13 @@ def test_restamp_streaming_chunk_keeps_nested_model_where_the_top_level_model_is
 
 
 def test_restamp_streaming_chunk_leaves_raw_sse_passthrough_frames_untouched():
-    from litellm.proxy.proxy_server import _restamp_streaming_chunk_model
+    from hangarllm.proxy.proxy_server import _restamp_streaming_chunk_model
 
     frame = b"data: " + _BACKEND_COMPLETED_EVENT + b"\n\n"
     result, _ = _restamp_streaming_chunk_model(
         chunk=frame,
         requested_model_from_client="client-model",
-        request_data={"_litellm_raw_sse_stream": True},
+        request_data={"_hangarllm_raw_sse_stream": True},
         model_mismatch_logged=False,
     )
 

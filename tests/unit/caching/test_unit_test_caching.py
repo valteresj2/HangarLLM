@@ -1,6 +1,6 @@
 import time
 import traceback
-from litellm._uuid import uuid
+from hangarllm._uuid import uuid
 
 from dotenv import load_dotenv
 
@@ -12,16 +12,16 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm import aembedding, completion, embedding
-from litellm.caching.caching import Cache
+import hangarllm
+from hangarllm import aembedding, completion, embedding
+from hangarllm.caching.caching import Cache
 
 from unittest.mock import AsyncMock, patch, MagicMock
-from litellm.caching.caching_handler import LLMCachingHandler, CachingHandlerResponse, _PENDING_CACHE_WRITES
-from litellm.caching.caching import LiteLLMCacheType
-from litellm.types.utils import CallTypes
-from litellm.types.rerank import RerankResponse
-from litellm.types.utils import (
+from hangarllm.caching.caching_handler import LLMCachingHandler, CachingHandlerResponse, _PENDING_CACHE_WRITES
+from hangarllm.caching.caching import HangarLLMCacheType
+from hangarllm.types.utils import CallTypes
+from hangarllm.types.rerank import RerankResponse
+from hangarllm.types.utils import (
     ModelResponse,
     EmbeddingResponse,
     TextCompletionResponse,
@@ -29,14 +29,14 @@ from litellm.types.utils import (
     Embedding,
 )
 from datetime import timedelta, datetime
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.litellm_core_utils.model_param_helper import ModelParamHelper
-from litellm._logging import verbose_logger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.hangarllm_core_utils.model_param_helper import ModelParamHelper
+from hangarllm._logging import verbose_logger
 import logging
 
 
 def test_get_kwargs_for_cache_key():
-    _cache = litellm.Cache()
+    _cache = hangarllm.Cache()
     relevant_kwargs = ModelParamHelper.get_all_llm_api_params()
     print(relevant_kwargs)
 
@@ -252,7 +252,7 @@ def test_get_model_param_value():
     assert cache._get_model_param_value(kwargs) == "not-in-caching-group-gpt-3.5-turbo"
 
 
-def test_get_model_param_value_reads_model_group_from_litellm_metadata():
+def test_get_model_param_value_reads_model_group_from_hangarllm_metadata():
     cache = Cache()
     request = {
         "model": "openai/gpt-5.6",
@@ -260,22 +260,22 @@ def test_get_model_param_value_reads_model_group_from_litellm_metadata():
         "tools": [{"type": "web_search_preview", "search_context_size": "medium"}],
     }
 
-    assert cache._get_model_param_value({**request, "litellm_metadata": {"model_group": "group-a"}}) == "group-a"
+    assert cache._get_model_param_value({**request, "hangarllm_metadata": {"model_group": "group-a"}}) == "group-a"
     assert (
-        cache._get_model_param_value({**request, "litellm_params": {"litellm_metadata": {"model_group": "group-a"}}})
+        cache._get_model_param_value({**request, "hangarllm_params": {"hangarllm_metadata": {"model_group": "group-a"}}})
         == "group-a"
     )
     assert cache._get_model_param_value(
         {
             **request,
-            "litellm_metadata": {
+            "hangarllm_metadata": {
                 "model_group": "group-a",
                 "caching_groups": [("group-a", "group-b")],
             },
         }
     ) == "('group-a', 'group-b')"
-    assert cache.get_cache_key(**request, litellm_metadata={"model_group": "group-a"}) != cache.get_cache_key(
-        **request, litellm_metadata={"model_group": "group-b"}
+    assert cache.get_cache_key(**request, hangarllm_metadata={"model_group": "group-a"}) != cache.get_cache_key(
+        **request, hangarllm_metadata={"model_group": "group-b"}
     )
 
 
@@ -287,7 +287,7 @@ def test_get_model_param_value_prefers_the_router_group_over_a_caller_model_grou
 
     assert (
         cache._get_model_param_value(
-            {**request, "metadata": {"model_group": "target"}, "litellm_metadata": router_metadata}
+            {**request, "metadata": {"model_group": "target"}, "hangarllm_metadata": router_metadata}
         )
         == "caller"
     )
@@ -295,7 +295,7 @@ def test_get_model_param_value_prefers_the_router_group_over_a_caller_model_grou
         cache._get_model_param_value(
             {
                 **request,
-                "litellm_params": {"metadata": {"model_group": "target"}, "litellm_metadata": router_metadata},
+                "hangarllm_params": {"metadata": {"model_group": "target"}, "hangarllm_metadata": router_metadata},
             }
         )
         == "caller"
@@ -305,7 +305,7 @@ def test_get_model_param_value_prefers_the_router_group_over_a_caller_model_grou
             {
                 **request,
                 "metadata": {"model_group": "target", "model_info": deployment},
-                "litellm_metadata": router_metadata,
+                "hangarllm_metadata": router_metadata,
             }
         )
         == "caller"
@@ -315,7 +315,7 @@ def test_get_model_param_value_prefers_the_router_group_over_a_caller_model_grou
             {
                 **request,
                 "metadata": router_metadata,
-                "litellm_metadata": {"model_group": "parent", "model_info": {"id": "parent-deployment"}},
+                "hangarllm_metadata": {"model_group": "parent", "model_info": {"id": "parent-deployment"}},
             }
         )
         == "caller"
@@ -331,7 +331,7 @@ def test_get_model_param_value_keeps_metadata_first_outside_the_router():
                 "model": "openai/gpt-5.6",
                 "input": "search this text",
                 "metadata": {"model_group": "group-a"},
-                "litellm_metadata": {"model_group": "group-b"},
+                "hangarllm_metadata": {"model_group": "group-b"},
             }
         )
         == "group-a"
@@ -339,15 +339,15 @@ def test_get_model_param_value_keeps_metadata_first_outside_the_router():
 
 
 @pytest.mark.asyncio
-async def test_router_call_keeps_its_own_group_when_forwarded_litellm_metadata_names_another(
+async def test_router_call_keeps_its_own_group_when_forwarded_hangarllm_metadata_names_another(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": group,
-                "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-test", "mock_response": f"{group} answer"},
+                "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "sk-test", "mock_response": f"{group} answer"},
             }
             for group in ("group-a", "group-b")
         ]
@@ -358,7 +358,7 @@ async def test_router_call_keeps_its_own_group_when_forwarded_litellm_metadata_n
         model="group-a",
         messages=messages,
         caching=True,
-        litellm_metadata={"model_group": "group-b", "model_info": {"id": "parent-deployment"}},
+        hangarllm_metadata={"model_group": "group-b", "model_info": {"id": "parent-deployment"}},
     )
     await asyncio.gather(*_PENDING_CACHE_WRITES)
     reply: Final = await router.acompletion(model="group-b", messages=messages, caching=True)
@@ -373,7 +373,7 @@ def test_get_model_param_value_reads_caching_groups_only_beside_the_router_group
         "model": "openai/gpt-5.6",
         "input": "search this text",
         "model_info": {"id": "sales-deployment"},
-        "litellm_metadata": {"model_group": "sales", "caching_groups": None, "model_info": {"id": "sales-deployment"}},
+        "hangarllm_metadata": {"model_group": "sales", "caching_groups": None, "model_info": {"id": "sales-deployment"}},
         "metadata": {"caching_groups": planted},
     }
 
@@ -382,14 +382,14 @@ def test_get_model_param_value_reads_caching_groups_only_beside_the_router_group
 
 def test_preset_cache_key():
     """
-    Test that the preset cache key is used if it is set in kwargs["litellm_params"]
+    Test that the preset cache key is used if it is set in kwargs["hangarllm_params"]
     """
     cache = Cache()
     kwargs = {
         "model": "gpt-3.5-turbo",
         "messages": [{"role": "user", "content": "Hello, world!"}],
         "temperature": 0.7,
-        "litellm_params": {"preset_cache_key": "preset-cache-key"},
+        "hangarllm_params": {"preset_cache_key": "preset-cache-key"},
     }
 
     assert cache.get_cache_key(**kwargs) == "preset-cache-key"

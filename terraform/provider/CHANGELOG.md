@@ -5,10 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 Up to `0.4.0` the provider had its own version line, cut from the headings in
-this file. It now ships at the **LiteLLM version**, on every LiteLLM release
+this file. It now ships at the **HangarLLM version**, on every HangarLLM release
 channel, built from the same commit as the proxy (see `RELEASING.md`). The
 headings below no longer drive a release; they record what changed and which
-LiteLLM line first carried it. A change that breaks existing configurations
+HangarLLM line first carried it. A change that breaks existing configurations
 or state must be called out loudly here, because the version number can no
 longer signal it.
 
@@ -16,45 +16,45 @@ longer signal it.
 
 ### Added
 
-- **credential, model, mcp_server**: Write-only secret attributes so secrets never land in Terraform state (Terraform 1.11 or later). `litellm_credential` gains `credential_values_wo` (a JSON object, `jsonencode({...})`, since the SDK cannot mark a map write-only) with `credential_values_wo_version`, and `credential_values` becomes optional with exactly one of the two required. `litellm_model` gains `model_api_key_wo`, `aws_secret_access_key_wo` and `vertex_credentials_wo`, each with a `_wo_version` companion and each conflicting with its in-state twin. `litellm_mcp_server` gains `client_id`, `client_secret_wo` and `auth_value_wo` (with `_wo_version` companions), sent to the proxy as `credentials`, and `auth_type` now accepts every value the proxy does (`oauth2`, `api_key`, `bearer_token`, ...). Every `_wo` value is sent on each apply from the configuration and produces no diff, so bump its `_wo_version` to push a rotated secret. `litellm_vector_store.litellm_params` warns at plan time when it carries a secret-looking key such as `api_key`
-- **team**: Optional `team_member_model_max_budget` argument on `litellm_team`, a JSON string of per-model budgets applied to every team member and sent as `team_member_model_max_budget` on `/team/new` and `/team/update`; read back from `team_member_budget_table.model_max_budget` on `/team/info` so out-of-band changes show as drift, with `budget_limit`/`time_period` treated as equal to the `max_budget`/`budget_duration` spelling the proxy stores; removing it sends `{}`, which clears every per-model member budget; `tpm_limit`/`rpm_limit` are rejected at plan time because the proxy rejects them on team budgets. Needs a proxy that includes [#43887](https://github.com/BerriAI/litellm/pull/43887): v1.105.0 and v1.106.0-rc.1 accept the field but silently drop it, so every plan shows a diff
-- **model**: Optional `display_name` argument on `litellm_model`, sent as `model_info.display_name` and returned as `display_name` by `/v1/models`, so client model pickers show a readable name; changes are also persisted through `/model/{id}/update`, since proxies older than this provider drop the `model_info` sent to `/model/update`; also exported by the `litellm_model` and `litellm_models` data sources
-- **key**: Computed `server_metadata` attribute on `litellm_key` exposing every metadata entry the proxy stores, so metadata created outside Terraform is visible in state and drift on it shows on refresh, while `metadata` keeps tracking only the declared entries and updates keep preserving undeclared ones
-- **team_member_add**: `tpm_limit`, `rpm_limit`, `budget_duration`, and `allowed_models` attributes on `litellm_team_member_add`, applied to every member of the resource; `budget_duration` and `allowed_models` ride on `/team/member_add`, while the limits are sent through `/team/member_update`, which is where the proxy accepts them
-- **team**: Optional `team_id` argument on `litellm_team`, so teams can be created with a stable, human-readable ID instead of a provider-generated UUID; changing it forces replacement
-- `litellm_jwt_key_mapping` accepts `token_id` as an alternative to `key`, so a
+- **credential, model, mcp_server**: Write-only secret attributes so secrets never land in Terraform state (Terraform 1.11 or later). `hangarllm_credential` gains `credential_values_wo` (a JSON object, `jsonencode({...})`, since the SDK cannot mark a map write-only) with `credential_values_wo_version`, and `credential_values` becomes optional with exactly one of the two required. `hangarllm_model` gains `model_api_key_wo`, `aws_secret_access_key_wo` and `vertex_credentials_wo`, each with a `_wo_version` companion and each conflicting with its in-state twin. `hangarllm_mcp_server` gains `client_id`, `client_secret_wo` and `auth_value_wo` (with `_wo_version` companions), sent to the proxy as `credentials`, and `auth_type` now accepts every value the proxy does (`oauth2`, `api_key`, `bearer_token`, ...). Every `_wo` value is sent on each apply from the configuration and produces no diff, so bump its `_wo_version` to push a rotated secret. `hangarllm_vector_store.hangarllm_params` warns at plan time when it carries a secret-looking key such as `api_key`
+- **team**: Optional `team_member_model_max_budget` argument on `hangarllm_team`, a JSON string of per-model budgets applied to every team member and sent as `team_member_model_max_budget` on `/team/new` and `/team/update`; read back from `team_member_budget_table.model_max_budget` on `/team/info` so out-of-band changes show as drift, with `budget_limit`/`time_period` treated as equal to the `max_budget`/`budget_duration` spelling the proxy stores; removing it sends `{}`, which clears every per-model member budget; `tpm_limit`/`rpm_limit` are rejected at plan time because the proxy rejects them on team budgets. Needs a proxy that includes [#43887](upstream issue 43887): v1.105.0 and v1.106.0-rc.1 accept the field but silently drop it, so every plan shows a diff
+- **model**: Optional `display_name` argument on `hangarllm_model`, sent as `model_info.display_name` and returned as `display_name` by `/v1/models`, so client model pickers show a readable name; changes are also persisted through `/model/{id}/update`, since proxies older than this provider drop the `model_info` sent to `/model/update`; also exported by the `hangarllm_model` and `hangarllm_models` data sources
+- **key**: Computed `server_metadata` attribute on `hangarllm_key` exposing every metadata entry the proxy stores, so metadata created outside Terraform is visible in state and drift on it shows on refresh, while `metadata` keeps tracking only the declared entries and updates keep preserving undeclared ones
+- **team_member_add**: `tpm_limit`, `rpm_limit`, `budget_duration`, and `allowed_models` attributes on `hangarllm_team_member_add`, applied to every member of the resource; `budget_duration` and `allowed_models` ride on `/team/member_add`, while the limits are sent through `/team/member_update`, which is where the proxy accepts them
+- **team**: Optional `team_id` argument on `hangarllm_team`, so teams can be created with a stable, human-readable ID instead of a provider-generated UUID; changing it forces replacement
+- `hangarllm_jwt_key_mapping` accepts `token_id` as an alternative to `key`, so a
   mapping can name its virtual key by the SHA-256 hash the proxy stores instead
   of by the plaintext. Exactly one of the two is required. This is what lets a
   mapping reference a key managed in the same configuration
-  (`token_id = litellm_key.foo.token_id`), which `key` cannot do, because
-  `litellm_key` marks its generated key write-only and referencing it fails at
+  (`token_id = hangarllm_key.foo.token_id`), which `key` cannot do, because
+  `hangarllm_key` marks its generated key write-only and referencing it fails at
   plan time. `POST /jwt/key/mapping/new` and `/jwt/key/mapping/update` gained a
   matching `token` field, validated as 64 lowercase hex characters so a
   plaintext key sent by mistake is rejected instead of hashed twice
-- **jwt_key_mapping**: New `litellm_jwt_key_mapping` resource for the proxy's JWT to virtual key mappings, so JWT clients identified by a claim (`client_id`, `azp`, `sub`) map to virtual keys and inherit their models, budgets and rate limits. Supports `description` and `is_active`, rotating the mapped key in place, and forces replacement when the claim name or value changes
-- **team**: `soft_budget`, `tags`, and `soft_budget_alerting_emails` attributes on `litellm_team`, matching what `/team/new` and `/team/update` already accept; `soft_budget_alerting_emails` is sent under `metadata`, where the proxy reads it
-- **user**: New `litellm_user` resource and `litellm_user` / `litellm_users` data sources for managing internal users
-- **budget**: New `litellm_budget` resource and `litellm_budget` / `litellm_budgets` data sources for reusable budget objects
-- **tag**: New `litellm_tag` resource and `litellm_tag` / `litellm_tags` data sources for spend and routing tags
-- **project**: New `litellm_project` resource and `litellm_project` / `litellm_projects` data sources
-- **guardrail**: New `litellm_guardrail` resource and `litellm_guardrail` / `litellm_guardrails` data sources; `litellm_params` is sensitive and never read back into state
-- **prompt**: New `litellm_prompt` resource and `litellm_prompt` / `litellm_prompts` data sources for prompt templates
-- **agent**: New `litellm_agent` resource and `litellm_agent` / `litellm_agents` data sources for A2A agents
-- **search_tool**: New `litellm_search_tool` resource and `litellm_search_tool` / `litellm_search_tools` data sources
-- **access groups**: New `litellm_access_group` and `litellm_unified_access_group` resources with matching singular and plural data sources
-- **fallback**: New `litellm_fallback` resource and data source for per-model fallbacks (general, context window and content policy)
-- **block resources**: New `litellm_key_block` and `litellm_team_block` resources to manage the blocked state of existing keys and teams
-- **data sources for existing resources**: New `litellm_key` / `litellm_keys`, `litellm_team` / `litellm_teams`, `litellm_model` / `litellm_models`, `litellm_organization` / `litellm_organizations` and `litellm_mcp_server` / `litellm_mcp_servers` data sources
+- **jwt_key_mapping**: New `hangarllm_jwt_key_mapping` resource for the proxy's JWT to virtual key mappings, so JWT clients identified by a claim (`client_id`, `azp`, `sub`) map to virtual keys and inherit their models, budgets and rate limits. Supports `description` and `is_active`, rotating the mapped key in place, and forces replacement when the claim name or value changes
+- **team**: `soft_budget`, `tags`, and `soft_budget_alerting_emails` attributes on `hangarllm_team`, matching what `/team/new` and `/team/update` already accept; `soft_budget_alerting_emails` is sent under `metadata`, where the proxy reads it
+- **user**: New `hangarllm_user` resource and `hangarllm_user` / `hangarllm_users` data sources for managing internal users
+- **budget**: New `hangarllm_budget` resource and `hangarllm_budget` / `hangarllm_budgets` data sources for reusable budget objects
+- **tag**: New `hangarllm_tag` resource and `hangarllm_tag` / `hangarllm_tags` data sources for spend and routing tags
+- **project**: New `hangarllm_project` resource and `hangarllm_project` / `hangarllm_projects` data sources
+- **guardrail**: New `hangarllm_guardrail` resource and `hangarllm_guardrail` / `hangarllm_guardrails` data sources; `hangarllm_params` is sensitive and never read back into state
+- **prompt**: New `hangarllm_prompt` resource and `hangarllm_prompt` / `hangarllm_prompts` data sources for prompt templates
+- **agent**: New `hangarllm_agent` resource and `hangarllm_agent` / `hangarllm_agents` data sources for A2A agents
+- **search_tool**: New `hangarllm_search_tool` resource and `hangarllm_search_tool` / `hangarllm_search_tools` data sources
+- **access groups**: New `hangarllm_access_group` and `hangarllm_unified_access_group` resources with matching singular and plural data sources
+- **fallback**: New `hangarllm_fallback` resource and data source for per-model fallbacks (general, context window and content policy)
+- **block resources**: New `hangarllm_key_block` and `hangarllm_team_block` resources to manage the blocked state of existing keys and teams
+- **data sources for existing resources**: New `hangarllm_key` / `hangarllm_keys`, `hangarllm_team` / `hangarllm_teams`, `hangarllm_model` / `hangarllm_models`, `hangarllm_organization` / `hangarllm_organizations` and `hangarllm_mcp_server` / `hangarllm_mcp_servers` data sources
 - **key**: New arguments `budget_id`, `enforced_params`, `allowed_routes`, `allowed_passthrough_routes`, `rpm_limit_type`, `tpm_limit_type`, `prompts`, `organization_id` and `project_id`
 - **team**: New arguments `model_aliases`, `guardrails`, `prompts`, `team_member_budget`, `team_member_budget_duration`, `team_member_rpm_limit`, `team_member_tpm_limit`, `team_member_key_duration`, `model_rpm_limit`, `model_tpm_limit`, `allowed_passthrough_routes`, `rpm_limit_type` and `tpm_limit_type`
-- **import**: `terraform import` support for `litellm_team`, `litellm_model`, `litellm_organization`, `litellm_mcp_server`, `litellm_vector_store` and every new resource
+- **import**: `terraform import` support for `hangarllm_team`, `hangarllm_model`, `hangarllm_organization`, `hangarllm_mcp_server`, `hangarllm_vector_store` and every new resource
 
 ### Fixed
 
-- **model**: `additional_drop_params` in `litellm_model.additional_litellm_params` is now sent to the proxy as the deployment's `additional_drop_params` list, the same list a `model_list` entry takes. Before, the provider never sent the list and instead deleted every key it named from `litellm_params`, so a `store` or `vertex_location` listed there was lost and requests still carried the parameters (#38349). The value must be a JSON list of parameter names such as `jsonencode(["store"])`, which `terraform plan` now checks, and `null` entries are skipped as before. When the configuration sets the list, refresh reads the stored list back from the proxy, so a list changed outside Terraform shows up as drift. On a model an older provider created, the proxy has no stored list, so the first plan after upgrading shows the list and every listed key the configuration sets as changes, since that apply writes them. A write-only secret such as `model_api_key_wo` is never shown in a plan
-- **user**: `litellm_user` updates no longer send `blocked`, which `/user/update` writes into the user table where no such column exists, so every update failed with a 400 (`Could not find field at upsertOneLiteLLM_UserTable.create.blocked`). Create still sends `blocked`, including `false`, so a `default_internal_user_params.blocked` on the proxy cannot block the auto-created key. Changing `blocked` after creation has no effect, since the proxy has no user-level block; use `litellm_key_block` instead
-- **key**: `litellm_key` and `litellm_key_block` drop a key deleted outside Terraform from state again now that `/key/info` serves deleted keys with `status = "deleted"` instead of a 404, so plan recreates it, and destroying a `litellm_key` the proxy already deleted succeeds instead of failing on the 404 `No keys found` from `/key/delete`
-- **model**: `litellm_model` refresh now reads the `{"data": [...]}` envelope `/model/info` returns, so `model_info` fields changed outside Terraform show up as drift instead of silently keeping the previous state
+- **model**: `additional_drop_params` in `hangarllm_model.additional_hangarllm_params` is now sent to the proxy as the deployment's `additional_drop_params` list, the same list a `model_list` entry takes. Before, the provider never sent the list and instead deleted every key it named from `hangarllm_params`, so a `store` or `vertex_location` listed there was lost and requests still carried the parameters (#38349). The value must be a JSON list of parameter names such as `jsonencode(["store"])`, which `terraform plan` now checks, and `null` entries are skipped as before. When the configuration sets the list, refresh reads the stored list back from the proxy, so a list changed outside Terraform shows up as drift. On a model an older provider created, the proxy has no stored list, so the first plan after upgrading shows the list and every listed key the configuration sets as changes, since that apply writes them. A write-only secret such as `model_api_key_wo` is never shown in a plan
+- **user**: `hangarllm_user` updates no longer send `blocked`, which `/user/update` writes into the user table where no such column exists, so every update failed with a 400 (`Could not find field at upsertOneHangarLLM_UserTable.create.blocked`). Create still sends `blocked`, including `false`, so a `default_internal_user_params.blocked` on the proxy cannot block the auto-created key. Changing `blocked` after creation has no effect, since the proxy has no user-level block; use `hangarllm_key_block` instead
+- **key**: `hangarllm_key` and `hangarllm_key_block` drop a key deleted outside Terraform from state again now that `/key/info` serves deleted keys with `status = "deleted"` instead of a 404, so plan recreates it, and destroying a `hangarllm_key` the proxy already deleted succeeds instead of failing on the 404 `No keys found` from `/key/delete`
+- **model**: `hangarllm_model` refresh now reads the `{"data": [...]}` envelope `/model/info` returns, so `model_info` fields changed outside Terraform show up as drift instead of silently keeping the previous state
 - **key**: An update that changes `team_id` and fails because the key was already cascade-deleted along with its previous team now recovers by recreating the key under the new team, instead of aborting the apply. The key's absence is confirmed against the proxy first, so an unrelated failure still errors out, and a `team_id` change between two teams that both still exist stays a plain in-place update
 - **credential**: create now reports a `credential_name` collision as a clear error naming the `terraform import` command that adopts the existing credential, instead of surfacing the proxy's raw 500 with a Prisma `Unique constraint failed` message. New `adopt_existing` argument (default `false`) opts into taking the existing credential over during create, which makes `apply` idempotent again once state loses track of a credential that still exists on the proxy. Requires a proxy that answers 409 on the collision; older proxies are still detected by their 500 message
 - **credential**: credential names and `model_id` are now percent-encoded in request URLs, so a name containing `/`, `?`, `#` or spaces reaches the proxy intact instead of being cut at the first reserved character and read, updated or deleted as a different credential
@@ -64,29 +64,29 @@ longer signal it.
 - **key**: Read now picks up `model_rpm_limit`, `model_tpm_limit`, `guardrails`, `tags`, `enforced_params`, `allowed_passthrough_routes`, `rpm_limit_type`, `tpm_limit_type` and `prompts` from `info.metadata`, where the proxy actually stores them; previously they stayed empty in state, so a matching config showed a permanent phantom diff on them and out-of-band changes to them were never detected
 - **key**: Updates no longer send an empty `budget_duration`, which the proxy rejects with a 400; any update to a key without a configured `budget_duration` previously failed outright
 - **key**: A config-supplied `key` value (write-only) is now forwarded to `/key/generate`; previously it was silently dropped and the proxy generated a random key instead
-- **security**: The `litellm_key` data source and `litellm_key_block` resource normalize raw `sk-` keys to their SHA-256 token hash before building request URLs and resource IDs, so plaintext keys no longer land in reverse-proxy access logs, Terraform plan output, or state IDs
-- **mcp_server, model, key, organization_member**: Requests now accept any 2xx response instead of requiring exactly HTTP 200; the proxy legitimately returns 201 from `POST /v1/mcp/server` (and other create endpoints), so `litellm_mcp_server` create previously succeeded on the proxy but failed in the provider, leaving the resource out of state and risking a duplicate server on retry
-- **unified_access_group**: create now accepts any 2xx response instead of requiring exactly HTTP 200; `POST /v1/unified_access_group` legitimately returns 201, so creation previously succeeded on the proxy but failed in the provider, leaving the group out of state and forcing a `terraform import` to recover on the next apply's 409. Same fix and shape as the one already applied to `mcp_server`/`model`/`key`/`organization_member`; `handleResponse` (shared by several other resources) was the one status-check helper that fix didn't reach. The legacy `litellm_access_group` resource calls the unrelated `/access_group/new` endpoint, which already returns 200, so it was never affected
-- **mcp_server**: A plan right after a clean apply of a minimal litellm_mcp_server no longer shows changes. alias is now computed so the proxy's default (the server name) is kept, spec_version keeps the configured value when the proxy returns none, and an mcp_info block the proxy fills with fields the provider does not model is no longer written to state
+- **security**: The `hangarllm_key` data source and `hangarllm_key_block` resource normalize raw `sk-` keys to their SHA-256 token hash before building request URLs and resource IDs, so plaintext keys no longer land in reverse-proxy access logs, Terraform plan output, or state IDs
+- **mcp_server, model, key, organization_member**: Requests now accept any 2xx response instead of requiring exactly HTTP 200; the proxy legitimately returns 201 from `POST /v1/mcp/server` (and other create endpoints), so `hangarllm_mcp_server` create previously succeeded on the proxy but failed in the provider, leaving the resource out of state and risking a duplicate server on retry
+- **unified_access_group**: create now accepts any 2xx response instead of requiring exactly HTTP 200; `POST /v1/unified_access_group` legitimately returns 201, so creation previously succeeded on the proxy but failed in the provider, leaving the group out of state and forcing a `terraform import` to recover on the next apply's 409. Same fix and shape as the one already applied to `mcp_server`/`model`/`key`/`organization_member`; `handleResponse` (shared by several other resources) was the one status-check helper that fix didn't reach. The legacy `hangarllm_access_group` resource calls the unrelated `/access_group/new` endpoint, which already returns 200, so it was never affected
+- **mcp_server**: A plan right after a clean apply of a minimal hangarllm_mcp_server no longer shows changes. alias is now computed so the proxy's default (the server name) is kept, spec_version keeps the configured value when the proxy returns none, and an mcp_info block the proxy fills with fields the provider does not model is no longer written to state
 
 ### Changed
 
-- **model** (breaking): on a proxy that includes [#46902](https://github.com/BerriAI/litellm/pull/46902), `litellm_model` updates now save the `model_info` the provider sends to `/model/update`, so `pricing_base_model`, `tier` and `mode` changes take effect. The first apply after upgrading the proxy overwrites values set outside Terraform with the configuration's, including `tier`, which defaults to `free`, and `base_model`, which falls back to the deployment name when `pricing_base_model` is unset. Run `terraform plan` before that apply and copy any value to keep into the configuration
-- **model** (breaking): a key named in `additional_litellm_params.additional_drop_params` is no longer deleted from the deployment's `litellm_params`. A configuration that also sets that key, such as `vertex_location`, stores it on the deployment at its next apply, and the proxy applies the drop list to requests instead. For `vertex_location` this changes routing. `/v1/messages` calls now go to the configured region, while chat completions drop a listed `vertex_location` and use the default region. To keep such a key off a deployment, remove its attribute and replace the model with `terraform apply -replace`, which gives it a new model id, since an update keeps a stored value the provider leaves out. `model`, `custom_llm_provider` and `merge_reasoning_content_in_choices` are always sent. A value that is not a JSON list of names, such as a bare `"store"` or an empty string, now fails the plan, and with it `terraform destroy`, instead of being stored as a string the proxy ignores. Rewrite it as `jsonencode([...])`, or remove the model without fixing it through `terraform destroy -refresh=false`
-- **key** (breaking): `model_max_budget` on `litellm_key` is now a JSON string of per-model budget objects (`jsonencode({"gpt-4o-mini" = {budget_limit = 50, time_period = "30d"}})`), matching `litellm_user`, `litellm_budget` and `litellm_tag`. The old `map(number)` form sent bare numbers to `/key/generate`, which the proxy rejects with a 500 (`'int' object is not iterable`), so every key with a non-empty `model_max_budget` failed to apply. Existing state upgrades automatically (schema version 1) and the attribute is refilled from the proxy on the next read; configurations still using the map form must be rewritten
-- **Versioning**: the provider is now published at the LiteLLM version, from the same commit as the proxy, on every LiteLLM release (dev, rc, stable). The `0.x` line ends at `0.4.0`; a `~> 0.4` constraint will not receive further releases, so re-pin to the LiteLLM version your proxy runs (for example `~> 1.99.0`). Existing `0.x` versions remain in the registry and keep verifying
+- **model** (breaking): on a proxy that includes [#46902](upstream issue 46902), `hangarllm_model` updates now save the `model_info` the provider sends to `/model/update`, so `pricing_base_model`, `tier` and `mode` changes take effect. The first apply after upgrading the proxy overwrites values set outside Terraform with the configuration's, including `tier`, which defaults to `free`, and `base_model`, which falls back to the deployment name when `pricing_base_model` is unset. Run `terraform plan` before that apply and copy any value to keep into the configuration
+- **model** (breaking): a key named in `additional_hangarllm_params.additional_drop_params` is no longer deleted from the deployment's `hangarllm_params`. A configuration that also sets that key, such as `vertex_location`, stores it on the deployment at its next apply, and the proxy applies the drop list to requests instead. For `vertex_location` this changes routing. `/v1/messages` calls now go to the configured region, while chat completions drop a listed `vertex_location` and use the default region. To keep such a key off a deployment, remove its attribute and replace the model with `terraform apply -replace`, which gives it a new model id, since an update keeps a stored value the provider leaves out. `model`, `custom_llm_provider` and `merge_reasoning_content_in_choices` are always sent. A value that is not a JSON list of names, such as a bare `"store"` or an empty string, now fails the plan, and with it `terraform destroy`, instead of being stored as a string the proxy ignores. Rewrite it as `jsonencode([...])`, or remove the model without fixing it through `terraform destroy -refresh=false`
+- **key** (breaking): `model_max_budget` on `hangarllm_key` is now a JSON string of per-model budget objects (`jsonencode({"gpt-4o-mini" = {budget_limit = 50, time_period = "30d"}})`), matching `hangarllm_user`, `hangarllm_budget` and `hangarllm_tag`. The old `map(number)` form sent bare numbers to `/key/generate`, which the proxy rejects with a 500 (`'int' object is not iterable`), so every key with a non-empty `model_max_budget` failed to apply. Existing state upgrades automatically (schema version 1) and the attribute is refilled from the proxy on the next read; configurations still using the map form must be rewritten
+- **Versioning**: the provider is now published at the HangarLLM version, from the same commit as the proxy, on every HangarLLM release (dev, rc, stable). The `0.x` line ends at `0.4.0`; a `~> 0.4` constraint will not receive further releases, so re-pin to the HangarLLM version your proxy runs (for example `~> 1.99.0`). Existing `0.x` versions remain in the registry and keep verifying
 
 ## [0.4.0] - 2026-08-06
 
 ### Fixed
 
-- **organization**: Send `PATCH` instead of `POST` to `/organization/update` and `/organization/member_update`, matching the methods the LiteLLM proxy serves; organization and organization member updates previously failed with a 405
-- **team_member**: Include `role` in the update payload so a role change on an existing `litellm_team_member` is applied instead of being silently dropped
+- **organization**: Send `PATCH` instead of `POST` to `/organization/update` and `/organization/member_update`, matching the methods the HangarLLM proxy serves; organization and organization member updates previously failed with a 405
+- **team_member**: Include `role` in the update payload so a role change on an existing `hangarllm_team_member` is applied instead of being silently dropped
 
 ### Changed
 
-- The provider source of truth moved to `terraform/provider/` in [BerriAI/litellm](https://github.com/BerriAI/litellm); this repository is now a release mirror. CI in the monorepo statically audits every endpoint the provider calls against the proxy's OpenAPI schema on every change
-- **mcp_server**, **vector_store**: `env` and `litellm_params` are now marked sensitive, so they are redacted from plan/apply output, and they are no longer read back from the API into state — the configured value is authoritative. If the proxy returns values that differ from the configuration, that drift is no longer surfaced on refresh
+- The provider source of truth moved to `terraform/provider/` in [valteresj2/HangarLLM](https://github.com/valteresj2/HangarLLM); this repository is now a release mirror. CI in the monorepo statically audits every endpoint the provider calls against the proxy's OpenAPI schema on every change
+- **mcp_server**, **vector_store**: `env` and `hangarllm_params` are now marked sensitive, so they are redacted from plan/apply output, and they are no longer read back from the API into state — the configured value is authoritative. If the proxy returns values that differ from the configuration, that drift is no longer surfaced on refresh
 - Dependency updates: `grpc` and `golang.org/x` modules
 
 ## [0.3.0] - 2026-07-13
@@ -101,7 +101,7 @@ Released from the mirror repository before the source move was complete; this en
 
 ### Fixed
 
-- **key**: Include `tags` in `UpdateKey` payload so tag changes on an existing `litellm_key` are applied on update instead of being silently dropped (#41)
+- **key**: Include `tags` in `UpdateKey` payload so tag changes on an existing `hangarllm_key` are applied on update instead of being silently dropped (#41)
 
 ## [0.2.1] - 2026-04-13
 
@@ -113,7 +113,7 @@ Released from the mirror repository before the source move was complete; this en
 
 ### ⚠️ Breaking Changes
 
-#### `litellm_key`: API keys are no longer stored in Terraform state
+#### `hangarllm_key`: API keys are no longer stored in Terraform state
 
 **Why this change?** Storing raw API keys in Terraform state is a security risk — state files are often stored in S3, Terraform Cloud, or other backends where the key could be exposed even with encryption at rest. This release eliminates that risk entirely.
 
@@ -122,16 +122,16 @@ Released from the mirror repository before the source move was complete; this en
 - The resource ID has changed from the raw key value to its **SHA-256 hash (`token_id`)** — safe to store in state, cannot be used to authenticate
 - **Requires Terraform 1.11+**
 
-**Migration steps for existing `litellm_key` resources:**
+**Migration steps for existing `hangarllm_key` resources:**
 
-1. Find the `token_id` for each key via the LiteLLM UI or `GET /key/info?key=<your-key>`
+1. Find the `token_id` for each key via the HangarLLM UI or `GET /key/info?key=<your-key>`
 2. Remove the old resource from state:
    ```
-   terraform state rm litellm_key.example
+   terraform state rm hangarllm_key.example
    ```
 3. Re-import using the token_id:
    ```
-   terraform import litellm_key.example <token_id>
+   terraform import hangarllm_key.example <token_id>
    ```
 
 > ⚠️ After upgrading, you cannot retrieve the raw key from state. Make sure you have the key value stored somewhere safe before migrating, or plan to rotate the key after re-import.
@@ -139,10 +139,10 @@ Released from the mirror repository before the source move was complete; this en
 **Security best practice:** Since the key is only available during the initial `terraform apply`, pipe it directly to a secrets manager:
 
 ```hcl
-resource "aws_ssm_parameter" "litellm_key" {
-  name  = "/myapp/litellm-key"
+resource "aws_ssm_parameter" "hangarllm_key" {
+  name  = "/myapp/hangarllm-key"
   type  = "SecureString"
-  value = litellm_key.example.key
+  value = hangarllm_key.example.key
 }
 ```
 
@@ -170,17 +170,17 @@ resource "aws_ssm_parameter" "litellm_key" {
 ### Fixed
 - Implemented exponential backoff for credential reads
 - Only include cost fields when explicitly set in model resource
-- Added litellm_credential_name support
+- Added hangarllm_credential_name support
 
 ## [0.3.14] - 2025-08-24
 
 ### Added
-- **Enhanced JSON Parsing**: Added support for JSON string parsing in `additional_litellm_params`
+- **Enhanced JSON Parsing**: Added support for JSON string parsing in `additional_hangarllm_params`
   - JSON objects and arrays (starting with `{` or `[`) are now automatically parsed
   - Maintains backward compatibility with existing string-to-type conversion
   - Enables complex nested parameter configurations
 - **Parameter Dropping Feature**: Added `additional_drop_params` special parameter
-  - Allows removal of unwanted parameters from final `litellm_params` before API submission
+  - Allows removal of unwanted parameters from final `hangarllm_params` before API submission
   - Specified as JSON array string: `"additional_drop_params" = "[\"reasoningEffort\"]"`
   - Useful for overriding or removing built-in parameters when needed
 - **Enhanced Examples**: Updated `examples/model_additional_params.tf` with comprehensive JSON parsing examples
@@ -203,8 +203,8 @@ resource "aws_ssm_parameter" "litellm_key" {
 ## [0.3.13] - 2025-08-24
 
 ### Changed
-- Documentation: Performed a documentation audit and improvements across resources and data-sources. Added missing argument references, clarified types/defaults, documented implementation behaviors (e.g., additional_litellm_params parsing and state-preservation), and added an `examples/` directory with runnable HCL examples (starting with `examples/model_additional_params.tf`).
-- Docs: Updated `docs/resources/model.md` with missing fields (`vertex_*`, pixel/second cost fields, and `additional_litellm_params`) and added conversion rules and an example.
+- Documentation: Performed a documentation audit and improvements across resources and data-sources. Added missing argument references, clarified types/defaults, documented implementation behaviors (e.g., additional_hangarllm_params parsing and state-preservation), and added an `examples/` directory with runnable HCL examples (starting with `examples/model_additional_params.tf`).
+- Docs: Updated `docs/resources/model.md` with missing fields (`vertex_*`, pixel/second cost fields, and `additional_hangarllm_params`) and added conversion rules and an example.
 - Docs Index: Added references to the new `examples/` directory in `docs/index.md`.
 
 ## [0.3.12] - 2025-08-13
@@ -217,42 +217,42 @@ resource "aws_ssm_parameter" "litellm_key" {
 
 ### Changed
 - **Documentation Overhaul**: Comprehensive update to all provider documentation
-  - Updated provider source references from `bitop/litellm` to `registry.terraform.io/ncecere/litellm`
+  - Updated provider source references from `bitop/hangarllm` to `registry.terraform.io/ncecere/hangarllm`
   - Consolidated all scattered example files into organized documentation structure
   - Enhanced all resource documentation with multiple real-world examples
   - Added comprehensive cross-resource integration examples
-- **Vector Store Documentation**: Updated to reflect only officially supported LiteLLM providers
+- **Vector Store Documentation**: Updated to reflect only officially supported HangarLLM providers
   - Removed unsupported providers (Pinecone, Weaviate, Chroma, Qdrant, Milvus, FAISS)
   - Added accurate examples for supported providers: AWS Bedrock Knowledge Bases, OpenAI Vector Stores, Azure Vector Stores, Vertex AI RAG Engine, PG Vector
   - Updated provider-specific parameters with correct configurations
-  - Added references to official LiteLLM documentation
+  - Added references to official HangarLLM documentation
 - **Project Organization**: Cleaned up project structure
   - Removed scattered example files from root directory
   - Consolidated all examples into comprehensive documentation
   - Updated README.md to reflect current capabilities and structure
 
 ### Fixed
-- Corrected vector store provider documentation to match LiteLLM's official capabilities
+- Corrected vector store provider documentation to match HangarLLM's official capabilities
 - Updated all documentation links and references for accuracy
 
 ## [0.3.11] - 2025-08-10
 
 ### Added
-- **New Resource**: `litellm_credential` - Manage credentials for secure authentication
+- **New Resource**: `hangarllm_credential` - Manage credentials for secure authentication
   - Support for storing sensitive credential values (API keys, tokens, etc.)
   - Non-sensitive credential information storage
   - Model ID association for credentials
   - Secure handling of sensitive data with Terraform's sensitive attribute
-- **New Resource**: `litellm_vector_store` - Manage vector stores for embeddings and RAG
+- **New Resource**: `hangarllm_vector_store` - Manage vector stores for embeddings and RAG
   - Support for multiple vector store providers (Pinecone, Weaviate, Chroma, Qdrant, etc.)
   - Integration with credential management for secure authentication
   - Configurable metadata and provider-specific parameters
   - Full CRUD operations for vector store lifecycle management
-- **New Data Source**: `litellm_credential` - Retrieve information about existing credentials
+- **New Data Source**: `hangarllm_credential` - Retrieve information about existing credentials
   - Read-only access to credential metadata (sensitive values excluded for security)
   - Support for model ID filtering
   - Cross-stack and cross-configuration referencing capabilities
-- **New Data Source**: `litellm_vector_store` - Retrieve information about existing vector stores
+- **New Data Source**: `hangarllm_vector_store` - Retrieve information about existing vector stores
   - Complete vector store information retrieval
   - Support for monitoring, validation, and cross-referencing use cases
   - Metadata-based conditional logic support
@@ -268,7 +268,7 @@ resource "aws_ssm_parameter" "litellm_key" {
 ## [0.3.10] - 2025-08-10
 
 ### Added
-- **New Resource**: `litellm_mcp_server` - Manage MCP (Model Context Protocol) servers
+- **New Resource**: `hangarllm_mcp_server` - Manage MCP (Model Context Protocol) servers
   - Support for HTTP, SSE, and stdio transport types
   - Configurable authentication types (none, bearer, basic)
   - MCP access groups for permission management
@@ -290,7 +290,7 @@ resource "aws_ssm_parameter" "litellm_key" {
 ## [0.3.8] - 2025-08-08
 
 ### Added
-- Added `additional_litellm_params` field to model resource for custom parameters beyond standard ones
+- Added `additional_hangarllm_params` field to model resource for custom parameters beyond standard ones
 - Support for passing custom parameters like `drop_params`, `timeout`, `max_retries`, `organization`, etc.
 - Automatic type conversion for string values to appropriate types (boolean, integer, float)
 - Full backward compatibility with existing model configurations
@@ -307,15 +307,15 @@ resource "aws_ssm_parameter" "litellm_key" {
 ## [0.3.6] - 2025-08-08
 
 ### Fixed
-- Fixed issue where models deleted from LiteLLM proxy caused terraform plan to fail instead of planning recreation
-- Enhanced ErrorResponse struct to properly parse LiteLLM proxy error format with Detail field
-- Improved isModelNotFoundError function to detect "not found on litellm proxy" messages in Detail.Error field
+- Fixed issue where models deleted from HangarLLM proxy caused terraform plan to fail instead of planning recreation
+- Enhanced ErrorResponse struct to properly parse HangarLLM proxy error format with Detail field
+- Improved isModelNotFoundError function to detect "not found on hangarllm proxy" messages in Detail.Error field
 
 ## [0.3.5] - 2025-08-08
 
 ### Fixed
 - Fixed team member update behavior to use member_update endpoint instead of delete/re-add
-- Restored team_member_permissions functionality to litellm_team resource
+- Restored team_member_permissions functionality to hangarllm_team resource
 - Enhanced team resource with proper permissions management endpoints
 
 ## [0.3.0] - 2025-04-23
@@ -334,7 +334,7 @@ resource "aws_ssm_parameter" "litellm_key" {
 ## [0.2.8] - 2025-04-23
 
 ### Fixed
-- Added delay after model creation to fix "model not found" errors when the LiteLLM proxy hasn't fully registered the model yet
+- Added delay after model creation to fix "model not found" errors when the HangarLLM proxy hasn't fully registered the model yet
 
 ## [0.2.7] - 2025-04-23
 
@@ -370,7 +370,7 @@ resource "aws_ssm_parameter" "litellm_key" {
 ## [1.0.0] - 2024-01-17
 
 ### Added
-- Initial release of the LiteLLM Terraform Provider
-- Support for managing LiteLLM models
+- Initial release of the HangarLLM Terraform Provider
+- Support for managing HangarLLM models
 - Support for managing teams and team members
 - Comprehensive documentation for all resources

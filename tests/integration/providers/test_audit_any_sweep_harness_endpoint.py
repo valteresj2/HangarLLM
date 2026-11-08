@@ -8,9 +8,9 @@ import pytest
 from integration._support.client import Gateway
 from pydantic import JsonValue
 
-from litellm.harness.context import GatewayTarget
-from litellm.harness.endpoint import ModelEndpoint
-from litellm.harness.types import Harness
+from hangarllm.harness.context import GatewayTarget
+from hangarllm.harness.endpoint import ModelEndpoint
+from hangarllm.harness.types import Harness
 
 
 def _register_scenario(gateway: Gateway, scenario_id: str, response: dict[str, JsonValue]) -> None:

@@ -3,17 +3,17 @@ import io
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.llm_cost_calc.utils import CostCalculatorUtils
-from litellm.llms.fal_ai.image_edit import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import CostCalculatorUtils
+from hangarllm.llms.fal_ai.image_edit import (
     FalAIFluxLoraDepthEditConfig,
     FalAIImageEditConfig,
     get_fal_ai_image_edit_config,
 )
-from litellm.types.images.main import ImageEditOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import ImageObject, ImageResponse, LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.types.images.main import ImageEditOptionalRequestParams
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import ImageObject, ImageResponse, LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
 MODEL = "fal-ai/flux-lora-depth"
@@ -21,11 +21,11 @@ MODEL = "fal-ai/flux-lora-depth"
 
 @pytest.fixture(autouse=True)
 def _use_local_model_cost_map(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 @pytest.mark.parametrize("model", ["fal-ai/flux-lora-depth", "flux-lora-depth", "fal_ai/fal-ai/flux-lora-depth"])
@@ -45,7 +45,7 @@ def test_provider_config_manager_resolves_flux_lora_depth():
 
 @pytest.mark.parametrize("model", ["fal-ai/flux-lora-depth", "flux-lora-depth"])
 def test_get_complete_url_targets_endpoint_without_edit_suffix(model):
-    url = FalAIFluxLoraDepthEditConfig().get_complete_url(model=model, api_base=None, litellm_params={})
+    url = FalAIFluxLoraDepthEditConfig().get_complete_url(model=model, api_base=None, hangarllm_params={})
     assert url == "https://fal.run/fal-ai/flux-lora-depth"
 
 
@@ -71,7 +71,7 @@ def test_transform_request_sends_single_image_url_as_data_url():
         prompt="follow the depth map",
         image=io.BytesIO(PNG_BYTES),
         image_edit_optional_request_params={"num_images": 1},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
     assert files == ()
@@ -87,7 +87,7 @@ def test_transform_request_passes_remote_url_through_untouched():
         prompt="follow the depth map",
         image="https://example.com/depth.png",
         image_edit_optional_request_params={},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
     assert body["image_url"] == "https://example.com/depth.png"
@@ -100,7 +100,7 @@ def test_transform_request_rejects_two_images():
             prompt="follow the depth map",
             image=["https://example.com/a.png", "https://example.com/b.png"],
             image_edit_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -113,4 +113,4 @@ def test_image_edit_cost_uses_flat_output_cost_per_image():
         optional_params={},
         call_type="aimage_edit",
     )
-    assert cost == litellm.model_cost[f"fal_ai/{MODEL}"]["output_cost_per_image"] > 0
+    assert cost == hangarllm.model_cost[f"fal_ai/{MODEL}"]["output_cost_per_image"] > 0

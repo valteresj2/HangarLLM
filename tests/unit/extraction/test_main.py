@@ -11,11 +11,11 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.extraction import ExtractionResponse
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.types.extraction import ExtractionResponse
 
 _CLAIRIC_URL: Final = "https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/cloudflare/clairic"
 _STATE: Final = "Invoice #4471 from Acme Tools, dated 2026-03-03. 12 hammers. Total $174. Payment due in 30 days."
@@ -70,8 +70,8 @@ _PNG_DATA_URL: Final = "data:image/png;base64,AA=="
 
 @pytest.fixture(autouse=True)
 def _httpx_transport(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.fixture
@@ -99,7 +99,7 @@ async def test_clairic_forwards_the_caller_body_and_unwraps_the_envelope(
 ) -> None:
     route: Final = respx_mock.post(_CLAIRIC_URL).respond(json=_ENVELOPE)
 
-    response: Final = await litellm.aextraction(
+    response: Final = await hangarllm.aextraction(
         model=model,
         state=_STATE,
         fields=_FIELDS,
@@ -131,7 +131,7 @@ async def test_clairic_forwards_the_caller_body_and_unwraps_the_envelope(
 def test_sync_extraction_reads_an_unwrapped_result(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(_CLAIRIC_URL).respond(json=_RESULT)
 
-    response: Final = litellm.extraction(model="cloudflare/clairic", state=_STATE, fields=_FIELDS)
+    response: Final = hangarllm.extraction(model="cloudflare/clairic", state=_STATE, fields=_FIELDS)
 
     assert route.call_count == 1
     assert json.loads(route.calls[0].request.content) == {"model": "clairic", "state": _STATE, "fields": _FIELDS}
@@ -149,7 +149,7 @@ def _clairic_transport() -> httpx.MockTransport:
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("cloudflare_env")
 async def test_async_extraction_sends_through_the_callers_client(respx_mock: respx.MockRouter) -> None:
-    response: Final = await litellm.aextraction(
+    response: Final = await hangarllm.aextraction(
         model="cloudflare/clairic",
         state=_STATE,
         fields=_FIELDS,
@@ -162,7 +162,7 @@ async def test_async_extraction_sends_through_the_callers_client(respx_mock: res
 
 @pytest.mark.usefixtures("cloudflare_env")
 def test_sync_extraction_sends_through_the_callers_client(respx_mock: respx.MockRouter) -> None:
-    response: Final = litellm.extraction(
+    response: Final = hangarllm.extraction(
         model="cloudflare/clairic",
         state=_STATE,
         fields=_FIELDS,
@@ -188,8 +188,8 @@ async def test_a_cloudflare_bad_input_is_a_bad_request_with_the_cloudflare_messa
         },
     )
 
-    with pytest.raises(litellm.BadRequestError, match=re.escape("fields.total.decimals must be 0 to 6")):
-        await litellm.aextraction(
+    with pytest.raises(hangarllm.BadRequestError, match=re.escape("fields.total.decimals must be 0 to 6")):
+        await hangarllm.aextraction(
             model="cloudflare/clairic", state=_STATE, fields={"total": {"type": "number", "decimals": 9}}
         )
 
@@ -210,8 +210,8 @@ async def test_a_cloudflare_bad_input_is_a_bad_request_with_the_cloudflare_messa
 async def test_an_invalid_request_is_refused_before_http(
     respx_mock: respx.MockRouter, fields: Mapping[str, object], images: list[str] | None
 ) -> None:
-    with pytest.raises(litellm.BadRequestError, match="Invalid Extraction request"):
-        await litellm.aextraction(model="cloudflare/clairic", state=_STATE, fields=fields, images=images)
+    with pytest.raises(hangarllm.BadRequestError, match="Invalid Extraction request"):
+        await hangarllm.aextraction(model="cloudflare/clairic", state=_STATE, fields=fields, images=images)
 
     assert len(respx_mock.calls) == 0
 
@@ -230,16 +230,16 @@ async def test_missing_cloudflare_credentials_are_refused_before_http(
 ) -> None:
     monkeypatch.delenv(unset)
 
-    with pytest.raises(litellm.BadRequestError, match=message):
-        await litellm.aextraction(model="cloudflare/clairic", state=_STATE, fields=_FIELDS)
+    with pytest.raises(hangarllm.BadRequestError, match=message):
+        await hangarllm.aextraction(model="cloudflare/clairic", state=_STATE, fields=_FIELDS)
 
     assert len(respx_mock.calls) == 0
 
 
 @pytest.mark.asyncio
 async def test_a_provider_without_extraction_is_refused(respx_mock: respx.MockRouter) -> None:
-    with pytest.raises(litellm.BadRequestError, match=r"Unknown Extraction provider 'openai'\. Supported.*cloudflare"):
-        await litellm.aextraction(model="openai/gpt-5.5", state=_STATE, fields=_FIELDS, api_key="k")
+    with pytest.raises(hangarllm.BadRequestError, match=r"Unknown Extraction provider 'openai'\. Supported.*cloudflare"):
+        await hangarllm.aextraction(model="openai/gpt-5.5", state=_STATE, fields=_FIELDS, api_key="k")
 
     assert len(respx_mock.calls) == 0
 
@@ -250,21 +250,21 @@ async def test_a_provider_without_extraction_is_refused(respx_mock: respx.MockRo
 async def test_clairic_cost_bills_input_tokens_at_the_cost_map_price(respx_mock: respx.MockRouter, model: str) -> None:
     respx_mock.post(_CLAIRIC_URL).respond(json=_ENVELOPE)
 
-    response: Final = await litellm.aextraction(model=model, state=_STATE, fields=_FIELDS)
+    response: Final = await hangarllm.aextraction(model=model, state=_STATE, fields=_FIELDS)
 
-    expected_cost: Final = _INPUT_TOKENS * float(litellm.model_cost[model]["input_cost_per_token"])
+    expected_cost: Final = _INPUT_TOKENS * float(hangarllm.model_cost[model]["input_cost_per_token"])
     assert expected_cost > 0
-    assert litellm.completion_cost(completion_response=response) == pytest.approx(expected_cost)
+    assert hangarllm.completion_cost(completion_response=response) == pytest.approx(expected_cost)
     assert response.hidden_params["response_cost"] == pytest.approx(expected_cost)
 
 
 @pytest.mark.asyncio
 async def test_router_extraction_sends_the_deployment_model_and_credentials(respx_mock: respx.MockRouter) -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "invoice-reader",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "cloudflare/clairic",
                     "api_key": "deployment-key",
                     "api_base": "https://api.cloudflare.com/client/v4/accounts/acct/ai/v1",
@@ -286,10 +286,10 @@ async def test_router_extraction_sends_the_deployment_model_and_credentials(resp
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("cloudflare_env")
-async def test_litellm_params_stay_local(respx_mock: respx.MockRouter) -> None:
+async def test_hangarllm_params_stay_local(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(_CLAIRIC_URL).respond(json=_ENVELOPE)
 
-    await litellm.aextraction(
+    await hangarllm.aextraction(
         model="cloudflare/clairic",
         state=_STATE,
         fields=_FIELDS,
@@ -308,9 +308,9 @@ async def test_litellm_params_stay_local(respx_mock: respx.MockRouter) -> None:
 async def test_a_key_clairic_does_not_take_is_refused_before_http_without_drop_params(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, name: str
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.UnsupportedParamsError, match=re.escape(f"does not support parameters: ['{name}']")):
-        await litellm.aextraction(model="cloudflare/clairic", state=_STATE, fields=_FIELDS, **{name: "x"})
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=re.escape(f"does not support parameters: ['{name}']")):
+        await hangarllm.aextraction(model="cloudflare/clairic", state=_STATE, fields=_FIELDS, **{name: "x"})
 
     assert len(respx_mock.calls) == 0
 
@@ -320,10 +320,10 @@ async def test_a_key_clairic_does_not_take_is_refused_before_http_without_drop_p
 async def test_additional_drop_params_drops_only_the_keys_it_names(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(_CLAIRIC_URL).respond(json=_ENVELOPE)
 
-    await litellm.aextraction(
+    await hangarllm.aextraction(
         model="cloudflare/clairic",
         state=_STATE,
         fields=_FIELDS,
@@ -331,8 +331,8 @@ async def test_additional_drop_params_drops_only_the_keys_it_names(
         language="en",
         additional_drop_params=["temperature", "language"],
     )
-    with pytest.raises(litellm.UnsupportedParamsError, match=re.escape("does not support parameters: ['seed']")):
-        await litellm.aextraction(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=re.escape("does not support parameters: ['seed']")):
+        await hangarllm.aextraction(
             model="cloudflare/clairic", state=_STATE, fields=_FIELDS, seed=7, additional_drop_params=["temperature"]
         )
 
@@ -358,8 +358,8 @@ class _RecordingLogger(CustomLogger):
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("cloudflare_env")
 async def test_stream_is_refused_before_http_without_drop_params(respx_mock: respx.MockRouter) -> None:
-    with pytest.raises(litellm.UnsupportedParamsError, match=re.escape("does not support parameters: ['stream']")):
-        await litellm.aextraction(model="cloudflare/clairic", state=_STATE, fields=_FIELDS, stream=True)
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=re.escape("does not support parameters: ['stream']")):
+        await hangarllm.aextraction(model="cloudflare/clairic", state=_STATE, fields=_FIELDS, stream=True)
 
     assert len(respx_mock.calls) == 0
 
@@ -373,8 +373,8 @@ async def test_stream_is_refused_before_http_without_drop_params(respx_mock: res
 async def test_openai_generation_params_are_refused_before_http_without_drop_params(
     respx_mock: respx.MockRouter, name: str, value: object
 ) -> None:
-    with pytest.raises(litellm.UnsupportedParamsError, match=re.escape(f"does not support parameters: ['{name}']")):
-        await litellm.aextraction(model="cloudflare/clairic", state=_STATE, fields=_FIELDS, **{name: value})
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=re.escape(f"does not support parameters: ['{name}']")):
+        await hangarllm.aextraction(model="cloudflare/clairic", state=_STATE, fields=_FIELDS, **{name: value})
 
     assert len(respx_mock.calls) == 0
 
@@ -384,7 +384,7 @@ async def test_openai_generation_params_are_refused_before_http_without_drop_par
 async def test_openai_generation_params_are_dropped_with_drop_params(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(_CLAIRIC_URL).respond(json=_ENVELOPE)
 
-    await litellm.aextraction(
+    await hangarllm.aextraction(
         model="cloudflare/clairic",
         state=_STATE,
         fields=_FIELDS,
@@ -404,9 +404,9 @@ async def test_a_dropped_stream_is_sent_and_logged_as_a_billed_non_stream_call(
 ) -> None:
     route: Final = respx_mock.post(_CLAIRIC_URL).respond(json=_ENVELOPE)
     recording_logger: Final = _RecordingLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recording_logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [recording_logger])
 
-    response: Final = await litellm.aextraction(
+    response: Final = await hangarllm.aextraction(
         model="cloudflare/clairic", state=_STATE, fields=_FIELDS, stream=True, drop_params=True
     )
     await asyncio.sleep(0)

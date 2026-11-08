@@ -48,7 +48,7 @@ def _deployment(scenario: Scenario, gateway: Gateway, name: str) -> str:
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_base": f"{PROVIDER_URL}/v1",
                 "api_key": "sk-fixture",

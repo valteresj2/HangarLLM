@@ -9,10 +9,10 @@ from integration._support.wire import Reply, Request, Wire, wire_server
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from opentelemetry.proto.trace.v1.trace_pb2 import Span
 
-import litellm
-from litellm.integrations.langfuse.langfuse_sdk import resolve_trace_id
+import hangarllm
+from hangarllm.integrations.langfuse.langfuse_sdk import resolve_trace_id
 
-REDACTED: Final = "redacted-by-litellm"
+REDACTED: Final = "redacted-by-hangarllm"
 
 
 def _accept(request: Request) -> Reply:
@@ -52,11 +52,11 @@ async def test_langfuse_export_carries_no_raw_prompt_or_answer_when_message_logg
 ) -> None:
     prompt: Final = f"prompt-{uuid.uuid4()}"
     answer: Final = f"answer-{uuid.uuid4()}"
-    trace_name: Final = f"litellm-test-{uuid.uuid4()}"
-    monkeypatch.setattr(litellm, "turn_off_message_logging", True)
-    monkeypatch.setattr(litellm, "success_callback", ["langfuse"])
+    trace_name: Final = f"hangarllm-test-{uuid.uuid4()}"
+    monkeypatch.setattr(hangarllm, "turn_off_message_logging", True)
+    monkeypatch.setattr(hangarllm, "success_callback", ["langfuse"])
     with wire_server(_accept) as wire:
-        response: Final = await litellm.acompletion(
+        response: Final = await hangarllm.acompletion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
             mock_response=answer,

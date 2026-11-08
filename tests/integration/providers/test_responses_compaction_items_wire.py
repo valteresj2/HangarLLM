@@ -28,8 +28,8 @@ from integration._support.wire import Reply, Request, Wire, wire_server
 from integration._support.worker_readiness import wait_for_worker_readiness
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.constants import LITELLM_TRUNCATED_PAYLOAD_FIELD
-from litellm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.constants import HANGARLLM_TRUNCATED_PAYLOAD_FIELD
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
 pytestmark: Final = [pytest.mark.timeout(2 * graceful_stop_seconds() + 120), pytest.mark.shares_worker_state]
 
@@ -46,8 +46,8 @@ _MASKED_CITY: Final = "[CITY]"
 _MASK_INPUT: Final = "compaction-mask-input"
 _MASK_OUTPUT: Final = "compaction-mask-output"
 _BLOCK_OUTPUT: Final = "compaction-block-output"
-_REDACT_HEADER: Final = {"x-litellm-enable-message-redaction": "true"}
-_UNREDACT_HEADER: Final = {"litellm-disable-message-redaction": "true"}
+_REDACT_HEADER: Final = {"x-hangarllm-enable-message-redaction": "true"}
+_UNREDACT_HEADER: Final = {"hangarllm-disable-message-redaction": "true"}
 _SCRIPTED_REJECTION: Final = json.dumps(
     {"type": "error", "error": {"type": "invalid_request_error", "message": "scripted rejection"}}
 ).encode()
@@ -633,7 +633,7 @@ def _guardrail_peer(request: Request) -> Reply:
 def _guardrail(name: str, mode: str, api_base: str, **fields: JsonValue) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "generic_guardrail_api",
             "mode": mode,
             "default_on": False,
@@ -645,7 +645,7 @@ def _guardrail(name: str, mode: str, api_base: str, **fields: JsonValue) -> dict
 
 
 def _deployment(name: str, model: str, api_base: str, **fields: JsonValue) -> dict[str, JsonValue]:
-    return {"model_name": name, "litellm_params": {"model": model, "api_base": api_base, **fields}}
+    return {"model_name": name, "hangarllm_params": {"model": model, "api_base": api_base, **fields}}
 
 
 _STORED_CLAUDE: Final = "compaction-stored-claude"
@@ -655,7 +655,7 @@ _STORED_OPENAI: Final = "compaction-stored-openai"
 _SMALL_CONTEXT: Final = 2000
 
 
-def _stored_config(directory: Path, provider_url: str, guardrail_url: str, **litellm_settings: JsonValue) -> Path:
+def _stored_config(directory: Path, provider_url: str, guardrail_url: str, **hangarllm_settings: JsonValue) -> Path:
     stock: Final = _JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
     claude: Final = {"api_key": cc.ANTHROPIC_API_KEY}
     config: Final[dict[str, JsonValue]] = {
@@ -674,7 +674,7 @@ def _stored_config(directory: Path, provider_url: str, guardrail_url: str, **lit
             "store_prompts_in_spend_logs": True,
             "disable_responses_id_security": True,
         },
-        "litellm_settings": {**object_value(stock["litellm_settings"]), **litellm_settings},
+        "hangarllm_settings": {**object_value(stock["hangarllm_settings"]), **hangarllm_settings},
         "router_settings": {**object_value(stock["router_settings"]), "num_retries": 0, "enable_pre_call_checks": True},
         "guardrails": [
             _guardrail(_MASK_INPUT, "pre_call", f"{guardrail_url}/input"),
@@ -694,13 +694,13 @@ class _StoredRig:
     guardrail: Wire
 
 
-def _stored_rig(directory: Path, **litellm_settings: JsonValue) -> Iterator[_StoredRig]:
+def _stored_rig(directory: Path, **hangarllm_settings: JsonValue) -> Iterator[_StoredRig]:
     with (
         wire_server(_vendor) as provider,
         wire_server(_guardrail_peer) as guardrail,
         gateway_from_environment() as gateway,
     ):
-        config: Final = _stored_config(directory, provider.url, guardrail.url, **litellm_settings)
+        config: Final = _stored_config(directory, provider.url, guardrail.url, **hangarllm_settings)
         with owned_proxy(gateway, directory, {}, config=config, workers=2) as owned:
             yield _StoredRig(owned, provider, guardrail)
 
@@ -718,7 +718,7 @@ def redacting(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_StoredRig]:
 def _logged_row(request_id: str, status: Literal["success", "failure"]) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, proxy_server_request, response, metadata, status FROM "LiteLLM_SpendLogs"'
+            'SELECT request_id, proxy_server_request, response, metadata, status FROM "HangarLLM_SpendLogs"'
             " WHERE request_id=%s",
             (request_id,),
         ),
@@ -762,7 +762,7 @@ def test_previous_response_id_after_a_compaction_turn_replays_the_whole_summary(
     row: Final = _spend_row(string_value(opened["id"]))
     assert summary in json.dumps(row["response"]), json.dumps(row["response"])[:600]
     stored_request: Final = json.dumps(row["proxy_server_request"])
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in stored_request and "z" * 3000 not in stored_request
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in stored_request and "z" * 3000 not in stored_request
     _only_call(stored.provider, first)
 
     follow_up: Final = _responses(
@@ -990,10 +990,10 @@ def _failed_call_row(
     response: Final = rig.gateway.request("POST", path, body, headers=headers, key=key)
     assert response.status_code == 400, response.text
     _only_call(rig.provider, marker)
-    return _logged_row(response.headers["x-litellm-call-id"], "failure")
+    return _logged_row(response.headers["x-hangarllm-call-id"], "failure")
 
 
-_LEGACY_REDACT_HEADER: Final = {"litellm-enable-message-redaction": "true"}
+_LEGACY_REDACT_HEADER: Final = {"hangarllm-enable-message-redaction": "true"}
 _REDACTED_FAILURES: Final = (
     pytest.param("/v1/responses", _REDACT_HEADER, id="responses"),
     pytest.param("/v1/responses", _LEGACY_REDACT_HEADER, id="responses-legacy-header"),

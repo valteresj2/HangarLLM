@@ -63,7 +63,7 @@ def _held_connections(pid: int, port: int) -> int:
 
 def _error_information(call_id: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
+        lambda: read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -79,12 +79,12 @@ class _Served:
 
 
 def _spend_rows(call_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (call_id,))
+    return read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (call_id,))
 
 
 def _single_spend_row(call_id: str) -> None:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
+        lambda: read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -136,16 +136,16 @@ async def test_passthrough_upstream_outage_mid_burst_still_logs_errors_once(gate
         assert len(responses) == 30
         for response in responses:
             assert response.status_code in (200, 404, 500, 502), response.status_code
-            assert "x-litellm-call-id" in response.headers, response.status_code
+            assert "x-hangarllm-call-id" in response.headers, response.status_code
         assert len(_STARTED_WORKER.findall(owned.log.read_text())) >= 2
         for response in responses:
-            _single_spend_row(response.headers["x-litellm-call-id"])
+            _single_spend_row(response.headers["x-hangarllm-call-id"])
             if response.status_code == 404:
-                error_information: Final = _error_information(response.headers["x-litellm-call-id"])
+                error_information: Final = _error_information(response.headers["x-hangarllm-call-id"])
                 assert "not found for this scripted upstream" in str(error_information["error_message"]), response.text
             elif response.status_code == 500:
                 assert "chunked upstream failure body" in str(
-                    _error_information(response.headers["x-litellm-call-id"])["error_message"]
+                    _error_information(response.headers["x-hangarllm-call-id"])["error_message"]
                 ), response.text
 
 
@@ -205,12 +205,12 @@ async def test_passthrough_worker_sigkill_leaves_sibling_serving_and_logging(gat
             )
             assert follow_up.status_code == 404, follow_up.text
             assert follow_up.json() == json.loads(_NOT_FOUND_BODY), follow_up.text
-            logged: Final = tuple(item for item in served if "x-litellm-call-id" in item.response.headers)
+            logged: Final = tuple(item for item in served if "x-hangarllm-call-id" in item.response.headers)
             survivor_served: Final = tuple(item for item in logged if item.client_port not in victim_ports)
             assert survivor_served, [item.client_port for item in logged]
             for item in survivor_served:
-                _single_spend_row(item.response.headers["x-litellm-call-id"])
+                _single_spend_row(item.response.headers["x-hangarllm-call-id"])
             for item in logged:
-                assert len(_spend_rows(item.response.headers["x-litellm-call-id"])) <= 1, item.response.headers
-            error_information: Final = _error_information(follow_up.headers["x-litellm-call-id"])
+                assert len(_spend_rows(item.response.headers["x-hangarllm-call-id"])) <= 1, item.response.headers
+            error_information: Final = _error_information(follow_up.headers["x-hangarllm-call-id"])
             assert "not found for this scripted upstream" in str(error_information["error_message"]), follow_up.text

@@ -85,7 +85,7 @@ const test = base.extend<{ ungrantedModelName: string }>({
       headers: { Authorization: `Bearer ${masterKey()}` },
       data: {
         model_name: ungrantedModelName,
-        litellm_params: {
+        hangarllm_params: {
           model: `openai/${ungrantedModelName}`,
           api_base: MOCK_LLM_BASE,
           api_key: "fake-key",

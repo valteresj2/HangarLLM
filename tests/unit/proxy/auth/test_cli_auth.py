@@ -1,5 +1,5 @@
 """
-Tests for litellm/proxy/client/cli/commands/auth.py
+Tests for hangarllm/proxy/client/cli/commands/auth.py
 
 This module tests the auth commands and their associated functionality.
 """
@@ -7,7 +7,7 @@ This module tests the auth commands and their associated functionality.
 import pytest
 import requests
 from unittest.mock import patch, Mock, call
-from litellm.proxy.client.cli.commands.auth import (
+from hangarllm.proxy.client.cli.commands.auth import (
     _normalize_teams,
     _poll_for_ready_data,
     _poll_for_authentication,
@@ -58,7 +58,7 @@ async def test_normalize_teams_with_details_with_aliases():
     ]
 
 
-@patch("litellm.proxy.client.cli.commands.auth.requests.post")
+@patch("hangarllm.proxy.client.cli.commands.auth.requests.post")
 def test_start_cli_sso_flow_rejects_invalid_response(request_mock):
     """Test CLI SSO start rejects malformed server responses and names the missing fields"""
     response = Mock()
@@ -67,49 +67,49 @@ def test_start_cli_sso_flow_rejects_invalid_response(request_mock):
     request_mock.return_value = response
 
     with pytest.raises(ValueError, match="missing required field\\(s\\): poll_secret"):
-        _start_cli_sso_flow("https://litellm.com")
+        _start_cli_sso_flow("https://hangarllm.com")
 
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.client.cli.commands.auth.requests.get",
+    "hangarllm.proxy.client.cli.commands.auth.requests.get",
     side_effect=[Mock(status_code=404)],
 )
-@patch("litellm.proxy.client.cli.commands.auth.time.sleep")
+@patch("hangarllm.proxy.client.cli.commands.auth.time.sleep")
 async def test_poll_for_ready_404(sleep_mock, request_mock):
     """Test polling treats HTTP 404 as a permanent error and raises instead of retrying"""
     with pytest.raises(ValueError, match="rejected the login session with HTTP 404"):
         _poll_for_ready_data(
-            "https://litellm.com", poll_interval=1, total_timeout=1, request_timeout=42
+            "https://hangarllm.com", poll_interval=1, total_timeout=1, request_timeout=42
         )
-    request_mock.assert_called_once_with("https://litellm.com", headers=None, timeout=42)
+    request_mock.assert_called_once_with("https://hangarllm.com", headers=None, timeout=42)
 
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.client.cli.commands.auth.requests.get",
+    "hangarllm.proxy.client.cli.commands.auth.requests.get",
     side_effect=[
         Mock(
             status_code=200, json=Mock(return_value={"status": "ready", "json": "data"})
         )
     ],
 )
-@patch("litellm.proxy.client.cli.commands.auth.click.echo")
-@patch("litellm.proxy.client.cli.commands.auth.time.sleep")
+@patch("hangarllm.proxy.client.cli.commands.auth.click.echo")
+@patch("hangarllm.proxy.client.cli.commands.auth.time.sleep")
 async def test_poll_for_ready_200_ready(sleep_mock, click_mock, request_mock):
     """Test poll_for_ready function"""
     actual = _poll_for_ready_data(
-        "https://litellm.com", poll_interval=1, total_timeout=1, request_timeout=42
+        "https://hangarllm.com", poll_interval=1, total_timeout=1, request_timeout=42
     )
     assert actual == {"status": "ready", "json": "data"}
     click_mock.assert_not_called()
-    request_mock.assert_called_once_with("https://litellm.com", headers=None, timeout=42)
+    request_mock.assert_called_once_with("https://hangarllm.com", headers=None, timeout=42)
     sleep_mock.assert_not_called()
 
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.client.cli.commands.auth.requests.get",
+    "hangarllm.proxy.client.cli.commands.auth.requests.get",
     side_effect=[
         Mock(
             status_code=200,
@@ -120,19 +120,19 @@ async def test_poll_for_ready_200_ready(sleep_mock, click_mock, request_mock):
         ),
     ],
 )
-@patch("litellm.proxy.client.cli.commands.auth.click.echo")
-@patch("litellm.proxy.client.cli.commands.auth.time.sleep")
+@patch("hangarllm.proxy.client.cli.commands.auth.click.echo")
+@patch("hangarllm.proxy.client.cli.commands.auth.time.sleep")
 async def test_poll_for_ready_single_pending(sleep_mock, click_mock, request_mock):
     """Test poll_for_ready function"""
     actual = _poll_for_ready_data(
-        "https://litellm.com", poll_interval=1, total_timeout=2, request_timeout=42
+        "https://hangarllm.com", poll_interval=1, total_timeout=2, request_timeout=42
     )
     assert actual == {"status": "ready", "json": "data"}
     click_mock.assert_not_called()
     request_mock.assert_has_calls(
         [
-            call("https://litellm.com", headers=None, timeout=42),
-            call("https://litellm.com", headers=None, timeout=42),
+            call("https://hangarllm.com", headers=None, timeout=42),
+            call("https://hangarllm.com", headers=None, timeout=42),
         ]
     )
     sleep_mock.assert_called_once_with(1)
@@ -140,7 +140,7 @@ async def test_poll_for_ready_single_pending(sleep_mock, click_mock, request_moc
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.client.cli.commands.auth.requests.get",
+    "hangarllm.proxy.client.cli.commands.auth.requests.get",
     side_effect=[
         Mock(
             status_code=200,
@@ -152,12 +152,12 @@ async def test_poll_for_ready_single_pending(sleep_mock, click_mock, request_moc
         ),
     ],
 )
-@patch("litellm.proxy.client.cli.commands.auth.click.echo")
-@patch("litellm.proxy.client.cli.commands.auth.time.sleep")
+@patch("hangarllm.proxy.client.cli.commands.auth.click.echo")
+@patch("hangarllm.proxy.client.cli.commands.auth.time.sleep")
 async def test_poll_for_ready_pending(sleep_mock, click_mock, request_mock):
     """Test poll_for_ready function"""
     actual = _poll_for_ready_data(
-        "https://litellm.com",
+        "https://hangarllm.com",
         poll_interval=1,
         total_timeout=2,
         request_timeout=42,
@@ -168,8 +168,8 @@ async def test_poll_for_ready_pending(sleep_mock, click_mock, request_mock):
     click_mock.assert_has_calls([call("Pending message"), call("Pending message")])
     request_mock.assert_has_calls(
         [
-            call("https://litellm.com", headers=None, timeout=42),
-            call("https://litellm.com", headers=None, timeout=42),
+            call("https://hangarllm.com", headers=None, timeout=42),
+            call("https://hangarllm.com", headers=None, timeout=42),
         ]
     )
     sleep_mock.assert_has_calls([call(1), call(1)])
@@ -177,40 +177,40 @@ async def test_poll_for_ready_pending(sleep_mock, click_mock, request_mock):
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.client.cli.commands.auth.requests.get",
+    "hangarllm.proxy.client.cli.commands.auth.requests.get",
     side_effect=[
         requests.RequestException("ERROR"),
         requests.RequestException("ERROR"),
     ],
 )
-@patch("litellm.proxy.client.cli.commands.auth.click.echo")
-@patch("litellm.proxy.client.cli.commands.auth.time.sleep")
+@patch("hangarllm.proxy.client.cli.commands.auth.click.echo")
+@patch("hangarllm.proxy.client.cli.commands.auth.time.sleep")
 async def test_poll_for_ready_connection_failure(sleep_mock, click_mock, request_mock):
     """Test poll_for_ready function"""
     actual = _poll_for_ready_data(
-        "https://litellm.com", poll_interval=1, total_timeout=2, request_timeout=42
+        "https://hangarllm.com", poll_interval=1, total_timeout=2, request_timeout=42
     )
     assert actual is None
     click_mock.assert_called_once_with("Connection error (will retry): ERROR")
     request_mock.assert_has_calls(
         [
-            call("https://litellm.com", headers=None, timeout=42),
+            call("https://hangarllm.com", headers=None, timeout=42),
         ]
     )
     sleep_mock.assert_has_calls([call(1), call(1)])
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.client.cli.commands.auth._handle_team_selection_during_polling")
-@patch("litellm.proxy.client.cli.commands.auth._poll_for_ready_data", return_value=None)
-@patch("litellm.proxy.client.cli.commands.auth.click.echo")
+@patch("hangarllm.proxy.client.cli.commands.auth._handle_team_selection_during_polling")
+@patch("hangarllm.proxy.client.cli.commands.auth._poll_for_ready_data", return_value=None)
+@patch("hangarllm.proxy.client.cli.commands.auth.click.echo")
 async def test_poll_for_authentication_no_data(click_mock, poll_mock, handle_mock):
     """Test poll_for_authentication function"""
-    actual = _poll_for_authentication("https://litellm.com", "key-123", "poll-secret")
+    actual = _poll_for_authentication("https://hangarllm.com", "key-123", "poll-secret")
     assert actual is None
     poll_mock.assert_called_once_with(
-        "https://litellm.com/sso/cli/poll/key-123",
-        headers={"x-litellm-cli-poll-secret": "poll-secret"},
+        "https://hangarllm.com/sso/cli/poll/key-123",
+        headers={"x-hangarllm-cli-poll-secret": "poll-secret"},
         pending_message="Still waiting for authentication...",
     )
     handle_mock.assert_not_called()
@@ -218,19 +218,19 @@ async def test_poll_for_authentication_no_data(click_mock, poll_mock, handle_moc
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.client.cli.commands.auth._handle_team_selection_during_polling")
+@patch("hangarllm.proxy.client.cli.commands.auth._handle_team_selection_during_polling")
 @patch(
-    "litellm.proxy.client.cli.commands.auth._poll_for_ready_data",
+    "hangarllm.proxy.client.cli.commands.auth._poll_for_ready_data",
     return_value={"requires_team_selection": True, "teams": [], "team_details": []},
 )
-@patch("litellm.proxy.client.cli.commands.auth.click.echo")
+@patch("hangarllm.proxy.client.cli.commands.auth.click.echo")
 async def test_poll_for_authentication_no_teams(click_mock, poll_mock, handle_mock):
     """Test poll_for_authentication function"""
-    actual = _poll_for_authentication("https://litellm.com", "key-123", "poll-secret")
+    actual = _poll_for_authentication("https://hangarllm.com", "key-123", "poll-secret")
     assert actual is None
     poll_mock.assert_called_once_with(
-        "https://litellm.com/sso/cli/poll/key-123",
-        headers={"x-litellm-cli-poll-secret": "poll-secret"},
+        "https://hangarllm.com/sso/cli/poll/key-123",
+        headers={"x-hangarllm-cli-poll-secret": "poll-secret"},
         pending_message="Still waiting for authentication...",
     )
     handle_mock.assert_not_called()
@@ -240,23 +240,23 @@ async def test_poll_for_authentication_no_teams(click_mock, poll_mock, handle_mo
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.client.cli.commands.auth._handle_team_selection_during_polling",
+    "hangarllm.proxy.client.cli.commands.auth._handle_team_selection_during_polling",
     return_value="jwt-123",
 )
 @patch(
-    "litellm.proxy.client.cli.commands.auth._poll_for_ready_data",
+    "hangarllm.proxy.client.cli.commands.auth._poll_for_ready_data",
     return_value={
         "requires_team_selection": True,
         "teams": [1, 2],
         "user_id": "user-123",
     },
 )
-@patch("litellm.proxy.client.cli.commands.auth.click.echo")
+@patch("hangarllm.proxy.client.cli.commands.auth.click.echo")
 async def test_poll_for_authentication_team_selection_success(
     click_mock, poll_mock, handle_mock
 ):
     """Test poll_for_authentication function"""
-    actual = _poll_for_authentication("https://litellm.com", "key-123", "poll-secret")
+    actual = _poll_for_authentication("https://hangarllm.com", "key-123", "poll-secret")
     assert actual == {
         "api_key": "jwt-123",
         "user_id": "user-123",
@@ -264,12 +264,12 @@ async def test_poll_for_authentication_team_selection_success(
         "team_id": None,
     }
     poll_mock.assert_called_once_with(
-        "https://litellm.com/sso/cli/poll/key-123",
-        headers={"x-litellm-cli-poll-secret": "poll-secret"},
+        "https://hangarllm.com/sso/cli/poll/key-123",
+        headers={"x-hangarllm-cli-poll-secret": "poll-secret"},
         pending_message="Still waiting for authentication...",
     )
     handle_mock.assert_called_once_with(
-        base_url="https://litellm.com",
+        base_url="https://hangarllm.com",
         key_id="key-123",
         poll_secret="poll-secret",
         teams=[
@@ -282,31 +282,31 @@ async def test_poll_for_authentication_team_selection_success(
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.client.cli.commands.auth._handle_team_selection_during_polling",
+    "hangarllm.proxy.client.cli.commands.auth._handle_team_selection_during_polling",
     return_value=None,
 )
 @patch(
-    "litellm.proxy.client.cli.commands.auth._poll_for_ready_data",
+    "hangarllm.proxy.client.cli.commands.auth._poll_for_ready_data",
     return_value={
         "requires_team_selection": True,
         "teams": ["team-1"],
         "user_id": "user-123",
     },
 )
-@patch("litellm.proxy.client.cli.commands.auth.click.echo")
+@patch("hangarllm.proxy.client.cli.commands.auth.click.echo")
 async def test_poll_for_authentication_team_selection_cancelled(
     click_mock, poll_mock, handle_mock
 ):
     """Test poll_for_authentication function"""
-    actual = _poll_for_authentication("https://litellm.com", "key-123", "poll-secret")
+    actual = _poll_for_authentication("https://hangarllm.com", "key-123", "poll-secret")
     assert actual is None
     poll_mock.assert_called_once_with(
-        "https://litellm.com/sso/cli/poll/key-123",
-        headers={"x-litellm-cli-poll-secret": "poll-secret"},
+        "https://hangarllm.com/sso/cli/poll/key-123",
+        headers={"x-hangarllm-cli-poll-secret": "poll-secret"},
         pending_message="Still waiting for authentication...",
     )
     handle_mock.assert_called_once_with(
-        base_url="https://litellm.com",
+        base_url="https://hangarllm.com",
         key_id="key-123",
         poll_secret="poll-secret",
         teams=[{"team_id": "team-1", "team_alias": None}],
@@ -316,9 +316,9 @@ async def test_poll_for_authentication_team_selection_cancelled(
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.client.cli.commands.auth._handle_team_selection_during_polling")
+@patch("hangarllm.proxy.client.cli.commands.auth._handle_team_selection_during_polling")
 @patch(
-    "litellm.proxy.client.cli.commands.auth._poll_for_ready_data",
+    "hangarllm.proxy.client.cli.commands.auth._poll_for_ready_data",
     return_value={
         "key": "jwt-456",
         "user_id": "user-456",
@@ -326,12 +326,12 @@ async def test_poll_for_authentication_team_selection_cancelled(
         "team_id": "team-1",
     },
 )
-@patch("litellm.proxy.client.cli.commands.auth.click.echo")
+@patch("hangarllm.proxy.client.cli.commands.auth.click.echo")
 async def test_poll_for_authentication_auto_assigned_team(
     click_mock, poll_mock, handle_mock
 ):
     """Test poll_for_authentication function"""
-    actual = _poll_for_authentication("https://litellm.com", "key-123", "poll-secret")
+    actual = _poll_for_authentication("https://hangarllm.com", "key-123", "poll-secret")
     assert actual == {
         "api_key": "jwt-456",
         "user_id": "user-456",
@@ -339,8 +339,8 @@ async def test_poll_for_authentication_auto_assigned_team(
         "team_id": "team-1",
     }
     poll_mock.assert_called_once_with(
-        "https://litellm.com/sso/cli/poll/key-123",
-        headers={"x-litellm-cli-poll-secret": "poll-secret"},
+        "https://hangarllm.com/sso/cli/poll/key-123",
+        headers={"x-hangarllm-cli-poll-secret": "poll-secret"},
         pending_message="Still waiting for authentication...",
     )
     handle_mock.assert_not_called()

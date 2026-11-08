@@ -1,6 +1,6 @@
 """Live e2e: the OTel v2 Langfuse generation carries input and output for every non-chat endpoint.
 
-With LITELLM_OTEL_V2=true the proxy exports one generation per request to the
+With HANGARLLM_OTEL_V2=true the proxy exports one generation per request to the
 team's Langfuse destination. Chat, Responses and embeddings already fill both
 panels; this file pins the other families. LIT-8309 covers the output of
 completions, images, speech, transcription and moderation; LIT-8326 covers the
@@ -33,7 +33,7 @@ from models import (
     ImageEditForm,
     ImageGenerationBody,
     ImageGenerationResponse,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     ModerationBody,
     ModerationResponse,
     OcrBody,
@@ -45,7 +45,7 @@ from models import (
     SearchResponse,
     SearchToolBody,
     SearchToolCreateBody,
-    SearchToolLiteLLMParamsBody,
+    SearchToolHangarLLMParamsBody,
     SpeechBody,
     TranscriptionForm,
     TranscriptionResponse,
@@ -59,7 +59,7 @@ WEATHER_WAV: Final = (
 )
 DUMMY_PDF: Final = Path(__file__).resolve().parents[2] / "fixtures" / "dummy.pdf"
 DUMMY_PDF_URL: Final = (
-    "https://cdn.jsdelivr.net/gh/BerriAI/litellm"
+    "https://cdn.jsdelivr.net/gh/valteresj2/HangarLLM"
     "@d769e81c90d453240c61fc572cdb27fae06a89d0"
     "/tests/llm_translation/fixtures/dummy.pdf"
 )
@@ -101,7 +101,7 @@ def langfuse_creds() -> LangfuseCreds:
 
 
 def _langfuse_key(
-    client: LoggingClient, creds: LangfuseCreds, resources: ResourceManager, params: LiteLLMParamsBody
+    client: LoggingClient, creds: LangfuseCreds, resources: ResourceManager, params: HangarLLMParamsBody
 ) -> tuple[str, str, str]:
     """A model registered for this run plus a key on a team whose Langfuse callback is `creds`."""
     model: Final = f"e2e-otel-out-{unique_marker()}"
@@ -145,12 +145,12 @@ def _input_text(observation: LangfuseObservation) -> str:
     return text
 
 
-def _openai(model: str) -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(model=model, api_key="os.environ/OPENAI_API_KEY")
+def _openai(model: str) -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(model=model, api_key="os.environ/OPENAI_API_KEY")
 
 
-def _mistral_ocr() -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(model=MISTRAL_OCR_BACKEND, api_key="os.environ/MISTRAL_API_KEY")
+def _mistral_ocr() -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(model=MISTRAL_OCR_BACKEND, api_key="os.environ/MISTRAL_API_KEY")
 
 
 def _langfuse_search_tool(
@@ -163,7 +163,7 @@ def _langfuse_search_tool(
         SearchToolCreateBody(
             search_tool=SearchToolBody(
                 search_tool_name=tool,
-                litellm_params=SearchToolLiteLLMParamsBody(search_provider="duckduckgo"),
+                hangarllm_params=SearchToolHangarLLMParamsBody(search_provider="duckduckgo"),
             )
         )
     )
@@ -353,7 +353,7 @@ class TestOtelV2LangfuseGenerationOutput:
             client,
             langfuse_creds,
             resources,
-            LiteLLMParamsBody(model=RERANK_BACKEND, api_key="os.environ/COHERE_API_KEY"),
+            HangarLLMParamsBody(model=RERANK_BACKEND, api_key="os.environ/COHERE_API_KEY"),
         )
         query: Final = f"What is the capital of France? {unique_marker()}"
         started: Final = datetime.now(timezone.utc)

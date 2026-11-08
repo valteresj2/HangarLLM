@@ -3,15 +3,15 @@ import socket
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.proxy.vertex_ai_endpoints.langfuse_endpoints import (
+import hangarllm
+from hangarllm.proxy.vertex_ai_endpoints.langfuse_endpoints import (
     _build_langfuse_proxy_target,
     _get_langfuse_proxy_credentials,
 )
 
 
 def test_dynamic_langfuse_host_requires_dynamic_credentials(monkeypatch):
-    monkeypatch.setattr(litellm, "user_url_validation", True, raising=False)
+    monkeypatch.setattr(hangarllm, "user_url_validation", True, raising=False)
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "global-public")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "global-secret")
 
@@ -61,7 +61,7 @@ def test_langfuse_proxy_target_rejects_traversal_paths(endpoint):
 
 
 def test_dynamic_langfuse_proxy_target_rejects_internal_host(monkeypatch):
-    monkeypatch.setattr(litellm, "user_url_validation", True, raising=False)
+    monkeypatch.setattr(hangarllm, "user_url_validation", True, raising=False)
 
     with pytest.raises(HTTPException) as exc:
         _build_langfuse_proxy_target(
@@ -74,7 +74,7 @@ def test_dynamic_langfuse_proxy_target_rejects_internal_host(monkeypatch):
 
 
 def test_dynamic_langfuse_proxy_target_preserves_host_header_for_http(monkeypatch):
-    monkeypatch.setattr(litellm, "user_url_validation", True, raising=False)
+    monkeypatch.setattr(hangarllm, "user_url_validation", True, raising=False)
 
     def fake_getaddrinfo(host, port, proto):
         assert host == "langfuse.example"

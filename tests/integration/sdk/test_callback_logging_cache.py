@@ -5,13 +5,13 @@ from uuid import uuid4
 
 import pytest
 
-import litellm
-from litellm import Cache, acompletion
-from litellm.caching.caching import LiteLLMCacheType
-from litellm.caching.caching_handler import _PENDING_CACHE_WRITES
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm._service_logger import ServiceLogging
+import hangarllm
+from hangarllm import Cache, acompletion
+from hangarllm.caching.caching import HangarLLMCacheType
+from hangarllm.caching.caching_handler import _PENDING_CACHE_WRITES
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm._service_logger import ServiceLogging
 
 
 async def _drain_cache_writes() -> None:
@@ -22,17 +22,17 @@ async def _drain_cache_writes() -> None:
 @pytest.fixture
 def redis_response_cache(monkeypatch: pytest.MonkeyPatch) -> Cache:
     cache: Final = Cache(
-        type=LiteLLMCacheType.REDIS,
+        type=HangarLLMCacheType.REDIS,
         host=os.environ["REDIS_HOST"],
         port=os.environ["REDIS_PORT"],
     )
-    monkeypatch.setattr(litellm, "cache", cache)
+    monkeypatch.setattr(hangarllm, "cache", cache)
     return cache
 
 
 @pytest.mark.asyncio
 async def test_redis_cache_completion_stream(redis_response_cache: Cache, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [CustomLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [CustomLogger()])
     messages: Final = [{"role": "user", "content": f"cache stream {uuid4().hex}"}]
     first_response: Final = await acompletion(
         model="gpt-4o-mini",
@@ -61,7 +61,7 @@ async def test_redis_cache_completion_stream(redis_response_cache: Cache, monkey
 
 @pytest.mark.asyncio
 async def test_completion_with_caching(redis_response_cache: Cache, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "service_callback", ["prometheus_system"])
+    monkeypatch.setattr(hangarllm, "service_callback", ["prometheus_system"])
     service_logger: Final = ServiceLogging(mock_testing=True)
     service_logger.prometheusServicesLogger.mock_testing = True
     redis_response_cache.cache.service_logger_obj = service_logger

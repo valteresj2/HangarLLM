@@ -32,7 +32,7 @@ def test_owned_redis_outage_recovers_requests_and_real_response_cache(gateway: G
                     for generation in ("before", "after"):
                         with Redis(host=cache.host, port=cache.port, socket_timeout=1) as client:
                             eventually(client.ping, bool)
-                            eventually(lambda: client.pubsub_numsub("litellm_proxy.auth_cache_invalidation")[0][1], lambda count: count >= 1, seconds=8)
+                            eventually(lambda: client.pubsub_numsub("hangarllm_proxy.auth_cache_invalidation")[0][1], lambda count: count >= 1, seconds=8)
                         upstream.delete("/__observations").raise_for_status()
                         first: Final = candidate.chat(model, key=key, text=identity + generation)
                         second: Final = candidate.chat(model, key=key, text=identity + generation)
@@ -53,7 +53,7 @@ def test_owned_redis_outage_recovers_requests_and_real_response_cache(gateway: G
                             assert len(upstream.get("/__observations").json()["requests"]) == 1
                             cache.start()
                     with psycopg.connect(database_url) as fresh:
-                        assert fresh.execute('SELECT count(*) FROM "LiteLLM_VerificationToken"').fetchone()[0] >= 1
+                        assert fresh.execute('SELECT count(*) FROM "HangarLLM_VerificationToken"').fetchone()[0] >= 1
         finally:
             admin.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(identity)))
         assert admin.execute("SELECT datname FROM pg_database WHERE datname=%s", (identity,)).fetchall() == []

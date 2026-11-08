@@ -6,7 +6,7 @@ from pathlib import Path
 from queue import SimpleQueue
 from typing import Final
 
-import litellm
+import hangarllm
 from integration._support.wire import Reply, Request, wire_server
 
 _SCRIPT_SECONDS: Final = 60
@@ -14,7 +14,7 @@ _CONCURRENT_LLAMA_COUNTS: Final = """
 import sys
 from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0, sys.argv[1])
-from litellm.utils import _select_tokenizer_helper
+from hangarllm.utils import _select_tokenizer_helper
 with ThreadPoolExecutor(max_workers=2) as pool:
     tuple(pool.map(lambda _: _select_tokenizer_helper("meta-llama/llama-3-8b"), range(2)))
 """
@@ -35,7 +35,7 @@ def test_concurrent_first_llama_counts_download_without_waiting_on_each_other(tm
 
     with wire_server(stalled_hub) as hub:
         result: Final = subprocess.run(
-            [sys.executable, "-I", "-c", _CONCURRENT_LLAMA_COUNTS, str(Path(litellm.__file__).parent.parent)],
+            [sys.executable, "-I", "-c", _CONCURRENT_LLAMA_COUNTS, str(Path(hangarllm.__file__).parent.parent)],
             capture_output=True,
             text=True,
             timeout=_SCRIPT_SECONDS,
@@ -46,7 +46,7 @@ def test_concurrent_first_llama_counts_download_without_waiting_on_each_other(tm
                 "HF_HOME": str(tmp_path / "home"),
                 "HF_HUB_CACHE": str(tmp_path / "cache"),
                 "HF_HUB_OFFLINE": "0",
-                "LITELLM_LOCAL_MODEL_COST_MAP": "True",
+                "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
             },
         )
 

@@ -16,11 +16,11 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from litellm.llms.snowflake.chat.transformation import (
+from hangarllm.llms.snowflake.chat.transformation import (
     SnowflakeConfig,
     is_snowflake_claude_model,
 )
-from litellm.types.utils import ModelResponse
+from hangarllm.types.utils import ModelResponse
 
 
 # ─── Fixtures ──────────────────────────────────────────────────────────────
@@ -81,7 +81,7 @@ class TestSnowflakeConfigURL:
             api_key=JWT_TOKEN,
             model="snowflake/llama3.1-70b",
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == f"https://{ACCOUNT_ID}.snowflakecomputing.com/api/v2/cortex/v1/chat/completions"
 
@@ -91,7 +91,7 @@ class TestSnowflakeConfigURL:
             api_key=JWT_TOKEN,
             model="snowflake/llama3.1-70b",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url.endswith("/api/v2/cortex/v1/chat/completions")
         assert "cortex/inference:complete" not in url
@@ -102,7 +102,7 @@ class TestSnowflakeConfigURL:
             api_key=JWT_TOKEN,
             model="snowflake/llama3.1-70b",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert "inference:complete" not in url
         assert "/v1/chat/completions" in url
@@ -113,7 +113,7 @@ class TestSnowflakeConfigURL:
             api_key=JWT_TOKEN,
             model="snowflake/claude-sonnet-4-5",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert "/cortex/v1/messages" in url
 
@@ -123,7 +123,7 @@ class TestSnowflakeConfigURL:
             api_key=JWT_TOKEN,
             model="snowflake/llama3.1-70b",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert "/cortex/v1/chat/completions" in url
 
@@ -138,7 +138,7 @@ class TestSnowflakeConfigAuth:
             model="snowflake/llama3.1-70b",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=PAT_TOKEN,
         )
         assert headers["X-Snowflake-Authorization-Token-Type"] == "PROGRAMMATIC_ACCESS_TOKEN"
@@ -150,7 +150,7 @@ class TestSnowflakeConfigAuth:
             model="snowflake/llama3.1-70b",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=JWT_TOKEN,
         )
         assert headers["X-Snowflake-Authorization-Token-Type"] == "KEYPAIR_JWT"
@@ -163,7 +163,7 @@ class TestSnowflakeConfigAuth:
                 model="snowflake/llama3.1-70b",
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
             )
 
@@ -188,7 +188,7 @@ class TestSnowflakeConfigRequest:
             model="snowflake/llama3.1-70b",
             messages=self.messages,
             optional_params={"tools": tools},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert body["tools"] == tools
@@ -199,7 +199,7 @@ class TestSnowflakeConfigRequest:
             model="snowflake/llama3.1-70b",
             messages=self.messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert body["stream"] is False
@@ -209,7 +209,7 @@ class TestSnowflakeConfigRequest:
             model="snowflake/llama3.1-70b",
             messages=self.messages,
             optional_params={"stream": True},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert body["stream"] is True
@@ -223,7 +223,7 @@ class TestSnowflakeConfigRequest:
             model="snowflake/llama3.1-70b",
             messages=self.messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert "content_list" not in body
@@ -243,7 +243,7 @@ class TestSnowflakeConfigResponse:
             request_data={},
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         assert result.choices[0].message.content == "Hello from Snowflake!"
@@ -259,7 +259,7 @@ class TestSnowflakeConfigResponse:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         assert result.model.startswith("snowflake/")
@@ -278,7 +278,7 @@ class TestAnthropicConfigURL:
             api_key=PAT_TOKEN,
             model="snowflake/claude-sonnet-4-5",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url.endswith("/api/v2/cortex/v1/messages")
         assert "chat/completions" not in url
@@ -290,7 +290,7 @@ class TestAnthropicConfigURL:
             api_key=PAT_TOKEN,
             model="snowflake/claude-sonnet-4-5",
             optional_params={"account_id": ACCOUNT_ID},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert f"https://{ACCOUNT_ID}.snowflakecomputing.com/api/v2/cortex/v1/messages" == url
 
@@ -305,7 +305,7 @@ class TestAnthropicConfigAuth:
             model="snowflake/claude-sonnet-4-5",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=PAT_TOKEN,
         )
         assert headers["anthropic-version"] == "2023-06-01"
@@ -316,7 +316,7 @@ class TestAnthropicConfigAuth:
             model="snowflake/claude-sonnet-4-5",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=PAT_TOKEN,
         )
         assert headers["X-Snowflake-Authorization-Token-Type"] == "PROGRAMMATIC_ACCESS_TOKEN"
@@ -337,7 +337,7 @@ class TestAnthropicConfigRequest:
             model="snowflake/claude-sonnet-4-5",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert body["system"] == [{"type": "text", "text": "You are helpful."}]
@@ -349,7 +349,7 @@ class TestAnthropicConfigRequest:
             model="snowflake/claude-sonnet-4-5",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert body["model"] == "claude-sonnet-4-5"
@@ -360,7 +360,7 @@ class TestAnthropicConfigRequest:
             model="snowflake/claude-sonnet-4-5",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert "max_tokens" in body
@@ -371,7 +371,7 @@ class TestAnthropicConfigRequest:
             model="snowflake/claude-sonnet-4-5",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={"max_tokens": 500},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert body["max_tokens"] == 500
@@ -381,7 +381,7 @@ class TestAnthropicConfigRequest:
             model="snowflake/claude-sonnet-4-5",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert "system" not in body
@@ -401,7 +401,7 @@ class TestAnthropicConfigResponse:
             request_data={},
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         assert result.choices[0].message.content == "Hi there!"
@@ -417,7 +417,7 @@ class TestAnthropicConfigResponse:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         assert result.usage.prompt_tokens == 10
@@ -444,7 +444,7 @@ class TestAnthropicConfigResponse:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         assert result.usage.prompt_tokens == 1341
@@ -474,7 +474,7 @@ class TestAnthropicConfigResponse:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         message = result.choices[0].message
@@ -492,7 +492,7 @@ class TestAnthropicConfigResponse:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         assert result.choices[0].finish_reason == "stop"
@@ -523,7 +523,7 @@ class TestAnthropicConfigResponse:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         assert result.choices[0].finish_reason == "tool_calls"
@@ -576,7 +576,7 @@ class TestAnthropicToolTransformation:
             model="snowflake/claude-sonnet-4-5",
             messages=messages,
             optional_params={"tools": tools},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert len(body["tools"]) == 1
@@ -595,7 +595,7 @@ class TestAnthropicToolTransformation:
             model="snowflake/claude-sonnet-4-5",
             messages=messages,
             optional_params={"tools": tools},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert body["tools"] == tools
@@ -633,7 +633,7 @@ class TestAnthropicMultiTurnToolMessages:
             model="snowflake/claude-sonnet-4-5",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         msgs = body["messages"]
@@ -677,7 +677,7 @@ class TestAnthropicMultiTurnToolMessages:
             model="snowflake/claude-sonnet-4-5",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assistant_msg = body["messages"][1]
@@ -699,7 +699,7 @@ class TestAnthropicMultiTurnToolMessages:
             model="snowflake/claude-sonnet-4-5",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         for msg in body["messages"]:
@@ -724,7 +724,7 @@ class TestAnthropicMultiTurnToolMessages:
             model="snowflake/claude-sonnet-4-5",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assistant_msg = body["messages"][1]
@@ -752,7 +752,7 @@ class TestAnthropicMultiTurnToolMessages:
             model="snowflake/claude-sonnet-4-5",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         tool_use_block = body["messages"][1]["content"][0]
@@ -772,7 +772,7 @@ class TestAnthropicMultiTurnToolMessages:
             model="snowflake/claude-sonnet-4-5",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         tool_result = body["messages"][2]["content"][0]

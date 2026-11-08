@@ -12,11 +12,11 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.anthropic.messages.adapters.streaming_iterator import AnthropicSSEStream, AnthropicStreamWrapper
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.router_core import RouterCore
-from litellm.types.router import RetryPolicy
+import hangarllm
+from hangarllm.llms.anthropic.messages.adapters.streaming_iterator import AnthropicSSEStream, AnthropicStreamWrapper
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import RetryPolicy
 from tests.unit.test_router.core.scripted_host import (
     ScriptedHost,
     auth_error,
@@ -50,7 +50,7 @@ FALLBACK_FRAMES: Final = [MESSAGE_START, text_delta("B"), MESSAGE_STOP]
 REFUSAL_DETAILS: Final = {"type": "refusal", "category": "cyber"}
 PER_USER_COPILOT: Final = {
     "model": "github_copilot/gpt-4o",
-    "litellm_credential_name": "ghc",
+    "hangarllm_credential_name": "ghc",
     "github_copilot_auth_type": "per_user_oauth",
 }
 
@@ -75,7 +75,7 @@ class BridgedStream(AnthropicSSEStream):
 
     def __init__(self, stream: CustomStreamWrapper) -> None:
         super().__init__(
-            AnthropicStreamWrapper(completion_stream=stream, model="d1", litellm_logging_obj=stream.logging_obj)
+            AnthropicStreamWrapper(completion_stream=stream, model="d1", hangarllm_logging_obj=stream.logging_obj)
         )
         self.logging_obj: Final = stream.logging_obj
 
@@ -155,7 +155,7 @@ async def test_a_caller_scoped_401_on_a_bridged_stream_never_cools_the_deploymen
     host.answer(
         "github_copilot/gpt-4o",
         bridged(
-            litellm.CallerCredentialAuthenticationError(
+            hangarllm.CallerCredentialAuthenticationError(
                 message="not connected", llm_provider="github_copilot", model="gpt-4o"
             )
         ),
@@ -219,7 +219,7 @@ async def test_a_continuation_whose_fallback_stream_fails_raises_the_fallback_er
         enable_mid_stream_fallback_continuation=True,
     )
     stream: Final = await core.acompletion(model="a", messages=MESSAGES, stream=True)  # pyright: ignore[reportAttributeAccessIssue]  # endpoint method
-    with pytest.raises(litellm.InternalServerError, match="boom"):
+    with pytest.raises(hangarllm.InternalServerError, match="boom"):
         await collect_texts(stream)
     assert host.deployments_called() == ["a", "b"]
 
@@ -229,7 +229,7 @@ async def test_a_fallback_stream_that_fails_raises_its_own_error(make_core: Make
     host.answer("openai/b", chat_stream("B", error=server_error()))
     core: Final = make_core(model_list=GROUPS_AB, num_retries=0, fallbacks=[{"a": ["b"]}])
     stream: Final = await core.acompletion(model="a", messages=MESSAGES, stream=True)  # pyright: ignore[reportAttributeAccessIssue]  # endpoint method
-    with pytest.raises(litellm.InternalServerError, match="boom"):
+    with pytest.raises(hangarllm.InternalServerError, match="boom"):
         await collect_texts(stream)
 
 
@@ -238,7 +238,7 @@ def test_a_sync_fallback_stream_that_fails_raises_its_own_error(make_core: MakeC
     host.answer("openai/b", chat_stream("B", error=server_error(), sync=True))
     core: Final = make_core(model_list=GROUPS_AB, num_retries=0, fallbacks=[{"a": ["b"]}])
     stream: Final = core.completion(model="a", messages=MESSAGES, stream=True)  # pyright: ignore[reportAttributeAccessIssue]  # endpoint method
-    with pytest.raises(litellm.InternalServerError, match="boom"):
+    with pytest.raises(hangarllm.InternalServerError, match="boom"):
         collect_texts_sync(stream)
 
 
@@ -249,7 +249,7 @@ async def test_a_messages_fallback_stream_that_fails_raises_its_own_error(
     host.answer("openai/b", anthropic_stream(MESSAGE_START, text_delta("B"), error=server_error()))
     core: Final = make_core(model_list=GROUPS_AB, num_retries=0, fallbacks=[{"a": ["b"]}])
     stream: Final = await open_messages(core)
-    with pytest.raises(litellm.InternalServerError, match="boom"):
+    with pytest.raises(hangarllm.InternalServerError, match="boom"):
         await collect_bytes(stream)
 
 
@@ -261,7 +261,7 @@ async def test_an_order_chain_that_serves_nothing_raises_its_last_hop_error_from
     host.answer("openai/a2", server_error())
     core: Final = make_core(model_list=[deployment("a", "a1", order=1), deployment("a", "a2", order=2)], num_retries=0)
     stream: Final = await core.acompletion(model="a", messages=MESSAGES, stream=True)  # pyright: ignore[reportAttributeAccessIssue]  # endpoint method
-    with pytest.raises(litellm.InternalServerError, match="boom"):
+    with pytest.raises(hangarllm.InternalServerError, match="boom"):
         await collect_texts(stream)
     assert host.deployments_called() == ["a1", "a2"]
 
@@ -272,8 +272,8 @@ async def test_an_order_chain_that_serves_nothing_raises_its_last_hop_error_from
 @pytest.mark.parametrize(
     ("error", "raised", "hint"),
     [
-        (context_window, litellm.ContextWindowExceededError, "Set 'context_window_fallback'"),
-        (content_policy, litellm.ContentPolicyViolationError, "content_policy_fallback"),
+        (context_window, hangarllm.ContextWindowExceededError, "Set 'context_window_fallback'"),
+        (content_policy, hangarllm.ContentPolicyViolationError, "content_policy_fallback"),
     ],
     ids=["context_window", "content_policy"],
 )

@@ -49,7 +49,7 @@ Endpoints: Final[tuple[Endpoint, ...]] = ("chat", "messages", "responses")
 Modes: Final[tuple[Mode, ...]] = ("pre_call", "during_call", "post_call", "logging_only")
 Scopes: Final[tuple[MatrixScope, ...]] = ("streaming", "non_streaming", None)
 PROVIDER_TEXT: Final = "provider stream_scope control"
-GUARDRAIL_PATH: Final = "/beta/litellm_basic_guardrail_api"
+GUARDRAIL_PATH: Final = "/beta/hangarllm_basic_guardrail_api"
 F1_BLOCKED_WORD: Final = "streamscope-mcp-blocked-word"
 F3_STREAM_BLOCKED_WORD: Final = "matrix-f3-stream-block"
 F3_NON_STREAM_BLOCKED_WORD: Final = "matrix-f3-non-stream-block"
@@ -272,7 +272,7 @@ def _rail(
 ) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "generic_guardrail_api",
             "mode": mode,
             "default_on": default_on,
@@ -287,8 +287,8 @@ def _rail(
 def _realtime_filter_rail(name: str, scope: Scope, keyword: str) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
-            "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+            "guardrail": "hangarllm_content_filter",
             "mode": "realtime_input_transcription",
             "default_on": True,
             "stream_scope": scope,
@@ -300,8 +300,8 @@ def _realtime_filter_rail(name: str, scope: Scope, keyword: str) -> dict[str, Js
 def _mcp_filter_rail(name: str, scope: MatrixScope) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
-            "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+            "guardrail": "hangarllm_content_filter",
             "mode": "pre_mcp_call",
             "default_on": False,
             **({"stream_scope": scope} if scope is not None else {}),
@@ -491,7 +491,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[MatrixRig]:
                 "model_list": [
                     {
                         "model_name": "matrix-pipeline-model",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-4o-mini",
                             "api_base": f"{provider.url}/v1",
                             "api_key": "synthetic-provider-key",
@@ -504,7 +504,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[MatrixRig]:
                     "ANTHROPIC_API_KEY": "synthetic-anthropic-key",
                     "GEMINI_API_BASE": provider.url,
                     "GEMINI_API_KEY": "synthetic-gemini-key",
-                    "LITELLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST": "true",
+                    "HANGARLLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST": "true",
                 },
                 "general_settings": {
                     **config_base["general_settings"],
@@ -639,15 +639,15 @@ def _expected_logging_phases(scope: MatrixScope, streamed: bool) -> tuple[str, .
 def _spend_row_for_call(call_id: str, content: bytes) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            "SELECT request_id, litellm_call_id, spend, prompt_tokens, completion_tokens, metadata "
-            'FROM "LiteLLM_SpendLogs" WHERE request_id=%s OR litellm_call_id=%s',
+            "SELECT request_id, hangarllm_call_id, spend, prompt_tokens, completion_tokens, metadata "
+            'FROM "HangarLLM_SpendLogs" WHERE request_id=%s OR hangarllm_call_id=%s',
             (call_id, call_id),
         ),
         lambda values: len(values) >= 1,
         seconds=70,
     )
     assert len(rows) == 1, (call_id, rows, content)
-    assert call_id in (rows[0]["request_id"], rows[0]["litellm_call_id"]), content
+    assert call_id in (rows[0]["request_id"], rows[0]["hangarllm_call_id"]), content
     return rows[0]
 
 
@@ -692,7 +692,7 @@ def _run_matrix_cell(
         "POST",
         path,
         body,
-        headers={"x-litellm-call-id": call_id},
+        headers={"x-hangarllm-call-id": call_id},
     )
     assert response.status_code == 200, response.text
     assert PROVIDER_TEXT in response.text and marker in response.text, response.text
@@ -762,7 +762,7 @@ def _run_sync_sdk(rig: MatrixRig, sdk: str, marker: str, call_id: str, streamed:
                 model=rig.models["chat"],
                 messages=[{"role": "user", "content": marker}],
                 stream=streamed,
-                extra_headers={"x-litellm-call-id": call_id},
+                extra_headers={"x-hangarllm-call-id": call_id},
             )
             if streamed:
                 return "".join(
@@ -780,7 +780,7 @@ def _run_sync_sdk(rig: MatrixRig, sdk: str, marker: str, call_id: str, streamed:
                 model=rig.models["responses"],
                 input=marker,
                 stream=streamed,
-                extra_headers={"x-litellm-call-id": call_id},
+                extra_headers={"x-hangarllm-call-id": call_id},
             )
             if streamed:
                 return "".join(event.delta for event in response if event.type == "response.output_text.delta")
@@ -797,7 +797,7 @@ def _run_sync_sdk(rig: MatrixRig, sdk: str, marker: str, call_id: str, streamed:
                 max_tokens=32,
                 messages=[{"role": "user", "content": marker}],
                 stream=streamed,
-                extra_headers={"x-litellm-call-id": call_id},
+                extra_headers={"x-hangarllm-call-id": call_id},
             )
             if streamed:
                 return "".join(
@@ -821,7 +821,7 @@ async def _run_async_sdk(rig: MatrixRig, sdk: str, marker: str, call_id: str, st
                 model=rig.models["chat"],
                 messages=[{"role": "user", "content": marker}],
                 stream=streamed,
-                extra_headers={"x-litellm-call-id": call_id},
+                extra_headers={"x-hangarllm-call-id": call_id},
             )
             if streamed:
                 chunks: Final = [
@@ -840,7 +840,7 @@ async def _run_async_sdk(rig: MatrixRig, sdk: str, marker: str, call_id: str, st
                 model=rig.models["responses"],
                 input=marker,
                 stream=streamed,
-                extra_headers={"x-litellm-call-id": call_id},
+                extra_headers={"x-hangarllm-call-id": call_id},
             )
             if streamed:
                 events: Final = [event.delta async for event in response if event.type == "response.output_text.delta"]
@@ -858,7 +858,7 @@ async def _run_async_sdk(rig: MatrixRig, sdk: str, marker: str, call_id: str, st
                 max_tokens=32,
                 messages=[{"role": "user", "content": marker}],
                 stream=streamed,
-                extra_headers={"x-litellm-call-id": call_id},
+                extra_headers={"x-hangarllm-call-id": call_id},
             )
             if streamed:
                 events: Final = [
@@ -893,11 +893,11 @@ def _yaml_proxy_config(
         dict[str, JsonValue],
         {
             **config_base,
-            "guardrails": [{"guardrail_name": guardrail_name, "litellm_params": dict(parameters)}],
+            "guardrails": [{"guardrail_name": guardrail_name, "hangarllm_params": dict(parameters)}],
             "model_list": [
                 {
                     "model_name": "scope-yaml-chat",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_base": f"{rig.provider.url}/v1",
                         "api_key": "synthetic-provider-key",
@@ -951,7 +951,7 @@ def _raw_chat(
             **({"stream": True} if streamed else {}),
         },
         key=key,
-        headers={} if call_id is None else {"x-litellm-call-id": call_id},
+        headers={} if call_id is None else {"x-hangarllm-call-id": call_id},
     )
 
 
@@ -1143,7 +1143,7 @@ def test_c8_identical_requests_have_one_scan_and_spend_each(rig: MatrixRig) -> N
     sink_rows: Final = _rail_scans(rig.sink.drain(), rig.rails["a_post_call_streaming"], marker)
     assert len(sink_rows) == 3, (marker, sink_rows)
     guardrail_call_ids: Final = tuple(
-        cast(str, JSON_OBJECT.validate_json(row.body).get("litellm_call_id")) for row in sink_rows
+        cast(str, JSON_OBJECT.validate_json(row.body).get("hangarllm_call_id")) for row in sink_rows
     )
     assert set(guardrail_call_ids) == set(call_ids), (call_ids, guardrail_call_ids)
 
@@ -1152,7 +1152,7 @@ def _create_management_rail(rig: MatrixRig, name: str, params: Mapping[str, Json
     created: Final = rig.candidate.request(
         "POST",
         "/guardrails",
-        {"guardrail": {"guardrail_name": name, "litellm_params": dict(params)}},
+        {"guardrail": {"guardrail_name": name, "hangarllm_params": dict(params)}},
     )
     assert created.status_code == 200, created.text
     payload: Final = JSON_OBJECT.validate_json(created.content)
@@ -1218,8 +1218,8 @@ def test_d1_management_create_read_and_runtime_scope(rig: MatrixRig) -> None:
             if isinstance(list_rows, list)
             else ()
         )
-        info_params: Final = info_payload.get("litellm_params")
-        list_params: Final = listed[0].get("litellm_params") if listed else None
+        info_params: Final = info_payload.get("hangarllm_params")
+        list_params: Final = listed[0].get("hangarllm_params") if listed else None
         assert (
             info.status_code == 200
             and listing.status_code == 200
@@ -1243,7 +1243,7 @@ def test_d2_patch_then_put_updates_runtime_scope(rig: MatrixRig) -> None:
         patched: Final = rig.candidate.request(
             "PATCH",
             f"/guardrails/{identity}",
-            {"litellm_params": {"stream_scope": "non_streaming"}},
+            {"hangarllm_params": {"stream_scope": "non_streaming"}},
         )
         assert patched.status_code == 200, patched.text
         after_patch: Final = _eventually_management_scope(rig, name, (1, 0))
@@ -1252,7 +1252,7 @@ def test_d2_patch_then_put_updates_runtime_scope(rig: MatrixRig) -> None:
         updated: Final = rig.candidate.request(
             "PUT",
             f"/guardrails/{identity}",
-            {"guardrail": {"guardrail_name": name, "litellm_params": params}},
+            {"guardrail": {"guardrail_name": name, "hangarllm_params": params}},
         )
         assert updated.status_code == 200, updated.text
         after_put: Final = _eventually_management_scope(rig, name, (0, 1))
@@ -1283,12 +1283,12 @@ def test_d3_management_rejects_invalid_scope_values(
     name: Final = f"d3-management-{operation.lower()}-{repeat}-{uuid.uuid4().hex}"
     identity: Final = _create_management_rail(rig, name, _management_params(name, rig)) if operation != "POST" else None
     payload: Final = (
-        {"litellm_params": {"stream_scope": scope}}
+        {"hangarllm_params": {"stream_scope": scope}}
         if operation == "PATCH"
         else {
             "guardrail": {
                 "guardrail_name": name,
-                "litellm_params": _management_params(name, rig, scope=scope),
+                "hangarllm_params": _management_params(name, rig, scope=scope),
             }
         }
     )
@@ -1309,14 +1309,14 @@ def test_d3_management_rejects_invalid_scope_values(
         )
         if operation == "POST":
             stored: Final = read_rows(
-                'SELECT guardrail_id FROM "LiteLLM_GuardrailsTable" WHERE guardrail_name=%s',
+                'SELECT guardrail_id FROM "HangarLLM_GuardrailsTable" WHERE guardrail_name=%s',
                 (name,),
             )
             assert stored == [], (operation, scope, stored)
         else:
             existing: Final = rig.candidate.request("GET", f"/guardrails/{identity}/info")
             existing_payload: Final = JSON_OBJECT.validate_json(existing.content)
-            existing_params: Final = existing_payload.get("litellm_params")
+            existing_params: Final = existing_payload.get("hangarllm_params")
             assert (
                 existing.status_code == 200
                 and isinstance(existing_params, dict)
@@ -1333,9 +1333,9 @@ def test_d3_management_treats_an_empty_scope_as_unset(rig: MatrixRig, operation:
     name: Final = f"d3-empty-{operation.lower()}-{uuid.uuid4().hex}"
     existing: Final = _create_management_rail(rig, name, _management_params(name, rig)) if operation != "POST" else None
     payload: Final = (
-        {"litellm_params": {"stream_scope": ""}}
+        {"hangarllm_params": {"stream_scope": ""}}
         if operation == "PATCH"
-        else {"guardrail": {"guardrail_name": name, "litellm_params": _management_params(name, rig, scope="")}}
+        else {"guardrail": {"guardrail_name": name, "hangarllm_params": _management_params(name, rig, scope="")}}
     )
     try:
         response: Final = rig.candidate.request(
@@ -1344,7 +1344,7 @@ def test_d3_management_treats_an_empty_scope_as_unset(rig: MatrixRig, operation:
         assert response.status_code == 200, (operation, response.text)
         identity: Final = existing or JSON_OBJECT.validate_json(response.content).get("guardrail_id")
         info: Final = rig.candidate.request("GET", f"/guardrails/{identity}/info")
-        parameters: Final = JSON_OBJECT.validate_json(info.content).get("litellm_params")
+        parameters: Final = JSON_OBJECT.validate_json(info.content).get("hangarllm_params")
         assert info.status_code == 200 and isinstance(parameters, dict) and parameters.get("stream_scope") is None, (
             operation,
             info.status_code,
@@ -1353,7 +1353,7 @@ def test_d3_management_treats_an_empty_scope_as_unset(rig: MatrixRig, operation:
         observed: Final = _eventually_management_scope(rig, name, (1, 1))
         assert observed[0][2] == 1 and observed[1][2] == 1, observed
     finally:
-        for row in read_rows('SELECT guardrail_id FROM "LiteLLM_GuardrailsTable" WHERE guardrail_name=%s', (name,)):
+        for row in read_rows('SELECT guardrail_id FROM "HangarLLM_GuardrailsTable" WHERE guardrail_name=%s', (name,)):
             assert rig.candidate.request("DELETE", f"/guardrails/{row['guardrail_id']}").status_code == 200, row
 
 
@@ -1363,7 +1363,7 @@ def test_d3_management_normalizes_uppercase_scope(rig: MatrixRig) -> None:
     try:
         info: Final = rig.candidate.request("GET", f"/guardrails/{identity}/info")
         payload: Final = JSON_OBJECT.validate_json(info.content)
-        parameters: Final = payload.get("litellm_params")
+        parameters: Final = payload.get("hangarllm_params")
         assert (
             info.status_code == 200 and isinstance(parameters, dict) and parameters.get("stream_scope") == "streaming"
         ), (info.status_code, info.text)
@@ -1377,7 +1377,7 @@ def test_d4_unauthenticated_management_create_is_rejected(rig: MatrixRig) -> Non
     response: Final = rig.candidate.client.request(
         "POST",
         "/guardrails",
-        json={"guardrail": {"guardrail_name": name, "litellm_params": _management_params(name, rig)}},
+        json={"guardrail": {"guardrail_name": name, "hangarllm_params": _management_params(name, rig)}},
     )
     assert response.status_code == 401, response.text
 
@@ -1399,7 +1399,7 @@ HOSTILE_CLASSIFICATION_VALUES: Final[tuple[JsonValue, ...]] = (
     1,
     [],
     "",
-    "litellm-server-streaming",
+    "hangarllm-server-streaming",
     "x" * 5000,
 )
 
@@ -1441,7 +1441,7 @@ def test_ea_is_streaming_request_body_does_not_change_chat_classification(
 
 
 @pytest.mark.parametrize("endpoint", ("chat", "passthrough"), ids=("chat", "configured-pass-through"))
-@pytest.mark.parametrize("value", (True, "litellm-server-streaming"), ids=("true", "marker"))
+@pytest.mark.parametrize("value", (True, "hangarllm-server-streaming"), ids=("true", "marker"))
 def test_eb_namespaced_caller_body_field_cannot_flip_classification(
     rig: MatrixRig,
     endpoint: str,
@@ -1453,12 +1453,12 @@ def test_eb_namespaced_caller_body_field_cannot_flip_classification(
             "model": rig.models["chat"],
             "messages": [{"role": "user", "content": marker}],
             "guardrails": [rig.rails["e_stream"], rig.rails["e_non_stream"]],
-            "litellm_server_streaming_classification": value,
+            "hangarllm_server_streaming_classification": value,
         }
         if endpoint == "chat"
         else {
             "marker": marker,
-            "litellm_server_streaming_classification": value,
+            "hangarllm_server_streaming_classification": value,
         }
     )
     response: Final = rig.candidate.request(
@@ -1472,10 +1472,10 @@ def test_eb_namespaced_caller_body_field_cannot_flip_classification(
     provider_rows: Final = _matching_requests(rig.provider, marker)
     assert len(provider_rows) == 1, (marker, provider_rows)
     provider_body: Final = JSON_OBJECT.validate_json(provider_rows[0].body)
-    if endpoint == "passthrough" and value == "litellm-server-streaming":
-        assert "litellm_server_streaming_classification" not in provider_body, provider_rows[0].body.decode()
+    if endpoint == "passthrough" and value == "hangarllm-server-streaming":
+        assert "hangarllm_server_streaming_classification" not in provider_body, provider_rows[0].body.decode()
     else:
-        assert provider_body.get("litellm_server_streaming_classification") == value, provider_rows[0].body.decode()
+        assert provider_body.get("hangarllm_server_streaming_classification") == value, provider_rows[0].body.decode()
     sink_rows: Final = rig.sink.drain()
     streaming_rows, non_streaming_rows = _scoped_rows(
         sink_rows,

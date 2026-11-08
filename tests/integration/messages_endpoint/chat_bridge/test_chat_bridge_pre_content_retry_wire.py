@@ -102,7 +102,7 @@ def _stream(gateway: Gateway, body: dict[str, JsonValue]) -> tuple[int, tuple[Ss
 
 def _success_rows(model: str) -> list[dict[str, JsonValue]]:
     return eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda rows: len(rows) >= 1,
         seconds=70,
     )

@@ -1,6 +1,6 @@
 """Cross-provider base vector store contract tests.
 
-Exercises litellm.vector_stores create/search against a real request/response
+Exercises hangarllm.vector_stores create/search against a real request/response
 cycle with the upstream scripted at the provider's own URL.
 """
 
@@ -11,7 +11,7 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 
 OPENAI_VECTOR_STORES_URL: Final = "https://api.openai.com/v1/vector_stores"
 OPENAI_VECTOR_STORE_SEARCH_URL: Final = "https://api.openai.com/v1/vector_stores/vs_abc123/search"
@@ -19,7 +19,7 @@ OPENAI_VECTOR_STORE_SEARCH_URL: Final = "https://api.openai.com/v1/vector_stores
 
 @pytest.mark.asyncio
 async def test_basic_create_vector_store(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     create_route = respx_mock.post(OPENAI_VECTOR_STORES_URL).mock(
         return_value=httpx.Response(
             200,
@@ -37,7 +37,7 @@ async def test_basic_create_vector_store(respx_mock: respx.MockRouter, monkeypat
         )
     )
 
-    response = await litellm.vector_stores.acreate(
+    response = await hangarllm.vector_stores.acreate(
         name="support-docs",
         custom_llm_provider="openai",
         api_key="sk-unit-test",
@@ -57,7 +57,7 @@ async def test_basic_create_vector_store(respx_mock: respx.MockRouter, monkeypat
 
 @pytest.mark.asyncio
 async def test_basic_search_vector_store(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     search_route = respx_mock.post(OPENAI_VECTOR_STORE_SEARCH_URL).mock(
         return_value=httpx.Response(
             200,
@@ -77,7 +77,7 @@ async def test_basic_search_vector_store(respx_mock: respx.MockRouter, monkeypat
         )
     )
 
-    response = await litellm.vector_stores.asearch(
+    response = await hangarllm.vector_stores.asearch(
         query="what is machine learning?",
         vector_store_id="vs_abc123",
         custom_llm_provider="openai",

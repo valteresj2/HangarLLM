@@ -7,11 +7,11 @@ from typing import Final
 import httpx
 from pydantic import BaseModel
 
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 def _payload(kwargs: Mapping[str, object], response_obj: object, logger: str, hook: str) -> str:
-    params: Final = kwargs.get("litellm_params")
+    params: Final = kwargs.get("hangarllm_params")
     request: Final = params.get("proxy_server_request") if isinstance(params, Mapping) else None
     standard: Final = kwargs.get("standard_logging_object")
     return json.dumps(

@@ -5,13 +5,13 @@ import pytest
 from prisma.errors import PrismaError
 from typing_extensions import LiteralString
 
-from litellm.proxy.telemetry.attempt_logger import TelemetryAttemptLogger
-from litellm.proxy.telemetry.runtime import TelemetryRuntime, deployment_hash_secret
-from litellm.proxy.telemetry.settings import TelemetryDestination, TelemetrySettings
-from litellm.proxy.telemetry.store import HASH_SECRET_PARAM, LocalTableExporter, TelemetryStore
-from litellm.telemetry.records import AttemptRecord, InstanceInfo, StatusClass
-from litellm.telemetry.report import Report
-from litellm.telemetry.sink import ExportOutcome
+from hangarllm.proxy.telemetry.attempt_logger import TelemetryAttemptLogger
+from hangarllm.proxy.telemetry.runtime import TelemetryRuntime, deployment_hash_secret
+from hangarllm.proxy.telemetry.settings import TelemetryDestination, TelemetrySettings
+from hangarllm.proxy.telemetry.store import HASH_SECRET_PARAM, LocalTableExporter, TelemetryStore
+from hangarllm.telemetry.records import AttemptRecord, InstanceInfo, StatusClass
+from hangarllm.telemetry.report import Report
+from hangarllm.telemetry.sink import ExportOutcome
 
 
 @dataclass
@@ -41,7 +41,7 @@ class _FakeDatabase:
 
 def _report(*, dropped_records: int = 3) -> Report:
     return Report(
-        instance=InstanceInfo(instance_id="i", litellm_version="1.0.0"),
+        instance=InstanceInfo(instance_id="i", hangarllm_version="1.0.0"),
         window_start=10.0,
         window_end=70.0,
         dropped_records=dropped_records,
@@ -53,10 +53,10 @@ async def test_a_stored_report_keeps_its_window_and_prunes_past_the_retention() 
     db: Final = _FakeDatabase()
     assert await LocalTableExporter(TelemetryStore(db, retention_days=7)).export(_report()) is ExportOutcome.SENT
     (insert, insert_args), (prune, prune_args) = db.executed
-    assert 'INSERT INTO "LiteLLM_TelemetryReport"' in insert
+    assert 'INSERT INTO "HangarLLM_TelemetryReport"' in insert
     assert insert_args[1:3] == (10.0, 70.0)
     assert '"instance_id": "i"' in str(insert_args[3])
-    assert 'DELETE FROM "LiteLLM_TelemetryReport"' in prune
+    assert 'DELETE FROM "HangarLLM_TelemetryReport"' in prune
     assert prune_args == (7,)
 
 
@@ -82,7 +82,7 @@ async def test_retrying_a_window_whose_insert_may_have_committed_overwrites_it_i
     db.fail_writes = False
     assert await exporter.export(_report()) is ExportOutcome.SENT
     assert await exporter.export(_report(dropped_records=5)) is ExportOutcome.SENT
-    insert_ids: Final = [args[0] for query, args in db.executed if 'LiteLLM_TelemetryReport" (id' in query]
+    insert_ids: Final = [args[0] for query, args in db.executed if 'HangarLLM_TelemetryReport" (id' in query]
     retried, next_window = insert_ids
     assert retried == db.failed_ids[0] and next_window != retried
     assert "ON CONFLICT (id) DO UPDATE" in db.executed[0][0]
@@ -101,7 +101,7 @@ async def test_the_local_table_destination_keeps_reports_under_the_persisted_ins
     registered: Final[list[TelemetryAttemptLogger]] = []  # mutable-ok: captures the register callback
     runtime: Final = TelemetryRuntime()
     await runtime.start(
-        litellm_version="1.0.0",
+        hangarllm_version="1.0.0",
         settings=TelemetrySettings(
             groups="heartbeat,request_success,token_info,request_taxonomy",
             destination=TelemetryDestination.LOCAL_TABLE,
@@ -114,7 +114,7 @@ async def test_the_local_table_destination_keeps_reports_under_the_persisted_ins
     assert len(registered) == 1
     runtime.sink.record_attempt(AttemptRecord(provider="anthropic", provider_status=StatusClass.SUCCESS, stream=False))
     await runtime.stop()
-    stored: Final = tuple(args for query, args in db.executed if 'INSERT INTO "LiteLLM_TelemetryReport"' in query)
+    stored: Final = tuple(args for query, args in db.executed if 'INSERT INTO "HangarLLM_TelemetryReport"' in query)
     assert len(stored) == 1
     assert '"instance_id": "persisted-install"' in str(stored[0][3])
 

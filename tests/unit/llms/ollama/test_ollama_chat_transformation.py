@@ -13,20 +13,20 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
 )
 
-from litellm.llms.ollama.chat.transformation import (
+from hangarllm.llms.ollama.chat.transformation import (
     OllamaChatConfig,
     OllamaChatCompletionResponseIterator,
 )
 
-from litellm.types.llms.openai import AllMessageValues
-from litellm.utils import get_llm_provider, get_optional_params
+from hangarllm.types.llms.openai import AllMessageValues
+from hangarllm.utils import get_llm_provider, get_optional_params
 
 import json
 from unittest.mock import ANY, MagicMock, patch
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.types.utils import Choices, EmbeddingResponse, Message, ModelResponse, ModelResponseStream
+import hangarllm
+from hangarllm._logging import verbose_logger
+from hangarllm.types.utils import Choices, EmbeddingResponse, Message, ModelResponse, ModelResponseStream
 from unittest import mock
 
 
@@ -92,7 +92,7 @@ class TestOllamaChatConfigResponseFormat:
         """Test that transform_request loads config parameters without overriding existing optional_params"""
         # Set config parameters on the class
 
-        litellm.OllamaChatConfig(num_ctx=8000, temperature=0.0)
+        hangarllm.OllamaChatConfig(num_ctx=8000, temperature=0.0)
 
         try:
             config = OllamaChatConfig()
@@ -105,7 +105,7 @@ class TestOllamaChatConfigResponseFormat:
                 model="llama2",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params=optional_params,
-                litellm_params={},
+                hangarllm_params={},
                 headers={},
             )
 
@@ -115,8 +115,8 @@ class TestOllamaChatConfigResponseFormat:
 
         finally:
             # Clean up class attributes
-            delattr(litellm.OllamaChatConfig, "num_ctx")
-            delattr(litellm.OllamaChatConfig, "temperature")
+            delattr(hangarllm.OllamaChatConfig, "num_ctx")
+            delattr(hangarllm.OllamaChatConfig, "temperature")
 
     def test_transform_request_content_list_to_string(self):
         """Test that content list is properly converted to string in transform_request"""
@@ -140,7 +140,7 @@ class TestOllamaChatConfigResponseFormat:
             model="llama2",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -162,7 +162,7 @@ class TestOllamaChatConfigResponseFormat:
             model="llama2",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -182,7 +182,7 @@ class TestOllamaChatConfigResponseFormat:
             model="llama2",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -218,7 +218,7 @@ class TestOllamaChatConfigResponseFormat:
             model="llama2",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -265,7 +265,7 @@ class TestOllamaChatConfigResponseFormat:
             model="llama2",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -304,7 +304,7 @@ class TestOllamaChatConfigResponseFormat:
             model="llama2",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -327,7 +327,7 @@ class TestOllamaChatConfigResponseFormat:
             model="llama2",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -342,13 +342,13 @@ class TestOllamaChatConfigResponseFormat:
 class TestOllamaToolCalling:
     """Tests for Ollama tool calling fixes.
 
-    Issue: https://github.com/BerriAI/litellm/issues/18922
+    Issue: upstream issue 18922
     """
 
     def test_tools_passed_directly_without_capability_check(self):
         """Test that tools are passed directly to Ollama without model capability checks.
 
-        Previously, the code called litellm.get_model_info() which could fail
+        Previously, the code called hangarllm.get_model_info() which could fail
         when Ollama runs on a remote server, causing a broken fallback.
         Now tools are passed directly - Ollama 0.4+ handles capability detection.
         """
@@ -387,7 +387,7 @@ class TestOllamaToolCalling:
         import json
         from unittest.mock import MagicMock
 
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         config = OllamaChatConfig()
 
@@ -429,7 +429,7 @@ class TestOllamaToolCalling:
             request_data={},
             messages=[{"role": "user", "content": "Weather?"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
             api_key=None,
             json_mode=False,
@@ -473,7 +473,7 @@ class TestOllamaToolCalling:
             request_data={},
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
             api_key=None,
             json_mode=False,
@@ -526,7 +526,7 @@ class TestOllamaFinishReasonLength:
             request_data={},
             messages=[{"role": "user", "content": "Explain neural networks."}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
             api_key=None,
             json_mode=False,
@@ -567,7 +567,7 @@ class TestOllamaFinishReasonLength:
             request_data={},
             messages=[{"role": "user", "content": "What is 2+2?"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
             api_key=None,
             json_mode=False,
@@ -624,7 +624,7 @@ class TestOllamaFinishReasonLength:
         """Streaming: tool_calls arriving mid-stream (not on the done chunk) must
         still produce finish_reason='tool_calls' on the final chunk.
 
-        Regression test for https://github.com/BerriAI/litellm/issues/34692:
+        Regression test for upstream issue 34692
         Ollama emits tool_calls in an earlier chunk and the done chunk carries
         none, which left finish_reason at 'stop' and made the Anthropic
         /v1/messages bridge emit stop_reason 'end_turn' instead of 'tool_use'.
@@ -902,7 +902,7 @@ class TestOllamaToolCallTransformation:
             model="ollama_chat/test-model",
             messages=messages,
             optional_params={"stream": stream},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -944,7 +944,7 @@ class TestOllamaToolCallTransformation:
             model="ollama_chat/test-model",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -957,7 +957,7 @@ class TestOllamaToolCallTransformation:
         copied into the outgoing OllamaChatCompletionMessage, so Ollama
         received {role: assistant, content: ''} with no tool_calls and
         the model re-issued the same call on every turn.
-        Regression: https://github.com/BerriAI/litellm/issues/26094
+        Regression: upstream issue 26094
         """
         config = OllamaChatConfig()
         messages = cast(
@@ -985,7 +985,7 @@ class TestOllamaToolCallTransformation:
             model="gemma4:27b",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -1000,7 +1000,7 @@ class TestOllamaToolCallTransformation:
         """
         tool_call_id on role:tool messages must be forwarded so Ollama can
         resolve the tool name from the conversation history.
-        Regression: https://github.com/BerriAI/litellm/issues/26094
+        Regression: upstream issue 26094
         """
         config = OllamaChatConfig()
         messages = cast(
@@ -1033,7 +1033,7 @@ class TestOllamaToolCallTransformation:
             model="gemma4:27b",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -1142,13 +1142,13 @@ mock_ollama_embedding_response = EmbeddingResponse(model="ollama/nomic-embed-tex
 
 
 @mock.patch(
-    "litellm.llms.ollama.completion.handler.ollama_embeddings",
+    "hangarllm.llms.ollama.completion.handler.ollama_embeddings",
     return_value=mock_ollama_embedding_response,
 )
 def test_ollama_embeddings(mock_embeddings):
     # assert that ollama_embeddings is called with the right parameters
     try:
-        embeddings = litellm.embedding(
+        embeddings = hangarllm.embedding(
             model="ollama/nomic-embed-text", input=["hello world"]
         )
         print(embeddings)
@@ -1169,14 +1169,14 @@ def test_ollama_embeddings(mock_embeddings):
 
 
 @mock.patch(
-    "litellm.llms.ollama.completion.handler.ollama_aembeddings",
+    "hangarllm.llms.ollama.completion.handler.ollama_aembeddings",
     return_value=mock_ollama_embedding_response,
 )
 def test_ollama_aembeddings(mock_aembeddings):
     # assert that ollama_aembeddings is called with the right parameters
     try:
         embeddings = asyncio.run(
-            litellm.aembedding(model="ollama/nomic-embed-text", input=["hello world"])
+            hangarllm.aembedding(model="ollama/nomic-embed-text", input=["hello world"])
         )
         print(embeddings)
         mock_aembeddings.assert_called_once_with(
@@ -1206,7 +1206,7 @@ def test_ollama_aembeddings(mock_aembeddings):
 def test_get_complete_url_ignores_a_trailing_slash_on_api_base(api_base: str):
     assert (
         OllamaChatConfig().get_complete_url(
-            api_base=api_base, api_key=None, model="llama3", optional_params={}, litellm_params={}
+            api_base=api_base, api_key=None, model="llama3", optional_params={}, hangarllm_params={}
         )
         == "http://gateway.example.com/ollama/api/chat"
     )
@@ -1239,11 +1239,11 @@ def _ollama_chat_route(respx_mock: respx.MockRouter) -> respx.Route:
 def test_ollama_chat_answers_400_for_a_hosted_mcp_tool_it_cannot_run(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = _ollama_chat_route(respx_mock)
 
-    with pytest.raises(litellm.UnsupportedParamsError) as raised:
-        litellm.completion(
+    with pytest.raises(hangarllm.UnsupportedParamsError) as raised:
+        hangarllm.completion(
             model="ollama_chat/qwen3:0.6b",
             messages=[{"role": "user", "content": "weather in Paris?"}],
             tools=[_DEEPWIKI_MCP_TOOL, _WEATHER_TOOL],
@@ -1263,10 +1263,10 @@ def test_ollama_chat_answers_400_for_a_hosted_mcp_tool_it_cannot_run(
 def test_ollama_chat_drop_params_sends_only_the_tools_ollama_can_call(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, tools: list[object], sent_tools: object
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = _ollama_chat_route(respx_mock)
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="ollama_chat/qwen3:0.6b",
         messages=[{"role": "user", "content": "weather in Paris?"}],
         tools=tools,

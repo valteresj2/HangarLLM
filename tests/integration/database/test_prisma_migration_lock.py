@@ -4,7 +4,7 @@ from typing import Final
 
 import psycopg
 import pytest
-from litellm_proxy_extras.migration_lock import MIGRATION_LOCK_KEY, PRISMA_ADVISORY_LOCK_KEY, prisma_migration_lock
+from hangarllm_proxy_extras.migration_lock import MIGRATION_LOCK_KEY, PRISMA_ADVISORY_LOCK_KEY, prisma_migration_lock
 
 pytestmark = pytest.mark.skipif("DATABASE_URL" not in os.environ, reason="needs a live Postgres")
 
@@ -62,7 +62,7 @@ def test_prisma_migration_lock_holds_prismas_key_on_a_pinned_connection_and_leav
 def test_prisma_migration_lock_does_not_wait_for_the_coordinator_lock(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_MIGRATION_LOCK_TIMEOUT", "3")
+    monkeypatch.setenv("HANGARLLM_MIGRATION_LOCK_TIMEOUT", "3")
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as peer:
         peer.execute("SELECT pg_advisory_lock(%s)", (MIGRATION_LOCK_KEY,))
 
@@ -73,7 +73,7 @@ def test_prisma_migration_lock_does_not_wait_for_the_coordinator_lock(
 def test_prisma_migration_lock_times_out_when_another_prisma_migration_holds_its_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_MIGRATION_LOCK_TIMEOUT", "3")
+    monkeypatch.setenv("HANGARLLM_MIGRATION_LOCK_TIMEOUT", "3")
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as peer:
         peer.execute("SELECT pg_advisory_lock(%s)", (PRISMA_ADVISORY_LOCK_KEY,))
 

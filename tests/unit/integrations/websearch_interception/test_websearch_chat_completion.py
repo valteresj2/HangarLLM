@@ -2,7 +2,7 @@
 Integration tests for WebSearch interception with chat completions API.
 
 Tests the end-to-end flow of websearch_interception callback with
-litellm.acompletion() for transparent server-side web search execution.
+hangarllm.acompletion() for transparent server-side web search execution.
 """
 
 import datetime
@@ -12,17 +12,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import respx
 
-import litellm
-from litellm.integrations.websearch_interception.handler import (
+import hangarllm
+from hangarllm.integrations.websearch_interception.handler import (
     WebSearchInterceptionLogger,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.types.utils import CallTypes, LlmProviders, ModelResponse
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.types.utils import CallTypes, LlmProviders, ModelResponse
 
 
 @pytest.fixture
 def mock_search_response():
-    """Mock search response from litellm.asearch()"""
+    """Mock search response from hangarllm.asearch()"""
     mock_response = MagicMock()
     mock_response.results = [
         MagicMock(
@@ -43,7 +43,7 @@ def websearch_logger():
 @pytest.mark.asyncio
 async def test_websearch_chat_completion_hook_detection():
     """Test that websearch hook correctly detects tool calls in response."""
-    from litellm.types.utils import (
+    from hangarllm.types.utils import (
         ChatCompletionMessageToolCall,
         Choices,
         Function,
@@ -52,7 +52,7 @@ async def test_websearch_chat_completion_hook_detection():
 
     websearch_logger = WebSearchInterceptionLogger(enabled_providers=[LlmProviders.OPENAI])
 
-    # Mock response with litellm_web_search tool call
+    # Mock response with hangarllm_web_search tool call
     mock_response = ModelResponse(
         id="test-123",
         choices=[
@@ -67,7 +67,7 @@ async def test_websearch_chat_completion_hook_detection():
                             id="call_123",
                             type="function",
                             function=Function(
-                                name="litellm_web_search",
+                                name="hangarllm_web_search",
                                 arguments='{"query": "weather in SF"}',
                             ),
                         )
@@ -88,7 +88,7 @@ async def test_websearch_chat_completion_hook_detection():
         tools=[
             {
                 "type": "function",
-                "function": {"name": "litellm_web_search"},
+                "function": {"name": "hangarllm_web_search"},
             }
         ],
         stream=False,
@@ -100,14 +100,14 @@ async def test_websearch_chat_completion_hook_detection():
     assert should_run is True
     assert "tool_calls" in tools_dict
     assert len(tools_dict["tool_calls"]) == 1
-    assert tools_dict["tool_calls"][0]["name"] == "litellm_web_search"
+    assert tools_dict["tool_calls"][0]["name"] == "hangarllm_web_search"
     assert tools_dict["response_format"] == "openai"
 
 
 @pytest.mark.asyncio
 async def test_websearch_not_triggered_without_tool():
     """Test that websearch hook is NOT triggered when no web search tool in request."""
-    from litellm.types.utils import Choices, Message
+    from hangarllm.types.utils import Choices, Message
 
     websearch_logger = WebSearchInterceptionLogger(enabled_providers=[LlmProviders.OPENAI])
 
@@ -153,7 +153,7 @@ async def test_websearch_not_triggered_without_tool():
 @pytest.mark.asyncio
 async def test_websearch_not_triggered_for_disabled_provider():
     """Test that websearch hook is NOT triggered for providers not in enabled_providers."""
-    from litellm.types.utils import (
+    from hangarllm.types.utils import (
         ChatCompletionMessageToolCall,
         Choices,
         Function,
@@ -177,7 +177,7 @@ async def test_websearch_not_triggered_for_disabled_provider():
                             id="call_123",
                             type="function",
                             function=Function(
-                                name="litellm_web_search",
+                                name="hangarllm_web_search",
                                 arguments='{"query": "test"}',
                             ),
                         )
@@ -198,7 +198,7 @@ async def test_websearch_not_triggered_for_disabled_provider():
         tools=[
             {
                 "type": "function",
-                "function": {"name": "litellm_web_search"},
+                "function": {"name": "hangarllm_web_search"},
             }
         ],
         stream=False,
@@ -219,7 +219,7 @@ async def test_websearch_json_serialization_fix():
     string representation instead of proper JSON, causing providers like
     MiniMax to reject requests with 'invalid function arguments json string'.
     """
-    from litellm.integrations.websearch_interception.transformation import (
+    from hangarllm.integrations.websearch_interception.transformation import (
         WebSearchTransformation,
     )
 
@@ -227,7 +227,7 @@ async def test_websearch_json_serialization_fix():
     tool_calls = [
         {
             "id": "call_123",
-            "name": "litellm_web_search",
+            "name": "hangarllm_web_search",
             "input": {"query": "weather in SF"},  # Dict input
         }
     ]
@@ -262,12 +262,12 @@ async def test_maybe_run_chat_completion_agentic_loop_calls_chat_completion_hook
 
     Before the fix, the function used the wrong gate check and wrong hook,
     causing WebSearchInterceptionLogger to never intercept chat completion requests
-    even when the LLM returned a litellm_web_search tool call.
+    even when the LLM returned a hangarllm_web_search tool call.
     """
-    from litellm.litellm_core_utils.chat_completion_agentic_loop import (
+    from hangarllm.hangarllm_core_utils.chat_completion_agentic_loop import (
         maybe_run_chat_completion_agentic_loop,
     )
-    from litellm.types.utils import (
+    from hangarllm.types.utils import (
         ChatCompletionMessageToolCall,
         Choices,
         Function,
@@ -288,7 +288,7 @@ async def test_maybe_run_chat_completion_agentic_loop_calls_chat_completion_hook
                             id="call_abc",
                             type="function",
                             function=Function(
-                                name="litellm_web_search",
+                                name="hangarllm_web_search",
                                 arguments='{"query": "latest news"}',
                             ),
                         )
@@ -323,24 +323,24 @@ async def test_maybe_run_chat_completion_agentic_loop_calls_chat_completion_hook
         nonlocal chat_completion_hook_called
         chat_completion_hook_called = True
         return True, {
-            "tool_calls": [{"id": "call_abc", "name": "litellm_web_search", "input": {"query": "latest news"}}],
+            "tool_calls": [{"id": "call_abc", "name": "hangarllm_web_search", "input": {"query": "latest news"}}],
             "tool_type": "websearch",
             "provider": "openai",
             "response_format": "openai",
         }
 
     async def fake_build_plan(tools, model, messages, response, optional_params, logging_obj, stream, kwargs):
-        from litellm.types.integrations.custom_logger import AgenticLoopPlan
+        from hangarllm.types.integrations.custom_logger import AgenticLoopPlan
 
         return AgenticLoopPlan(run_agentic_loop=False, response_override=sentinel)
 
     websearch_logger.async_should_run_chat_completion_agentic_loop = fake_should_run_chat_completion
     websearch_logger.async_build_chat_completion_agentic_loop_plan = fake_build_plan
 
-    import litellm as _litellm
+    import hangarllm as _hangarllm
 
-    original_callbacks = _litellm.callbacks[:]
-    _litellm.callbacks = [websearch_logger]
+    original_callbacks = _hangarllm.callbacks[:]
+    _hangarllm.callbacks = [websearch_logger]
 
     mock_logging_obj = MagicMock()
     mock_logging_obj.dynamic_success_callbacks = None
@@ -354,7 +354,7 @@ async def test_maybe_run_chat_completion_agentic_loop_calls_chat_completion_hook
                 "tools": [
                     {
                         "type": "function",
-                        "function": {"name": "litellm_web_search"},
+                        "function": {"name": "hangarllm_web_search"},
                     }
                 ]
             },
@@ -364,7 +364,7 @@ async def test_maybe_run_chat_completion_agentic_loop_calls_chat_completion_hook
             stream=False,
         )
     finally:
-        _litellm.callbacks = original_callbacks
+        _hangarllm.callbacks = original_callbacks
 
     assert chat_completion_hook_called, (
         "async_should_run_chat_completion_agentic_loop was never called; "
@@ -378,7 +378,7 @@ async def test_execute_chat_completion_agentic_loop_strips_tool_choice():
     """Regression: _execute_chat_completion_agentic_loop must not forward tool_choice
     from the original request into the follow-up synthesis call.
 
-    When the original request forces tool_choice to litellm_web_search, merging
+    When the original request forces tool_choice to hangarllm_web_search, merging
     optional_params into the follow-up params without explicit removal causes the
     model to call the search tool again instead of synthesizing an answer.
     """
@@ -395,20 +395,20 @@ async def test_execute_chat_completion_agentic_loop_strips_tool_choice():
         return ("Bitcoin price is $60,000", None)
 
     with patch.object(websearch_logger, "_execute_search", side_effect=fake_search):
-        with patch("litellm.acompletion", side_effect=fake_acompletion):
+        with patch("hangarllm.acompletion", side_effect=fake_acompletion):
             await websearch_logger._execute_chat_completion_agentic_loop(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": "What is Bitcoin price?"}],
                 tool_calls=[
                     {
                         "id": "call_1",
-                        "name": "litellm_web_search",
+                        "name": "hangarllm_web_search",
                         "input": {"query": "bitcoin price"},
                     }
                 ],
                 optional_params={
-                    "tools": [{"type": "function", "function": {"name": "litellm_web_search"}}],
-                    "tool_choice": {"type": "function", "function": {"name": "litellm_web_search"}},
+                    "tools": [{"type": "function", "function": {"name": "hangarllm_web_search"}}],
+                    "tool_choice": {"type": "function", "function": {"name": "hangarllm_web_search"}},
                     "max_tokens": 512,
                 },
                 logging_obj=MagicMock(),
@@ -446,20 +446,20 @@ async def test_chat_followup_reuses_the_model_the_caller_requested(
         stream=False,
         call_type=CallTypes.completion.value,
         start_time=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-chat-followup",
+        hangarllm_call_id="call-chat-followup",
         function_id="fn-chat-followup",
     )
-    litellm.completion(
+    hangarllm.completion(
         model=requested_model,
         messages=[{"role": "user", "content": "What's the latest AI news?"}],
         mock_response="searching",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
     logger: Final = WebSearchInterceptionLogger()
 
     plan: Final = await logger.async_build_chat_completion_agentic_loop_plan(
         tools={
-            "tool_calls": [{"id": "call_abc", "name": "litellm_web_search", "input": {"query": "latest ai news"}}],
+            "tool_calls": [{"id": "call_abc", "name": "hangarllm_web_search", "input": {"query": "latest ai news"}}],
             "tool_type": "websearch",
             "provider": custom_llm_provider,
             "response_format": "openai",

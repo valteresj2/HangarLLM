@@ -2,21 +2,21 @@
 -- Idempotent: deletes all e2e-* rows then re-inserts deterministic data.
 
 -- 1. Clean up in dependency order
-DELETE FROM "LiteLLM_InvitationLink"
+DELETE FROM "HangarLLM_InvitationLink"
 WHERE "user_id" LIKE 'e2e-%' OR "created_by" LIKE 'e2e-%' OR "updated_by" LIKE 'e2e-%';
-DELETE FROM "LiteLLM_TeamMembership" WHERE "user_id" LIKE 'e2e-%';
-DELETE FROM "LiteLLM_VerificationToken" WHERE token LIKE 'e2e-%';
-DELETE FROM "LiteLLM_TeamTable" WHERE "team_id" LIKE 'e2e-%';
-DELETE FROM "LiteLLM_OrganizationTable" WHERE "organization_id" LIKE 'e2e-%';
-DELETE FROM "LiteLLM_UserTable" WHERE "user_id" LIKE 'e2e-%';
-DELETE FROM "LiteLLM_BudgetTable" WHERE "budget_id" LIKE 'e2e-%';
+DELETE FROM "HangarLLM_TeamMembership" WHERE "user_id" LIKE 'e2e-%';
+DELETE FROM "HangarLLM_VerificationToken" WHERE token LIKE 'e2e-%';
+DELETE FROM "HangarLLM_TeamTable" WHERE "team_id" LIKE 'e2e-%';
+DELETE FROM "HangarLLM_OrganizationTable" WHERE "organization_id" LIKE 'e2e-%';
+DELETE FROM "HangarLLM_UserTable" WHERE "user_id" LIKE 'e2e-%';
+DELETE FROM "HangarLLM_BudgetTable" WHERE "budget_id" LIKE 'e2e-%';
 
 -- 2. Budget (created_by and updated_by are NOT NULL)
-INSERT INTO "LiteLLM_BudgetTable" ("budget_id", "max_budget", "created_by", "updated_by")
+INSERT INTO "HangarLLM_BudgetTable" ("budget_id", "max_budget", "created_by", "updated_by")
 VALUES ('e2e-budget-org', 1000, 'e2e-proxy-admin', 'e2e-proxy-admin');
 
 -- 3. Organization (created_by and updated_by are NOT NULL)
-INSERT INTO "LiteLLM_OrganizationTable" (
+INSERT INTO "HangarLLM_OrganizationTable" (
   "organization_id", "organization_alias", "budget_id",
   "metadata", "models", "spend", "model_spend",
   "created_by", "updated_by"
@@ -27,7 +27,7 @@ INSERT INTO "LiteLLM_OrganizationTable" (
 );
 
 -- 4. Users (password hash is scrypt of E2E_SEEDED_USER_PASSWORD from constants.ts)
-INSERT INTO "LiteLLM_UserTable" ("user_id", "user_email", "user_role", "teams", "password")
+INSERT INTO "HangarLLM_UserTable" ("user_id", "user_email", "user_role", "teams", "password")
 VALUES
   ('e2e-proxy-admin',      'admin@test.local',       'proxy_admin',           '{"e2e-team-crud"}',                  'scrypt:KdnTJwPb3gswdqSznPE5CC6apeFIMycd6BG7yRWndZa3QZPcVs37y7jvrQCaPUNq'),
   ('e2e-admin-viewer',     'adminviewer@test.local',  'proxy_admin_viewer',   '{}',                                 'scrypt:KdnTJwPb3gswdqSznPE5CC6apeFIMycd6BG7yRWndZa3QZPcVs37y7jvrQCaPUNq'),
@@ -40,7 +40,7 @@ VALUES
   ('e2e-removable-member', 'removable@test.local',    'internal_user',        '{"e2e-team-crud"}',                  'scrypt:KdnTJwPb3gswdqSznPE5CC6apeFIMycd6BG7yRWndZa3QZPcVs37y7jvrQCaPUNq');
 
 -- 5. Teams (members_with_roles is required JSON)
-INSERT INTO "LiteLLM_TeamTable" (
+INSERT INTO "HangarLLM_TeamTable" (
   "team_id", "team_alias", "organization_id", "admins", "members",
   "members_with_roles", "metadata", "models", "spend", "model_spend", "model_max_budget", "blocked"
 ) VALUES
@@ -65,7 +65,7 @@ INSERT INTO "LiteLLM_TeamTable" (
    '[{"role":"user","user_id":"e2e-invitable-user"}]'::jsonb,
    '{}'::jsonb, '{"fake-openai-gpt-4"}', 0.0, '{}'::jsonb, '{}'::jsonb, false);
 
-INSERT INTO "LiteLLM_TeamTable" (
+INSERT INTO "HangarLLM_TeamTable" (
   "team_id", "team_alias", "organization_id", "admins", "members",
   "members_with_roles", "metadata", "models", "spend", "model_spend", "model_max_budget", "blocked",
   "team_member_permissions"
@@ -77,7 +77,7 @@ INSERT INTO "LiteLLM_TeamTable" (
    '{"/key/generate"}');
 
 -- 6. Team Memberships (only user_id, team_id, spend — no created_at/updated_at)
-INSERT INTO "LiteLLM_TeamMembership" ("user_id", "team_id", "spend")
+INSERT INTO "HangarLLM_TeamMembership" ("user_id", "team_id", "spend")
 VALUES
   ('e2e-team-admin',       'e2e-team-crud',     0.0),
   ('e2e-internal-user',    'e2e-team-crud',     0.0),
@@ -89,7 +89,7 @@ VALUES
   ('e2e-invitable-user',   'e2e-team-no-admin', 0.0);
 
 -- 7. Verification Tokens (API Keys)
-INSERT INTO "LiteLLM_VerificationToken" (
+INSERT INTO "HangarLLM_VerificationToken" (
   "token", "key_name", "key_alias", "user_id", "team_id",
   "models", "spend", "max_budget", "expires", "metadata"
 ) VALUES

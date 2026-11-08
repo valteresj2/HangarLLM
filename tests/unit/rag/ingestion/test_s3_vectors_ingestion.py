@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from litellm.rag.ingestion.s3_vectors_ingestion import S3VectorsRAGIngestion
+from hangarllm.rag.ingestion.s3_vectors_ingestion import S3VectorsRAGIngestion
 
 STORE_ID_FORMAT_ERROR = "vector_store_id must be in format 'bucket_name:index_name'"
 REQUEST_EMBEDDING_MODEL = "text-embedding-3-small"
@@ -33,7 +33,7 @@ def _ingestion(embedding=REQUEST_EMBEDDING, router=None, **vector_store):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("store_model_key", ["embedding_model", "litellm_embedding_model"])
+@pytest.mark.parametrize("store_model_key", ["embedding_model", "hangarllm_embedding_model"])
 async def test_a_registered_store_embedding_model_wins_over_the_request_on_ingest(store_model_key):
     router = _RecordingRouter()
     ingestion = _ingestion(

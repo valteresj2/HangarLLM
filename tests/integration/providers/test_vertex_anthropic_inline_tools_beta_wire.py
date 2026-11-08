@@ -227,7 +227,7 @@ def _owned_config(path: Path, gateway: Gateway, api_base: str) -> Path:
                 "model_list": [
                     {
                         "model_name": _OWNED_MODEL,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": f"vertex_ai/{_BACKEND}",
                             "api_base": api_base,
                             "vertex_project": _PROJECT,
@@ -539,7 +539,7 @@ def test_worker_sigkill_mid_burst_leaves_the_replacement_forwarding_inline_tools
         config: Final = _owned_config(tmp_path / "inline-tools-worker-kill.yaml", gateway, wire.url)
         owned: Final = stack.enter_context(
             owned_proxy_process(
-                gateway, tmp_path, {"LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS": "true"}, config=config, workers=2
+                gateway, tmp_path, {"HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS": "true"}, config=config, workers=2
             )
         )
         proxy_url: Final = owned.gateway.client.base_url

@@ -8,18 +8,18 @@ from unittest.mock import MagicMock, Mock, patch
 import httpx
 import pytest
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.ragflow.vector_stores.transformation import RAGFlowVectorStoreConfig
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.types.vector_stores import VectorStoreCreateOptionalRequestParams
+from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
+from hangarllm.llms.ragflow.vector_stores.transformation import RAGFlowVectorStoreConfig
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.types.vector_stores import VectorStoreCreateOptionalRequestParams
 
 
 def test_get_auth_credentials():
     """Test that auth credentials are correctly extracted."""
     config = RAGFlowVectorStoreConfig()
 
-    litellm_params = {"api_key": "test-api-key-123"}
-    credentials = config.get_auth_credentials(litellm_params)
+    hangarllm_params = {"api_key": "test-api-key-123"}
+    credentials = config.get_auth_credentials(hangarllm_params)
     assert "headers" in credentials
     assert credentials["headers"]["Authorization"] == "Bearer test-api-key-123"
 
@@ -31,33 +31,33 @@ def test_get_complete_url():
     """Test that complete URL is correctly constructed."""
     config = RAGFlowVectorStoreConfig()
 
-    litellm_params = {"api_base": "http://custom-host:9999"}
-    url = config.get_complete_url(api_base=None, litellm_params=litellm_params)
+    hangarllm_params = {"api_base": "http://custom-host:9999"}
+    url = config.get_complete_url(api_base=None, hangarllm_params=hangarllm_params)
     assert url == "http://custom-host:9999/api/v1/datasets"
 
-    url = config.get_complete_url(api_base="http://test-host:8888", litellm_params={})
+    url = config.get_complete_url(api_base="http://test-host:8888", hangarllm_params={})
     assert url == "http://test-host:8888/api/v1/datasets"
 
     with patch.dict(os.environ, {}, clear=True):
-        url = config.get_complete_url(api_base=None, litellm_params={})
+        url = config.get_complete_url(api_base=None, hangarllm_params={})
         assert url == "http://localhost:9380/api/v1/datasets"
 
-    url = config.get_complete_url(api_base="http://test-host:8888/", litellm_params={})
+    url = config.get_complete_url(api_base="http://test-host:8888/", hangarllm_params={})
     assert url == "http://test-host:8888/api/v1/datasets"
 
 
 def test_validate_environment():
     """Test environment validation and header setting."""
     config = RAGFlowVectorStoreConfig()
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
-    litellm_params = GenericLiteLLMParams(api_key="test-key")
-    headers = config.validate_environment({}, litellm_params)
+    hangarllm_params = GenericHangarLLMParams(api_key="test-key")
+    headers = config.validate_environment({}, hangarllm_params)
     assert headers["Authorization"] == "Bearer test-key"
     assert headers["Content-Type"] == "application/json"
 
     with pytest.raises(ValueError, match="RAGFLOW_API_KEY"):
-        config.validate_environment({}, GenericLiteLLMParams())
+        config.validate_environment({}, GenericHangarLLMParams())
 
 
 def test_get_vector_store_endpoints_by_type():
@@ -229,7 +229,7 @@ def test_transform_create_vector_store_response_missing_id():
 def test_transform_search_vector_store_request_not_implemented():
     """Test that search operations raise NotImplementedError."""
     config = RAGFlowVectorStoreConfig()
-    logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    logging_obj = MagicMock(spec=HangarLLMLoggingObj)
 
     with pytest.raises(NotImplementedError, match="management only"):
         config.transform_search_vector_store_request(
@@ -237,8 +237,8 @@ def test_transform_search_vector_store_request_not_implemented():
             query="test query",
             vector_store_search_optional_params={},
             api_base="http://localhost:9380",
-            litellm_logging_obj=logging_obj,
-            litellm_params={},
+            hangarllm_logging_obj=logging_obj,
+            hangarllm_params={},
             extra_body=None,
         )
 
@@ -246,7 +246,7 @@ def test_transform_search_vector_store_request_not_implemented():
 def test_transform_search_vector_store_response_not_implemented():
     """Test that search response transformation raises NotImplementedError."""
     config = RAGFlowVectorStoreConfig()
-    logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    logging_obj = MagicMock(spec=HangarLLMLoggingObj)
     mock_response = Mock(spec=httpx.Response)
 
     with pytest.raises(NotImplementedError, match="management only"):

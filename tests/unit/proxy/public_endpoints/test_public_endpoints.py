@@ -1,5 +1,5 @@
-from litellm.proxy.deps.repositories import get_plugin_upload_repository
-from litellm.repositories.plugin_upload_repository import PluginUploadRepository
+from hangarllm.proxy.deps.repositories import get_plugin_upload_repository
+from hangarllm.repositories.plugin_upload_repository import PluginUploadRepository
 import asyncio
 import json
 import re
@@ -17,17 +17,17 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.db.health_check_latest import LatestHealthCheckRow
-from litellm.proxy.public_endpoints import router
-from litellm.router_strategy.complexity_router.fuse_presets import get_fuse_presets
-from litellm.types.proxy.common_proxy_errors import CommonProxyErrors
-from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+import hangarllm
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.db.health_check_latest import LatestHealthCheckRow
+from hangarllm.proxy.public_endpoints import router
+from hangarllm.router_strategy.complexity_router.fuse_presets import get_fuse_presets
+from hangarllm.types.proxy.common_proxy_errors import CommonProxyErrors
+from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
     ModelGroupInfoProxy,
 )
-from litellm.types.proxy.public_endpoints.public_endpoints import ProviderCreateInfo, ProviderCredentialField
-from litellm.types.utils import LlmProviders
+from hangarllm.types.proxy.public_endpoints.public_endpoints import ProviderCreateInfo, ProviderCredentialField
+from hangarllm.types.utils import LlmProviders
 
 
 def test_meta_model_api_fields_are_separate_from_meta_llama() -> None:
@@ -36,8 +36,8 @@ def test_meta_model_api_fields_are_separate_from_meta_llama() -> None:
     response: Final = TestClient(app).get("/public/providers/fields")
     assert response.status_code == 200
     providers: Final = response.json()
-    meta: Final = next((p for p in providers if p["litellm_provider"] == "meta"), None)
-    llama: Final = next(p for p in providers if p["litellm_provider"] == "meta_llama")
+    meta: Final = next((p for p in providers if p["hangarllm_provider"] == "meta"), None)
+    llama: Final = next(p for p in providers if p["hangarllm_provider"] == "meta_llama")
     assert meta is not None
     assert meta["provider"] == "META"
     assert meta["provider_display_name"] == "Meta Model API"
@@ -53,14 +53,14 @@ def test_meta_model_api_fields_are_separate_from_meta_llama() -> None:
 
 
 def test_bigmodel_fields_require_private_key_and_share_default_base_with_adapter() -> None:
-    from litellm.llms.bigmodel.common_utils import BIGMODEL_API_BASE
+    from hangarllm.llms.bigmodel.common_utils import BIGMODEL_API_BASE
 
     app: Final = FastAPI()
     app.include_router(router)
     response: Final = TestClient(app).get("/public/providers/fields")
     assert response.status_code == 200
     providers: Final = TypeAdapter(list[ProviderCreateInfo]).validate_python(response.json())
-    provider: Final = next(item for item in providers if item.litellm_provider == "bigmodel")
+    provider: Final = next(item for item in providers if item.hangarllm_provider == "bigmodel")
     fields: Final = {field.key: field for field in provider.credential_fields}
     assert provider.provider_display_name == "BigModel (Zhipu AI)"
     assert fields["api_key"].required is True
@@ -112,7 +112,7 @@ def test_get_provider_create_fields():
     first_provider = response_data[0]
     assert "provider" in first_provider
     assert "provider_display_name" in first_provider
-    assert "litellm_provider" in first_provider
+    assert "hangarllm_provider" in first_provider
     assert "credential_fields" in first_provider
 
     assert isinstance(first_provider["credential_fields"], list)
@@ -124,23 +124,23 @@ def test_get_provider_create_fields():
     assert has_detailed_fields, "Expected at least one provider to have detailed credential fields"
 
 
-def test_get_litellm_model_cost_map_catalog_only_excludes_runtime_registered_entries(
+def test_get_hangarllm_model_cost_map_catalog_only_excludes_runtime_registered_entries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
+    from hangarllm.hangarllm_core_utils.get_model_cost_map import GetModelCostMap
 
-    monkeypatch.setattr(litellm, "model_cost", dict(litellm.model_cost))
+    monkeypatch.setattr(hangarllm, "model_cost", dict(hangarllm.model_cost))
     runtime_key: Final = "lit-9263-deployment-alias"
-    litellm.register_model({runtime_key: {"litellm_provider": "openai", "mode": "chat"}}, persist_across_reloads=False)
+    hangarllm.register_model({runtime_key: {"hangarllm_provider": "openai", "mode": "chat"}}, persist_across_reloads=False)
     app: Final = FastAPI()
     app.include_router(router)
     client: Final = TestClient(app)
 
-    live_response: Final = client.get("/public/litellm_model_cost_map")
-    catalog_response: Final = client.get("/public/litellm_model_cost_map", params={"catalog_only": "true"})
+    live_response: Final = client.get("/public/hangarllm_model_cost_map")
+    catalog_response: Final = client.get("/public/hangarllm_model_cost_map", params={"catalog_only": "true"})
 
     assert live_response.status_code == 200
-    assert live_response.json()[runtime_key]["litellm_provider"] == "openai"
+    assert live_response.json()[runtime_key]["hangarllm_provider"] == "openai"
     assert catalog_response.status_code == 200
     catalog_payload: Final = catalog_response.json()
     assert runtime_key not in catalog_payload
@@ -149,17 +149,17 @@ def test_get_litellm_model_cost_map_catalog_only_excludes_runtime_registered_ent
     )
 
 
-def test_get_litellm_model_cost_map_returns_cost_map(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_hangarllm_model_cost_map_returns_cost_map(monkeypatch: pytest.MonkeyPatch) -> None:
     model_cost: Final = {
         "audio-model": {"input_cost_per_second": 0.1, "mode": "audio_transcription"},
         "token-model": {"input_cost_per_token": 0.01, "mode": "chat"},
     }
-    monkeypatch.setattr(litellm, "model_cost", model_cost)
+    monkeypatch.setattr(hangarllm, "model_cost", model_cost)
     app: Final = FastAPI()
     app.include_router(router)
     client: Final = TestClient(app)
 
-    response: Final = client.get("/public/litellm_model_cost_map")
+    response: Final = client.get("/public/hangarllm_model_cost_map")
 
     assert response.status_code == 200
     assert response.json() == model_cost
@@ -170,8 +170,8 @@ def test_public_ai_hub_info_is_public_by_default(monkeypatch):
     app.include_router(router)
     client = TestClient(app)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-master")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", "sk-master")
 
     response = client.get("/public/model_hub/info")
 
@@ -294,9 +294,9 @@ def test_bedrock_mantle_provider_fields():
     assert mantle is not None, "Bedrock Mantle provider entry not found"
 
     # provider must equal the UI provider_map key so the model dropdown resolves
-    # bedrock_mantle models; litellm_provider must be the backend slug.
+    # bedrock_mantle models; hangarllm_provider must be the backend slug.
     assert mantle["provider_display_name"] == "Amazon Bedrock Mantle"
-    assert mantle["litellm_provider"] == "bedrock_mantle"
+    assert mantle["hangarllm_provider"] == "bedrock_mantle"
     assert mantle["default_model_placeholder"].startswith("bedrock_mantle/")
 
     fields_by_key = {f["key"]: f for f in mantle["credential_fields"]}
@@ -338,8 +338,8 @@ def test_vllm_provider_display_names_are_distinct():
     assert hosted["provider_display_name"] == "Hosted vLLM"
     assert local["provider_display_name"] == "Local vLLM"
     assert hosted["provider_display_name"].casefold() != local["provider_display_name"].casefold()
-    assert hosted["litellm_provider"] == "hosted_vllm"
-    assert local["litellm_provider"] == "vllm"
+    assert hosted["hangarllm_provider"] == "hosted_vllm"
+    assert local["hangarllm_provider"] == "vllm"
 
 
 def test_nvidia_riva_provider_fields():
@@ -355,7 +355,7 @@ def test_nvidia_riva_provider_fields():
     assert riva is not None, "NVIDIA Riva provider entry not found"
 
     assert riva["provider_display_name"] == "Nvidia Riva"
-    assert riva["litellm_provider"] == LlmProviders.NVIDIA_RIVA.value
+    assert riva["hangarllm_provider"] == LlmProviders.NVIDIA_RIVA.value
     assert riva["default_model_placeholder"].startswith("nvidia_riva/")
 
     fields_by_key = {f["key"]: f for f in riva["credential_fields"]}
@@ -389,7 +389,7 @@ def test_cognition_provider_fields():
     assert cognition is not None, "Cognition provider entry not found"
 
     assert cognition["provider_display_name"] == "Cognition"
-    assert cognition["litellm_provider"] == "cognition"
+    assert cognition["hangarllm_provider"] == "cognition"
     assert cognition["default_model_placeholder"].startswith("cognition/")
 
     fields_by_key = {f["key"]: f for f in cognition["credential_fields"]}
@@ -402,7 +402,7 @@ def test_cognition_provider_fields():
 
 
 def test_zai_provider_fields():
-    from litellm.llms.zai.chat.transformation import ZAI_API_BASE
+    from hangarllm.llms.zai.chat.transformation import ZAI_API_BASE
 
     app_instance: Final = FastAPI()
     app_instance.include_router(router)
@@ -416,7 +416,7 @@ def test_zai_provider_fields():
     assert zai is not None, "Z.AI provider entry not found"
 
     assert zai["provider_display_name"] == "Z.AI (Zhipu AI)"
-    assert zai["litellm_provider"] == "zai"
+    assert zai["hangarllm_provider"] == "zai"
     assert zai["default_model_placeholder"].startswith("zai/")
 
     fields_by_key: Final = {f["key"]: f for f in zai["credential_fields"]}
@@ -430,21 +430,21 @@ def test_zai_provider_fields():
 
 
 def test_zerogpu_add_model_form_defaults_resolve_to_a_priced_zerogpu_model():
-    import litellm
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    import hangarllm
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     app_instance: Final = FastAPI()
     app_instance.include_router(router)
     providers: Final = TestClient(app_instance).get("/public/providers/fields").json()
 
-    zerogpu: Final = next(p for p in providers if p["litellm_provider"] == "zerogpu")
+    zerogpu: Final = next(p for p in providers if p["hangarllm_provider"] == "zerogpu")
     fields_by_key: Final = {f["key"]: f for f in zerogpu["credential_fields"]}
     placeholder: Final = zerogpu["default_model_placeholder"]
     _, provider, _, api_base = get_llm_provider(model=placeholder)
 
     assert provider == "zerogpu"
     assert api_base == fields_by_key["api_base"]["placeholder"]
-    assert litellm.model_cost[placeholder]["litellm_provider"] == "zerogpu"
+    assert hangarllm.model_cost[placeholder]["hangarllm_provider"] == "zerogpu"
     assert fields_by_key["api_key"]["required"] is True
     assert fields_by_key["api_key"]["field_type"] == "password"
 
@@ -456,8 +456,8 @@ def test_qwen_mainland_provider_fields_carry_the_qianwen_brand():
 
     providers = test_client.get("/public/providers/fields").json()
 
-    mainland = next(p for p in providers if p["litellm_provider"] == "qwen_ai_platform")
-    international = next(p for p in providers if p["litellm_provider"] == "qwencloud")
+    mainland = next(p for p in providers if p["hangarllm_provider"] == "qwen_ai_platform")
+    international = next(p for p in providers if p["hangarllm_provider"] == "qwencloud")
 
     assert mainland["provider_display_name"] == "Qianwen AI Platform"
     assert international["provider_display_name"] == "QwenCloud"
@@ -481,7 +481,7 @@ def test_chatgpt_provider_fields():
     assert chatgpt is not None, "ChatGPT provider entry not found"
 
     assert chatgpt["provider_display_name"] == "ChatGPT Subscription"
-    assert chatgpt["litellm_provider"] == LlmProviders.CHATGPT.value
+    assert chatgpt["hangarllm_provider"] == LlmProviders.CHATGPT.value
     assert chatgpt["default_model_placeholder"].startswith("chatgpt/")
     assert chatgpt["credential_fields"] == []
 
@@ -499,7 +499,7 @@ def test_tencent_provider_fields():
     assert tencent is not None, "Tencent provider entry not found"
 
     assert tencent["provider_display_name"] == "Tencent"
-    assert tencent["litellm_provider"] == LlmProviders.TENCENT.value
+    assert tencent["hangarllm_provider"] == LlmProviders.TENCENT.value
     assert tencent["default_model_placeholder"].startswith("tencent/")
 
     fields_by_key = {f["key"]: f for f in tencent["credential_fields"]}
@@ -538,7 +538,7 @@ def test_decisions_provider_fields(provider_key: str, display_name: str, provide
     entry: Final = _decisions_provider_entry(provider_key)
 
     assert entry.provider_display_name == display_name
-    assert entry.litellm_provider == provider.value
+    assert entry.hangarllm_provider == provider.value
     assert entry.default_model_placeholder is not None
     assert entry.default_model_placeholder.startswith(f"{provider.value}/")
 
@@ -555,7 +555,7 @@ def test_strands_decider_provider_fields():
     strands: Final = _decisions_provider_entry("StrandsDecider")
 
     assert strands.provider_display_name == "Strands Decider"
-    assert strands.litellm_provider == LlmProviders.STRANDS_DECIDER.value
+    assert strands.hangarllm_provider == LlmProviders.STRANDS_DECIDER.value
     assert strands.default_model_placeholder is not None
     assert strands.default_model_placeholder.startswith("strands_decider/")
 
@@ -569,19 +569,19 @@ def test_strands_decider_provider_fields():
 
 
 @pytest.mark.parametrize(
-    ("provider", "display_name", "litellm_provider", "model_placeholder"),
+    ("provider", "display_name", "hangarllm_provider", "model_placeholder"),
     (
         ("Laya", "Laya", LlmProviders.LAYA.value, "laya/english"),
         ("Bespoke", "Bespoke Nimble", LlmProviders.BESPOKE.value, "bespoke/nimble"),
     ),
 )
 def test_oss_decisions_provider_fields(
-    provider: str, display_name: str, litellm_provider: str, model_placeholder: str
+    provider: str, display_name: str, hangarllm_provider: str, model_placeholder: str
 ) -> None:
     entry: Final = _decisions_provider_entry(provider)
 
     assert entry.provider_display_name == display_name
-    assert entry.litellm_provider == litellm_provider
+    assert entry.hangarllm_provider == hangarllm_provider
     assert entry.default_model_placeholder == model_placeholder
 
     fields_by_key: Final = {f.key: f for f in entry.credential_fields}
@@ -611,7 +611,7 @@ ADD_MODEL_UNLISTED_PROVIDERS: Final = frozenset(
         "langflow",
         "langgraph",
         "libertai",
-        "litellm_agent",
+        "hangarllm_agent",
         "manus",
         "modelscope",
         "mongodb",
@@ -645,7 +645,7 @@ def test_every_backend_provider_is_listed_in_add_model_or_frozen_as_unlisted():
 
     response = test_client.get("/public/providers/fields")
     assert response.status_code == 200
-    listed = {p["litellm_provider"] for p in response.json()}
+    listed = {p["hangarllm_provider"] for p in response.json()}
 
     unlisted = {provider.value for provider in LlmProviders} - listed
     assert unlisted == ADD_MODEL_UNLISTED_PROVIDERS, (
@@ -672,7 +672,7 @@ def test_google_ai_studio_provider_fields_expose_api_base():
 
     google_ai = next((p for p in providers if p["provider"] == "Google_AI_Studio"), None)
     assert google_ai is not None, "Google_AI_Studio provider entry not found"
-    assert google_ai["litellm_provider"] == "gemini"
+    assert google_ai["hangarllm_provider"] == "gemini"
 
     fields_by_key = {f["key"]: f for f in google_ai["credential_fields"]}
     assert "api_key" in fields_by_key
@@ -729,11 +729,11 @@ def test_public_model_hub_with_healthy_model():
     mock_prisma.get_all_latest_health_checks = AsyncMock(return_value=[mock_health_check])
 
     with (
-        patch("litellm.public_model_groups", ["gpt-3.5-turbo"]),
-        patch("litellm.proxy.proxy_server.get_model_group_info") as mock_get_info,
-        patch("litellm.proxy.proxy_server.llm_router", mock_llm_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.health_endpoints._health_endpoints.convert_health_check_to_dict") as mock_convert,
+        patch("hangarllm.public_model_groups", ["gpt-3.5-turbo"]),
+        patch("hangarllm.proxy.proxy_server.get_model_group_info") as mock_get_info,
+        patch("hangarllm.proxy.proxy_server.llm_router", mock_llm_router),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.health_endpoints._health_endpoints.convert_health_check_to_dict") as mock_convert,
     ):
         mock_get_info.return_value = [mock_model_group]
         mock_convert.return_value = {
@@ -782,11 +782,11 @@ def test_public_model_hub_with_unhealthy_model():
     mock_prisma.get_all_latest_health_checks = AsyncMock(return_value=[mock_health_check])
 
     with (
-        patch("litellm.public_model_groups", ["gpt-4"]),
-        patch("litellm.proxy.proxy_server.get_model_group_info") as mock_get_info,
-        patch("litellm.proxy.proxy_server.llm_router", mock_llm_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.health_endpoints._health_endpoints.convert_health_check_to_dict") as mock_convert,
+        patch("hangarllm.public_model_groups", ["gpt-4"]),
+        patch("hangarllm.proxy.proxy_server.get_model_group_info") as mock_get_info,
+        patch("hangarllm.proxy.proxy_server.llm_router", mock_llm_router),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.health_endpoints._health_endpoints.convert_health_check_to_dict") as mock_convert,
     ):
         mock_get_info.return_value = [mock_model_group]
         mock_convert.return_value = {
@@ -828,10 +828,10 @@ def test_public_model_hub_without_health_check():
     mock_prisma.get_all_latest_health_checks = AsyncMock(return_value=[])
 
     with (
-        patch("litellm.public_model_groups", ["claude-3"]),
-        patch("litellm.proxy.proxy_server.get_model_group_info") as mock_get_info,
-        patch("litellm.proxy.proxy_server.llm_router", mock_llm_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.public_model_groups", ["claude-3"]),
+        patch("hangarllm.proxy.proxy_server.get_model_group_info") as mock_get_info,
+        patch("hangarllm.proxy.proxy_server.llm_router", mock_llm_router),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
     ):
         mock_get_info.return_value = [mock_model_group]
 
@@ -907,11 +907,11 @@ def test_public_model_hub_mixed_health_statuses():
         return {}
 
     with (
-        patch("litellm.public_model_groups", ["gpt-3.5-turbo", "gpt-4", "claude-3"]),
-        patch("litellm.proxy.proxy_server.get_model_group_info") as mock_get_info,
-        patch("litellm.proxy.proxy_server.llm_router", mock_llm_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.health_endpoints._health_endpoints.convert_health_check_to_dict") as mock_convert,
+        patch("hangarllm.public_model_groups", ["gpt-3.5-turbo", "gpt-4", "claude-3"]),
+        patch("hangarllm.proxy.proxy_server.get_model_group_info") as mock_get_info,
+        patch("hangarllm.proxy.proxy_server.llm_router", mock_llm_router),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.health_endpoints._health_endpoints.convert_health_check_to_dict") as mock_convert,
     ):
         mock_get_info.return_value = [
             healthy_model,
@@ -971,10 +971,10 @@ def test_public_model_hub_reports_the_newest_check_of_a_group_not_the_last_row_r
     mock_prisma.get_all_latest_health_checks = AsyncMock(return_value=(fresh, stale))
 
     with (
-        patch("litellm.public_model_groups", ["gpt-4"]),
-        patch("litellm.proxy.proxy_server.get_model_group_info") as mock_get_info,
-        patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.public_model_groups", ["gpt-4"]),
+        patch("hangarllm.proxy.proxy_server.get_model_group_info") as mock_get_info,
+        patch("hangarllm.proxy.proxy_server.llm_router", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
     ):
         mock_get_info.return_value = [
             ModelGroupInfoProxy(model_group="gpt-4", providers=["openai"], is_public_model_group=True)
@@ -988,11 +988,11 @@ def test_public_model_hub_reports_the_newest_check_of_a_group_not_the_last_row_r
 
 
 def test_public_model_hub_lists_each_deployments_prices_without_exposing_the_deployment() -> None:
-    llm_router: Final = litellm.Router(
+    llm_router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "hub-public",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/hub-secret-backend-a",
                     "api_base": "https://secret-a.internal",
                     "api_key": "sk-secret-a",
@@ -1003,7 +1003,7 @@ def test_public_model_hub_lists_each_deployments_prices_without_exposing_the_dep
             },
             {
                 "model_name": "hub-public",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/hub-secret-backend-b",
                     "api_base": "https://secret-b.internal",
                     "api_key": "sk-secret-b",
@@ -1018,9 +1018,9 @@ def test_public_model_hub_lists_each_deployments_prices_without_exposing_the_dep
     app.include_router(router)
 
     with (
-        patch("litellm.public_model_groups", ["hub-public"]),
-        patch("litellm.proxy.proxy_server.llm_router", llm_router),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.public_model_groups", ["hub-public"]),
+        patch("hangarllm.proxy.proxy_server.llm_router", llm_router),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
     ):
         response: Final = TestClient(app).get("/public/model_hub")
 
@@ -1048,7 +1048,7 @@ def test_public_agent_hub_rewrites_upstream_url_to_proxy():
     stored card. The ``url`` field has to be overwritten with the proxy
     ``/a2a/{agent_id}`` entrypoint, matching the well-known card endpoint, so
     an unauthenticated client cannot call the backend directly."""
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
     upstream_url = "https://upstream.internal.example.com/a2a"
     agent = AgentResponse(
@@ -1066,9 +1066,9 @@ def test_public_agent_hub_rewrites_upstream_url_to_proxy():
     mock_registry.ids_for_agent = MagicMock(side_effect=lambda agent_id: frozenset({agent_id}))
 
     with (
-        patch("litellm.public_agent_groups", ["agent-123"]),
+        patch("hangarllm.public_agent_groups", ["agent-123"]),
         patch(
-            "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry",
+            "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry",
             mock_registry,
         ),
     ):
@@ -1084,12 +1084,12 @@ def test_public_agent_hub_rewrites_upstream_url_to_proxy():
 
 def test_public_agent_hub_serializes_http_security_scheme_without_bearer_format():
     """Regression: agents created through the UI carry an auto-generated
-    ``securitySchemes.LiteLLMKey`` of ``{"type": "http", "scheme": "bearer"}``
+    ``securitySchemes.HangarLLMKey`` of ``{"type": "http", "scheme": "bearer"}``
     with no ``bearerFormat``. The endpoint response_model must accept this
     optional-field-omitted scheme; otherwise response validation raises and
     /public/agent_hub returns 500, which the frontend swallows into an empty
     list and hides the Agent Hub tab."""
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
     agent = AgentResponse(
         agent_id="agent-123",
@@ -1098,10 +1098,10 @@ def test_public_agent_hub_serializes_http_security_scheme_without_bearer_format(
             "name": "public-agent",
             "url": "https://upstream.internal.example.com/a2a",
             "securitySchemes": {
-                "LiteLLMKey": {
+                "HangarLLMKey": {
                     "type": "http",
                     "scheme": "bearer",
-                    "description": "LiteLLM virtual key",
+                    "description": "HangarLLM virtual key",
                 }
             },
         },
@@ -1116,9 +1116,9 @@ def test_public_agent_hub_serializes_http_security_scheme_without_bearer_format(
     mock_registry.ids_for_agent = MagicMock(side_effect=lambda agent_id: frozenset({agent_id}))
 
     with (
-        patch("litellm.public_agent_groups", ["agent-123"]),
+        patch("hangarllm.public_agent_groups", ["agent-123"]),
         patch(
-            "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry",
+            "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry",
             mock_registry,
         ),
     ):
@@ -1127,7 +1127,7 @@ def test_public_agent_hub_serializes_http_security_scheme_without_bearer_format(
     assert response.status_code == 200, response.text
     payload = response.json()
     assert len(payload) == 1
-    scheme = payload[0]["securitySchemes"]["LiteLLMKey"]
+    scheme = payload[0]["securitySchemes"]["HangarLLMKey"]
     assert scheme["type"] == "http"
     assert scheme["scheme"] == "bearer"
     assert "bearerFormat" not in scheme
@@ -1142,9 +1142,9 @@ def test_public_agent_hub_returns_empty_when_no_public_groups():
     mock_registry.get_public_agent_list.return_value = []
 
     with (
-        patch("litellm.public_agent_groups", None),
+        patch("hangarllm.public_agent_groups", None),
         patch(
-            "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry",
+            "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry",
             mock_registry,
         ),
     ):
@@ -1181,7 +1181,7 @@ def test_bedrock_agentcore_runtime_arn_validation_pattern_accepts_full_resource_
     fields_by_key = {f["key"]: f for f in bedrock_agentcore["credential_fields"]}
     arn_field = fields_by_key["agent_runtime_arn"]
     assert arn_field["required"] is True
-    assert arn_field["include_in_litellm_params"] is False
+    assert arn_field["include_in_hangarllm_params"] is False
 
     pattern = arn_field.get("validation_pattern")
     assert pattern, "agent_runtime_arn must ship a validation_pattern so the UI can reject a truncated ARN"
@@ -1197,8 +1197,8 @@ def test_bedrock_agentcore_runtime_arn_validation_pattern_accepts_full_resource_
 # /public/endpoints
 # ---------------------------------------------------------------------------
 
-import litellm.proxy.public_endpoints.public_endpoints as _pe_module
-from litellm.proxy.public_endpoints.public_endpoints import (
+import hangarllm.proxy.public_endpoints.public_endpoints as _pe_module
+from hangarllm.proxy.public_endpoints.public_endpoints import (
     _build_endpoints,
     _clean_display_name,
 )
@@ -1304,7 +1304,7 @@ def test_get_supported_endpoints_is_cached(reset_endpoints_cache):
     """`_load_endpoints` is called only once; subsequent requests use the cache."""
     client = _make_client()
     with patch(
-        "litellm.proxy.public_endpoints.public_endpoints._load_endpoints",
+        "hangarllm.proxy.public_endpoints.public_endpoints._load_endpoints",
         wraps=_pe_module._load_endpoints,
     ) as mock_load:
         client.get("/public/endpoints")
@@ -1399,9 +1399,9 @@ def test_public_mcp_hub_derives_publication_metadata_without_mutating_registry(
     expected_listed: bool,
     stored_public: bool | None,
 ) -> None:
-    from litellm.proxy._types import MCPTransport
-    from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.proxy._types import MCPTransport
+    from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     app: Final = FastAPI()
     app.include_router(router)
@@ -1436,10 +1436,10 @@ def test_public_mcp_hub_derives_publication_metadata_without_mutating_registry(
     original_registry: Final = {key: value.model_dump() for key, value in manager.get_registry().items()}
 
     with (
-        patch("litellm.public_mcp_servers", [server.server_id] if explicit else []),
-        patch("litellm.public_mcp_hub_strict_whitelist", strict),
+        patch("hangarllm.public_mcp_servers", [server.server_id] if explicit else []),
+        patch("hangarllm.public_mcp_hub_strict_whitelist", strict),
         patch(
-            "litellm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
+            "hangarllm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
             manager,
         ),
     ):
@@ -1469,9 +1469,9 @@ def test_public_mcp_hub_returns_empty_when_whitelist_unset():
     mock_manager.get_public_mcp_servers.return_value = []
 
     with (
-        patch("litellm.public_mcp_servers", None),
+        patch("hangarllm.public_mcp_servers", None),
         patch(
-            "litellm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
+            "hangarllm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
             mock_manager,
         ),
     ):
@@ -1485,8 +1485,8 @@ def test_public_mcp_hub_returns_empty_when_whitelist_unset():
 def test_public_mcp_hub_does_not_expose_upstream_url():
     """Regression: /public/mcp_hub is unauthenticated, so the gateway-internal
     upstream url must never appear in its response even when the server has one."""
-    from litellm.proxy._types import MCPTransport
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.proxy._types import MCPTransport
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     app = FastAPI()
     app.include_router(router)
@@ -1507,9 +1507,9 @@ def test_public_mcp_hub_does_not_expose_upstream_url():
     mock_manager.get_public_mcp_servers.return_value = [server]
 
     with (
-        patch("litellm.public_mcp_servers", ["listed"]),
+        patch("hangarllm.public_mcp_servers", ["listed"]),
         patch(
-            "litellm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
+            "hangarllm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
             mock_manager,
         ),
     ):
@@ -1525,7 +1525,7 @@ def test_public_mcp_hub_does_not_expose_upstream_url():
 
 @pytest.fixture
 def reset_autorouter_presets_cache():
-    from litellm.proxy.public_endpoints.public_endpoints import _AutoRouterPresetsCache
+    from hangarllm.proxy.public_endpoints.public_endpoints import _AutoRouterPresetsCache
 
     _AutoRouterPresetsCache.presets = None
     _AutoRouterPresetsCache.lock = None
@@ -1535,7 +1535,7 @@ def reset_autorouter_presets_cache():
 
 
 def test_get_autorouter_presets_local_mode_serves_bundled_catalog(monkeypatch, reset_autorouter_presets_cache):
-    monkeypatch.setenv("LITELLM_LOCAL_AUTOROUTER_PRESETS", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_AUTOROUTER_PRESETS", "True")
     app = FastAPI()
     app.include_router(router)
     client = TestClient(app)
@@ -1553,7 +1553,7 @@ def test_get_autorouter_presets_local_mode_serves_bundled_catalog(monkeypatch, r
         "REASONING": ["claude-opus-5-5"],
     }
     assert payload["1m_context"]["complexity_router_config"]["tier_model_configs"] == {
-        "REASONING": [{"model_name": "claude-opus-5-5", "litellm_params": {"reasoning_effort": "high"}}]
+        "REASONING": [{"model_name": "claude-opus-5-5", "hangarllm_params": {"reasoning_effort": "high"}}]
     }
     for preset in payload.values():
         assert isinstance(preset["label"], str)
@@ -1563,12 +1563,12 @@ def test_get_autorouter_presets_local_mode_serves_bundled_catalog(monkeypatch, r
 
 @pytest.mark.asyncio
 async def test_get_autorouter_presets_fetches_once_per_process(monkeypatch, reset_autorouter_presets_cache):
-    from litellm.proxy.public_endpoints.public_endpoints import (
+    from hangarllm.proxy.public_endpoints.public_endpoints import (
         _AUTOROUTER_PRESETS_ADAPTER,
         get_autorouter_presets,
     )
 
-    monkeypatch.delenv("LITELLM_LOCAL_AUTOROUTER_PRESETS", raising=False)
+    monkeypatch.delenv("HANGARLLM_LOCAL_AUTOROUTER_PRESETS", raising=False)
     remote = _AUTOROUTER_PRESETS_ADAPTER.validate_python(
         {
             "remote_only": {
@@ -1595,16 +1595,16 @@ async def test_get_autorouter_presets_fetches_once_per_process(monkeypatch, rese
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("flag", ["LITELLM_LOCAL_AUTOROUTER_PRESETS", "LITELLM_OFFLINE_MODE"])
+@pytest.mark.parametrize("flag", ["HANGARLLM_LOCAL_AUTOROUTER_PRESETS", "HANGARLLM_OFFLINE_MODE"])
 async def test_get_autorouter_presets_local_flags_serve_bundled_without_fetching(
     monkeypatch, reset_autorouter_presets_cache, flag
 ):
-    from litellm.proxy.public_endpoints.public_endpoints import (
+    from hangarllm.proxy.public_endpoints.public_endpoints import (
         _load_bundled_autorouter_presets,
         get_autorouter_presets,
     )
 
-    monkeypatch.delenv("LITELLM_LOCAL_AUTOROUTER_PRESETS", raising=False)
+    monkeypatch.delenv("HANGARLLM_LOCAL_AUTOROUTER_PRESETS", raising=False)
     monkeypatch.setenv(flag, "True")
     calls = []
 
@@ -1624,12 +1624,12 @@ async def test_get_autorouter_presets_single_flight_on_concurrent_cold_start(
 ):
     import asyncio
 
-    from litellm.proxy.public_endpoints.public_endpoints import (
+    from hangarllm.proxy.public_endpoints.public_endpoints import (
         _AUTOROUTER_PRESETS_ADAPTER,
         get_autorouter_presets,
     )
 
-    monkeypatch.delenv("LITELLM_LOCAL_AUTOROUTER_PRESETS", raising=False)
+    monkeypatch.delenv("HANGARLLM_LOCAL_AUTOROUTER_PRESETS", raising=False)
     remote = _AUTOROUTER_PRESETS_ADAPTER.validate_python(
         {
             "remote_only": {
@@ -1662,9 +1662,9 @@ async def test_get_autorouter_presets_single_flight_on_concurrent_cold_start(
 async def test_get_autorouter_presets_caches_bundled_fallback_on_remote_failure(
     monkeypatch, reset_autorouter_presets_cache
 ):
-    from litellm.proxy.public_endpoints.public_endpoints import get_autorouter_presets
+    from hangarllm.proxy.public_endpoints.public_endpoints import get_autorouter_presets
 
-    monkeypatch.delenv("LITELLM_LOCAL_AUTOROUTER_PRESETS", raising=False)
+    monkeypatch.delenv("HANGARLLM_LOCAL_AUTOROUTER_PRESETS", raising=False)
     calls = []
 
     async def broken_fetch(url):
@@ -1683,7 +1683,7 @@ async def test_get_autorouter_presets_caches_bundled_fallback_on_remote_failure(
 async def test_autorouter_presets_adapter_rejects_wrong_shapes():
     from pydantic import ValidationError
 
-    from litellm.proxy.public_endpoints.public_endpoints import _AUTOROUTER_PRESETS_ADAPTER
+    from hangarllm.proxy.public_endpoints.public_endpoints import _AUTOROUTER_PRESETS_ADAPTER
 
     with pytest.raises(ValidationError):
         _AUTOROUTER_PRESETS_ADAPTER.validate_python({"bad": {"label": "no description or config"}})
@@ -1734,12 +1734,12 @@ async def test_autorouter_presets_adapter_rejects_wrong_shapes():
 
 
 def test_get_autorouter_presets_passes_unknown_catalog_fields_through(monkeypatch, reset_autorouter_presets_cache):
-    from litellm.proxy.public_endpoints.public_endpoints import (
+    from hangarllm.proxy.public_endpoints.public_endpoints import (
         _AUTOROUTER_PRESETS_ADAPTER,
         _AutoRouterPresetsCache,
     )
 
-    monkeypatch.delenv("LITELLM_LOCAL_AUTOROUTER_PRESETS", raising=False)
+    monkeypatch.delenv("HANGARLLM_LOCAL_AUTOROUTER_PRESETS", raising=False)
     _AutoRouterPresetsCache.presets = _AUTOROUTER_PRESETS_ADAPTER.validate_python(
         {
             "future_preset": {
@@ -1768,8 +1768,8 @@ def test_get_autorouter_presets_passes_unknown_catalog_fields_through(monkeypatc
 
 @pytest.mark.asyncio
 async def test_fetch_remote_autorouter_presets_parses_and_rejects_empty(monkeypatch):
-    import litellm.llms.custom_httpx.http_handler as http_handler_module
-    from litellm.proxy.public_endpoints.public_endpoints import _fetch_remote_autorouter_presets
+    import hangarllm.llms.custom_httpx.http_handler as http_handler_module
+    from hangarllm.proxy.public_endpoints.public_endpoints import _fetch_remote_autorouter_presets
 
     catalog = {
         "remote_only": {
@@ -1825,7 +1825,7 @@ def test_get_agent_fields_appends_inherited_provider_credential_fields():
     providers: Final = {p["provider"]: p for p in client.get("/public/providers/fields").json()}
     agents: Final = client.get("/public/agents/fields").json()
     bundled: Final = json.loads(
-        files("litellm.proxy.public_endpoints").joinpath("agent_create_fields.json").read_text(encoding="utf-8")
+        files("hangarllm.proxy.public_endpoints").joinpath("agent_create_fields.json").read_text(encoding="utf-8")
     )
     own_counts: Final = {agent["agent_type"]: len(agent["credential_fields"]) for agent in bundled}
     expected_inherited: Final = {
@@ -1846,24 +1846,24 @@ def test_get_agent_fields_appends_inherited_provider_credential_fields():
         ]
         for agent_type, fields in inherited.items()
     } == expected_inherited
-    assert all(field["include_in_litellm_params"] is True for field in chain.from_iterable(inherited.values()))
+    assert all(field["include_in_hangarllm_params"] is True for field in chain.from_iterable(inherited.values()))
 
 
 @pytest.mark.parametrize("preference", ["auto_install", None])
 def test_public_skill_hub_echoes_registered_installation_preference(preference: str | None) -> None:
     from collections.abc import Mapping
 
-    from prisma.models import LiteLLM_ClaudeCodePluginTable
+    from prisma.models import HangarLLM_ClaudeCodePluginTable
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_marketplace import register_plugin
-    from litellm.types.proxy.claude_code_endpoints import RegisterPluginRequest
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_marketplace import register_plugin
+    from hangarllm.types.proxy.claude_code_endpoints import RegisterPluginRequest
 
-    def create(data: Mapping[str, object]) -> LiteLLM_ClaudeCodePluginTable:
+    def create(data: Mapping[str, object]) -> HangarLLM_ClaudeCodePluginTable:
         defaults: Final = {"id": "plugin-id", "enabled": True, "anonymous_download_count": 0}
-        return LiteLLM_ClaudeCodePluginTable.model_validate({**defaults, **data})
+        return HangarLLM_ClaudeCodePluginTable.model_validate({**defaults, **data})
 
-    def find_many(where: Mapping[str, object]) -> list[LiteLLM_ClaudeCodePluginTable]:
+    def find_many(where: Mapping[str, object]) -> list[HangarLLM_ClaudeCodePluginTable]:
         return [create(table.create.call_args.kwargs["data"])]
 
     table: Final = MagicMock()
@@ -1871,16 +1871,16 @@ def test_public_skill_hub_echoes_registered_installation_preference(preference: 
     table.create = AsyncMock(side_effect=create)
     table.find_many = AsyncMock(side_effect=find_many)
     prisma: Final = MagicMock()
-    prisma.db.litellm_claudecodeplugintable = table
+    prisma.db.hangarllm_claudecodeplugintable = table
     prisma.writer_db = prisma.db
     prisma.db.tx.return_value.__aenter__.return_value = prisma.db
     prisma.db.query_raw = AsyncMock(return_value=[])
-    prisma.db.litellm_claudecodepluginversion.create = AsyncMock()
+    prisma.db.hangarllm_claudecodepluginversion.create = AsyncMock()
     app: Final = FastAPI()
     app.include_router(router)
     app.dependency_overrides[get_plugin_upload_repository] = lambda: PluginUploadRepository(prisma)
 
-    with patch("litellm.proxy.proxy_server.prisma_client", prisma):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", prisma):
         asyncio.run(
             register_plugin(
                 uploads=PluginUploadRepository(prisma),
@@ -1893,7 +1893,7 @@ def test_public_skill_hub_echoes_registered_installation_preference(preference: 
                     },
                     installation_preference=preference,
                 ),
-                user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin"),
+                user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin"),
             )
         )
         prisma.db.query_raw.return_value = [{"id": "plugin-id", "download_count": 12}]
@@ -1929,7 +1929,7 @@ def _skill_hub_response(find_many: AsyncMock, general_settings: Mapping[str, obj
     table: Final = MagicMock()
     table.find_many = find_many
     prisma: Final = MagicMock()
-    prisma.db.litellm_claudecodeplugintable = table
+    prisma.db.hangarllm_claudecodeplugintable = table
     prisma.writer_db = prisma.db
     prisma.db.query_raw = AsyncMock(return_value=[])
     app: Final = FastAPI()
@@ -1937,8 +1937,8 @@ def _skill_hub_response(find_many: AsyncMock, general_settings: Mapping[str, obj
     app.dependency_overrides[get_plugin_upload_repository] = lambda: PluginUploadRepository(prisma)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),
-        patch("litellm.proxy.proxy_server.general_settings", dict(general_settings)),
+        patch("hangarllm.proxy.proxy_server.prisma_client", prisma),
+        patch("hangarllm.proxy.proxy_server.general_settings", dict(general_settings)),
     ):
         return TestClient(app).get("/public/skill_hub")
 
@@ -1971,8 +1971,8 @@ def test_public_skill_hub_without_a_database_answers_db_not_connected() -> None:
     app.dependency_overrides[get_plugin_upload_repository] = lambda: None
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.proxy.proxy_server.general_settings", {}),
     ):
         response: Final = TestClient(app).get("/public/skill_hub")
 

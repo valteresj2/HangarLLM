@@ -1,7 +1,7 @@
 """A Bedrock deployment whose ``guardrailConfig`` has ``trace: enabled`` bills the policy units Bedrock reports in the
 trace as guardrail cost, on every surface the deployment serves: ``/v1/chat/completions`` and ``/v1/responses`` over
 Converse and Invoke, streamed and not, and the four ``/bedrock/model/{model}`` pass-through actions. The cost rides
-``x-litellm-response-cost`` on non-streaming responses and the spend row's ``spend`` and ``guardrail_information``
+``x-hangarllm-response-cost`` on non-streaming responses and the spend row's ``spend`` and ``guardrail_information``
 everywhere. ``trace: disabled`` leaves no usage, so nothing is billed beyond the tokens (LIT-10101)"""
 
 import base64
@@ -24,7 +24,7 @@ from integration._support.upstream import _aws_event_frame
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
+import hangarllm
 
 pytestmark: Final = pytest.mark.timeout(2 * graceful_stop_seconds() + 240)
 
@@ -45,7 +45,7 @@ _SUMMED_USAGE: Final[Mapping[str, int]] = {
 }
 _ACTIONS: Final = ("converse", "converse-stream", "invoke", "invoke-with-response-stream")
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
-_SPEND_SQL: Final = 'SELECT spend, metadata FROM "LiteLLM_SpendLogs" WHERE api_key=%s ORDER BY "startTime"'
+_SPEND_SQL: Final = 'SELECT spend, metadata FROM "HangarLLM_SpendLogs" WHERE api_key=%s ORDER BY "startTime"'
 
 
 def _llm_cost() -> float:
@@ -54,7 +54,7 @@ def _llm_cost() -> float:
 
 def _guardrail_cost() -> float:
     """What the proxy's own cost map prices the traced units at, so the test owns the relation, not AWS's rates."""
-    rates: Final = litellm.model_cost["bedrock/guardrails"]["guardrail_cost_per_unit"]
+    rates: Final = hangarllm.model_cost["bedrock/guardrails"]["guardrail_cost_per_unit"]
     return sum(units * rates[counter] for counter, units in _SUMMED_USAGE.items())
 
 
@@ -248,12 +248,12 @@ def rig(session_gateway: Gateway, tmp_path_factory: pytest.TempPathFactory) -> I
             **base_config,
             "model_list": [
                 *base_config.get("model_list", []),
-                {"model_name": converse_model, "litellm_params": _deployment(wire, f"bedrock/{_MODEL_ID}", "enabled")},
+                {"model_name": converse_model, "hangarllm_params": _deployment(wire, f"bedrock/{_MODEL_ID}", "enabled")},
                 {
                     "model_name": invoke_model,
-                    "litellm_params": _deployment(wire, f"bedrock/invoke/{_MODEL_ID}", "enabled"),
+                    "hangarllm_params": _deployment(wire, f"bedrock/invoke/{_MODEL_ID}", "enabled"),
                 },
-                {"model_name": untraced_model, "litellm_params": _deployment(wire, f"bedrock/{_MODEL_ID}", "disabled")},
+                {"model_name": untraced_model, "hangarllm_params": _deployment(wire, f"bedrock/{_MODEL_ID}", "disabled")},
             ],
         }
         config_path: Final = directory / "bedrock-native-guardrail-trace.yaml"
@@ -315,7 +315,7 @@ def test_non_streaming_response_prices_the_trace_into_the_cost_header_and_the_sp
     body: Final = _chat_body(model, False) if endpoint == "/v1/chat/completions" else _responses_body(model, False)
     response: Final = rig.proxy.request("POST", endpoint, body, key=key)
     assert response.is_success, response.text[:400]
-    assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(_llm_cost() + _guardrail_cost())
+    assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(_llm_cost() + _guardrail_cost())
     _assert_billed_as_guardrail_cost(_spend_row(rig.proxy, key))
 
 
@@ -367,7 +367,7 @@ def test_disabled_trace_bills_only_the_tokens(rig: Rig) -> None:
     response: Final = rig.proxy.request("POST", "/v1/chat/completions", _chat_body(rig.untraced_model, False), key=key)
     assert response.is_success, response.text[:400]
     assert "trace" not in response.json()
-    assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(_llm_cost())
+    assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(_llm_cost())
     row: Final = _spend_row(rig.proxy, key)
     assert row.spend == pytest.approx(_llm_cost())
     assert row.guardrail_information == ()

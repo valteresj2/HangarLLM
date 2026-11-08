@@ -18,7 +18,7 @@ from typing import Callable, Mapping
 
 import yaml
 
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 
 CONFIG_PATH = Path(__file__).resolve().parent / "test_config.yaml"
 
@@ -26,15 +26,15 @@ CONFIG_PATH = Path(__file__).resolve().parent / "test_config.yaml"
 @dataclass(frozen=True, slots=True)
 class CompatDeployment:
     model_name: str
-    litellm_params: LiteLLMParamsBody
+    hangarllm_params: HangarLLMParamsBody
 
 
 # The yaml uses ``vertex_ai_*`` for the vertex project/location fields
 # (that is the spelling the proxy config file historically standardized
-# on), while ``LiteLLMParamsBody`` names them without the ``_ai`` infix
+# on), while ``HangarLLMParamsBody`` names them without the ``_ai`` infix
 # (matching the proxy's DB column). Both spellings resolve at call time
 # on the proxy side, but pydantic silently drops unknown fields, so a
-# raw ``LiteLLMParamsBody(**entry)`` would produce a body with the
+# raw ``HangarLLMParamsBody(**entry)`` would produce a body with the
 # vertex project stripped - the resulting deployment 400s at
 # ``/v1/messages`` with "Invalid model name". Normalize the yaml keys
 # to the pydantic names in one place.
@@ -66,8 +66,8 @@ def load_all_deployments(
     return tuple(
         CompatDeployment(
             model_name=entry["model_name"],
-            litellm_params=LiteLLMParamsBody(
-                **_normalize_params(entry["litellm_params"])
+            hangarllm_params=HangarLLMParamsBody(
+                **_normalize_params(entry["hangarllm_params"])
             ),
         )
         for entry in model_list

@@ -154,9 +154,9 @@ def test_legacy_limiter_per_model_429_skips_fallbacks(tmp_path: Path) -> None:
         responses: Final = sent_until_refused(rig, scenario.key(model_rpm_limit={primary: 1}), markers)
         *served, refused = responses
         assert refused.status_code == 429, tuple(
-            (response.status_code, response.headers.get("x-litellm-model-group")) for response in responses
+            (response.status_code, response.headers.get("x-hangarllm-model-group")) for response in responses
         )
-        assert "LiteLLM Rate Limit Handler for rate limit type = model_per_key." in error_message(refused.text)
+        assert "HangarLLM Rate Limit Handler for rate limit type = model_per_key." in error_message(refused.text)
         for marker, response in zip(markers, served):
             assert_served(response, primary, f"chatcmpl-{marker}")
         assert rig.traffic() == rig.expected({primary: markers[: len(served)]})

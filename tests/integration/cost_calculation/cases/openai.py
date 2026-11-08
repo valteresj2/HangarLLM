@@ -7673,7 +7673,7 @@ OPENAI_DEPLOYMENT_ZERO_PRICING_IGNORES_UPSTREAM_COST_HEADER: Final = CostTrackin
             ],
             "usage": {"prompt_tokens": 10, "completion_tokens": 253, "total_tokens": 263},
         },
-        headers={"x-litellm-response-cost": "0.000413"},
+        headers={"x-hangarllm-response-cost": "0.000413"},
     ),
     expected=ExactExpected(spend=0.0, input_cost=0.0, output_cost=0.0, prompt_tokens=10, completion_tokens=253),
 )
@@ -7692,7 +7692,7 @@ OPENAI_DEPLOYMENT_ZERO_PRICING_IGNORES_UPSTREAM_COST_HEADER_STREAM: Final = Cost
     response=SseResponse(
         content_type="text/event-stream",
         frames=_CC_CUSTOM_MODEL_COST_HEADER_FRAMES,
-        headers={"x-litellm-response-cost": "0.000413"},
+        headers={"x-hangarllm-response-cost": "0.000413"},
     ),
     expected=ExactExpected(spend=0.0, input_cost=0.0, output_cost=0.0, prompt_tokens=10, completion_tokens=253),
 )
@@ -7711,7 +7711,7 @@ OPENAI_DEPLOYMENT_ZERO_PRICING_IGNORES_UPSTREAM_COST_HEADER_MESSAGES: Final = Co
     response=JsonResponse(
         content_type="application/json",
         body=_CC_CUSTOM_MODEL_RESPONSES_BODY,
-        headers={"x-litellm-response-cost": "0.000413"},
+        headers={"x-hangarllm-response-cost": "0.000413"},
     ),
     expected=ExactExpected(spend=0.0, input_cost=0.0, output_cost=0.0, prompt_tokens=10, completion_tokens=253),
 )
@@ -7730,7 +7730,7 @@ OPENAI_DEPLOYMENT_ZERO_PRICING_IGNORES_UPSTREAM_COST_HEADER_RESPONSES: Final = C
     response=JsonResponse(
         content_type="application/json",
         body=_CC_CUSTOM_MODEL_RESPONSES_BODY,
-        headers={"x-litellm-response-cost": "0.000413"},
+        headers={"x-hangarllm-response-cost": "0.000413"},
     ),
     expected=ExactExpected(spend=0.0, input_cost=0.0, output_cost=0.0, prompt_tokens=10, completion_tokens=253),
 )
@@ -7756,7 +7756,7 @@ OPENAI_DEPLOYMENT_PRICING_IGNORES_UPSTREAM_COST_HEADER: Final = CostTrackingTest
             ],
             "usage": {"prompt_tokens": 10, "completion_tokens": 253, "total_tokens": 263},
         },
-        headers={"x-litellm-response-cost": "0.000413"},
+        headers={"x-hangarllm-response-cost": "0.000413"},
     ),
     expected=ExactExpected(
         spend=0.516, input_cost=0.01, output_cost=0.506, prompt_tokens=10, completion_tokens=253, rollups=True
@@ -7783,7 +7783,7 @@ GPT_5_6_UPSTREAM_COST_HEADER_BILLS_HEADER_VALUE: Final = CostTrackingTestCase(
             ],
             "usage": {"prompt_tokens": 10, "completion_tokens": 253, "total_tokens": 263},
         },
-        headers={"x-litellm-response-cost": "0.000413"},
+        headers={"x-hangarllm-response-cost": "0.000413"},
     ),
     expected=ExactExpected(
         spend=0.000413,

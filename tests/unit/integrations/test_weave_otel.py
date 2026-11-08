@@ -7,14 +7,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 from opentelemetry.sdk.trace import TracerProvider
 
-from litellm.integrations._types.open_inference import SpanAttributes as OpenInferenceSpanAttributes
-from litellm.integrations.weave.weave_otel import (
+from hangarllm.integrations._types.open_inference import SpanAttributes as OpenInferenceSpanAttributes
+from hangarllm.integrations.weave.weave_otel import (
     WeaveLLMObsOTELAttributes,
     _set_weave_specific_attributes,
     get_weave_otel_config,
 )
-from litellm.types.integrations.weave_otel import WeaveOtelConfig, WeaveSpanAttributes
-from litellm.types.utils import ModelResponse
+from hangarllm.types.integrations.weave_otel import WeaveOtelConfig, WeaveSpanAttributes
+from hangarllm.types.utils import ModelResponse
 
 
 def test_get_weave_otel_config():
@@ -113,7 +113,7 @@ def test_set_weave_specific_attributes_display_name_from_metadata():
     }
 
     with patch(
-        "litellm.integrations.weave.weave_otel.safe_set_attribute"
+        "hangarllm.integrations.weave.weave_otel.safe_set_attribute"
     ) as mock_safe_set:
         _set_weave_specific_attributes(mock_span, kwargs, None)
 
@@ -132,7 +132,7 @@ def test_set_weave_specific_attributes_display_name_from_model():
     }
 
     with patch(
-        "litellm.integrations.weave.weave_otel.safe_set_attribute"
+        "hangarllm.integrations.weave.weave_otel.safe_set_attribute"
     ) as mock_safe_set:
         _set_weave_specific_attributes(mock_span, kwargs, None)
 
@@ -150,7 +150,7 @@ def test_set_weave_specific_attributes_thread_id_and_is_turn():
     }
 
     with patch(
-        "litellm.integrations.weave.weave_otel.safe_set_attribute"
+        "hangarllm.integrations.weave.weave_otel.safe_set_attribute"
     ) as mock_safe_set:
         _set_weave_specific_attributes(mock_span, kwargs, None)
 
@@ -185,7 +185,7 @@ WEAVE_FUNCTIONS: Final = [{"name": "get_time", "parameters": {}}]
 def test_weave_input_value_carries_the_request_functions_and_tools(
     request_kwargs: Mapping[str, object], expected_input: Mapping[str, object]
 ) -> None:
-    span: Final = _TRACER.start_span("litellm_request")
+    span: Final = _TRACER.start_span("hangarllm_request")
 
     WeaveLLMObsOTELAttributes.set_messages(span, request_kwargs)
 
@@ -193,7 +193,7 @@ def test_weave_input_value_carries_the_request_functions_and_tools(
 
 
 def test_weave_output_value_is_the_dumped_model_response() -> None:
-    span: Final = _TRACER.start_span("litellm_request")
+    span: Final = _TRACER.start_span("hangarllm_request")
     response: Final = ModelResponse(
         id="chatcmpl-1",
         model="gpt-4o",

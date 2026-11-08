@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy._types import LiteLLM_ObjectPermissionTable, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_skill_access import (
+from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable, HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_skill_access import (
     PUBLIC_ONLY,
     AccessGroupSkills,
     access_group_skills,
@@ -15,14 +15,14 @@ from litellm.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_skill_a
 )
 
 
-def _perm(skills: list[str] | None) -> LiteLLM_ObjectPermissionTable:
-    return LiteLLM_ObjectPermissionTable(object_permission_id="perm", skills=skills)
+def _perm(skills: list[str] | None) -> HangarLLM_ObjectPermissionTable:
+    return HangarLLM_ObjectPermissionTable(object_permission_id="perm", skills=skills)
 
 
 def _key(key_skills: list[str] | None, team_skills: list[str] | None) -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         api_key="sk-user",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         object_permission=_perm(key_skills) if key_skills is not None else None,
         team_object_permission=_perm(team_skills) if team_skills is not None else None,
     )
@@ -62,7 +62,7 @@ def test_visibility_enabled_plugin_is_public_for_everyone():
 
 def test_visibility_disabled_plugin_needs_grant_or_admin():
     private = _plugin("private-skill", enabled=False)
-    admin = UserAPIKeyAuth(api_key="sk-9876", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin = UserAPIKeyAuth(api_key="sk-9876", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
     assert not skill_visibility(None).allows(private)
     assert not skill_visibility(_key(None, None)).allows(private)
@@ -74,7 +74,7 @@ def test_visibility_disabled_plugin_needs_grant_or_admin():
 
 
 def test_where_clause_bounds_the_plugin_query_to_what_the_caller_may_see():
-    admin = UserAPIKeyAuth(api_key="sk-9876", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin = UserAPIKeyAuth(api_key="sk-9876", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
     assert skill_visibility(None).where() == {"enabled": True}
     assert skill_visibility(_key(None, None)).where() == {"enabled": True}
@@ -128,7 +128,7 @@ async def test_resolve_skill_visibility_folds_in_access_group_skills_for_non_adm
 @pytest.mark.asyncio
 async def test_resolve_skill_visibility_skips_group_lookup_for_anonymous_and_admin_callers():
     loader = AsyncMock(return_value=AccessGroupSkills(key=frozenset({"group-skill"})))
-    admin = UserAPIKeyAuth(api_key="sk-9876", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin = UserAPIKeyAuth(api_key="sk-9876", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
     assert not (await resolve_skill_visibility(None, loader)).allows(_plugin("group-skill", enabled=False))
     assert (await resolve_skill_visibility(admin, loader)).sees_private
@@ -158,12 +158,12 @@ def _group(access_group_id: str, skills: list[str], assigned_key_ids: list[str] 
     [(False, frozenset({"team-group-skill"})), (True, frozenset())],
 )
 async def test_access_group_skills_resolves_key_groups_and_team_groups(monkeypatch, team_blocked, expected_team_skills):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth import auth_checks
 
     caller = UserAPIKeyAuth(
         api_key="sk-user",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         team_id="team-1",
         access_group_ids=["key-group", "stray-group"],
     ).model_copy(update={"requires_fresh_policy": True})
@@ -196,11 +196,11 @@ async def test_access_group_skills_resolves_key_groups_and_team_groups(monkeypat
 @pytest.mark.asyncio
 @pytest.mark.parametrize("fresh", [True, False])
 async def test_access_group_skills_surfaces_key_group_lookup_failures(monkeypatch, fresh):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth import auth_checks
 
     caller = UserAPIKeyAuth(
-        api_key="sk-user", user_role=LitellmUserRoles.INTERNAL_USER, access_group_ids=["key-group"]
+        api_key="sk-user", user_role=HangarllmUserRoles.INTERNAL_USER, access_group_ids=["key-group"]
     ).model_copy(update={"requires_fresh_policy": fresh})
     monkeypatch.setattr(auth_checks, "get_access_object", AsyncMock(side_effect=RuntimeError("writer down")))
     monkeypatch.setattr(auth_checks, "get_skill_names_from_access_groups", AsyncMock(return_value=frozenset()))
@@ -213,14 +213,14 @@ async def test_access_group_skills_surfaces_key_group_lookup_failures(monkeypatc
 
 @pytest.mark.asyncio
 async def test_access_group_skills_without_groups_or_team_grants_nothing(monkeypatch):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth import auth_checks
 
     get_team_object = AsyncMock()
     monkeypatch.setattr(auth_checks, "get_team_object", get_team_object)
     monkeypatch.setattr(auth_checks, "get_skill_names_from_access_groups", AsyncMock(return_value=frozenset()))
     monkeypatch.setattr(proxy_server, "prisma_client", MagicMock())
-    caller = UserAPIKeyAuth(api_key="sk-user", user_role=LitellmUserRoles.INTERNAL_USER)
+    caller = UserAPIKeyAuth(api_key="sk-user", user_role=HangarllmUserRoles.INTERNAL_USER)
 
     assert await access_group_skills(caller) == AccessGroupSkills()
     get_team_object.assert_not_awaited()
@@ -229,11 +229,11 @@ async def test_access_group_skills_without_groups_or_team_grants_nothing(monkeyp
 @pytest.mark.asyncio
 @pytest.mark.parametrize("fresh", [True, False])
 async def test_access_group_skills_keeps_team_ceiling_when_team_lookup_fails(monkeypatch, fresh):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth import auth_checks
 
     caller = UserAPIKeyAuth(
-        api_key="sk-user", user_role=LitellmUserRoles.INTERNAL_USER, team_id="team-1", access_group_ids=["key-group"]
+        api_key="sk-user", user_role=HangarllmUserRoles.INTERNAL_USER, team_id="team-1", access_group_ids=["key-group"]
     ).model_copy(update={"requires_fresh_policy": fresh})
     key_group = _group("key-group", ["secret-skill"], assigned_key_ids=[caller.token or ""])
     monkeypatch.setattr(auth_checks, "get_team_object", AsyncMock(side_effect=RuntimeError("writer down")))
@@ -249,11 +249,11 @@ async def test_access_group_skills_keeps_team_ceiling_when_team_lookup_fails(mon
 @pytest.mark.asyncio
 @pytest.mark.parametrize("fresh", [True, False])
 async def test_access_group_skills_surfaces_team_group_lookup_failures(monkeypatch, fresh):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth import auth_checks
 
     caller = UserAPIKeyAuth(
-        api_key="sk-user", user_role=LitellmUserRoles.INTERNAL_USER, team_id="team-1", access_group_ids=["key-group"]
+        api_key="sk-user", user_role=HangarllmUserRoles.INTERNAL_USER, team_id="team-1", access_group_ids=["key-group"]
     ).model_copy(update={"requires_fresh_policy": fresh})
     key_group = _group("key-group", ["secret-skill"], assigned_key_ids=[caller.token or ""])
     monkeypatch.setattr(auth_checks, "get_team_object", AsyncMock(return_value=_team("team-1", ["team-group"])))
@@ -273,12 +273,12 @@ async def test_access_group_skills_surfaces_team_group_lookup_failures(monkeypat
 
 @pytest.mark.asyncio
 async def test_access_group_skills_treats_confirmed_missing_team_like_no_team(monkeypatch):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth import auth_checks
 
     caller = UserAPIKeyAuth(
         api_key="sk-user",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         team_id="removed-team",
         access_group_ids=["key-group"],
     )
@@ -299,13 +299,13 @@ async def test_access_group_skills_treats_confirmed_missing_team_like_no_team(mo
 async def test_access_group_skills_marks_scope_unresolved_when_a_listed_group_is_missing(
     monkeypatch, fresh, missing_scope
 ):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth import auth_checks
 
     key_groups = ["typo-group", "key-group"] if missing_scope == "key" else ["key-group"]
     team_groups = ["team-group"] if missing_scope == "key" else ["stale-team-group", "team-group"]
     caller = UserAPIKeyAuth(
-        api_key="sk-user", user_role=LitellmUserRoles.INTERNAL_USER, team_id="team-1", access_group_ids=key_groups
+        api_key="sk-user", user_role=HangarllmUserRoles.INTERNAL_USER, team_id="team-1", access_group_ids=key_groups
     ).model_copy(update={"requires_fresh_policy": fresh})
     groups = {
         "key-group": _group("key-group", ["secret-skill"], assigned_key_ids=[caller.token or ""]),
@@ -328,26 +328,26 @@ async def test_access_group_skills_marks_scope_unresolved_when_a_listed_group_is
 @pytest.mark.asyncio
 @pytest.mark.parametrize("missing_scope", ["key", "team"])
 async def test_access_group_skills_marks_scope_unresolved_through_the_real_group_lookup(monkeypatch, missing_scope):
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_AccessGroupTable
-    from litellm.proxy.auth import auth_checks
-    from litellm.proxy.auth.auth_checks import cache_access_object
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_AccessGroupTable
+    from hangarllm.proxy.auth import auth_checks
+    from hangarllm.proxy.auth.auth_checks import cache_access_object
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     key_groups = ["typo-group", "key-group"] if missing_scope == "key" else ["key-group"]
     team_groups = ["team-group"] if missing_scope == "key" else ["stale-team-group", "team-group"]
     caller = UserAPIKeyAuth(
-        api_key="sk-user", user_role=LitellmUserRoles.INTERNAL_USER, team_id="team-1", access_group_ids=key_groups
+        api_key="sk-user", user_role=HangarllmUserRoles.INTERNAL_USER, team_id="team-1", access_group_ids=key_groups
     )
     cache = UserApiKeyCache()
     for group in (
-        LiteLLM_AccessGroupTable(
+        HangarLLM_AccessGroupTable(
             access_group_id="key-group",
             access_group_name="key-group",
             access_skill_names=["secret-skill"],
             assigned_key_ids=[caller.token or ""],
         ),
-        LiteLLM_AccessGroupTable(
+        HangarLLM_AccessGroupTable(
             access_group_id="team-group", access_group_name="team-group", access_skill_names=["team-skill"]
         ),
     ):
@@ -355,19 +355,19 @@ async def test_access_group_skills_marks_scope_unresolved_through_the_real_group
             access_group_id=group.access_group_id, access_group_table=group, user_api_key_cache=cache
         )
     prisma = MagicMock()
-    prisma.db.litellm_accessgrouptable.find_unique = AsyncMock(return_value=None)
+    prisma.db.hangarllm_accessgrouptable.find_unique = AsyncMock(return_value=None)
     monkeypatch.setattr(auth_checks, "get_team_object", AsyncMock(return_value=_team("team-1", team_groups)))
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
     monkeypatch.setattr(proxy_server, "user_api_key_cache", cache)
 
     assert await access_group_skills(caller) == AccessGroupSkills(unresolved=True)
-    prisma.db.litellm_accessgrouptable.find_unique.assert_awaited_once()
+    prisma.db.hangarllm_accessgrouptable.find_unique.assert_awaited_once()
 
 
 def test_skill_visibility_is_public_only_while_a_group_scope_is_unresolved():
     caller = UserAPIKeyAuth(
         api_key="sk-user",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         object_permission=_perm(["private-a"]),
         team_object_permission=_perm(["private-a", "private-b"]),
     )
@@ -384,7 +384,7 @@ async def test_shared_group_loader_skips_missing_groups_unless_strict(
 ):
     """A group with no row grants nothing on cached and fresh reads alike; only ``strict_errors`` callers,
     which turn the typed absence into an unresolved policy, see ``AccessGroupNotFoundError``."""
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy.auth import auth_checks
 
     groups = {"real-group": _group("real-group", [])}
     groups["real-group"].access_mcp_server_ids = ["mcp-1"]

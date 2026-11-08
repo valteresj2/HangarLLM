@@ -90,7 +90,7 @@ class Replica:
         )
         assert info.info.key_alias == alias
         assert database.query(
-            'SELECT key_alias FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT key_alias FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (hashlib.sha256(key.encode()).hexdigest(),),
         ) == ((alias,),)
 
@@ -117,7 +117,7 @@ def request_log_indexes_built(database: Database) -> bool:
     return database.query(
         "SELECT count(*) FROM pg_index x JOIN pg_class i ON i.oid = x.indexrelid "
         "JOIN pg_namespace n ON n.oid = i.relnamespace WHERE n.nspname = current_schema() AND x.indisvalid "
-        "AND i.relname IN ('LiteLLM_SpendLogs_api_key_startTime_idx', 'LiteLLM_SpendLogs_litellm_call_id_idx')"
+        "AND i.relname IN ('HangarLLM_SpendLogs_api_key_startTime_idx', 'HangarLLM_SpendLogs_hangarllm_call_id_idx')"
     ) == ((2,),)
 
 
@@ -163,27 +163,27 @@ class Containers:
         disabled: bool = False,
         environment: Mapping[str, str] | None = None,
     ) -> Generator[Replica]:
-        name: Final = f"litellm-migration-{uuid4().hex[:16]}"
+        name: Final = f"hangarllm-migration-{uuid4().hex[:16]}"
         directory: Final = self.output / name
         directory.mkdir(parents=True)
         for migration in migrations:
             write_migration(directory, migration)
         (directory / "config.yaml").write_text(
-            "model_list: []\ngeneral_settings:\n  master_key: os.environ/LITELLM_MASTER_KEY\n"
+            "model_list: []\ngeneral_settings:\n  master_key: os.environ/HANGARLLM_MASTER_KEY\n"
         )
         env: Final = {
             "DATABASE_URL": prisma_url(database.container_url, database.schema, application_name=name),
-            "LITELLM_MASTER_KEY": MASTER_KEY,
-            "LITELLM_SALT_KEY": MASTER_KEY,
-            "LITELLM_LOCAL_MODEL_COST_MAP": "True",
-            "LITELLM_TELEMETRY": "False",
-            "LITELLM_LOG": "INFO",
+            "HANGARLLM_MASTER_KEY": MASTER_KEY,
+            "HANGARLLM_SALT_KEY": MASTER_KEY,
+            "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
+            "HANGARLLM_TELEMETRY": "False",
+            "HANGARLLM_LOG": "INFO",
             "DATABASE_CONNECTION_POOL_LIMIT": "2",
-            "DEFAULT_NUM_WORKERS_LITELLM_PROXY": "1",
+            "DEFAULT_NUM_WORKERS_HANGARLLM_PROXY": "1",
             "USE_V2_MIGRATION_RESOLVER": str(v2).lower(),
             "DISABLE_SCHEMA_UPDATE": str(disabled).lower(),
-            "LITELLM_MIGRATION_DIR": "/migration-test/prisma",
-            "LITELLM_PRISMA_MIGRATE_DEPLOY_TIMEOUT": "180",
+            "HANGARLLM_MIGRATION_DIR": "/migration-test/prisma",
+            "HANGARLLM_PRISMA_MIGRATE_DEPLOY_TIMEOUT": "180",
             **(environment or {}),
         }
         try:
@@ -193,7 +193,7 @@ class Containers:
                 "--name",
                 name,
                 "--label",
-                "litellm-migration-test=true",
+                "hangarllm-migration-test=true",
                 "--add-host",
                 "host.docker.internal:host-gateway",
                 "-p",

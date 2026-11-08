@@ -1,7 +1,7 @@
 """
 Mocked tests for Vertex AI Gemma Models
 
-Maps to: litellm/llms/vertex_ai/vertex_gemma_models/transformation.py
+Maps to: hangarllm/llms/vertex_ai/vertex_gemma_models/transformation.py
 """
 
 import json
@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.types.llms.openai import (
+import hangarllm
+from hangarllm.types.llms.openai import (
     OutputTextDeltaEvent,
     ResponseCompletedEvent,
     ResponsesAPIStreamingResponse,
@@ -26,9 +26,9 @@ from tests.unit.llms.bedrock.slow_upstream import (
 
 
 @pytest.fixture(autouse=True)
-def _reset_litellm_http_client_cache():
+def _reset_hangarllm_http_client_cache():
     """Ensure each test gets a fresh async HTTP client mock."""
-    from litellm import in_memory_llm_clients_cache
+    from hangarllm import in_memory_llm_clients_cache
 
     in_memory_llm_clients_cache.flush_cache()
 
@@ -75,12 +75,12 @@ def _make_gemma_vertex_response(
 
 
 class TestVertexGemmaCompletion:
-    """Test completion flow for Vertex AI Gemma models using litellm.acompletion()"""
+    """Test completion flow for Vertex AI Gemma models using hangarllm.acompletion()"""
 
     @pytest.mark.asyncio
     async def test_acompletion_basic_request(self):
         """
-        Test litellm.acompletion() with Vertex AI Gemma model
+        Test hangarllm.acompletion() with Vertex AI Gemma model
 
         Expected URL:
         https://32277599999999999.us-central1-10582012152.prediction.vertexai.goog/v1/projects/PROJECT_ID/locations/us-central1/endpoints/ENDPOINT_ID:predict
@@ -136,7 +136,7 @@ class TestVertexGemmaCompletion:
             }
         }
 
-        Expected LiteLLM Response: Standard OpenAI format
+        Expected HangarLLM Response: Standard OpenAI format
         """
         # Real Vertex response from user's spec
         mock_vertex_response = {
@@ -175,9 +175,9 @@ class TestVertexGemmaCompletion:
 
         # Mock the async HTTP handler and Vertex authentication
         with (
-            patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
+            patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
                 return_value=("fake-access-token", "PROJECT_ID"),
             ),
         ):
@@ -188,8 +188,8 @@ class TestVertexGemmaCompletion:
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
 
-            # Call litellm.acompletion()
-            response = await litellm.acompletion(
+            # Call hangarllm.acompletion()
+            response = await hangarllm.acompletion(
                 model="vertex_ai/gemma/gemma-3-12b-it-1222199011122",
                 messages=[{"role": "user", "content": "What is machine learning?"}],
                 max_tokens=100,
@@ -225,7 +225,7 @@ class TestVertexGemmaCompletion:
             # Verify stream parameter is NOT sent to Vertex (will be faked client-side)
             assert "stream" not in instance
 
-            # Validate LiteLLM Response (OpenAI format)
+            # Validate HangarLLM Response (OpenAI format)
             assert response.id == "chatcmpl-aaa4288f-2b8e-4bc0-8b14-4e444decd2c4"
             assert response.object == "chat.completion"
             assert response.created == 1759863903
@@ -247,11 +247,11 @@ class TestVertexGemmaCompletion:
     @pytest.mark.asyncio
     async def test_acompletion_error_handling(self):
         """
-        Test litellm.acompletion() error handling when Vertex returns invalid response
+        Test hangarllm.acompletion() error handling when Vertex returns invalid response
 
         Expected: Proper error handling when 'predictions' field is missing
         """
-        from litellm.exceptions import BadRequestError
+        from hangarllm.exceptions import BadRequestError
 
         # Invalid response without predictions field
         invalid_response = {
@@ -260,9 +260,9 @@ class TestVertexGemmaCompletion:
         }
 
         with (
-            patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
+            patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
                 return_value=("fake-access-token", "test-project"),
             ),
         ):
@@ -273,9 +273,9 @@ class TestVertexGemmaCompletion:
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
 
-            # Should raise exception (wrapped as BadRequestError by LiteLLM)
+            # Should raise exception (wrapped as BadRequestError by HangarLLM)
             with pytest.raises(BadRequestError) as exc_info:
-                await litellm.acompletion(
+                await hangarllm.acompletion(
                     model="vertex_ai/gemma/gemma-3-12b-it",
                     messages=[{"role": "user", "content": "Test"}],
                     api_base="https://test.prediction.vertexai.goog/v1/projects/test/locations/us-central1/endpoints/123:predict",
@@ -294,7 +294,7 @@ class TestVertexGemmaCompletion:
         which Vertex still wraps in an HTTP 200 :predict response. The container's status and
         message must reach the caller instead of a 500 "no 'choices'".
         """
-        from litellm.exceptions import BadRequestError
+        from hangarllm.exceptions import BadRequestError
 
         container_message = '"auto" tool choice requires --enable-auto-tool-choice and --tool-call-parser to be set'
         vertex_response = {
@@ -309,9 +309,9 @@ class TestVertexGemmaCompletion:
         }
 
         with (
-            patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
+            patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
                 return_value=("fake-access-token", "test-project"),
             ),
         ):
@@ -323,7 +323,7 @@ class TestVertexGemmaCompletion:
             mock_get_client.return_value = mock_client
 
             with pytest.raises(BadRequestError) as exc_info:
-                await litellm.acompletion(
+                await hangarllm.acompletion(
                     model="vertex_ai/gemma/gemma-2-2b-it",
                     messages=[{"role": "user", "content": "What is the weather in Paris?"}],
                     tools=[{"type": "function", "function": {"name": "get_weather", "parameters": {}}}],
@@ -340,7 +340,7 @@ class TestVertexGemmaCompletion:
     @pytest.mark.asyncio
     async def test_acompletion_keeps_container_error_status_beyond_400(self):
         """The container's status is forwarded as is, not collapsed to 400."""
-        from litellm.exceptions import RateLimitError
+        from hangarllm.exceptions import RateLimitError
 
         vertex_response = {
             "deployedModelId": "123",
@@ -348,9 +348,9 @@ class TestVertexGemmaCompletion:
         }
 
         with (
-            patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
+            patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
                 return_value=("fake-access-token", "test-project"),
             ),
         ):
@@ -362,7 +362,7 @@ class TestVertexGemmaCompletion:
             mock_get_client.return_value = mock_client
 
             with pytest.raises(RateLimitError) as exc_info:
-                await litellm.acompletion(
+                await hangarllm.acompletion(
                     model="vertex_ai/gemma/gemma-2-2b-it",
                     messages=[{"role": "user", "content": "Test"}],
                     api_base="https://test.prediction.vertexai.goog/v1/projects/test/locations/us-central1/endpoints/123:predict",
@@ -376,7 +376,7 @@ class TestVertexGemmaCompletion:
     @pytest.mark.asyncio
     async def test_acompletion_error_object_without_http_status_keeps_generic_handling(self):
         """An error-shaped body whose code is not an HTTP error status is not trusted as one."""
-        from litellm.exceptions import APIError
+        from hangarllm.exceptions import APIError
 
         vertex_response = {
             "deployedModelId": "123",
@@ -384,9 +384,9 @@ class TestVertexGemmaCompletion:
         }
 
         with (
-            patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
+            patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
                 return_value=("fake-access-token", "test-project"),
             ),
         ):
@@ -398,7 +398,7 @@ class TestVertexGemmaCompletion:
             mock_get_client.return_value = mock_client
 
             with pytest.raises(APIError) as exc_info:
-                await litellm.acompletion(
+                await hangarllm.acompletion(
                     model="vertex_ai/gemma/gemma-2-2b-it",
                     messages=[{"role": "user", "content": "Test"}],
                     api_base="https://test.prediction.vertexai.goog/v1/projects/test/locations/us-central1/endpoints/123:predict",
@@ -410,7 +410,7 @@ class TestVertexGemmaCompletion:
 
     def test_sync_completion_surfaces_container_error_object_as_its_own_status_and_message(self):
         """The synchronous path unwraps the same container error object."""
-        from litellm.exceptions import BadRequestError
+        from hangarllm.exceptions import BadRequestError
 
         container_message = '"auto" tool choice requires --enable-auto-tool-choice and --tool-call-parser to be set'
         vertex_response = {
@@ -419,9 +419,9 @@ class TestVertexGemmaCompletion:
         }
 
         with (
-            patch("litellm.llms.vertex_ai.vertex_gemma_models.transformation.get_httpx_client") as mock_get_client,
+            patch("hangarllm.llms.vertex_ai.vertex_gemma_models.transformation.get_httpx_client") as mock_get_client,
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
                 return_value=("fake-access-token", "PROJECT_ID"),
             ),
         ):
@@ -433,7 +433,7 @@ class TestVertexGemmaCompletion:
             mock_get_client.return_value = mock_client
 
             with pytest.raises(BadRequestError) as exc_info:
-                litellm.completion(
+                hangarllm.completion(
                     model="vertex_ai/gemma/gemma-2-2b-it",
                     messages=[{"role": "user", "content": "What is the weather in Paris?"}],
                     tools=[{"type": "function", "function": {"name": "get_weather", "parameters": {}}}],
@@ -454,8 +454,8 @@ class TestVertexGemmaCompletion:
         1. Request body does NOT include 'stream' parameter (model doesn't support it)
         2. Response wraps a MockResponseIterator and yields chunks
         """
-        from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-        from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
+        from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+        from hangarllm.llms.base_llm.base_model_iterator import MockResponseIterator
 
         # Mock Vertex response
         mock_vertex_response = {
@@ -493,9 +493,9 @@ class TestVertexGemmaCompletion:
         }
 
         with (
-            patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
+            patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
                 return_value=("fake-access-token", "PROJECT_ID"),
             ),
         ):
@@ -506,8 +506,8 @@ class TestVertexGemmaCompletion:
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
 
-            # Call litellm.acompletion() with stream=True
-            response = await litellm.acompletion(
+            # Call hangarllm.acompletion() with stream=True
+            response = await hangarllm.acompletion(
                 model="vertex_ai/gemma/gemma-3-12b-it-1222199011122",
                 messages=[{"role": "user", "content": "Test streaming"}],
                 stream=True,
@@ -547,12 +547,12 @@ class TestVertexGemmaCompletion:
     @pytest.mark.asyncio
     async def test_aresponses_streams_vertex_gemma_with_llm_tracing(self):
         pytest.importorskip("ddtrace")
-        from ddtrace.contrib.internal.litellm.patch import patch as patch_litellm
-        from ddtrace.contrib.internal.litellm.patch import unpatch as unpatch_litellm
+        from ddtrace.contrib.internal.hangarllm.patch import patch as patch_hangarllm
+        from ddtrace.contrib.internal.hangarllm.patch import unpatch as unpatch_hangarllm
         from ddtrace.llmobs._integrations.base_stream_handler import TracedAsyncStream
 
-        from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-            LiteLLMCompletionStreamingIterator,
+        from hangarllm.responses.hangarllm_completion_transformation.streaming_iterator import (
+            HangarLLMCompletionStreamingIterator,
         )
 
         reply = Mock(status_code=200)
@@ -561,15 +561,15 @@ class TestVertexGemmaCompletion:
         client.post = AsyncMock(return_value=reply)
 
         with (
-            patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=client),
+            patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=client),
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
                 return_value=("fake-access-token", "test-project"),
             ),
         ):
-            patch_litellm()
+            patch_hangarllm()
             try:
-                response = await litellm.aresponses(
+                response = await hangarllm.aresponses(
                     model="vertex_ai/gemma/test-model",
                     input="Reply exactly READY",
                     stream=True,
@@ -577,8 +577,8 @@ class TestVertexGemmaCompletion:
                     vertex_project="test-project",
                     vertex_location="us-central1",
                 )
-                bridge = cast(LiteLLMCompletionStreamingIterator, response)
-                traced_stream = bridge.litellm_custom_stream_wrapper
+                bridge = cast(HangarLLMCompletionStreamingIterator, response)
+                traced_stream = bridge.hangarllm_custom_stream_wrapper
                 assert isinstance(traced_stream, TracedAsyncStream)
                 events = [event async for event in cast(AsyncIterator[ResponsesAPIStreamingResponse], response)]
                 span = traced_stream.handler.primary_span
@@ -586,7 +586,7 @@ class TestVertexGemmaCompletion:
                 assert span.get_tag("_dd.llmobs.span_kind") == "llm"
                 assert span.get_metric("_dd.llmobs.total_tokens") == 114
             finally:
-                unpatch_litellm()
+                unpatch_hangarllm()
 
         assert "stream" not in client.post.call_args.kwargs["json"]["instances"][0]
         assert "READY" in "".join(event.delta for event in events if isinstance(event, OutputTextDeltaEvent))
@@ -597,22 +597,22 @@ class TestVertexGemmaCompletion:
     @pytest.mark.parametrize("stream_options", [None, {"include_usage": False}, {"include_usage": True}])
     async def test_acompletion_stream_respects_usage_option_with_llm_tracing(self, stream_options):
         pytest.importorskip("ddtrace")
-        from ddtrace.contrib.internal.litellm.patch import patch as patch_litellm
-        from ddtrace.contrib.internal.litellm.patch import unpatch as unpatch_litellm
+        from ddtrace.contrib.internal.hangarllm.patch import patch as patch_hangarllm
+        from ddtrace.contrib.internal.hangarllm.patch import unpatch as unpatch_hangarllm
 
         reply = Mock(status_code=200)
         reply.json.return_value = _make_gemma_vertex_response(content="READY")
         client = Mock(post=AsyncMock(return_value=reply))
         with (
-            patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=client),
+            patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=client),
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
                 return_value=("fake-access-token", "test-project"),
             ),
         ):
-            patch_litellm()
+            patch_hangarllm()
             try:
-                stream = await litellm.acompletion(
+                stream = await hangarllm.acompletion(
                     model="vertex_ai/gemma/test-model",
                     messages=[{"role": "user", "content": "Reply exactly READY"}],
                     stream=True,
@@ -626,7 +626,7 @@ class TestVertexGemmaCompletion:
                 assert span.finished
                 assert span.get_tag("_dd.llmobs.span_kind") == "llm"
             finally:
-                unpatch_litellm()
+                unpatch_hangarllm()
 
         assert len(chunks) == (3 if stream_options and stream_options["include_usage"] else 2)
         assert chunks[0].choices[0].delta.content == "READY"
@@ -636,7 +636,7 @@ class TestVertexGemmaCompletion:
             assert chunks[-1].usage.total_tokens == 114
             assert span.get_metric("_dd.llmobs.total_tokens") == 114
         else:
-            from litellm.litellm_core_utils.streaming_handler import calculate_total_usage
+            from hangarllm.hangarllm_core_utils.streaming_handler import calculate_total_usage
 
             assert all(getattr(chunk, "usage", None) is None for chunk in chunks)
             assert calculate_total_usage(chunks=stream.chunks).total_tokens == 114
@@ -686,9 +686,9 @@ class TestVertexGemmaCompletion:
         }
 
         with (
-            patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
+            patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
                 return_value=("fake-access-token", "PROJECT_ID"),
             ),
         ):
@@ -699,7 +699,7 @@ class TestVertexGemmaCompletion:
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
 
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="vertex_ai/gemma/gemma-3-12b-it-1222199011122",
                 messages=[{"role": "user", "content": "Test"}],
                 stream=True,
@@ -769,9 +769,9 @@ class TestVertexGemmaCompletion:
         }
 
         with (
-            patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
+            patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
                 return_value=("fake-access-token", "PROJECT_ID"),
             ),
         ):
@@ -787,7 +787,7 @@ class TestVertexGemmaCompletion:
             # validator drops it before we can prove the transformation
             # strips it). This mirrors the real-world scenario where a
             # caller explicitly opts in to forwarding an arbitrary param.
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="vertex_ai/gemma/gemma-3-12b-it-1222199011122",
                 messages=[{"role": "user", "content": "Test"}],
                 context_management=[{"type": "compaction", "compact_threshold": 200000}],
@@ -823,7 +823,7 @@ class TestVertexGemmaCompletion:
         ],
     )
     def test_get_supported_openai_params_omits_params_the_predict_endpoint_rejects(self, param: str):
-        from litellm.llms.vertex_ai.vertex_gemma_models.transformation import (
+        from hangarllm.llms.vertex_ai.vertex_gemma_models.transformation import (
             VertexGemmaConfig,
         )
 
@@ -832,9 +832,9 @@ class TestVertexGemmaCompletion:
     @pytest.mark.asyncio
     async def test_acompletion_drops_prompt_cache_key_when_drop_params_is_set(self):
         with (
-            patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
+            patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
                 return_value=("fake-access-token", "PROJECT_ID"),
             ),
         ):
@@ -845,7 +845,7 @@ class TestVertexGemmaCompletion:
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
 
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="vertex_ai/gemma/gemma-2-2b-it",
                 messages=[{"role": "user", "content": "Test"}],
                 prompt_cache_key="session-lit8592",
@@ -865,11 +865,11 @@ class TestVertexGemmaCompletion:
 
     @pytest.mark.asyncio
     async def test_acompletion_rejects_prompt_cache_key_before_calling_vertex(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         with (
-            patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
+            patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client,
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
                 return_value=("fake-access-token", "PROJECT_ID"),
             ),
         ):
@@ -877,8 +877,8 @@ class TestVertexGemmaCompletion:
             mock_client.post = AsyncMock()
             mock_get_client.return_value = mock_client
 
-            with pytest.raises(litellm.UnsupportedParamsError, match="prompt_cache_key"):
-                await litellm.acompletion(
+            with pytest.raises(hangarllm.UnsupportedParamsError, match="prompt_cache_key"):
+                await hangarllm.acompletion(
                     model="vertex_ai/gemma/gemma-2-2b-it",
                     messages=[{"role": "user", "content": "Test"}],
                     prompt_cache_key="session-lit8592",
@@ -896,7 +896,7 @@ class TestVertexGemmaCompletion:
         `context_management` is stripped from `optional_params` regardless of
         how it was supplied to the transformation layer.
         """
-        from litellm.llms.vertex_ai.vertex_gemma_models.transformation import (
+        from hangarllm.llms.vertex_ai.vertex_gemma_models.transformation import (
             VertexGemmaConfig,
         )
 
@@ -908,7 +908,7 @@ class TestVertexGemmaCompletion:
                 "max_tokens": 32,
                 "context_management": [{"type": "compaction", "compact_threshold": 200000}],
             },
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -926,7 +926,7 @@ class TestVertexGemmaCompletion:
         so every sync Vertex Gemma call raised
         `NameError: name 'response' is not defined` before any response
         handling could run. This drives the real sync code path through
-        litellm.completion() and asserts a fully parsed response comes back,
+        hangarllm.completion() and asserts a fully parsed response comes back,
         which only happens if the HTTP call is actually issued.
         """
         vertex_response = _make_gemma_vertex_response(
@@ -935,9 +935,9 @@ class TestVertexGemmaCompletion:
         )
 
         with (
-            patch("litellm.llms.vertex_ai.vertex_gemma_models.transformation.get_httpx_client") as mock_get_client,
+            patch("hangarllm.llms.vertex_ai.vertex_gemma_models.transformation.get_httpx_client") as mock_get_client,
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
                 return_value=("fake-access-token", "PROJECT_ID"),
             ),
         ):
@@ -948,7 +948,7 @@ class TestVertexGemmaCompletion:
             mock_client.post = Mock(return_value=mock_response)
             mock_get_client.return_value = mock_client
 
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="vertex_ai/gemma/gemma-3-12b-it-1222199011122",
                 messages=[{"role": "user", "content": "What is machine learning?"}],
                 max_tokens=100,
@@ -973,7 +973,7 @@ class TestVertexGemmaCompletion:
 
     def test_sync_completion_uses_provided_client(self):
         """A caller-supplied sync HTTPHandler must be routed through, not replaced."""
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
         vertex_response = _make_gemma_vertex_response(content="hi from sync client")
 
@@ -984,10 +984,10 @@ class TestVertexGemmaCompletion:
         custom_client.post = Mock(return_value=mock_response)
 
         with patch(
-            "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+            "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
             return_value=("fake-access-token", "PROJECT_ID"),
         ):
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="vertex_ai/gemma/gemma-3-12b-it-1222199011122",
                 messages=[{"role": "user", "content": "Test"}],
                 api_base="https://test.prediction.vertexai.goog/v1/projects/PROJECT_ID/locations/us-central1/endpoints/ENDPOINT_ID:predict",
@@ -1006,7 +1006,7 @@ class TestVertexGemmaCompletion:
         be used. This also guards the entry-point `client` type accepting async
         clients, not just sync ones.
         """
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+        from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
         vertex_response = _make_gemma_vertex_response(content="hi from async client")
 
@@ -1017,10 +1017,10 @@ class TestVertexGemmaCompletion:
         custom_client.post = AsyncMock(return_value=mock_response)
 
         with patch(
-            "litellm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
+            "hangarllm.llms.vertex_ai.vertex_gemma_models.main.VertexAIGemmaModels._ensure_access_token",
             return_value=("fake-access-token", "PROJECT_ID"),
         ):
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model="vertex_ai/gemma/gemma-3-12b-it-1222199011122",
                 messages=[{"role": "user", "content": "Test"}],
                 api_base="https://test.prediction.vertexai.goog/v1/projects/PROJECT_ID/locations/us-central1/endpoints/ENDPOINT_ID:predict",
@@ -1043,11 +1043,11 @@ class TestVertexGemmaCompletion:
         """
         import httpx
 
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
-        from litellm.llms.vertex_ai.vertex_gemma_models.transformation import (
+        from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+        from hangarllm.llms.vertex_ai.vertex_gemma_models.transformation import (
             VertexGemmaConfig,
         )
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         captured = {}
 
@@ -1079,7 +1079,7 @@ class TestVertexGemmaCompletion:
                     logging_obj=Mock(),
                     optional_params={},
                     acompletion=False,
-                    litellm_params={},
+                    hangarllm_params={},
                     client=mock_client,
                 )
 
@@ -1096,7 +1096,7 @@ class TestVertexGemmaCompletion:
                     logging_obj=Mock(),
                     optional_params={},
                     acompletion=False,
-                    litellm_params={},
+                    hangarllm_params={},
                     client=mock_client,
                 )
         finally:
@@ -1114,11 +1114,11 @@ class TestVertexGemmaCompletion:
         import asyncio
         import httpx
 
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-        from litellm.llms.vertex_ai.vertex_gemma_models.transformation import (
+        from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+        from hangarllm.llms.vertex_ai.vertex_gemma_models.transformation import (
             VertexGemmaConfig,
         )
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         mock_response = Mock()
         mock_response.status_code = 200
@@ -1142,7 +1142,7 @@ class TestVertexGemmaCompletion:
                     logging_obj=Mock(),
                     optional_params={},
                     acompletion=False,
-                    litellm_params={},
+                    hangarllm_params={},
                     client=mock_client,
                 )
         finally:
@@ -1171,7 +1171,7 @@ class TestVertexGemmaCompletion:
                 logging_obj=Mock(),
                 optional_params={},
                 acompletion=False,
-                litellm_params={},
+                hangarllm_params={},
                 client=Mock(spec=AsyncHTTPHandler),
             )
 
@@ -1184,11 +1184,11 @@ class TestVertexGemmaCompletion:
         """Async counterpart: a raw httpx.AsyncClient transport must be honored."""
         import httpx
 
-        from litellm.llms.vertex_ai.vertex_gemma_models.transformation import (
+        from hangarllm.llms.vertex_ai.vertex_gemma_models.transformation import (
             VertexGemmaConfig,
         )
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-        from litellm.types.utils import ModelResponse
+        from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+        from hangarllm.types.utils import ModelResponse
 
         captured = {}
 
@@ -1223,7 +1223,7 @@ class TestVertexGemmaCompletion:
                     logging_obj=Mock(),
                     optional_params={},
                     acompletion=True,
-                    litellm_params={},
+                    hangarllm_params={},
                     client=mock_client,
                 )
         finally:
@@ -1245,11 +1245,11 @@ class TestVertexGemmaCompletion:
     async def test_async_completion_ignores_sync_client_for_backwards_compatibility(self):
         import httpx
 
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
-        from litellm.llms.vertex_ai.vertex_gemma_models.transformation import (
+        from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+        from hangarllm.llms.vertex_ai.vertex_gemma_models.transformation import (
             VertexGemmaConfig,
         )
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         mock_response = Mock()
         mock_response.status_code = 200
@@ -1273,7 +1273,7 @@ class TestVertexGemmaCompletion:
                     logging_obj=Mock(),
                     optional_params={},
                     acompletion=True,
-                    litellm_params={},
+                    hangarllm_params={},
                     client=mock_client,
                 )
         finally:
@@ -1302,7 +1302,7 @@ class TestVertexGemmaCompletion:
                 logging_obj=Mock(),
                 optional_params={},
                 acompletion=True,
-                litellm_params={},
+                hangarllm_params={},
                 client=Mock(spec=HTTPHandler),
             )
 
@@ -1320,7 +1320,7 @@ def _gemma_cached_access_token():
     """Serve a fake token from the handler's credential cache so no auth round-trip runs."""
     from types import SimpleNamespace
 
-    from litellm.main import vertex_gemma_chat_completion
+    from hangarllm.main import vertex_gemma_chat_completion
 
     cache = vertex_gemma_chat_completion._credentials_project_mapping
     key = (_FAKE_GEMMA_CREDENTIALS, "test")
@@ -1332,7 +1332,7 @@ def _gemma_cached_access_token():
 def test_sync_gemma_stream(_gemma_cached_access_token):
     import httpx
 
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+    from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
 
     captured = {}
 
@@ -1340,7 +1340,7 @@ def test_sync_gemma_stream(_gemma_cached_access_token):
         captured["body"] = json.loads(request.content)
         return httpx.Response(200, json=_make_gemma_vertex_response(content="READY"))
 
-    stream = litellm.completion(
+    stream = hangarllm.completion(
         model="vertex_ai/gemma/test-model",
         messages=[{"role": "user", "content": "Reply exactly READY"}],
         stream=True,
@@ -1361,7 +1361,7 @@ def test_sync_gemma_stream(_gemma_cached_access_token):
 
 
 def test_gemma_stream_is_bounded_by_the_request_timeout_not_the_stream_timeout(_gemma_cached_access_token: None) -> None:
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="vertex_ai/gemma/test-model",
         messages=[{"role": "user", "content": "Reply exactly READY"}],
         stream=True,
@@ -1389,7 +1389,7 @@ async def test_async_gemma_responses_stream(_gemma_cached_access_token):
         captured["body"] = json.loads(request.content)
         return httpx.Response(200, json=_make_gemma_vertex_response(content="READY"))
 
-    response = await litellm.aresponses(
+    response = await hangarllm.aresponses(
         model="vertex_ai/gemma/test-model",
         input="Reply exactly READY",
         stream=True,

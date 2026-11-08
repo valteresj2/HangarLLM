@@ -3,10 +3,10 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
-from litellm.rust_bridge.host.routes import messages as messages_host
-from litellm.rust_bridge.host.routes.messages import response
+import hangarllm
+from hangarllm.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
+from hangarllm.rust_bridge.host.routes import messages as messages_host
+from hangarllm.rust_bridge.host.routes.messages import response
 
 
 def test_response_is_a_detached_public_messages_dict() -> None:
@@ -31,10 +31,10 @@ def test_response_is_a_detached_public_messages_dict() -> None:
 
 
 def test_settings_project_caller_configuration_without_resolving_a_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setattr(litellm, "reasoning_auto_summary", True)
-    monkeypatch.setattr(litellm, "request_timeout", 1800)
-    monkeypatch.setattr(litellm, "request_timeout_explicitly_set", True)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "reasoning_auto_summary", True)
+    monkeypatch.setattr(hangarllm, "request_timeout", 1800)
+    monkeypatch.setattr(hangarllm, "request_timeout_explicitly_set", True)
 
     projected: Final = messages_host.settings({"drop_params": "true", "additional_drop_params": ["metadata.user_id"]})
 
@@ -57,8 +57,8 @@ def test_settings_project_caller_configuration_without_resolving_a_model(monkeyp
 def test_request_timeout_carries_only_a_configured_global_timeout(
     monkeypatch: pytest.MonkeyPatch, timeout: float, explicitly_set: bool, expected: float | None
 ) -> None:
-    monkeypatch.setattr(litellm, "request_timeout", timeout)
-    monkeypatch.setattr(litellm, "request_timeout_explicitly_set", explicitly_set)
+    monkeypatch.setattr(hangarllm, "request_timeout", timeout)
+    monkeypatch.setattr(hangarllm, "request_timeout_explicitly_set", explicitly_set)
 
     assert messages_host.settings({})["request_timeout"] == expected
 
@@ -76,7 +76,7 @@ def test_request_timeout_carries_only_a_configured_global_timeout(
 def test_drop_params_merges_the_global_flag_with_the_request(
     monkeypatch: pytest.MonkeyPatch, global_flag: bool, kwargs: dict[str, object], expected: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", global_flag)
+    monkeypatch.setattr(hangarllm, "drop_params", global_flag)
 
     assert messages_host.settings(kwargs)["drop_params"] is expected
 
@@ -98,7 +98,7 @@ def test_additional_drop_params_keep_only_string_paths(configured: object, expec
 def test_native_request_rejections_map_to_the_public_400() -> None:
     from types import MappingProxyType
 
-    from litellm.rust_bridge.public_call import NativeCall
+    from hangarllm.rust_bridge.public_call import NativeCall
 
     request: Final = NativeCall(
         args=(),
@@ -119,12 +119,12 @@ def test_native_request_rejections_map_to_the_public_400() -> None:
 
     mapped: Final = messages_host.map_failure(rejected, request.resolved, "anthropic")
 
-    assert isinstance(mapped, litellm.BadRequestError)
+    assert isinstance(mapped, hangarllm.BadRequestError)
     assert mapped.status_code == 400
     assert "does not support top_k=5" in mapped.message
     assert mapped.model == "claude-sonnet-5"
     assert not isinstance(
-        messages_host.map_failure(ValueError("plain"), request.resolved, "anthropic"), litellm.BadRequestError
+        messages_host.map_failure(ValueError("plain"), request.resolved, "anthropic"), hangarllm.BadRequestError
     )
 
 
@@ -203,7 +203,7 @@ def test_a_stalled_stream_body_reaches_the_caller_as_the_transport_timeout() -> 
 def test_a_native_read_timeout_maps_to_the_public_timeout_with_python_text() -> None:
     mapped: Final = messages_host.map_failure(_marked("Read"), {"model": _ADAPTIVE_OPUS, "timeout": 1.0}, "anthropic")
 
-    assert isinstance(mapped, litellm.Timeout)
+    assert isinstance(mapped, hangarllm.Timeout)
     assert "Read timed out. Timeout passed=1.0" in str(mapped)
 
 
@@ -213,7 +213,7 @@ def test_an_upstream_status_maps_through_the_provider_error_class() -> None:
 
     mapped: Final = messages_host.map_failure(upstream, {"model": _ADAPTIVE_OPUS}, "anthropic")
 
-    assert isinstance(mapped, litellm.RateLimitError)
+    assert isinstance(mapped, hangarllm.RateLimitError)
     assert "slow down" in str(mapped)
     assert mapped.__context__ is upstream
 
@@ -221,7 +221,7 @@ def test_an_upstream_status_maps_through_the_provider_error_class() -> None:
 def test_a_late_rejection_tells_the_logger_the_resolved_call_first() -> None:
     import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     logger: Final = Logging(
         model=_ADAPTIVE_OPUS,
@@ -229,7 +229,7 @@ def test_a_late_rejection_tells_the_logger_the_resolved_call_first() -> None:
         stream=False,
         call_type="anthropic_messages",
         start_time=datetime.datetime.now(),
-        litellm_call_id="late",
+        hangarllm_call_id="late",
         function_id="late",
     )
     rejected: Final = ValueError("budget_tokens must be a number")
@@ -238,10 +238,10 @@ def test_a_late_rejection_tells_the_logger_the_resolved_call_first() -> None:
 
     mapped: Final = messages_host.map_failure(
         rejected,
-        {"model": _ADAPTIVE_OPUS, "messages": [], "max_tokens": 8, "litellm_logging_obj": logger},
+        {"model": _ADAPTIVE_OPUS, "messages": [], "max_tokens": 8, "hangarllm_logging_obj": logger},
         "anthropic",
     )
 
-    assert isinstance(mapped, litellm.BadRequestError)
+    assert isinstance(mapped, hangarllm.BadRequestError)
     assert logger.model_call_details["custom_llm_provider"] == "anthropic"
     assert logger.model_call_details["optional_params"] == {"max_tokens": 8}

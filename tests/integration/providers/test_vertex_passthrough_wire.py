@@ -221,7 +221,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
             *config.get("model_list", []),
             {
                 "model_name": _GEMINI_ROUTER_NAME,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/gemini-2.5-flash",
                     "vertex_project": _PROJECT,
                     "vertex_location": "us-central1",
@@ -231,7 +231,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
             },
             {
                 "model_name": "claude-sonnet-4-5",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/claude-sonnet-4-5",
                     "vertex_project": _PROJECT,
                     "vertex_location": "global",
@@ -492,12 +492,12 @@ def test_credential_less_vertex_project_forwards_the_caller_google_token_and_str
         assert upstream.headers["x-goog-api-key"] == _CALLER_GOOGLE_TOKEN, upstream.headers
         assert {name: value for name, value in upstream.headers.items() if key in value} == {}, upstream.headers
         assert "authorization" not in upstream.headers, upstream.headers
-        assert "x-litellm-api-key" not in upstream.headers, upstream.headers
+        assert "x-hangarllm-api-key" not in upstream.headers, upstream.headers
         assert _JSON_OBJECT.validate_json(upstream.body) == body, upstream.body
 
 
 @pytest.mark.parametrize("alias", ["/vertex_ai", "/vertex-ai"])
-def test_credential_less_vertex_project_forwards_the_caller_bearer_token_when_the_virtual_key_rides_in_x_litellm_api_key(
+def test_credential_less_vertex_project_forwards_the_caller_bearer_token_when_the_virtual_key_rides_in_x_hangarllm_api_key(
     rig: _Rig, alias: str
 ) -> None:
     model_path: Final = "/v1/projects/byo-project/locations/us-east5/publishers/anthropic/models/claude-byo"
@@ -513,7 +513,7 @@ def test_credential_less_vertex_project_forwards_the_caller_bearer_token_when_th
             f"{alias}{model_path}:rawPredict",
             json=body,
             headers={
-                "x-litellm-api-key": f"Bearer {key}",
+                "x-hangarllm-api-key": f"Bearer {key}",
                 "Authorization": f"Bearer {_CALLER_GOOGLE_TOKEN}",
                 "api-key": second_key,
                 "x-caller-echo": key,
@@ -531,7 +531,7 @@ def test_credential_less_vertex_project_forwards_the_caller_bearer_token_when_th
         assert upstream.headers["authorization"] == f"Bearer {_CALLER_GOOGLE_TOKEN}", upstream.headers
         assert {name: value for name, value in upstream.headers.items() if key in value} == {}, upstream.headers
         assert {name: value for name, value in upstream.headers.items() if second_key in value} == {}, upstream.headers
-        assert "x-litellm-api-key" not in upstream.headers, upstream.headers
+        assert "x-hangarllm-api-key" not in upstream.headers, upstream.headers
         assert "x-goog-api-key" not in upstream.headers, upstream.headers
         assert upstream.headers["x-caller-trace"] == "trace-1", upstream.headers
         assert key not in upstream.target, upstream.target
@@ -563,7 +563,7 @@ def test_vertex_partner_stream_relays_a_tool_search_turn_verbatim_and_logs_it_on
         ], received
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT status FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (response.headers["x-litellm-call-id"],)
+                'SELECT status FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (response.headers["x-hangarllm-call-id"],)
             ),
             lambda found: len(found) == 1,
             seconds=70,

@@ -50,13 +50,13 @@ def test_schema_compatibility_rejects_removed_models_fields_and_narrowed_types(
 
 def test_only_the_dropped_accounting_models_may_be_removed() -> None:
     accounting: Final = (
-        "model LiteLLM_AccountingEvent {\n event_id String @id\n}\n"
-        "model LiteLLM_AccountingDelivery {\n event_id String\n note String?\n}\n"
+        "model HangarLLM_AccountingEvent {\n event_id String @id\n}\n"
+        "model HangarLLM_AccountingDelivery {\n event_id String\n note String?\n}\n"
     )
     previous: Final = parse_model_fields(ORIGINAL + accounting)
 
     assert check_breaking_changes(previous, parse_model_fields(ORIGINAL)) == ()
     assert check_breaking_changes(previous, parse_model_fields("")) == ("Breaking: Model Item was removed",)
     assert check_breaking_changes(
-        previous, parse_model_fields(ORIGINAL + "model LiteLLM_AccountingDelivery {\n event_id String\n}\n")
-    ) == ("Breaking: Field LiteLLM_AccountingDelivery.note was removed",)
+        previous, parse_model_fields(ORIGINAL + "model HangarLLM_AccountingDelivery {\n event_id String\n}\n")
+    ) == ("Breaking: Field HangarLLM_AccountingDelivery.note was removed",)

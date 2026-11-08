@@ -12,7 +12,7 @@ filesystem and ``/tmp`` as the only writable mount, is what catches the
 whole class: a boot as the default (root) uid passes even on the broken
 config.
 
-Gated on LITELLM_IMAGE so it is skipped in the normal unit-test run and
+Gated on HANGARLLM_IMAGE so it is skipped in the normal unit-test run and
 exercised only where an image has been built (the image-scan workflow).
 Requires a working docker CLI.
 """
@@ -26,14 +26,14 @@ from collections.abc import Iterator
 
 import pytest
 
-IMAGE = os.getenv("LITELLM_IMAGE")
-CURL_IMAGE = os.getenv("LITELLM_TEST_CURL_IMAGE", "curlimages/curl:8.11.1")
-UI_PORT = os.getenv("LITELLM_UI_PORT", "3000")
+IMAGE = os.getenv("HANGARLLM_IMAGE")
+CURL_IMAGE = os.getenv("HANGARLLM_TEST_CURL_IMAGE", "curlimages/curl:8.11.1")
+UI_PORT = os.getenv("HANGARLLM_UI_PORT", "3000")
 ARBITRARY_UID = "1001200000:0"
-STARTUP_TIMEOUT_SECONDS = int(os.getenv("LITELLM_UI_STARTUP_TIMEOUT", "60"))
+STARTUP_TIMEOUT_SECONDS = int(os.getenv("HANGARLLM_UI_STARTUP_TIMEOUT", "60"))
 
 pytestmark = [
-    pytest.mark.skipif(IMAGE is None, reason="requires a built image (set LITELLM_IMAGE)"),
+    pytest.mark.skipif(IMAGE is None, reason="requires a built image (set HANGARLLM_IMAGE)"),
     pytest.mark.skipif(shutil.which("docker") is None, reason="requires the docker CLI"),
 ]
 

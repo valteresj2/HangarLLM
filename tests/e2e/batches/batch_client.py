@@ -26,7 +26,7 @@ from e2e_http import (
     StreamingResponse,
     UnknownApiError,
 )
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 
 UPLOAD_FILENAME = "batch_input.jsonl"
 AZURE_FILE_EXPIRY_SECONDS: Final = 14 * 24 * 60 * 60
@@ -148,9 +148,9 @@ def is_result_access_denied[R: BaseModel](result: Result[R]) -> bool:
 class BatchClient:
     proxy: ProxyClient
 
-    @step("Add a batch deployment named {model_name} that calls {litellm_params.model}")
-    def create_model(self, model_name: str, litellm_params: LiteLLMParamsBody) -> str:
-        return self.proxy.create_model(model_name, litellm_params, mode="batch")
+    @step("Add a batch deployment named {model_name} that calls {hangarllm_params.model}")
+    def create_model(self, model_name: str, hangarllm_params: HangarLLMParamsBody) -> str:
+        return self.proxy.create_model(model_name, hangarllm_params, mode="batch")
 
     @step("Delete the batch deployment")
     def delete_model(self, model_id: str) -> None:

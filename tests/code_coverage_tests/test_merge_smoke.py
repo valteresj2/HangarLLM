@@ -22,15 +22,15 @@ def _run(root: Path, *argv: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _fake_litellm(tmp_path: Path, script: str) -> Path:
-    path: Final = tmp_path / "fake-litellm"
+def _fake_hangarllm(tmp_path: Path, script: str) -> Path:
+    path: Final = tmp_path / "fake-hangarllm"
     path.write_text(f"#!{sys.executable}\n" + textwrap.dedent(script))
     path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     return path
 
 
 def test_proxy_startup_exits_early_fails(tmp_path: Path) -> None:
-    fake: Final = _fake_litellm(tmp_path, "import sys\nsys.exit(1)\n")
+    fake: Final = _fake_hangarllm(tmp_path, "import sys\nsys.exit(1)\n")
     diagnostics: Final = tmp_path / "diag"
 
     proc: Final = _run(
@@ -38,7 +38,7 @@ def test_proxy_startup_exits_early_fails(tmp_path: Path) -> None:
         "proxy-startup",
         "--diagnostics-dir",
         str(diagnostics),
-        "--litellm-bin",
+        "--hangarllm-bin",
         str(fake),
     )
 
@@ -48,7 +48,7 @@ def test_proxy_startup_exits_early_fails(tmp_path: Path) -> None:
 
 
 def test_proxy_startup_readiness_timeout_fails(tmp_path: Path) -> None:
-    fake: Final = _fake_litellm(
+    fake: Final = _fake_hangarllm(
         tmp_path,
         "import os, pathlib, sys, time\npathlib.Path(sys.argv[0]).with_name('fake.pid').write_text(str(os.getpid()))\ntime.sleep(3600)\n",
     )
@@ -59,7 +59,7 @@ def test_proxy_startup_readiness_timeout_fails(tmp_path: Path) -> None:
         "proxy-startup",
         "--diagnostics-dir",
         str(diagnostics),
-        "--litellm-bin",
+        "--hangarllm-bin",
         str(fake),
         "--ready-deadline",
         "3",
@@ -75,7 +75,7 @@ def test_proxy_startup_readiness_timeout_fails(tmp_path: Path) -> None:
 
 
 def test_proxy_startup_healthy_succeeds(tmp_path: Path) -> None:
-    fake: Final = _fake_litellm(
+    fake: Final = _fake_hangarllm(
         tmp_path,
         """
         import http.server, json, sys
@@ -99,7 +99,7 @@ def test_proxy_startup_healthy_succeeds(tmp_path: Path) -> None:
         "proxy-startup",
         "--diagnostics-dir",
         str(diagnostics),
-        "--litellm-bin",
+        "--hangarllm-bin",
         str(fake),
         "--ready-deadline",
         "15",
@@ -112,7 +112,7 @@ def test_proxy_startup_healthy_succeeds(tmp_path: Path) -> None:
 
 
 def test_proxy_startup_sigterm_ignored_forces_kill(tmp_path: Path) -> None:
-    fake: Final = _fake_litellm(
+    fake: Final = _fake_hangarllm(
         tmp_path,
         """
         import http.server, json, os, pathlib, signal, sys
@@ -138,7 +138,7 @@ def test_proxy_startup_sigterm_ignored_forces_kill(tmp_path: Path) -> None:
         "proxy-startup",
         "--diagnostics-dir",
         str(diagnostics),
-        "--litellm-bin",
+        "--hangarllm-bin",
         str(fake),
         "--ready-deadline",
         "15",
@@ -155,7 +155,7 @@ def test_proxy_startup_sigterm_ignored_forces_kill(tmp_path: Path) -> None:
 
 
 def test_proxy_startup_waits_through_not_ready_status(tmp_path: Path) -> None:
-    fake: Final = _fake_litellm(
+    fake: Final = _fake_hangarllm(
         tmp_path,
         """
         import http.server, json, sys
@@ -185,7 +185,7 @@ def test_proxy_startup_waits_through_not_ready_status(tmp_path: Path) -> None:
         "proxy-startup",
         "--diagnostics-dir",
         str(diagnostics),
-        "--litellm-bin",
+        "--hangarllm-bin",
         str(fake),
         "--ready-deadline",
         "15",
@@ -195,7 +195,7 @@ def test_proxy_startup_waits_through_not_ready_status(tmp_path: Path) -> None:
 
 
 def test_proxy_startup_wrong_body_fails(tmp_path: Path) -> None:
-    fake: Final = _fake_litellm(
+    fake: Final = _fake_hangarllm(
         tmp_path,
         """
         import http.server, json, sys
@@ -219,7 +219,7 @@ def test_proxy_startup_wrong_body_fails(tmp_path: Path) -> None:
         "proxy-startup",
         "--diagnostics-dir",
         str(diagnostics),
-        "--litellm-bin",
+        "--hangarllm-bin",
         str(fake),
         "--ready-deadline",
         "15",

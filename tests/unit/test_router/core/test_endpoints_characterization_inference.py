@@ -13,8 +13,8 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.router_core import RouterCore
+import hangarllm
+from hangarllm.router_core import RouterCore
 from tests.unit.test_router.core.endpoints_helpers import EndpointHost
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment, timeout
 
@@ -66,7 +66,7 @@ async def test_amoderation_routes_a_known_group_through_its_deployment(make_core
         "d1",
         "g",
     )
-    assert "litellm_metadata" not in call.kwargs
+    assert "hangarllm_metadata" not in call.kwargs
 
 
 async def test_amoderation_calls_the_host_directly_when_the_model_is_not_a_group(
@@ -80,7 +80,7 @@ async def test_amoderation_calls_the_host_directly_when_the_model_is_not_a_group
 
 
 async def test_amoderation_deployment_params_overwrite_the_request_params(make_core: MakeCore, host: EndpointHost):
-    """The deployment's litellm_params are applied after the request's (kwargs.update(data))."""
+    """The deployment's hangarllm_params are applied after the request's (kwargs.update(data))."""
     core: Final = make_core(model_list=[deployment("g", "d1", temperature=0.5)])
     await core.amoderation(model="g", input="x", temperature=1.0)
     assert _sent(host)["temperature"] == 0.5
@@ -98,9 +98,9 @@ async def test_amoderation_with_a_request_api_key_keeps_the_deployment_key_under
 
 
 async def test_amoderation_is_not_retried(make_core: MakeCore, host: EndpointHost):
-    host.answer("openai/d1", litellm.InternalServerError(message="boom", llm_provider="openai", model="d1"))
+    host.answer("openai/d1", hangarllm.InternalServerError(message="boom", llm_provider="openai", model="d1"))
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=3)
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await core.amoderation(model="g", input="x")
     assert len(host.calls) == 1
     assert host.sleeps == []
@@ -160,7 +160,7 @@ async def test_cache_responses_turned_on_after_construction_reaches_the_host(
     make_core: MakeCore, host: EndpointHost, endpoint: str
 ):
     """The proxy turns ``cache_responses`` on through ``apply`` once its cache exists."""
-    from litellm.router_api import ChangeSet
+    from hangarllm.router_api import ChangeSet
 
     core: Final = make_core(model_list=[deployment("g", "d1")])
     _ = core.apply(ChangeSet(assign={"cache_responses": True}))
@@ -180,7 +180,7 @@ async def test_sync_text_completion_sends_the_router_num_retries_and_no_routing_
     sent: Final = _sent(host)
     assert sent["num_retries"] == 4
     assert "model_info" not in sent
-    assert "litellm_trace_id" not in sent
+    assert "hangarllm_trace_id" not in sent
     assert sent.get("timeout") is None
     metadata: Final = _bucket(sent)
     assert metadata["model_group"] == "g"
@@ -197,7 +197,7 @@ async def test_sync_text_completion_merges_default_metadata_into_request_metadat
     make_core: MakeCore, host: EndpointHost
 ):
     core: Final = make_core(
-        model_list=[deployment("g", "d1")], default_litellm_params={"metadata": {"x": 1}, "user": "u"}
+        model_list=[deployment("g", "d1")], default_hangarllm_params={"metadata": {"x": 1}, "user": "u"}
     )
     core.text_completion(model="g", prompt="p", metadata={"y": 2})
     sent: Final = _sent(host)
@@ -216,9 +216,9 @@ async def test_sync_text_completion_sends_the_model_group_name_not_the_deploymen
 
 
 async def test_sync_text_completion_is_not_retried(make_core: MakeCore, host: EndpointHost):
-    host.answer("g", litellm.InternalServerError(message="boom", llm_provider="openai", model="d1"))
+    host.answer("g", hangarllm.InternalServerError(message="boom", llm_provider="openai", model="d1"))
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=3)
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         core.text_completion(model="g", prompt="p")
     assert len(host.calls) == 1
     assert host.sleeps == []
@@ -228,7 +228,7 @@ async def test_sync_image_generation_sends_routing_metadata_without_a_trace_id(m
     core: Final = make_core(model_list=[deployment("g", "d1")])
     core.image_generation(model="g", prompt="p")
     sent: Final = _sent(host)
-    assert "litellm_trace_id" not in sent
+    assert "hangarllm_trace_id" not in sent
     assert (_bucket(sent)["model_group"], _bucket(sent)["deployment"], sent["prompt"]) == ("g", "openai/d1", "p")
 
 
@@ -247,10 +247,10 @@ async def test_async_endpoints_generate_a_trace_id_unless_the_request_sends_one(
         else {"input": "hi"}
     )
     await core.call(endpoint, {"model": "g", **request})
-    await core.call(endpoint, {"model": "g", "litellm_trace_id": "trace-1", **request})
-    generated: Final = _sent(host, 0)["litellm_trace_id"]
+    await core.call(endpoint, {"model": "g", "hangarllm_trace_id": "trace-1", **request})
+    generated: Final = _sent(host, 0)["hangarllm_trace_id"]
     assert isinstance(generated, str) and len(generated) == 36
-    assert _sent(host, 1)["litellm_trace_id"] == "trace-1"
+    assert _sent(host, 1)["hangarllm_trace_id"] == "trace-1"
 
 
 # --- routing metadata ---------------------------------------------------------------------
@@ -278,11 +278,11 @@ async def test_a_request_for_a_deployment_id_routes_to_that_deployment(make_core
 
 
 async def test_deployment_tags_and_credential_name_join_the_request_tags(make_core: MakeCore, host: EndpointHost):
-    core: Final = make_core(model_list=[deployment("g", "d1", tags=["t1"], litellm_credential_name="cred")])
+    core: Final = make_core(model_list=[deployment("g", "d1", tags=["t1"], hangarllm_credential_name="cred")])
     await core.acompletion(model="g", messages=MESSAGES, metadata={"tags": ["r1"]})
     sent: Final = _sent(host)
     assert _bucket(sent)["tags"] == ["r1", "t1", "Credential: cred"]
-    assert sent["litellm_credential_name"] == "cred"
+    assert sent["hangarllm_credential_name"] == "cred"
 
 
 async def test_daily_reset_time_is_not_sent_to_the_host(make_core: MakeCore, host: EndpointHost):
@@ -301,7 +301,7 @@ async def test_deployment_model_id_param_is_sent_as_model_id(make_core: MakeCore
 async def test_deployment_model_id_reaches_the_host_even_when_clientside_auth_allows_model_id(
     make_core: MakeCore, host: EndpointHost
 ):
-    """The pin is skipped, but the deployment's litellm_params (with model_id) are still spread into the call."""
+    """The pin is skipped, but the deployment's hangarllm_params (with model_id) are still spread into the call."""
     core: Final = make_core(
         model_list=[deployment("g", "d1", model_id="arn:pinned", configurable_clientside_auth_params=["model_id"])]
     )
@@ -319,36 +319,36 @@ async def test_request_model_id_wins_over_a_clientside_configurable_deployment_m
     assert _sent(host)["model_id"] == "arn:request"
 
 
-# --- default litellm params -------------------------------------------------------------------
+# --- default hangarllm params -------------------------------------------------------------------
 
 
-async def test_default_litellm_params_metadata_merges_into_request_metadata(make_core: MakeCore, host: EndpointHost):
-    core: Final = make_core(model_list=[deployment("g", "d1")], default_litellm_params={"metadata": {"team": "t"}})
+async def test_default_hangarllm_params_metadata_merges_into_request_metadata(make_core: MakeCore, host: EndpointHost):
+    core: Final = make_core(model_list=[deployment("g", "d1")], default_hangarllm_params={"metadata": {"team": "t"}})
     await core.acompletion(model="g", messages=MESSAGES, metadata={"trace": "x"})
     metadata: Final = _bucket(_sent(host))
     assert (metadata["team"], metadata["trace"], metadata["model_group"]) == ("t", "x", "g")
 
 
-async def test_default_litellm_params_metadata_overwrites_the_same_request_metadata_key(
+async def test_default_hangarllm_params_metadata_overwrites_the_same_request_metadata_key(
     make_core: MakeCore, host: EndpointHost
 ):
-    core: Final = make_core(model_list=[deployment("g", "d1")], default_litellm_params={"metadata": {"team": "t"}})
+    core: Final = make_core(model_list=[deployment("g", "d1")], default_hangarllm_params={"metadata": {"team": "t"}})
     await core.acompletion(model="g", messages=MESSAGES, metadata={"team": "request"})
     assert _bucket(_sent(host))["team"] == "t"
 
 
-async def test_default_litellm_params_metadata_goes_to_litellm_metadata_for_generic_endpoints(
+async def test_default_hangarllm_params_metadata_goes_to_hangarllm_metadata_for_generic_endpoints(
     make_core: MakeCore, host: EndpointHost
 ):
-    core: Final = make_core(model_list=[deployment("g", "d1")], default_litellm_params={"metadata": {"team": "t"}})
+    core: Final = make_core(model_list=[deployment("g", "d1")], default_hangarllm_params={"metadata": {"team": "t"}})
     await core.aresponses(model="g", input="hi")
     sent: Final = _sent(host)
-    assert _bucket(sent, "litellm_metadata")["team"] == "t"
+    assert _bucket(sent, "hangarllm_metadata")["team"] == "t"
     assert "metadata" not in sent
 
 
-async def test_default_litellm_params_with_none_values_are_not_sent(make_core: MakeCore, host: EndpointHost):
-    core: Final = make_core(model_list=[deployment("g", "d1")], default_litellm_params={"user": None})
+async def test_default_hangarllm_params_with_none_values_are_not_sent(make_core: MakeCore, host: EndpointHost):
+    core: Final = make_core(model_list=[deployment("g", "d1")], default_hangarllm_params={"user": None})
     await core.acompletion(model="g", messages=MESSAGES)
     assert "user" not in _sent(host)
 
@@ -471,7 +471,7 @@ async def test_classifier_call_keeps_reasoning_effort_on_a_deployment_with_suppo
 ):
     core: Final = make_core(model_list=[deployment("g", "d1", model="openai/o3-mini")])
     await core.acompletion(
-        model="g", messages=MESSAGES, reasoning_effort="low", litellm_metadata=dict(CLASSIFIER_METADATA)
+        model="g", messages=MESSAGES, reasoning_effort="low", hangarllm_metadata=dict(CLASSIFIER_METADATA)
     )
     assert _sent(host)["reasoning_effort"] == "low"
 
@@ -515,7 +515,7 @@ async def test_silent_model_list_mirrors_to_every_listed_group(make_core: MakeCo
 
 
 async def test_a_failing_silent_experiment_does_not_fail_the_primary_call(make_core: MakeCore, host: EndpointHost):
-    host.answer("openai/s1", litellm.BadRequestError(message="shadow broke", llm_provider="openai", model="s1"))
+    host.answer("openai/s1", hangarllm.BadRequestError(message="shadow broke", llm_provider="openai", model="s1"))
     core: Final = make_core(model_list=[deployment("g", "d1", silent_model="shadow"), deployment("shadow", "s1")])
     response: Final = await core.acompletion(model="g", messages=MESSAGES)
     await _settle()
@@ -575,7 +575,7 @@ async def test_timeout_message_carries_deployment_timeouts_when_router_debug_is_
     host.set_dynamic(expose_router_debug_in_errors=True)
     host.answer("openai/d1", timeout("d1"))
     core: Final = make_core(model_list=[deployment("g", "d1", timeout=11, stream_timeout=3)], num_retries=0)
-    with pytest.raises(litellm.Timeout) as raised:
+    with pytest.raises(hangarllm.Timeout) as raised:
         await core.acompletion(model="g", messages=MESSAGES)
     assert "Deployment Info: request_timeout: None\ntimeout: 11.0\nstream_timeout: 3.0" in str(raised.value)
 
@@ -583,7 +583,7 @@ async def test_timeout_message_carries_deployment_timeouts_when_router_debug_is_
 async def test_timeout_message_has_no_deployment_info_by_default(make_core: MakeCore, host: EndpointHost):
     host.answer("openai/d1", timeout("d1"))
     core: Final = make_core(model_list=[deployment("g", "d1", timeout=11)], num_retries=0)
-    with pytest.raises(litellm.Timeout) as raised:
+    with pytest.raises(hangarllm.Timeout) as raised:
         await core.acompletion(model="g", messages=MESSAGES)
     assert "Deployment Info" not in str(raised.value)
 
@@ -632,7 +632,7 @@ async def test_embedding_over_the_deployment_batch_size_raises_without_calling_t
         model_list=[deployment("g", "d1", model_info={"max_embedding_batch_size": 2})], num_retries=0
     )
     with pytest.raises(
-        litellm.BadRequestError,
+        hangarllm.BadRequestError,
         match="Embedding request has 3 inputs, which exceeds max_embedding_batch_size=2 for model=g",
     ):
         await core.call(endpoint, {"model": "g", "input": ["a", "b", "c"]})

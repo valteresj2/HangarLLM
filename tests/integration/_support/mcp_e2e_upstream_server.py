@@ -2,7 +2,7 @@
 
 A tiny MCP server exposing `add` and `multiply` over streamable-http so the
 suite has a self-hosted, offline upstream to register and exercise. DNS-rebinding
-protection is turned off because the litellm container reaches this over the
+protection is turned off because the hangarllm container reaches this over the
 compose network by service name (`mcp-upstream:8090`), not localhost, and the
 stack is an isolated throwaway. Bind host/port come from MCP_HOST/MCP_PORT.
 """

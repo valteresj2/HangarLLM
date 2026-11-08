@@ -27,8 +27,8 @@ from integration._support.process import graceful_stop_seconds, owned_proxy_proc
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
-from litellm.router_strategy.complexity_router.config import DEFAULT_JEV_INSTRUCTIONS
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
+from hangarllm.router_strategy.complexity_router.config import DEFAULT_JEV_INSTRUCTIONS
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
@@ -41,7 +41,7 @@ _TYPESAFE_KEY: Final = "synthetic-typesafe-key"
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _STARTED_WORKER: Final = re.compile(r"Started server process \[(\d+)\]")
 _ANTHROPIC_VERSION: Final = MappingProxyType({"anthropic-version": "2023-06-01"})
-_SALT: Final = os.environ.get("LITELLM_SALT_KEY", "sk-integration-salt")
+_SALT: Final = os.environ.get("HANGARLLM_SALT_KEY", "sk-integration-salt")
 _TIER_CRITERIA: Final[dict[str, JsonValue]] = {
     "SIMPLE": "Greetings, chitchat, or short factual lookups with known answers",
     "MEDIUM": "Everyday requests needing explanation, light reasoning, or minor technical work",
@@ -59,7 +59,7 @@ _TYPESAFE_ANSWER: Final[dict[str, JsonValue]] = {"model": _TYPESAFE_MODEL, "answ
 _ROWS_QUERY: Final = (
     "SELECT request_id, status, model, call_type, cache_hit, custom_llm_provider, spend, "
     "metadata->>'internal_call_origin' AS origin "
-    'FROM "LiteLLM_SpendLogs" WHERE model_group = %s ORDER BY "startTime"'
+    'FROM "HangarLLM_SpendLogs" WHERE model_group = %s ORDER BY "startTime"'
 )
 _SIMPLE_TEXT: Final = "simple answer"
 _COMPLEX_TEXT: Final = "complex answer"
@@ -188,7 +188,7 @@ def _deploy(
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "auto_router/complexity_router",
                 "complexity_router_config": _router_config(
                     classifier if classifier is not None else _classifier_config(judge.url), simple_model, complex_model
@@ -226,21 +226,21 @@ def _assert_classifier_call(
 
 def _assert_classified(headers: Mapping[str, str], *, router: str) -> None:
     assert (
-        headers.get("x-litellm-model-group"),
-        headers.get("x-litellm-model-name"),
-        headers.get("x-litellm-complexity-router-tier"),
-        headers.get("x-litellm-complexity-router-cause"),
-        headers.get("x-litellm-classifier-cost"),
+        headers.get("x-hangarllm-model-group"),
+        headers.get("x-hangarllm-model-name"),
+        headers.get("x-hangarllm-complexity-router-tier"),
+        headers.get("x-hangarllm-complexity-router-cause"),
+        headers.get("x-hangarllm-classifier-cost"),
     ) == (router, "openai/complex-tier", "COMPLEX", "jev_classifier", None), dict(headers)
 
 
 def _assert_fell_back(headers: Mapping[str, str], *, router: str) -> None:
     assert (
-        headers.get("x-litellm-model-group"),
-        headers.get("x-litellm-model-name"),
-        headers.get("x-litellm-complexity-router-tier"),
-        headers.get("x-litellm-complexity-router-cause"),
-        headers.get("x-litellm-classifier-cost"),
+        headers.get("x-hangarllm-model-group"),
+        headers.get("x-hangarllm-model-name"),
+        headers.get("x-hangarllm-complexity-router-tier"),
+        headers.get("x-hangarllm-complexity-router-cause"),
+        headers.get("x-hangarllm-classifier-cost"),
     ) == (router, "openai/simple-tier", "SIMPLE", "heuristic_scorer", None), dict(headers)
 
 
@@ -375,8 +375,8 @@ async def _send(client: httpx.AsyncClient, route: str, model: str, prompt: str, 
             status=response.status_code,
             identity=identity,
             text=text,
-            cause=response.headers.get("x-litellm-complexity-router-cause", ""),
-            classifier_cost=response.headers.get("x-litellm-classifier-cost"),
+            cause=response.headers.get("x-hangarllm-complexity-router-cause", ""),
+            classifier_cost=response.headers.get("x-hangarllm-classifier-cost"),
         )
     async with client.stream("POST", route, json=body, headers=headers) as streamed:
         lines: Final = [line async for line in streamed.aiter_lines()]
@@ -388,8 +388,8 @@ async def _send(client: httpx.AsyncClient, route: str, model: str, prompt: str, 
             status=streamed.status_code,
             identity=identity,
             text=text,
-            cause=streamed.headers.get("x-litellm-complexity-router-cause", ""),
-            classifier_cost=streamed.headers.get("x-litellm-classifier-cost"),
+            cause=streamed.headers.get("x-hangarllm-complexity-router-cause", ""),
+            classifier_cost=streamed.headers.get("x-hangarllm-classifier-cost"),
         )
 
 
@@ -673,8 +673,8 @@ def test_a_response_cache_hit_still_runs_the_classifier_and_logs_the_hit_row_at_
         )
         assert (first_text, second_text) == (_COMPLEX_TEXT, _COMPLEX_TEXT)
         assert second_identity == first_identity, (first_identity, second_identity)
-        assert "x-litellm-cache-key" not in first.headers, dict(first.headers)
-        assert "x-litellm-cache-key" in second.headers, dict(second.headers)
+        assert "x-hangarllm-cache-key" not in first.headers, dict(first.headers)
+        assert "x-hangarllm-cache-key" in second.headers, dict(second.headers)
         _assert_classified(first.headers, router=routed.name)
         _assert_classified(second.headers, router=routed.name)
         classifier_calls: Final = _posts(judge)
@@ -826,11 +826,11 @@ def test_the_default_jev_provider_still_posts_to_systemone_and_bills_from_the_co
         identity, text = _identity_and_text("/v1/chat/completions", _JSON_OBJECT.validate_json(response.content))
         assert text == _COMPLEX_TEXT, response.text
         assert (
-            response.headers["x-litellm-model-name"],
-            response.headers["x-litellm-complexity-router-tier"],
-            response.headers["x-litellm-complexity-router-cause"],
+            response.headers["x-hangarllm-model-name"],
+            response.headers["x-hangarllm-complexity-router-tier"],
+            response.headers["x-hangarllm-complexity-router-cause"],
         ) == ("openai/complex-tier", "COMPLEX", "jev_classifier"), dict(response.headers)
-        assert float(response.headers["x-litellm-classifier-cost"]) == pytest.approx(expected_cost)
+        assert float(response.headers["x-hangarllm-classifier-cost"]) == pytest.approx(expected_cost)
         (classifier_call,) = _posts(judge)
         assert classifier_call.target == "/v1/systemone", classifier_call.target
         assert classifier_call.headers.get("authorization") == f"Bearer {_TYPESAFE_KEY}", classifier_call.headers
@@ -944,7 +944,7 @@ def _chaos_config(judge: Wire, simple: Wire, complex_: Wire, tmp_path: Path, rou
         "model_list": [
             {
                 "model_name": "chaos-simple",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/simple-tier",
                     "api_base": simple.url,
                     "api_key": "synthetic-tier-key",
@@ -952,7 +952,7 @@ def _chaos_config(judge: Wire, simple: Wire, complex_: Wire, tmp_path: Path, rou
             },
             {
                 "model_name": "chaos-complex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/complex-tier",
                     "api_base": complex_.url,
                     "api_key": "synthetic-tier-key",
@@ -960,7 +960,7 @@ def _chaos_config(judge: Wire, simple: Wire, complex_: Wire, tmp_path: Path, rou
             },
             {
                 "model_name": router,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": _router_config(
                         _classifier_config(judge.url, timeout_ms=60000), "chaos-simple", "chaos-complex"

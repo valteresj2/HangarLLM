@@ -10,12 +10,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm
-import litellm.proxy.proxy_server as ps
-from litellm.caching.redis_cache import RedisCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.db.spend_counter_reseed import SpendCounterReseed
-from litellm.proxy.spend_tracking.spend_counter_batch import (
+import hangarllm
+import hangarllm.proxy.proxy_server as ps
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.db.spend_counter_reseed import SpendCounterReseed
+from hangarllm.proxy.spend_tracking.spend_counter_batch import (
     SpendCounterBatch,
     active_spend_counter_batch,
     admission_counter_keys,
@@ -24,8 +24,8 @@ from litellm.proxy.spend_tracking.spend_counter_batch import (
     release_spend_counter_batch,
     spend_counter_batch_scope,
 )
-from litellm.rust_bridge._native import NativeRedisStoreError
-from litellm.caching.redis_batch import request_redis_batch_scope
+from hangarllm.rust_bridge._native import NativeRedisStoreError
+from hangarllm.caching.redis_batch import request_redis_batch_scope
 from tests.unit.caching.test_redis_batch import FakeNativePending, FakeNatives, fake_send
 from tests.unit.redis.stores.spend_counters_double import FakeSpendCounters
 
@@ -352,7 +352,7 @@ async def test_scope_is_per_task_so_concurrent_requests_do_not_share_a_batch():
 async def test_batch_reads_never_touch_a_prisma_client_when_redis_answers(monkeypatch):
     spend = FakeSpendCounters(redis={"spend:key:hashed": 3.0})
     prisma = MagicMock()
-    prisma.db.litellm_verificationtoken.find_unique = AsyncMock()
+    prisma.db.hangarllm_verificationtoken.find_unique = AsyncMock()
     monkeypatch.setattr(ps, "spend_counter_store", spend.store())
     monkeypatch.setattr(ps, "prisma_client", prisma)
 
@@ -365,7 +365,7 @@ async def test_batch_reads_never_touch_a_prisma_client_when_redis_answers(monkey
 
 def _reseed_prisma(spend: float) -> MagicMock:
     prisma = MagicMock()
-    prisma.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=MagicMock(spend=spend))
+    prisma.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=MagicMock(spend=spend))
     return prisma
 
 
@@ -441,7 +441,7 @@ async def test_post_call_increment_for_every_entity_costs_one_mget_and_one_pipel
 async def test_post_call_cold_counters_seed_from_the_mget_miss_without_a_second_read(monkeypatch):
     spend = FakeSpendCounters(redis={"spend:key:hashed": 1.0})
     prisma = MagicMock()
-    prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=MagicMock(spend=4.0))
+    prisma.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=MagicMock(spend=4.0))
     monkeypatch.setattr(ps, "spend_counter_store", spend.store())
     monkeypatch.setattr(ps, "prisma_client", prisma)
 
@@ -512,11 +512,11 @@ async def test_a_stale_counter_repair_updates_the_open_batch_instead_of_forcing_
 
 @pytest.mark.asyncio
 async def test_reconcile_settles_a_flushed_counter_on_its_own_after_the_shared_pipeline(monkeypatch):
-    from litellm.proxy.spend_tracking.budget_reservation import reconcile_budget_reservation
+    from hangarllm.proxy.spend_tracking.budget_reservation import reconcile_budget_reservation
 
     spend = FakeSpendCounters(redis={key: 1.0 for key in RESERVED_KEYS - {"spend:team:team"}})
     prisma = MagicMock()
-    prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=MagicMock(spend=4.0))
+    prisma.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=MagicMock(spend=4.0))
     monkeypatch.setattr(ps, "spend_counter_store", spend.store())
     monkeypatch.setattr(ps, "prisma_client", prisma)
     reservation = _reservation(reserved_cost=0.4)
@@ -532,7 +532,7 @@ async def test_reconcile_settles_a_flushed_counter_on_its_own_after_the_shared_p
 
 @pytest.mark.asyncio
 async def test_pre_call_resize_against_an_inconsistent_counter_writes_nothing_and_denies(monkeypatch):
-    from litellm.proxy.spend_tracking.budget_reservation import _resize_applied_reservation
+    from hangarllm.proxy.spend_tracking.budget_reservation import _resize_applied_reservation
 
     spend = FakeSpendCounters(redis={"spend:key:hashed": 1.0})
     monkeypatch.setattr(ps, "spend_counter_store", spend.store())
@@ -591,14 +591,14 @@ def test_a_scope_opened_inside_an_open_scope_joins_its_batch_and_a_closed_one_ge
 
 @pytest.mark.asyncio
 async def test_reservation_inside_the_admission_scope_reuses_its_mget_and_reserves_in_one_pipeline(monkeypatch):
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
-    from litellm.proxy.spend_tracking.budget_reservation import reserve_budget_for_request
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.proxy._types import HangarLLM_TeamTableCachedObj
+    from hangarllm.proxy.spend_tracking.budget_reservation import reserve_budget_for_request
 
     spend = FakeSpendCounters(redis={"spend:key:hashed": 1.0, "spend:team:team": 2.0})
     monkeypatch.setattr(ps, "spend_counter_store", spend.store())
     monkeypatch.setattr(ps, "prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost", lambda **_: 0.5)
+    monkeypatch.setattr("hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost", lambda **_: 0.5)
     token = UserAPIKeyAuth(token="hashed", team_id="team", max_budget=10.0)
 
     with spend_counter_batch_scope(spend.store(), counter_keys=admission_counter_keys(token, end_user_id=None)):
@@ -607,7 +607,7 @@ async def test_reservation_inside_the_admission_scope_reuses_its_mget_and_reserv
             route="/chat/completions",
             llm_router=None,
             valid_token=token,
-            team_object=LiteLLM_TeamTableCachedObj(team_id="team", max_budget=20.0),
+            team_object=HangarLLM_TeamTableCachedObj(team_id="team", max_budget=20.0),
             user_object=None,
             prisma_client=None,
             user_api_key_cache=DualCache(),
@@ -624,14 +624,14 @@ async def test_reservation_inside_the_admission_scope_reuses_its_mget_and_reserv
 
 @pytest.mark.asyncio
 async def test_a_failed_reservation_pipeline_drops_every_counter_and_reserves_nothing(monkeypatch):
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
-    from litellm.proxy.spend_tracking.budget_reservation import reserve_budget_for_request
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.proxy._types import HangarLLM_TeamTableCachedObj
+    from hangarllm.proxy.spend_tracking.budget_reservation import reserve_budget_for_request
 
     spend = FakeSpendCounters(redis={"spend:key:hashed": 1.0, "spend:team:team": 2.0}, fail_pipelines=True)
     monkeypatch.setattr(ps, "spend_counter_store", spend.store())
     monkeypatch.setattr(ps, "prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost", lambda **_: 0.5)
+    monkeypatch.setattr("hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost", lambda **_: 0.5)
     token = UserAPIKeyAuth(token="hashed", team_id="team", max_budget=10.0)
 
     reservation = await reserve_budget_for_request(
@@ -639,7 +639,7 @@ async def test_a_failed_reservation_pipeline_drops_every_counter_and_reserves_no
         route="/chat/completions",
         llm_router=None,
         valid_token=token,
-        team_object=LiteLLM_TeamTableCachedObj(team_id="team", max_budget=20.0),
+        team_object=HangarLLM_TeamTableCachedObj(team_id="team", max_budget=20.0),
         user_object=None,
         prisma_client=None,
         user_api_key_cache=DualCache(),
@@ -653,7 +653,7 @@ async def test_a_failed_reservation_pipeline_drops_every_counter_and_reserves_no
 
 @pytest.mark.asyncio
 async def test_post_call_lifecycle_reads_the_counters_after_the_db_update_and_writes_one_pipeline(monkeypatch):
-    from litellm.proxy.hooks.proxy_track_cost_callback import _update_database_and_spend_counters
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import _update_database_and_spend_counters
 
     spend = FakeSpendCounters(redis={key: 1.0 for key in POST_CALL_KEYS})
     monkeypatch.setattr(ps, "spend_counter_store", spend.store())
@@ -702,13 +702,13 @@ async def test_post_call_lifecycle_reads_the_counters_after_the_db_update_and_wr
 def _reservation_fixture(monkeypatch, spend: FakeSpendCounters) -> None:
     monkeypatch.setattr(ps, "spend_counter_store", spend.store())
     monkeypatch.setattr(ps, "prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost", lambda **_: 0.5)
+    monkeypatch.setattr("hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost", lambda **_: 0.5)
 
 
 async def _reserve(spend: FakeSpendCounters, token: UserAPIKeyAuth, team_max_budget: float) -> dict[str, object] | None:
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
-    from litellm.proxy.spend_tracking.budget_reservation import reserve_budget_for_request
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.proxy._types import HangarLLM_TeamTableCachedObj
+    from hangarllm.proxy.spend_tracking.budget_reservation import reserve_budget_for_request
 
     with spend_counter_batch_scope(spend.store(), counter_keys=admission_counter_keys(token, end_user_id=None)):
         return await reserve_budget_for_request(
@@ -716,7 +716,7 @@ async def _reserve(spend: FakeSpendCounters, token: UserAPIKeyAuth, team_max_bud
             route="/chat/completions",
             llm_router=None,
             valid_token=token,
-            team_object=LiteLLM_TeamTableCachedObj(team_id="team", max_budget=team_max_budget),
+            team_object=HangarLLM_TeamTableCachedObj(team_id="team", max_budget=team_max_budget),
             user_object=None,
             prisma_client=None,
             user_api_key_cache=DualCache(),
@@ -732,7 +732,7 @@ async def test_a_rejected_counter_is_charged_alone_so_the_counters_after_it_are_
     _reservation_fixture(monkeypatch, spend)
     token = UserAPIKeyAuth(token="hashed", team_id="team", max_budget=10.0)
 
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await _reserve(spend, token, team_max_budget=20.0)
 
     writes = [c for c in spend.commands if not c.startswith("MGET")]

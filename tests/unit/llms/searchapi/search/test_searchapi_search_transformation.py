@@ -7,18 +7,18 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.searchapi.search.transformation import SearchAPIConfig
+import hangarllm
+from hangarllm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from hangarllm.llms.searchapi.search.transformation import SearchAPIConfig
 
 
 @pytest.fixture
 def httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("SEARCHAPI_API_KEY", "test-searchapi-key")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 class TestSearchAPIConfig:
@@ -34,7 +34,7 @@ class TestSearchAPIConfig:
         config = SearchAPIConfig()
         assert config.get_http_method() == "GET"
 
-    @patch("litellm.llms.searchapi.search.transformation.get_secret_str")
+    @patch("hangarllm.llms.searchapi.search.transformation.get_secret_str")
     def test_validate_environment_with_api_key(self, mock_get_secret):
         """Test environment validation with API key."""
         mock_get_secret.return_value = "test_api_key"
@@ -54,7 +54,7 @@ class TestSearchAPIConfig:
         with pytest.raises(ValueError, match="SEARCHAPI_API_KEY is not set"):
             config.validate_environment(headers)
 
-    @patch("litellm.llms.searchapi.search.transformation.get_secret_str")
+    @patch("hangarllm.llms.searchapi.search.transformation.get_secret_str")
     def test_transform_search_request_basic(self, mock_get_secret):
         """Test basic search request transformation."""
         mock_get_secret.return_value = "test_api_key"
@@ -70,7 +70,7 @@ class TestSearchAPIConfig:
         assert params["q"] == "test query"
         assert params["api_key"] == "test_api_key"
 
-    @patch("litellm.llms.searchapi.search.transformation.get_secret_str")
+    @patch("hangarllm.llms.searchapi.search.transformation.get_secret_str")
     def test_transform_search_request_with_max_results(self, mock_get_secret):
         """Test search request transformation with max_results parameter."""
         mock_get_secret.return_value = "test_api_key"
@@ -85,7 +85,7 @@ class TestSearchAPIConfig:
         params = result["_searchapi_params"]
         assert params["num"] == 5
 
-    @patch("litellm.llms.searchapi.search.transformation.get_secret_str")
+    @patch("hangarllm.llms.searchapi.search.transformation.get_secret_str")
     def test_transform_search_request_with_country(self, mock_get_secret):
         """Test search request transformation with country parameter."""
         mock_get_secret.return_value = "test_api_key"
@@ -100,7 +100,7 @@ class TestSearchAPIConfig:
         params = result["_searchapi_params"]
         assert params["gl"] == "us"
 
-    @patch("litellm.llms.searchapi.search.transformation.get_secret_str")
+    @patch("hangarllm.llms.searchapi.search.transformation.get_secret_str")
     def test_transform_search_request_with_domain_filter(self, mock_get_secret):
         """Test search request transformation with domain filter."""
         mock_get_secret.return_value = "test_api_key"
@@ -116,7 +116,7 @@ class TestSearchAPIConfig:
         assert "site:example.com" in params["q"]
         assert "site:test.com" in params["q"]
 
-    @patch("litellm.llms.searchapi.search.transformation.get_secret_str")
+    @patch("hangarllm.llms.searchapi.search.transformation.get_secret_str")
     def test_transform_search_request_with_list_query(self, mock_get_secret):
         """Test search request transformation with list query."""
         mock_get_secret.return_value = "test_api_key"
@@ -129,7 +129,7 @@ class TestSearchAPIConfig:
         params = result["_searchapi_params"]
         assert params["q"] == "test query"
 
-    @patch("litellm.llms.searchapi.search.transformation.get_secret_str")
+    @patch("hangarllm.llms.searchapi.search.transformation.get_secret_str")
     def test_get_complete_url(self, mock_get_secret):
         """Test URL construction with query parameters."""
         mock_get_secret.return_value = None
@@ -235,22 +235,22 @@ def test_searchapi_organic_results_keep_provider_order_fields_and_dates():
             "organic_results": [
                 {
                     "position": 1,
-                    "title": "LiteLLM",
-                    "link": "https://example.com/litellm",
+                    "title": "HangarLLM",
+                    "link": "https://example.com/hangarllm",
                     "snippet": "Call every LLM API",
                     "date": "Jan 5, 2024",
                     "sitelinks": {"inline": [{"title": "Docs", "link": "https://example.com/docs"}]},
                 },
                 {"position": 2, "title": "Docs", "link": "https://example.com/docs", "snippet": "Docs", "date": None},
             ],
-            "related_searches": [{"query": "litellm proxy"}],
+            "related_searches": [{"query": "hangarllm proxy"}],
         }
     )
 
     assert response.object == "search"
     assert response.results == [
         SearchResult(
-            title="LiteLLM", url="https://example.com/litellm", snippet="Call every LLM API", date="Jan 5, 2024"
+            title="HangarLLM", url="https://example.com/hangarllm", snippet="Call every LLM API", date="Jan 5, 2024"
         ),
         SearchResult(title="Docs", url="https://example.com/docs", snippet="Docs", date=None),
     ]
@@ -329,15 +329,15 @@ def test_search_request_and_result_mapping(
         }
     )
 
-    response: Final = litellm.search(
-        query="how does LiteLLM search",
+    response: Final = hangarllm.search(
+        query="how does HangarLLM search",
         search_provider="searchapi",
         api_key="test-searchapi-key",
     )
 
     assert dict(route.calls.last.request.url.params) == {
         "engine": "google",
-        "q": "how does LiteLLM search",
+        "q": "how does HangarLLM search",
         "api_key": "test-searchapi-key",
     }
     assert [(item.title, item.url, item.snippet) for item in response.results] == [

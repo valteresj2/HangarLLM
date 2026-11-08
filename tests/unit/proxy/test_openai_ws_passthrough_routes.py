@@ -14,10 +14,10 @@ from fastapi import HTTPException
 from starlette.routing import WebSocketRoute
 from starlette.websockets import WebSocket
 
-import litellm
-from litellm.llms.openai.workload_identity import _workload_identity_auth
-from litellm.proxy._types import Litellm_EntityType, ProxyErrorTypes, ProxyException, UserAPIKeyAuth
-from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+import hangarllm
+from hangarllm.llms.openai.workload_identity import _workload_identity_auth
+from hangarllm.proxy._types import Hangarllm_EntityType, ProxyErrorTypes, ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
     _OPENAI_WS_ALIASED_MODEL_REFUSAL,
     _OPENAI_WS_DISABLED_REFUSAL,
     _OPENAI_WS_UNAVAILABLE_AUTH_REFUSAL,
@@ -26,10 +26,10 @@ from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
     openai_websocket_proxy_route,
     router,
 )
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.openai_websocket_passthrough_logging_handler import (
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.openai_websocket_passthrough_logging_handler import (
     openai_websocket_frame_kind,
 )
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
     WebsocketFrameModelAllowed,
     WebsocketFrameModelGate,
     WebsocketFrameModelRefused,
@@ -45,7 +45,7 @@ DISABLED_SETTINGS: Final = (
     MappingProxyType({"enable_openai_websocket_passthrough": None}),
 )
 GET_CREDENTIALS: Final = (
-    "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials"
+    "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials"
 )
 
 
@@ -183,8 +183,8 @@ async def test_openai_websocket_forwards_query_and_keeps_provider_auth(prefix, m
 @pytest.mark.asyncio
 async def test_openai_websocket_reports_its_route_without_the_proxy_root_path(monkeypatch):
     """Route allowlists and spend rows key on the route the proxy serves, which a root path prefix is not part of"""
-    monkeypatch.setenv("SERVER_ROOT_PATH", "/litellm")
-    websocket: Final = _FakeWebSocket("/litellm/openai/v1/responses", "")
+    monkeypatch.setenv("SERVER_ROOT_PATH", "/hangarllm")
+    websocket: Final = _FakeWebSocket("/hangarllm/openai/v1/responses", "")
 
     with patch(GET_CREDENTIALS, return_value="sk-provider"):
         served: Final = await _serve(websocket, "v1/responses", UserAPIKeyAuth(), ENABLED)
@@ -217,7 +217,7 @@ def openai_wif_token_file(monkeypatch, tmp_path):
     token_file.write_text("subject-token-from-file")
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.setenv("OPENAI_IDENTITY_PROVIDER_ID", "idp_test123")
     monkeypatch.setenv("OPENAI_SERVICE_ACCOUNT_ID", "user-test456")
     monkeypatch.setenv("OPENAI_IDENTITY_TOKEN_FILE", str(token_file))
@@ -406,7 +406,7 @@ SOCKET: Final = WebSocket({"type": "websocket"}, receive=AsyncMock(), send=Async
 
 
 async def _gate_verdict(authorizer: _FrameAuthorizer, model: str) -> WebsocketFrameModelVerdict:
-    with patch("litellm.proxy.proxy_server.prisma_client", None):  # test-quality-ok: the model checks need no database
+    with patch("hangarllm.proxy.proxy_server.prisma_client", None):  # test-quality-ok: the model checks need no database
         return await _proxy_frame_model_gate(authorizer)(SOCKET, model)
 
 
@@ -443,7 +443,7 @@ async def test_proxy_frame_model_gate_refuses_a_model_the_key_lacks(requested_mo
     ids=["model_outside_the_grant", "no_grants"],
 )
 async def test_proxy_frame_model_gate_refuses_a_model_the_agent_was_not_granted(granted_models, refusal_names):
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
     token: Final = UserAPIKeyAuth(models=[], agent_id="agent-fake")
     token.managed_agent_policy = AgentResponse(
@@ -482,7 +482,7 @@ async def test_proxy_frame_model_gate_refuses_an_alias_that_would_reach_openai_u
 
 @pytest.mark.asyncio
 async def test_proxy_frame_model_gate_refuses_a_proxy_wide_alias_for_a_key_limited_to_its_target(monkeypatch):
-    monkeypatch.setattr(litellm, "model_alias_map", {"gpt-5.4": "gpt-5.4-mini"})
+    monkeypatch.setattr(hangarllm, "model_alias_map", {"gpt-5.4": "gpt-5.4-mini"})
 
     refusal: Final = _refusal(
         await _gate_verdict(_FrameAuthorizer(UserAPIKeyAuth(models=["gpt-5.4-mini"])), "gpt-5.4")
@@ -552,10 +552,10 @@ async def test_proxy_frame_model_gate_does_not_count_the_sessions_own_reservatio
 
     async def key_budget_check(websocket: object, model: str) -> UserAPIKeyAuth:
         if connect_reservation.get("finalized") is not True:
-            raise litellm.BudgetExceededError(current_cost=0.0001, max_budget=0.0001)
+            raise hangarllm.BudgetExceededError(current_cost=0.0001, max_budget=0.0001)
         return UserAPIKeyAuth(models=["gpt-5.4-mini"])
 
-    with patch("litellm.proxy.proxy_server.prisma_client", None):  # test-quality-ok: the model checks need no database
+    with patch("hangarllm.proxy.proxy_server.prisma_client", None):  # test-quality-ok: the model checks need no database
         verdict: Final = await _proxy_frame_model_gate(key_budget_check)(socket, "gpt-5.4-mini")
 
     assert verdict == WebsocketFrameModelAllowed(access_groups=())
@@ -576,11 +576,11 @@ async def test_proxy_frame_model_gate_does_not_count_the_sessions_own_reservatio
             "Budget has been exceeded! Key=hashed",
         ),
         (
-            litellm.BudgetExceededError(
+            hangarllm.BudgetExceededError(
                 current_cost=2.0,
                 max_budget=1.0,
                 message="Budget has been exceeded! Model access group=tier-a Current cost: 2.0, Max budget: 1.0",
-                entity_type=Litellm_EntityType.MODEL_ACCESS_GROUP.value,
+                entity_type=Hangarllm_EntityType.MODEL_ACCESS_GROUP.value,
                 entity_id="tier-a",
             ),
             "budget_exceeded",

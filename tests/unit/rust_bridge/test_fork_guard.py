@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.rust_bridge import fork_guard
+from hangarllm.rust_bridge import fork_guard
 
 
 def test_unused_extension_is_reserved() -> None:

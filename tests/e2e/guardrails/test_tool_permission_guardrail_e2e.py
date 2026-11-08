@@ -8,7 +8,7 @@ runs. Two halves of one product promise:
   naming the denied tool, and never reaches the model
 - allows: a request declaring only the permitted tool is served normally, comes
   back with a real tool call for that tool, and carries an
-  `x-litellm-applied-guardrails` header naming the guardrail, which is what
+  `x-hangarllm-applied-guardrails` header naming the guardrail, which is what
   separates "the guardrail ran and allowed it" from "the guardrail was never
   attached". `tool_choice="required"` keeps the model from answering directly and
   making the outcome depend on its mood
@@ -105,7 +105,7 @@ def _register_tool_permission(client: GuardrailsClient, resources: ResourceManag
 
 
 def _applied_guardrails(outcome: StreamingResponse) -> tuple[str, ...]:
-    return tuple(name.strip() for name in outcome.headers.get("x-litellm-applied-guardrails", "").split(","))
+    return tuple(name.strip() for name in outcome.headers.get("x-hangarllm-applied-guardrails", "").split(","))
 
 
 def _tool_call_names(response: ChatResponse) -> tuple[str, ...]:
@@ -249,7 +249,7 @@ class TestToolPermissionPreCall:
         assert outcome.ok, f"the permitted tool must be served, got {outcome.status_code}: {outcome.body[:400]}"
         applied: Final = _applied_guardrails(outcome)
         assert name in applied, (
-            "the allowed call must carry x-litellm-applied-guardrails naming the guardrail; "
+            "the allowed call must carry x-hangarllm-applied-guardrails naming the guardrail; "
             f"without it the 200 only proves the guardrail never ran. Got {applied!r}"
         )
 
@@ -355,7 +355,7 @@ class TestToolPermissionPreCall:
         assert outcome.ok, f"the permitted tool must be served, got {outcome.status_code}: {outcome.body[:400]}"
         applied: Final = _applied_guardrails(outcome)
         assert name in applied, (
-            f"the allowed call must carry x-litellm-applied-guardrails naming the guardrail; got {applied!r}"
+            f"the allowed call must carry x-hangarllm-applied-guardrails naming the guardrail; got {applied!r}"
         )
         called: Final = _flat_tool_call_names(endpoint, outcome.body)
         assert called == (ALLOWED_TOOL.function.name,), (

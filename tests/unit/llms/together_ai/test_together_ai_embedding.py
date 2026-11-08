@@ -4,7 +4,7 @@ from typing import Final
 import httpx
 import respx
 
-import litellm
+import hangarllm
 
 
 def test_together_ai_embedding_uses_together_embeddings_endpoint(respx_mock: respx.MockRouter) -> None:
@@ -20,7 +20,7 @@ def test_together_ai_embedding_uses_together_embeddings_endpoint(respx_mock: res
         )
     )
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="together_ai/BAAI/bge-large-en-v1.5",
         input=["hello"],
         api_key="test-together-key",

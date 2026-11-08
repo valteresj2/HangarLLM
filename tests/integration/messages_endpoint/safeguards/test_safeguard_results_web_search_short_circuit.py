@@ -31,7 +31,7 @@ DATABRICKS_CLAUDE_MODEL: Final = "safeguards-databricks-claude"
 SEARCHING_MODELS: Final = (CHAT_MODEL, DATABRICKS_CLAUDE_MODEL)
 
 
-LITELLM_SETTINGS: Final[Mapping[str, JsonValue]] = {
+HANGARLLM_SETTINGS: Final[Mapping[str, JsonValue]] = {
     "callbacks": ["websearch_interception"],
     "websearch_interception_params": {
         "enabled_providers": ["fireworks_ai", "databricks"],
@@ -43,7 +43,7 @@ LITELLM_SETTINGS: Final[Mapping[str, JsonValue]] = {
 def search_tools(wire_url: str) -> Mapping[str, JsonValue]:
     tavily: Final[Mapping[str, JsonValue]] = {
         "search_tool_name": "tavily-search",
-        "litellm_params": {
+        "hangarllm_params": {
             "search_provider": "tavily",
             "api_key": "synthetic-tavily-key",
             "api_base": f"{wire_url}/tavily",
@@ -64,7 +64,7 @@ def databricks_claude(wire_url: str) -> Sequence[Mapping[str, JsonValue]]:
 def searching(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
     directory: Final = tmp_path_factory.mktemp("web-search")
     with safeguards_rig(
-        directory, litellm_settings=LITELLM_SETTINGS, top_level=search_tools, extra_models=databricks_claude
+        directory, hangarllm_settings=HANGARLLM_SETTINGS, top_level=search_tools, extra_models=databricks_claude
     ) as rig:
         yield rig
 

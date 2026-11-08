@@ -6,13 +6,13 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.types.utils import ModelResponse
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.azure_ai.agents.handler import AzureAIAgentsHandler
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.types.utils import ModelResponse
 
-API_BASE: Final = "https://agents-test.services.ai.azure.com/api/projects/litellm-test"
+API_BASE: Final = "https://agents-test.services.ai.azure.com/api/projects/hangarllm-test"
 API_VERSION: Final = "2025-05-01"
 AGENT_ID: Final = "asst_hbnoK9BOCcHhC3lC4MDroVGG"
 
@@ -22,7 +22,7 @@ def _httpx_only_transport(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
 
 
-def _assistants_api(thread_id: str, answer: str, project_path: str = "/api/projects/litellm-test") -> respx.MockRouter:
+def _assistants_api(thread_id: str, answer: str, project_path: str = "/api/projects/hangarllm-test") -> respx.MockRouter:
     thread_path: Final = f"{project_path}/threads/{thread_id}"
     router: Final = respx.mock(assert_all_called=False)
     router.post(path=f"{project_path}/threads").respond(
@@ -89,7 +89,7 @@ async def test_acompletion_creates_thread_posts_message_runs_and_returns_the_rep
     router: Final = _assistants_api("thread_new", "25 * 4 = 100")
 
     with router:
-        response: Final = await litellm.acompletion(
+        response: Final = await hangarllm.acompletion(
             model=f"azure_ai/agents/{AGENT_ID}",
             messages=[{"role": "user", "content": "Hi Agent, what is 25 * 4?"}],
             api_base=API_BASE,
@@ -101,16 +101,16 @@ async def test_acompletion_creates_thread_posts_message_runs_and_returns_the_rep
     query: Final = f"api-version={API_VERSION}"
     auth: Final = "Bearer azure-ad-token"
     assert recorded == [
-        ("POST", f"/api/projects/litellm-test/threads?{query}", auth, None),
+        ("POST", f"/api/projects/hangarllm-test/threads?{query}", auth, None),
         (
             "POST",
-            f"/api/projects/litellm-test/threads/thread_new/messages?{query}",
+            f"/api/projects/hangarllm-test/threads/thread_new/messages?{query}",
             auth,
             {"role": "user", "content": "Hi Agent, what is 25 * 4?"},
         ),
-        ("POST", f"/api/projects/litellm-test/threads/thread_new/runs?{query}", auth, {"assistant_id": AGENT_ID}),
-        ("GET", f"/api/projects/litellm-test/threads/thread_new/runs/run_1?{query}", auth, None),
-        ("GET", f"/api/projects/litellm-test/threads/thread_new/messages?{query}", auth, None),
+        ("POST", f"/api/projects/hangarllm-test/threads/thread_new/runs?{query}", auth, {"assistant_id": AGENT_ID}),
+        ("GET", f"/api/projects/hangarllm-test/threads/thread_new/runs/run_1?{query}", auth, None),
+        ("GET", f"/api/projects/hangarllm-test/threads/thread_new/messages?{query}", auth, None),
     ]
     assert response.choices[0].message.content == "25 * 4 = 100"
     assert response._hidden_params["thread_id"] == "thread_new"
@@ -121,7 +121,7 @@ async def test_acompletion_creates_the_thread_under_a_project_named_threads() ->
     router: Final = _assistants_api("thread_new", "hello", project_path="/api/projects/threads")
 
     with router:
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model=f"azure_ai/agents/{AGENT_ID}",
             messages=[{"role": "user", "content": "hi"}],
             api_base="https://agents-test.services.ai.azure.com/api/projects/threads",
@@ -143,7 +143,7 @@ async def test_handler_acompletion_with_thread_id_reuses_that_thread() -> None:
         stream=False,
         call_type="acompletion",
         start_time=datetime.datetime(2026, 1, 1),
-        litellm_call_id="azure-agents-thread-reuse",
+        hangarllm_call_id="azure-agents-thread-reuse",
         function_id="azure-agents-thread-reuse",
     )
 
@@ -156,17 +156,17 @@ async def test_handler_acompletion_with_thread_id_reuses_that_thread() -> None:
             model_response=ModelResponse(),
             logging_obj=logging_obj,
             optional_params={"thread_id": "thread_existing"},
-            litellm_params={},
+            hangarllm_params={},
             timeout=30.0,
             client=AsyncHTTPHandler(),
         )
         recorded: Final = _recorded(router)
 
     assert [(method, url.split("?")[0], body) for method, url, _, body in recorded] == [
-        ("POST", "/api/projects/litellm-test/threads/thread_existing/messages", messages[0]),
-        ("POST", "/api/projects/litellm-test/threads/thread_existing/runs", {"assistant_id": AGENT_ID}),
-        ("GET", "/api/projects/litellm-test/threads/thread_existing/runs/run_1", None),
-        ("GET", "/api/projects/litellm-test/threads/thread_existing/messages", None),
+        ("POST", "/api/projects/hangarllm-test/threads/thread_existing/messages", messages[0]),
+        ("POST", "/api/projects/hangarllm-test/threads/thread_existing/runs", {"assistant_id": AGENT_ID}),
+        ("GET", "/api/projects/hangarllm-test/threads/thread_existing/runs/run_1", None),
+        ("GET", "/api/projects/hangarllm-test/threads/thread_existing/messages", None),
     ]
     assert response.choices[0].message.content == "Your name is Alice."
     assert response._hidden_params["thread_id"] == "thread_existing"
@@ -206,7 +206,7 @@ async def test_acompletion_stream_yields_agent_message_deltas_then_stop(respx_mo
         200, text=stream_body, headers={"content-type": "text/event-stream"}
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model=f"azure_ai/agents/{AGENT_ID}",
         messages=[{"role": "user", "content": "Hi Agent, what is 10 + 5?"}],
         api_base=API_BASE,
@@ -233,7 +233,7 @@ async def test_acompletion_stream_keeps_unicode_line_separators_inside_a_delta(r
         headers={"content-type": "text/event-stream"},
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model=f"azure_ai/agents/{AGENT_ID}",
         messages=[{"role": "user", "content": "Say it with separators"}],
         api_base=API_BASE,

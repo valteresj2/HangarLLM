@@ -30,7 +30,7 @@ from integration._support.deepseek_tokens import (
 from integration._support.openai_wire import chat_reply
 from integration._support.process import graceful_stop_seconds, owned_proxy_process
 from integration._support.wire import Reply, Request, Wire, wire_server
-from litellm.litellm_core_utils.default_encoding import encoding as cl100k_base
+from hangarllm.hangarllm_core_utils.default_encoding import encoding as cl100k_base
 from pydantic import JsonValue
 
 pytestmark: Final = pytest.mark.timeout(2 * graceful_stop_seconds() + 120)
@@ -88,7 +88,7 @@ def _deployment(scenario: Scenario, group: str, model: str, api_base: str) -> st
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {"model": model, "api_base": api_base, "api_key": _API_KEY},
+            "hangarllm_params": {"model": model, "api_base": api_base, "api_key": _API_KEY},
             "model_info": {},
         },
     )
@@ -330,7 +330,7 @@ def _owned_rig_config(directory: Path, group: str, api_base: str, itpm_group: st
         [
             {
                 "model_name": group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": _DEEPSEEK_V4,
                     "api_base": api_base,
                     "api_key": _API_KEY,
@@ -340,7 +340,7 @@ def _owned_rig_config(directory: Path, group: str, api_base: str, itpm_group: st
             },
             {
                 "model_name": itpm_group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": _DEEPSEEK_V4,
                     "api_base": itpm_api_base,
                     "api_key": _API_KEY,
@@ -551,7 +551,7 @@ def test_concurrent_first_deepseek_v4_counts_in_a_fresh_proxy_agree(tmp_path: Pa
             [
                 {
                     "model_name": group,
-                    "litellm_params": {"model": _DEEPSEEK_V4, "api_base": wire.url, "api_key": _API_KEY},
+                    "hangarllm_params": {"model": _DEEPSEEK_V4, "api_base": wire.url, "api_key": _API_KEY},
                 }
             ],
             {},

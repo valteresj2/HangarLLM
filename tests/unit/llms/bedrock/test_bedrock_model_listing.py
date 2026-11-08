@@ -9,9 +9,9 @@ from urllib.parse import parse_qsl, quote
 import httpx
 import pytest
 
-from litellm.llms.bedrock.common_utils import BedrockError, BedrockModelInfo
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.types.router import LiteLLM_Params
+from hangarllm.llms.bedrock.common_utils import BedrockError, BedrockModelInfo
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.types.router import HangarLLM_Params
 
 ACCESS_KEY: Final = "AKIAIOSFODNN7EXAMPLE"
 SECRET_KEY: Final = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
@@ -122,7 +122,7 @@ def _bedrock(handler: Callable[[httpx.Request], httpx.Response]) -> BedrockModel
 
 
 def _deployment(region: str = REGION, api_key: str | None = None) -> Mapping[str, object]:
-    return LiteLLM_Params(
+    return HangarLLM_Params(
         model="bedrock/*",
         aws_access_key_id=ACCESS_KEY,
         aws_secret_access_key=SECRET_KEY,

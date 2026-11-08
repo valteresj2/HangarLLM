@@ -12,7 +12,7 @@ import pytest
 from e2e_config import provider_edge_base, unique_marker
 from e2e_metadata import Domain, Mode, Route, Subject, meta
 from e2e_metadata import Provider as MetaProvider
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 
 _BATCH_RUN = unique_marker()
 
@@ -27,12 +27,12 @@ VERTEX_BATCH_BACKEND: Final = "gemini-2.5-flash"
 BEDROCK_BATCH_BACKEND: Final = "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 
-def openai_batch_params() -> LiteLLMParamsBody:
+def openai_batch_params() -> HangarLLMParamsBody:
     """The OpenAI batch deployment, wired through the record/replay edge when a fixture
     mode is active and straight at OpenAI otherwise (LIT-5974). Azure, Vertex, and
     Bedrock stay live: none of them has an edge mount."""
     base = provider_edge_base("openai")
-    return LiteLLMParamsBody(
+    return HangarLLMParamsBody(
         model=f"openai/{OPENAI_BATCH_BACKEND}",
         api_key="os.environ/OPENAI_API_KEY",
         api_base=None if base is None else f"{base}/v1",
@@ -66,19 +66,19 @@ class Provider:
     can_cancel: bool
     can_list: bool
 
-    def litellm_params(self) -> LiteLLMParamsBody:
+    def hangarllm_params(self) -> HangarLLMParamsBody:
         match self.name:
             case "openai":
                 return openai_batch_params()
             case "azure":
-                return LiteLLMParamsBody(
+                return HangarLLMParamsBody(
                     model=f"azure/{AZURE_BATCH_BACKEND}",
                     api_base="os.environ/AZURE_API_BASE",
                     api_key="os.environ/AZURE_API_KEY",
                     api_version="2025-04-01-preview",
                 )
             case "vertex_ai":
-                return LiteLLMParamsBody(
+                return HangarLLMParamsBody(
                     model=f"vertex_ai/{VERTEX_BATCH_BACKEND}",
                     vertex_project="os.environ/VERTEXAI_PROJECT",
                     vertex_location="us-central1",
@@ -87,7 +87,7 @@ class Provider:
                     bucket_name="os.environ/GCS_BUCKET_NAME",
                 )
             case "bedrock":
-                return LiteLLMParamsBody(
+                return HangarLLMParamsBody(
                     model=BEDROCK_BATCH_BACKEND,
                     aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
                     aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",
@@ -249,7 +249,7 @@ def _b64_decode(value: str) -> str:
 
 
 def is_managed_id(id_str: str) -> bool:
-    return _b64_decode(id_str).startswith("litellm_proxy")
+    return _b64_decode(id_str).startswith("hangarllm_proxy")
 
 
 CLOUD_STORAGE_SCHEMES: Final = ("s3://", "gs://")
@@ -263,7 +263,7 @@ def is_model_encoded_id(id_str: str) -> bool:
     for prefix in ("file-", "batch_"):
         if id_str.startswith(prefix):
             decoded = _b64_decode(id_str[len(prefix) :])
-            return decoded.startswith("litellm:") and ";model," in decoded
+            return decoded.startswith("hangarllm:") and ";model," in decoded
     return False
 
 
@@ -272,7 +272,7 @@ def decoded_model_from_id(id_str: str) -> str | None:
     for prefix in ("file-", "batch_"):
         if id_str.startswith(prefix):
             decoded = _b64_decode(id_str[len(prefix) :])
-            if decoded.startswith("litellm:") and ";model," in decoded:
+            if decoded.startswith("hangarllm:") and ";model," in decoded:
                 return decoded.split(";model,", 1)[1].split(";")[0]
     return None
 

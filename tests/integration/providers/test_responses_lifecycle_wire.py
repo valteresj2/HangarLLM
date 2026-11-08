@@ -147,7 +147,7 @@ def _register_preferred_in_group(scenario: Scenario, wire: Wire, group: str, api
         "/model/new",
         {
             "model_name": group,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{_MODEL}",
                 "api_key": api_key,
                 "api_base": f"{wire.url}/v1",
@@ -581,7 +581,7 @@ def test_resuming_on_a_provider_that_cannot_replay_is_refused_without_calling_it
     raw_id: Final = f"resp_no_replay_{uuid.uuid4().hex}"
 
     with wire_server(_created_then(raw_id, Reply(body=_response(raw_id)))) as wire, gateway.scenario() as scenario:
-        model: Final = _deployment(scenario, wire, provider="litellm_proxy")
+        model: Final = _deployment(scenario, wire, provider="hangarllm_proxy")
         created: Final = _client(gateway, gateway.key, prefix).responses.create(model=model, input="cannot replay")
         refused: Final = gateway.request(
             "GET", f"{prefix}/responses/{created.id}", params={"stream": "true", "starting_after": "3"}
@@ -590,7 +590,7 @@ def test_resuming_on_a_provider_that_cannot_replay_is_refused_without_calling_it
 
     assert refused.status_code == 400, refused.text
     message: Final = string_value(object_value(_JSON_OBJECT.validate_json(refused.content)["error"])["message"])
-    assert "litellm_proxy does not support streaming a stored response" in message, refused.text
+    assert "hangarllm_proxy does not support streaming a stored response" in message, refused.text
     assert [request.method for request in requests] == ["POST"], requests
 
 
@@ -601,7 +601,7 @@ def test_resuming_on_a_provider_that_cannot_replay_answers_the_stored_response_w
     raw_id: Final = f"resp_no_replay_dropped_{uuid.uuid4().hex}"
 
     with wire_server(_created_then(raw_id, Reply(body=_response(raw_id)))) as wire, gateway.scenario() as scenario:
-        model: Final = _deployment(scenario, wire, provider="litellm_proxy", drop_params=True)
+        model: Final = _deployment(scenario, wire, provider="hangarllm_proxy", drop_params=True)
         created: Final = _client(gateway, gateway.key, prefix).responses.create(model=model, input="dropped replay")
         answered: Final = gateway.request(
             "GET", f"{prefix}/responses/{created.id}", params={"stream": "true", "starting_after": "3"}

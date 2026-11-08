@@ -3,8 +3,8 @@ from typing import Final
 
 from pydantic import BaseModel, TypeAdapter
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 class DashboardField(BaseModel):
@@ -21,7 +21,7 @@ class DashboardCallbackConfig(BaseModel):
 
 
 def _zerobus_config() -> DashboardCallbackConfig:
-    path: Final = Path(litellm.__file__).parent / "integrations" / "callback_configs.json"
+    path: Final = Path(hangarllm.__file__).parent / "integrations" / "callback_configs.json"
     configs: Final = TypeAdapter(tuple[DashboardCallbackConfig, ...]).validate_json(path.read_text())
     return next(config for config in configs if config.id == "zerobus")
 
@@ -39,8 +39,8 @@ def test_zerobus_appears_in_the_dashboard_callback_dropdown():
 def test_the_dropdown_logo_asset_exists():
     """A logo the dashboard cannot resolve degrades silently to a letter tile."""
     logo = _zerobus_config().logo
-    repo_root = Path(litellm.__file__).parent.parent
-    asset = repo_root / "ui" / "litellm-dashboard" / "public" / "assets" / "logos" / logo
+    repo_root = Path(hangarllm.__file__).parent.parent
+    asset = repo_root / "ui" / "hangarllm-dashboard" / "public" / "assets" / "logos" / logo
 
     assert asset.is_file()
 

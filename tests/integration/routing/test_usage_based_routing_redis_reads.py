@@ -83,7 +83,7 @@ def _deployment_list(
     return [
         {
             "model_name": model_name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{OPENAI_MODEL}",
                 "api_base": api_base,
                 "api_key": API_KEY,
@@ -237,7 +237,7 @@ def test_proxy_usage_routing_reads_cooldown_tpm_then_rpm_from_redis(
                         response.text for response in responses
                     ]
                     assert "No deployments available" in responses[2].text
-                    served_ids: Final = tuple(response.headers["x-litellm-model-id"] for response in responses[:2])
+                    served_ids: Final = tuple(response.headers["x-hangarllm-model-id"] for response in responses[:2])
                     assert set(served_ids) == set(deployment_ids), served_ids
                     rpm_keys: Final = tuple(
                         f"{deployment_id}:openai/{OPENAI_MODEL}:rpm:{minute}" for deployment_id in deployment_ids

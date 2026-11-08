@@ -8,7 +8,7 @@ from typing import Final
 import pytest
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.constants import PTU_SENTINEL_API_KEY, USAGE_TOP_API_KEYS_DEFAULT
+from hangarllm.constants import PTU_SENTINEL_API_KEY, USAGE_TOP_API_KEYS_DEFAULT
 from tests.integration._support.client import Gateway, object_value
 from tests.integration._support.database import write_rows
 
@@ -24,7 +24,7 @@ def _unique_day() -> str:
 def _seed(day: str, rows: Sequence[tuple[object, ...]]) -> None:
     for row in rows:
         write_rows(
-            'INSERT INTO "LiteLLM_DailyUserSpend" (id, user_id, date, api_key, model, model_group,'
+            'INSERT INTO "HangarLLM_DailyUserSpend" (id, user_id, date, api_key, model, model_group,'
             " custom_llm_provider, mcp_namespaced_tool_name, endpoint, prompt_tokens, spend, api_requests,"
             " successful_requests, updated_at)"
             " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now())",
@@ -33,7 +33,7 @@ def _seed(day: str, rows: Sequence[tuple[object, ...]]) -> None:
 
 
 def _clean(day: str) -> None:
-    write_rows('DELETE FROM "LiteLLM_DailyUserSpend" WHERE date = %s', (day,))
+    write_rows('DELETE FROM "HangarLLM_DailyUserSpend" WHERE date = %s', (day,))
 
 
 def _activity(gateway: Gateway, day: str, **params: str) -> dict[str, JsonValue]:
@@ -189,7 +189,7 @@ def test_export_bucket_ids_round_trip_across_streaming_batches(
         ],
     )
     write_rows(
-        'INSERT INTO "LiteLLM_DailyUserSpend" (id, user_id, date, api_key, model, spend, api_requests, updated_at) '
+        'INSERT INTO "HangarLLM_DailyUserSpend" (id, user_id, date, api_key, model, spend, api_requests, updated_at) '
         "SELECT %s || i, 'export-user', %s, 'raw:a-key-' || i, 'a-model-' || i, 1, 1, now() "
         "FROM generate_series(1, 1001) i",
         (str(uuid.uuid4()), day),
@@ -426,7 +426,7 @@ async def test_get_daily_activity_aggregated_model_group_rollups_fall_back_to_mo
 def _seed_guardrail_units(day: str, rows: Sequence[tuple[str, str, str, float | None, int, int]]) -> None:
     for guardrail_id, api_key, usage_unit, cost, units, untracked_units in rows:
         write_rows(
-            'INSERT INTO "LiteLLM_DailyGuardrailUsageUnits" (guardrail_id, date, team_id, api_key, usage_unit,'
+            'INSERT INTO "HangarLLM_DailyGuardrailUsageUnits" (guardrail_id, date, team_id, api_key, usage_unit,'
             " units, cost, untracked_units, updated_at) VALUES (%s, %s, '', %s, %s, %s, %s, %s, now())",
             (
                 guardrail_id,
@@ -533,7 +533,7 @@ async def test_get_daily_activity_aggregated_breaks_down_guardrail_spend(gateway
         assert _guardrail_spend(_day_breakdown(gateway, day, model="")) == _guardrail_spend(everyone)
     finally:
         _clean(day)
-        write_rows('DELETE FROM "LiteLLM_DailyGuardrailUsageUnits" WHERE date = %s', (day,))
+        write_rows('DELETE FROM "HangarLLM_DailyGuardrailUsageUnits" WHERE date = %s', (day,))
 
 
 def _entity_breakdown(gateway: Gateway, url: str, day: str, **params: str) -> dict[str, JsonValue]:
@@ -548,10 +548,10 @@ def _entity_breakdown(gateway: Gateway, url: str, day: str, **params: str) -> di
 @pytest.mark.parametrize(
     ("url", "table", "entity_column", "filter_param"),
     [
-        ("/team/daily/activity/aggregated", "LiteLLM_DailyTeamSpend", "team_id", "team_ids"),
+        ("/team/daily/activity/aggregated", "HangarLLM_DailyTeamSpend", "team_id", "team_ids"),
         (
             "/organization/daily/activity/aggregated",
-            "LiteLLM_DailyOrganizationSpend",
+            "HangarLLM_DailyOrganizationSpend",
             "organization_id",
             "organization_ids",
         ),
@@ -570,7 +570,7 @@ async def test_team_and_organization_activity_break_down_guardrail_spend_by_name
             (_row_id(), entity_id, day, api_key, str(spend)),
         )
     write_rows(
-        'INSERT INTO "LiteLLM_GuardrailsTable" (guardrail_id, guardrail_name, litellm_params, updated_at)'
+        'INSERT INTO "HangarLLM_GuardrailsTable" (guardrail_id, guardrail_name, hangarllm_params, updated_at)'
         " VALUES (%s, %s, '{}', now())",
         (db_guardrail_id, db_guardrail_name),
     )
@@ -599,5 +599,5 @@ async def test_team_and_organization_activity_break_down_guardrail_spend_by_name
         }
     finally:
         write_rows(f'DELETE FROM "{table}" WHERE date = %s', (day,))
-        write_rows('DELETE FROM "LiteLLM_DailyGuardrailUsageUnits" WHERE date = %s', (day,))
-        write_rows('DELETE FROM "LiteLLM_GuardrailsTable" WHERE guardrail_id = %s', (db_guardrail_id,))
+        write_rows('DELETE FROM "HangarLLM_DailyGuardrailUsageUnits" WHERE date = %s', (day,))
+        write_rows('DELETE FROM "HangarLLM_GuardrailsTable" WHERE guardrail_id = %s', (db_guardrail_id,))

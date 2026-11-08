@@ -10,7 +10,7 @@ import pytest
 from _pytest.mark.structures import ParameterSet
 from cli_harness.rate_limiter import RateBucket
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 
 GPT_ON_BEDROCK_MANTLE: Final = "bedrock_mantle/openai.gpt-6.1-sol"
 GPT_ON_BEDROCK_RUNTIME: Final = "bedrock/global.openai.gpt-6.1-sol"
@@ -24,7 +24,7 @@ type SetupId = Literal["bedrock_mantle", "bedrock_runtime", "azure_openai", "ope
 
 @dataclass(frozen=True, slots=True)
 class Deployment:
-    litellm_params: LiteLLMParamsBody
+    hangarllm_params: HangarLLMParamsBody
     rate_bucket: RateBucket
 
 
@@ -49,14 +49,14 @@ def _drives(provider: Provider, model: str) -> pytest.MarkDecorator:
 SETUPS: Final = (
     pytest.param(
         Deployment(
-            LiteLLMParamsBody(model=GPT_ON_BEDROCK_MANTLE, aws_region_name=_BEDROCK_REGION), RateBucket.BEDROCK_MANTLE
+            HangarLLMParamsBody(model=GPT_ON_BEDROCK_MANTLE, aws_region_name=_BEDROCK_REGION), RateBucket.BEDROCK_MANTLE
         ),
         id="bedrock_mantle",
         marks=_drives(Provider.BEDROCK_MANTLE, GPT_ON_BEDROCK_MANTLE),
     ),
     pytest.param(
         Deployment(
-            LiteLLMParamsBody(model=GPT_ON_BEDROCK_RUNTIME, aws_region_name=_BEDROCK_REGION),
+            HangarLLMParamsBody(model=GPT_ON_BEDROCK_RUNTIME, aws_region_name=_BEDROCK_REGION),
             RateBucket.BEDROCK_CONVERSE,
         ),
         id="bedrock_runtime",
@@ -67,7 +67,7 @@ SETUPS: Final = (
     ),
     pytest.param(
         Deployment(
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=GPT_ON_AZURE_OPENAI, api_base="os.environ/AZURE_API_BASE", api_key="os.environ/AZURE_API_KEY"
             ),
             RateBucket.AZURE_OPENAI,
@@ -76,13 +76,13 @@ SETUPS: Final = (
         marks=_drives(Provider.AZURE, GPT_ON_AZURE_OPENAI),
     ),
     pytest.param(
-        Deployment(LiteLLMParamsBody(model=GPT_ON_OPENAI, api_key="os.environ/OPENAI_API_KEY"), RateBucket.OPENAI),
+        Deployment(HangarLLMParamsBody(model=GPT_ON_OPENAI, api_key="os.environ/OPENAI_API_KEY"), RateBucket.OPENAI),
         id="openai",
         marks=_drives(Provider.OPENAI, GPT_ON_OPENAI),
     ),
     pytest.param(
         Deployment(
-            LiteLLMParamsBody(model=CLAUDE_ON_BEDROCK, aws_region_name=_BEDROCK_REGION), RateBucket.BEDROCK_CONVERSE
+            HangarLLMParamsBody(model=CLAUDE_ON_BEDROCK, aws_region_name=_BEDROCK_REGION), RateBucket.BEDROCK_CONVERSE
         ),
         id="claude_bedrock",
         marks=_drives(Provider.BEDROCK, CLAUDE_ON_BEDROCK),

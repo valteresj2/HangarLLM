@@ -5,11 +5,11 @@ from typing import Final
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import httpx
-import litellm
+import hangarllm
 import pytest
 import respx
-from litellm import Router
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm import Router
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
 
 @pytest.fixture
@@ -17,35 +17,35 @@ def model_list():
     return [
         {
             "model_name": "gpt-5-mini",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "gpt-5-mini",
                 "api_key": os.getenv("OPENAI_API_KEY"),
             },
         },
         {
             "model_name": "gpt-5.5",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "gpt-5.5",
                 "api_key": os.getenv("OPENAI_API_KEY"),
             },
         },
         {
             "model_name": "gpt-image-1",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "gpt-image-1",
                 "api_key": os.getenv("OPENAI_API_KEY"),
             },
         },
         {
             "model_name": "cohere-rerank",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "cohere/rerank-english-v3.0",
                 "api_key": os.getenv("COHERE_API_KEY"),
             },
         },
         {
             "model_name": "claude-sonnet-4-5-20250929",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "gpt-5-mini",
                 "mock_response": "hi this is macintosh.",
             },
@@ -59,11 +59,11 @@ async def test_aspeech_fallbacks_on_deployment_failure():
         model_list=[
             {
                 "model_name": "tts-main",
-                "litellm_params": {"model": "openai/tts-1", "api_key": "fake-key"},
+                "hangarllm_params": {"model": "openai/tts-1", "api_key": "fake-key"},
             },
             {
                 "model_name": "tts-backup",
-                "litellm_params": {"model": "openai/tts-1-hd", "api_key": "fake-key"},
+                "hangarllm_params": {"model": "openai/tts-1-hd", "api_key": "fake-key"},
             },
         ],
         fallbacks=[{"tts-main": ["tts-backup"]}],
@@ -75,14 +75,14 @@ async def test_aspeech_fallbacks_on_deployment_failure():
     async def mock_aspeech(*args, **kwargs):
         called_models.append(kwargs["model"])
         if kwargs["model"] == "openai/tts-1":
-            raise litellm.InternalServerError(
+            raise hangarllm.InternalServerError(
                 message="deployment down",
                 llm_provider="openai",
                 model="tts-1",
             )
         return MagicMock()
 
-    with patch("litellm.aspeech", side_effect=mock_aspeech):
+    with patch("hangarllm.aspeech", side_effect=mock_aspeech):
         response = await router.aspeech(
             model="tts-main",
             input="the quick brown fox jumped over the lazy dogs",
@@ -99,13 +99,13 @@ async def test_aspeech_success_returns_response():
         model_list=[
             {
                 "model_name": "tts",
-                "litellm_params": {"model": "openai/tts-1", "api_key": "fake-key"},
+                "hangarllm_params": {"model": "openai/tts-1", "api_key": "fake-key"},
             },
         ]
     )
 
     mock_response = MagicMock()
-    with patch("litellm.aspeech", return_value=mock_response) as mock_aspeech:
+    with patch("hangarllm.aspeech", return_value=mock_response) as mock_aspeech:
         response = await router.aspeech(
             model="tts",
             input="the quick brown fox jumped over the lazy dogs",
@@ -123,13 +123,13 @@ async def test_aspeech_sets_deployment_metadata():
         model_list=[
             {
                 "model_name": "tts",
-                "litellm_params": {"model": "openai/tts-1", "api_key": "fake-key"},
+                "hangarllm_params": {"model": "openai/tts-1", "api_key": "fake-key"},
             },
         ]
     )
 
     mock_response = MagicMock()
-    with patch("litellm.aspeech", return_value=mock_response) as mock_aspeech:
+    with patch("hangarllm.aspeech", return_value=mock_response) as mock_aspeech:
         response = await router.aspeech(
             model="tts",
             input="the quick brown fox jumped over the lazy dogs",
@@ -156,7 +156,7 @@ async def test_moderation_endpoint_with_api_base():
         model_list=[
             {
                 "model_name": "openai/omni-moderation-latest",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/omni-moderation-latest",
                     "api_base": custom_api_base,
                     "api_key": "test-key",
@@ -166,7 +166,7 @@ async def test_moderation_endpoint_with_api_base():
     )
 
     # Mock the OpenAI client to verify api_base is passed
-    with patch("litellm.main.openai_chat_completions.get_openai_client") as mock_get_client:
+    with patch("hangarllm.main.openai_chat_completions.get_openai_client") as mock_get_client:
         mock_client = AsyncMock()
         mock_response = MagicMock()
         mock_response.model_dump.return_value = {
@@ -220,12 +220,12 @@ async def test_aaaaatext_completion_endpoint(model_list, sync_mode):
 @pytest.mark.asyncio
 async def test_router_with_empty_choices(model_list):
     """
-    https://github.com/BerriAI/litellm/issues/8306
+    upstream issue 8306
     """
     router = Router(model_list=model_list)
-    mock_response = litellm.ModelResponse(
+    mock_response = hangarllm.ModelResponse(
         choices=[],
-        usage=litellm.Usage(
+        usage=hangarllm.Usage(
             prompt_tokens=10,
             completion_tokens=10,
             total_tokens=20,
@@ -246,14 +246,14 @@ async def test_router_with_empty_choices(model_list):
 async def test_aadapter_completion_calls_the_adapter_with_the_deployments_params():
     mock_response = {"id": "adapter_resp_123", "object": "adapter.completion"}
 
-    with patch("litellm.aadapter_completion", new_callable=AsyncMock) as mock_adapter_completion:
+    with patch("hangarllm.aadapter_completion", new_callable=AsyncMock) as mock_adapter_completion:
         mock_adapter_completion.return_value = mock_response
 
         router = Router(
             model_list=[
                 {
                     "model_name": "test-adapter-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "anthropic/test-model",
                         "api_key": "fake-api-key",
                     },
@@ -288,7 +288,7 @@ def test_initialize_router_endpoints():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/test-model",
                     "api_key": "fake-api-key",
                 },
@@ -332,7 +332,7 @@ async def test_avector_store_create_sends_only_the_callers_metadata_to_the_provi
         )
 
     router: Final = Router(
-        model_list=[{"model_name": "gpt-5", "litellm_params": {"model": "openai/gpt-5", "api_key": "sk-test"}}]
+        model_list=[{"model_name": "gpt-5", "hangarllm_params": {"model": "openai/gpt-5", "api_key": "sk-test"}}]
     )
 
     response: Final = await router.avector_store_create(
@@ -380,7 +380,7 @@ def test_initialize_core_endpoints():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/test-model",
                     "api_key": "fake-api-key",
                 },
@@ -423,7 +423,7 @@ def test_initialize_specialized_endpoints():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/test-model",
                     "api_key": "fake-api-key",
                 },
@@ -481,7 +481,7 @@ def test_initialize_vector_store_endpoints():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/test-model",
                     "api_key": "fake-api-key",
                 },
@@ -509,7 +509,7 @@ def test_initialize_vector_store_file_endpoints():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/test-model",
                     "api_key": "fake-api-key",
                 },
@@ -545,7 +545,7 @@ def test_initialize_google_genai_endpoints():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/test-model",
                     "api_key": "fake-api-key",
                 },
@@ -573,7 +573,7 @@ def test_initialize_ocr_search_endpoints():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/test-model",
                     "api_key": "fake-api-key",
                 },
@@ -601,7 +601,7 @@ def test_initialize_video_endpoints():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/test-model",
                     "api_key": "fake-api-key",
                 },
@@ -635,7 +635,7 @@ def test_initialize_container_endpoints():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/test-model",
                     "api_key": "fake-api-key",
                 },
@@ -667,7 +667,7 @@ def test_initialize_skills_endpoints():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/test-model",
                     "api_key": "fake-api-key",
                 },
@@ -712,14 +712,14 @@ async def test_containers_managed_id_routes_to_its_deployment_with_its_credentia
     Managed ``cntr_`` IDs embed ``model_id``; the router decodes it so the deployment's
     credentials and api_base apply, and the upstream gets the unwrapped container ID.
     """
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router = Router(
         model_list=[
             {
                 "model_name": "azure-router-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-5.5",
                     "api_key": "fake-key",
                     "api_base": "https://westus.api.cognitive.microsoft.com",
@@ -748,9 +748,9 @@ async def test_containers_managed_id_without_model_id_unwraps(monkeypatch):
     managed ID before calling the upstream provider — otherwise the raw
     ``cntr_...`` token leaks downstream and the provider rejects it.
     """
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-global")
     router = Router(model_list=[])
     managed_id = ResponsesAPIRequestUtils.build_container_id(
@@ -773,13 +773,13 @@ async def test_containers_create_with_model_uses_deployment_credentials(monkeypa
     ``OPENAI_API_KEY`` (which may be unset on the proxy).
     """
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    with patch("litellm.containers.acreate_container", new_callable=AsyncMock) as create:
+    with patch("hangarllm.containers.acreate_container", new_callable=AsyncMock) as create:
         create.return_value = {"id": "cntr_test", "name": "Test Container"}
         router = Router(
             model_list=[
                 {
                     "model_name": "gpt-5.4",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-5.4",
                         "api_key": "sk-model-list-key",
                         "api_base": "https://custom.openai.example/v1",
@@ -802,7 +802,7 @@ async def test_containers_create_without_model_calls_directly():
     """
     Without ``model``, create must keep calling the handler directly with global provider credentials.
     """
-    with patch("litellm.containers.acreate_container", new_callable=AsyncMock) as create:
+    with patch("hangarllm.containers.acreate_container", new_callable=AsyncMock) as create:
         create.return_value = {"id": "cntr_test"}
         router = Router(model_list=[])
         await router.acreate_container(name="Test Container")
@@ -818,13 +818,13 @@ async def test_containers_create_with_unknown_model_passes_through(monkeypatch):
     credentials, matching the behaviour before model-based routing existed.
     """
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    with patch("litellm.containers.acreate_container", new_callable=AsyncMock) as create:
+    with patch("hangarllm.containers.acreate_container", new_callable=AsyncMock) as create:
         create.return_value = {"id": "cntr_test"}
         router = Router(
             model_list=[
                 {
                     "model_name": "gpt-5.4",
-                    "litellm_params": {"model": "openai/gpt-5.4", "api_key": "sk-model-list-key"},
+                    "hangarllm_params": {"model": "openai/gpt-5.4", "api_key": "sk-model-list-key"},
                 }
             ]
         )
@@ -839,10 +839,10 @@ async def test_containers_create_with_unknown_model_passes_through(monkeypatch):
 
 
 def test_router_model_group_encrypted_content_affinity_callback_registration():
-    from litellm.router_utils.pre_call_checks.deployment_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.deployment_affinity_check import (
         DeploymentAffinityCheck,
     )
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -854,7 +854,7 @@ def test_router_model_group_encrypted_content_affinity_callback_registration():
         model_list=[
             {
                 "model_name": model_group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key",
                 },

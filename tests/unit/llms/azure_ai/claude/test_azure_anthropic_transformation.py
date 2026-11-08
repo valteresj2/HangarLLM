@@ -10,9 +10,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
-from litellm.llms.azure_ai.anthropic.transformation import AzureAnthropicConfig
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
+from hangarllm.llms.azure_ai.anthropic.transformation import AzureAnthropicConfig
+from hangarllm.types.router import GenericHangarLLMParams
 
 
 class TestAzureAnthropicConfig:
@@ -21,18 +21,18 @@ class TestAzureAnthropicConfig:
         config = AzureAnthropicConfig()
         assert config.custom_llm_provider == "azure_ai"
 
-    def test_validate_environment_with_dict_litellm_params(self):
-        """Test validate_environment with dict litellm_params"""
+    def test_validate_environment_with_dict_hangarllm_params(self):
+        """Test validate_environment with dict hangarllm_params"""
         config = AzureAnthropicConfig()
         headers = {}
         model = "claude-sonnet-4-5"
         messages = [{"role": "user", "content": "Hello"}]
         optional_params = {}
-        litellm_params = {"api_key": "test-api-key"}
+        hangarllm_params = {"api_key": "test-api-key"}
         api_key = "test-api-key"
 
         with patch(
-            "litellm.llms.azure.common_utils.BaseAzureLLM.base_validate_azure_environment"
+            "hangarllm.llms.azure.common_utils.BaseAzureLLM.base_validate_azure_environment"
         ) as mock_validate:
             mock_validate.return_value = {"api-key": "test-api-key"}
             result = config.validate_environment(
@@ -40,28 +40,28 @@ class TestAzureAnthropicConfig:
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 api_key=api_key,
             )
 
-            # Verify that dict was converted to GenericLiteLLMParams
+            # Verify that dict was converted to GenericHangarLLMParams
             call_args = mock_validate.call_args
-            assert isinstance(call_args[1]["litellm_params"], GenericLiteLLMParams)
-            assert call_args[1]["litellm_params"].api_key == "test-api-key"
+            assert isinstance(call_args[1]["hangarllm_params"], GenericHangarLLMParams)
+            assert call_args[1]["hangarllm_params"].api_key == "test-api-key"
             assert "anthropic-version" in result
 
-    def test_validate_environment_with_generic_litellm_params(self):
-        """Test validate_environment with GenericLiteLLMParams object"""
+    def test_validate_environment_with_generic_hangarllm_params(self):
+        """Test validate_environment with GenericHangarLLMParams object"""
         config = AzureAnthropicConfig()
         headers = {}
         model = "claude-sonnet-4-5"
         messages = [{"role": "user", "content": "Hello"}]
         optional_params = {}
-        litellm_params = GenericLiteLLMParams(api_key="test-api-key")
+        hangarllm_params = GenericHangarLLMParams(api_key="test-api-key")
         api_key = "test-api-key"
 
         with patch(
-            "litellm.llms.azure.common_utils.BaseAzureLLM.base_validate_azure_environment"
+            "hangarllm.llms.azure.common_utils.BaseAzureLLM.base_validate_azure_environment"
         ) as mock_validate:
             mock_validate.return_value = {"api-key": "test-api-key"}
             result = config.validate_environment(
@@ -69,27 +69,27 @@ class TestAzureAnthropicConfig:
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 api_key=api_key,
             )
 
-            # Verify that GenericLiteLLMParams was passed through
+            # Verify that GenericHangarLLMParams was passed through
             call_args = mock_validate.call_args
-            assert isinstance(call_args[1]["litellm_params"], GenericLiteLLMParams)
+            assert isinstance(call_args[1]["hangarllm_params"], GenericHangarLLMParams)
             assert "anthropic-version" in result
 
-    def test_validate_environment_sets_api_key_in_litellm_params(self):
-        """Test that api_key parameter is set in litellm_params if provided"""
+    def test_validate_environment_sets_api_key_in_hangarllm_params(self):
+        """Test that api_key parameter is set in hangarllm_params if provided"""
         config = AzureAnthropicConfig()
         headers = {}
         model = "claude-sonnet-4-5"
         messages = [{"role": "user", "content": "Hello"}]
         optional_params = {}
-        litellm_params = {}  # Empty dict, no api_key
+        hangarllm_params = {}  # Empty dict, no api_key
         api_key = "provided-api-key"
 
         with patch(
-            "litellm.llms.azure.common_utils.BaseAzureLLM.base_validate_azure_environment"
+            "hangarllm.llms.azure.common_utils.BaseAzureLLM.base_validate_azure_environment"
         ) as mock_validate:
             mock_validate.return_value = {"api-key": "provided-api-key"}
             config.validate_environment(
@@ -97,13 +97,13 @@ class TestAzureAnthropicConfig:
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 api_key=api_key,
             )
 
-            # Verify that api_key was set in litellm_params
+            # Verify that api_key was set in hangarllm_params
             call_args = mock_validate.call_args
-            assert call_args[1]["litellm_params"].api_key == "provided-api-key"
+            assert call_args[1]["hangarllm_params"].api_key == "provided-api-key"
 
     def test_validate_environment_preserves_api_key_header(self):
         """Test that api-key header is preserved as-is (Azure handles the header internally)"""
@@ -112,10 +112,10 @@ class TestAzureAnthropicConfig:
         model = "claude-sonnet-4-5"
         messages = [{"role": "user", "content": "Hello"}]
         optional_params = {}
-        litellm_params = {"api_key": "test-api-key"}
+        hangarllm_params = {"api_key": "test-api-key"}
 
         with patch(
-            "litellm.llms.azure.common_utils.BaseAzureLLM.base_validate_azure_environment"
+            "hangarllm.llms.azure.common_utils.BaseAzureLLM.base_validate_azure_environment"
         ) as mock_validate:
             mock_validate.return_value = {"api-key": "test-api-key"}
             with patch.object(config, "get_anthropic_headers", return_value={}):
@@ -124,7 +124,7 @@ class TestAzureAnthropicConfig:
                     model=model,
                     messages=messages,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    hangarllm_params=hangarllm_params,
                 )
 
                 # Verify api-key header is preserved as-is
@@ -138,10 +138,10 @@ class TestAzureAnthropicConfig:
         model = "claude-sonnet-4-5"
         messages = [{"role": "user", "content": "Hello"}]
         optional_params = {}
-        litellm_params = {"api_key": "test-api-key"}
+        hangarllm_params = {"api_key": "test-api-key"}
 
         with patch(
-            "litellm.llms.azure.common_utils.BaseAzureLLM.base_validate_azure_environment"
+            "hangarllm.llms.azure.common_utils.BaseAzureLLM.base_validate_azure_environment"
         ) as mock_validate:
             mock_validate.return_value = {"api-key": "test-api-key"}
             with patch.object(config, "get_anthropic_headers", return_value={}):
@@ -150,7 +150,7 @@ class TestAzureAnthropicConfig:
                     model=model,
                     messages=messages,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    hangarllm_params=hangarllm_params,
                 )
 
                 assert result["anthropic-version"] == "2023-06-01"
@@ -162,10 +162,10 @@ class TestAzureAnthropicConfig:
         model = "claude-sonnet-4-5"
         messages = [{"role": "user", "content": "Hello"}]
         optional_params = {}
-        litellm_params = {"api_key": "test-api-key"}
+        hangarllm_params = {"api_key": "test-api-key"}
 
         with patch(
-            "litellm.llms.azure.common_utils.BaseAzureLLM.base_validate_azure_environment"
+            "hangarllm.llms.azure.common_utils.BaseAzureLLM.base_validate_azure_environment"
         ) as mock_validate:
             mock_validate.return_value = {
                 "api-key": "test-api-key",
@@ -181,7 +181,7 @@ class TestAzureAnthropicConfig:
                     model=model,
                     messages=messages,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    hangarllm_params=hangarllm_params,
                 )
 
                 assert result["anthropic-version"] == "2024-01-01"
@@ -200,8 +200,8 @@ class TestAzureAnthropicConfig:
     def test_transform_request_removes_unsupported_params(self):
         """Test that transform_request removes max_retries, stream_options, and extra_body.
 
-        These parameters are LiteLLM-internal and not supported by Azure AI Anthropic endpoint.
-        See: https://github.com/BerriAI/litellm/issues/XXXX
+        These parameters are HangarLLM-internal and not supported by Azure AI Anthropic endpoint.
+        See: https://github.com/valteresj2/HangarLLM/issues/XXXX
         """
         config = AzureAnthropicConfig()
 
@@ -209,7 +209,7 @@ class TestAzureAnthropicConfig:
         optional_params = {
             "max_tokens": 100,
         }
-        litellm_params = {"api_key": "test-key"}
+        hangarllm_params = {"api_key": "test-key"}
         headers = {"api-key": "test-key", "anthropic-version": "2023-06-01"}
 
         with patch.object(
@@ -230,7 +230,7 @@ class TestAzureAnthropicConfig:
                 model="claude-sonnet-4-5",
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 headers=headers,
             )
 
@@ -253,18 +253,18 @@ class TestAzureAnthropicConfig:
             "context_management": {"edits": [{"type": "compact_20260112"}]},
             "max_tokens": 100,
         }
-        litellm_params = {"api_key": "test-key"}
+        hangarllm_params = {"api_key": "test-key"}
         headers = {"api-key": "test-key"}
 
         with patch(
-            "litellm.llms.azure.common_utils.BaseAzureLLM.base_validate_azure_environment"
+            "hangarllm.llms.azure.common_utils.BaseAzureLLM.base_validate_azure_environment"
         ) as mock_validate:
             mock_validate.return_value = {"api-key": "test-key"}
             result = config.transform_request(
                 model="claude-opus-4-6",
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 headers=headers,
             )
 
@@ -302,14 +302,14 @@ class TestAzureAnthropicConfig:
             "max_tokens": 100,
             "extra_body": {"output_config": {"effort": "low"}},
         }
-        litellm_params = {"api_key": "test-key"}
+        hangarllm_params = {"api_key": "test-key"}
         headers = {"api-key": "test-key", "anthropic-version": "2023-06-01"}
 
         result = config.transform_request(
             model="claude-opus-4-6",
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -318,7 +318,7 @@ class TestAzureAnthropicConfig:
 
     def test_invalid_output_config_effort_raises_via_extra_body(self):
         """Invalid ``effort`` via ``extra_body`` raises BadRequestError."""
-        import litellm
+        import hangarllm
 
         config = AzureAnthropicConfig()
 
@@ -327,22 +327,22 @@ class TestAzureAnthropicConfig:
             "max_tokens": 100,
             "extra_body": {"output_config": {"effort": "invalid"}},
         }
-        litellm_params = {"api_key": "test-key"}
+        hangarllm_params = {"api_key": "test-key"}
         headers = {"api-key": "test-key", "anthropic-version": "2023-06-01"}
 
-        with pytest.raises(litellm.exceptions.BadRequestError) as exc_info:
+        with pytest.raises(hangarllm.exceptions.BadRequestError) as exc_info:
             config.transform_request(
                 model="claude-opus-4-6",
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 headers=headers,
             )
         assert "Invalid effort value" in str(exc_info.value)
 
     def test_unsupported_effort_xhigh_raises_via_extra_body(self):
         """Unsupported ``effort='xhigh'`` via ``extra_body`` raises BadRequestError."""
-        import litellm
+        import hangarllm
 
         config = AzureAnthropicConfig()
 
@@ -351,15 +351,15 @@ class TestAzureAnthropicConfig:
             "max_tokens": 100,
             "extra_body": {"output_config": {"effort": "xhigh"}},
         }
-        litellm_params = {"api_key": "test-key"}
+        hangarllm_params = {"api_key": "test-key"}
         headers = {"api-key": "test-key", "anthropic-version": "2023-06-01"}
 
-        with pytest.raises(litellm.exceptions.BadRequestError) as exc_info:
+        with pytest.raises(hangarllm.exceptions.BadRequestError) as exc_info:
             config.transform_request(
                 model="claude-sonnet-4-6",
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 headers=headers,
             )
         assert "xhigh" in str(exc_info.value)
@@ -374,14 +374,14 @@ class TestAzureAnthropicConfig:
             "output_config": {"effort": "low"},
             "extra_body": {"output_config": {"effort": "high"}},
         }
-        litellm_params = {"api_key": "test-key"}
+        hangarllm_params = {"api_key": "test-key"}
         headers = {"api-key": "test-key", "anthropic-version": "2023-06-01"}
 
         result = config.transform_request(
             model="claude-opus-4-6",
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -403,7 +403,7 @@ class TestAzureAnthropicConfig:
             model="claude-opus-4-8",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={**mapped, "extra_body": {"output_config": {"effort": "high"}}},
-            litellm_params={"api_key": "test-key"},
+            hangarllm_params={"api_key": "test-key"},
             headers={"api-key": "test-key", "anthropic-version": "2023-06-01"},
         )
 
@@ -460,7 +460,7 @@ def test_chat_unflagged_model_converts_mid_conversation_system_instead_of_hoisti
         model="claude-opus-4-7",
         messages=_mid_conversation_system_conversation(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -476,7 +476,7 @@ def test_chat_flagged_model_keeps_mid_conversation_system_role_in_place(local_mo
         model="claude-opus-4-8",
         messages=_mid_conversation_system_conversation(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -522,8 +522,8 @@ def test_azure_chat_compaction_sends_the_compact_2026_09_04_beta(
 def test_chat_preserves_thinking_display_and_beta(thinking_type: str, display: str) -> None:
     from typing import Final
 
-    from litellm.llms.azure_ai.anthropic.transformation import AzureAnthropicConfig
-    from litellm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
+    from hangarllm.llms.azure_ai.anthropic.transformation import AzureAnthropicConfig
+    from hangarllm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
 
     config: Final = AzureAnthropicConfig()
     optional_params: Final = config.map_openai_params(
@@ -537,14 +537,14 @@ def test_chat_preserves_thinking_display_and_beta(thinking_type: str, display: s
         model="claude-fable-5-1",
         messages=[{"role": "user", "content": "Reply with OK"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         api_key="test-key",
     )
     result: Final = config.transform_request(
         model="claude-fable-5-1",
         messages=[{"role": "user", "content": "Reply with OK"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
 
@@ -558,12 +558,12 @@ def test_chat_preserves_thinking_display_and_beta(thinking_type: str, display: s
 def test_beta_detection_preserves_unrecognized_thinking(thinking: object) -> None:
     from typing import Final
 
-    from litellm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
+    from hangarllm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
 
     params: Final = {"thinking": thinking}
     headers: Final = AzureAnthropicConfig().validate_environment(
         headers={}, model="claude-fable-5-1", messages=[], optional_params=params,
-        litellm_params={}, api_key="test-key",
+        hangarllm_params={}, api_key="test-key",
     )
 
     assert params["thinking"] == thinking

@@ -9,21 +9,21 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.vertex_ai.fine_tuning.handler import (
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.llms.vertex_ai.fine_tuning.handler import (
     FineTuningJobCreate,
     VertexFineTuningAPI,
 )
-from litellm.types.llms.openai import Hyperparameters
-from litellm.types.utils import StandardLoggingPayload
+from hangarllm.types.llms.openai import Hyperparameters
+from hangarllm.types.utils import StandardLoggingPayload
 
 
 @pytest.fixture(autouse=True)
 def isolate_fine_tuning_retries(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "num_retries", 0)
+    monkeypatch.setattr(hangarllm, "num_retries", 0)
 
 
 vertex_finetune_api = VertexFineTuningAPI()
@@ -71,26 +71,26 @@ async def test_create_vertex_fine_tune_jobs_mocked(model_prefix: str):
     )
 
     # Save original callbacks to restore later
-    original_callbacks = litellm.callbacks
-    original_success_callback = litellm.success_callback
-    original_async_success_callback = litellm._async_success_callback
+    original_callbacks = hangarllm.callbacks
+    original_success_callback = hangarllm.success_callback
+    original_async_success_callback = hangarllm._async_success_callback
     # Disable all callbacks to avoid Datadog/other loggers interfering with the mock
-    litellm.callbacks = []
-    litellm.success_callback = []
-    litellm._async_success_callback = []
+    hangarllm.callbacks = []
+    hangarllm.success_callback = []
+    hangarllm._async_success_callback = []
 
     try:
         with (
             patch(
-                "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+                "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
                 return_value=mock_response,
             ) as mock_post,
             patch(
-                "litellm.llms.vertex_ai.vertex_llm_base.VertexBase._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_llm_base.VertexBase._ensure_access_token",
                 return_value=("fake-token", project_id),
             ),
         ):
-            create_fine_tuning_response = await litellm.acreate_fine_tuning_job(
+            create_fine_tuning_response = await hangarllm.acreate_fine_tuning_job(
                 model=f"{model_prefix}{base_model}",
                 custom_llm_provider="vertex_ai",
                 training_file=training_file,
@@ -129,9 +129,9 @@ async def test_create_vertex_fine_tune_jobs_mocked(model_prefix: str):
             assert response_json["integrations"] == []
     finally:
         # Restore original callbacks
-        litellm.callbacks = original_callbacks
-        litellm.success_callback = original_success_callback
-        litellm._async_success_callback = original_async_success_callback
+        hangarllm.callbacks = original_callbacks
+        hangarllm.success_callback = original_success_callback
+        hangarllm._async_success_callback = original_async_success_callback
 
 
 @pytest.mark.asyncio()
@@ -160,26 +160,26 @@ async def test_create_vertex_fine_tune_jobs_mocked_with_hyperparameters():
     )
 
     # Save original callbacks to restore later
-    original_callbacks = litellm.callbacks
-    original_success_callback = litellm.success_callback
-    original_async_success_callback = litellm._async_success_callback
+    original_callbacks = hangarllm.callbacks
+    original_success_callback = hangarllm.success_callback
+    original_async_success_callback = hangarllm._async_success_callback
     # Disable all callbacks to avoid Datadog/other loggers interfering with the mock
-    litellm.callbacks = []
-    litellm.success_callback = []
-    litellm._async_success_callback = []
+    hangarllm.callbacks = []
+    hangarllm.success_callback = []
+    hangarllm._async_success_callback = []
 
     try:
         with (
             patch(
-                "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+                "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
                 return_value=mock_response,
             ) as mock_post,
             patch(
-                "litellm.llms.vertex_ai.vertex_llm_base.VertexBase._ensure_access_token",
+                "hangarllm.llms.vertex_ai.vertex_llm_base.VertexBase._ensure_access_token",
                 return_value=("fake-token", project_id),
             ),
         ):
-            create_fine_tuning_response = await litellm.acreate_fine_tuning_job(
+            create_fine_tuning_response = await hangarllm.acreate_fine_tuning_job(
                 model=base_model,
                 custom_llm_provider="vertex_ai",
                 training_file=training_file,
@@ -230,9 +230,9 @@ async def test_create_vertex_fine_tune_jobs_mocked_with_hyperparameters():
             assert response_json["integrations"] == []
     finally:
         # Restore original callbacks
-        litellm.callbacks = original_callbacks
-        litellm.success_callback = original_success_callback
-        litellm._async_success_callback = original_async_success_callback
+        hangarllm.callbacks = original_callbacks
+        hangarllm.success_callback = original_success_callback
+        hangarllm._async_success_callback = original_async_success_callback
 
 
 # Testing OpenAI -> Vertex AI param mapping
@@ -310,8 +310,8 @@ async def test_mock_openai_create_fine_tune_job():
     from openai.types.fine_tuning.fine_tuning_job import FineTuningJob, Hyperparameters
 
     custom_logger = TestCustomLogger()
-    previous_callbacks = litellm.callbacks
-    litellm.callbacks = [custom_logger]
+    previous_callbacks = hangarllm.callbacks
+    hangarllm.callbacks = [custom_logger]
     client = AsyncOpenAI(api_key="fake-api-key")
 
     with patch.object(client.fine_tuning.jobs, "create") as mock_create:
@@ -331,7 +331,7 @@ async def test_mock_openai_create_fine_tune_job():
             result_files=[],
         )
 
-        response = await litellm.acreate_fine_tuning_job(
+        response = await hangarllm.acreate_fine_tuning_job(
             model="gpt-4o-mini-2024-07-18",
             training_file="file-123",
             hyperparameters={"n_epochs": 3},
@@ -365,7 +365,7 @@ async def test_mock_openai_create_fine_tune_job():
         assert logged["id"] == response.id
         assert logged["call_type"] == "acreate_fine_tuning_job"
     finally:
-        litellm.callbacks = previous_callbacks
+        hangarllm.callbacks = previous_callbacks
 
 
 @pytest.mark.asyncio
@@ -381,7 +381,7 @@ async def test_mock_openai_list_fine_tune_jobs():
         # Simple mock return value - actual structure doesn't matter for this test
         mock_list.return_value = []
 
-        await litellm.alist_fine_tuning_jobs(limit=2, after="ft-000", client=client)
+        await hangarllm.alist_fine_tuning_jobs(limit=2, after="ft-000", client=client)
 
         # Only verify that the client was called with correct parameters
         mock_list.assert_called_once()
@@ -400,7 +400,7 @@ async def test_mock_openai_cancel_fine_tune_job():
 
     with patch.object(client.fine_tuning.jobs, "cancel") as mock_cancel:
         try:
-            await litellm.acancel_fine_tuning_job(fine_tuning_job_id="ft-123", client=client)
+            await hangarllm.acancel_fine_tuning_job(fine_tuning_job_id="ft-123", client=client)
         except Exception as e:
             print("error=", e)
 
@@ -417,7 +417,7 @@ async def test_mock_openai_retrieve_fine_tune_job():
 
     with patch.object(client.fine_tuning.jobs, "retrieve") as mock_retrieve:
         try:
-            response = await litellm.aretrieve_fine_tuning_job(fine_tuning_job_id="ft-123", client=client)
+            response = await hangarllm.aretrieve_fine_tuning_job(fine_tuning_job_id="ft-123", client=client)
         except Exception as e:
             print("error=", e)
 
@@ -432,9 +432,9 @@ async def test_mock_azure_create_fine_tune_job_with_azure_specific_params():
         Hyperparameters as OAIHyperparameters,
     )
 
-    from litellm.types.utils import LiteLLMFineTuningJob
+    from hangarllm.types.utils import HangarLLMFineTuningJob
 
-    mock_response = LiteLLMFineTuningJob(
+    mock_response = HangarLLMFineTuningJob(
         id="ft-azure-123",
         model="gpt-4.1-mini-2025-04-14",
         created_at=1677610602,
@@ -451,10 +451,10 @@ async def test_mock_azure_create_fine_tune_job_with_azure_specific_params():
     async def mock_async_create(*args, **kwargs):
         return mock_response
 
-    with patch("litellm.llms.azure.fine_tuning.handler.AzureOpenAIFineTuningAPI.create_fine_tuning_job") as mock_create:
+    with patch("hangarllm.llms.azure.fine_tuning.handler.AzureOpenAIFineTuningAPI.create_fine_tuning_job") as mock_create:
         mock_create.return_value = mock_async_create()
 
-        response = await litellm.acreate_fine_tuning_job(
+        response = await hangarllm.acreate_fine_tuning_job(
             model="gpt-4.1-mini-2025-04-14",
             training_file="file-123",
             custom_llm_provider="azure",
@@ -504,14 +504,14 @@ def event_loop():
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown(event_loop):
-    original_state = _copy_litellm_state()
+    original_state = _copy_hangarllm_state()
     _clear_logging_queue(event_loop)
-    _reset_litellm_callbacks()
+    _reset_hangarllm_callbacks()
     asyncio.set_event_loop(event_loop)
     yield
     _clear_logging_queue(event_loop)
-    _reset_litellm_callbacks()
-    _restore_litellm_state(original_state)
+    _reset_hangarllm_callbacks()
+    _restore_hangarllm_state(original_state)
     pending = asyncio.all_tasks(event_loop)
     for task in pending:
         task.cancel()
@@ -519,15 +519,15 @@ def setup_and_teardown(event_loop):
         event_loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
 
 
-def _copy_litellm_state():
+def _copy_hangarllm_state():
     state = {}
     for attr in _CALLBACK_ATTRS:
-        if hasattr(litellm, attr):
-            value = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            value = getattr(hangarllm, attr)
             state[attr] = value.copy() if isinstance(value, list) else value
     for attr in _SCALAR_ATTRS:
-        if hasattr(litellm, attr):
-            state[attr] = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            state[attr] = getattr(hangarllm, attr)
     return state
 
 
@@ -555,7 +555,7 @@ _SCALAR_ATTRS = (
 
 
 def _clear_logging_queue(loop=None) -> None:
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     if loop is not None and (not loop.is_closed()) and (not loop.is_running()):
         loop.run_until_complete(GLOBAL_LOGGING_WORKER.clear_queue())
@@ -563,20 +563,20 @@ def _clear_logging_queue(loop=None) -> None:
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
 
 
-def _reset_litellm_callbacks() -> None:
+def _reset_hangarllm_callbacks() -> None:
     for attr in _CALLBACK_ATTRS:
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
-    manager = getattr(litellm, "logging_callback_manager", None)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
+    manager = getattr(hangarllm, "logging_callback_manager", None)
     reset = getattr(manager, "_reset_all_callbacks", None)
     if callable(reset):
         reset()
 
 
-def _restore_litellm_state(state) -> None:
+def _restore_hangarllm_state(state) -> None:
     for attr, value in state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, value)
 
 
 _VERTEX_TUNING_JOB = {
@@ -599,7 +599,7 @@ class _StaticGoogleCredentials(google.auth.credentials.Credentials):
 @pytest.fixture
 def vertex_tuning_endpoint(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch) -> respx.Route:
     monkeypatch.setattr(google.auth, "default", lambda scopes: (_StaticGoogleCredentials(), "test-project"))
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     return respx_mock.post(host="us-central1-aiplatform.googleapis.com")
 
 

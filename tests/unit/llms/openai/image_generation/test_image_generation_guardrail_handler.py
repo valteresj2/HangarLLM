@@ -7,12 +7,12 @@ from typing import List, Optional, Tuple
 import pytest
 
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.llms import get_guardrail_translation_mapping
-from litellm.llms.openai.image_generation.guardrail_translation.handler import (
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.llms import get_guardrail_translation_mapping
+from hangarllm.llms.openai.image_generation.guardrail_translation.handler import (
     OpenAIImageGenerationHandler,
 )
-from litellm.types.utils import CallTypes, ImageObject, ImageResponse
+from hangarllm.types.utils import CallTypes, ImageObject, ImageResponse
 
 
 class MockGuardrail(CustomGuardrail):

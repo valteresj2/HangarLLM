@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import Request
 
-from litellm.proxy.auth.network import (
+from hangarllm.proxy.auth.network import (
     TrustedProxyConfig,
     resolve_client_ip,
     resolve_network_context,
@@ -110,10 +110,10 @@ def test_invalid_xff_token_is_skipped():
 
 def test_network_context_captures_host_and_proxy_flag():
     request = make_request(
-        headers={"x-forwarded-for": "203.0.113.9", "host": "proxy.litellm.ai"},
+        headers={"x-forwarded-for": "203.0.113.9", "host": "github.com/valteresj2/HangarLLM#readme"},
         client=("10.0.0.1", 1),
     )
     ctx = resolve_network_context(request, TRUSTED)
     assert ctx.client_ip == "203.0.113.9"
-    assert ctx.host == "proxy.litellm.ai"
+    assert ctx.host == "github.com/valteresj2/HangarLLM#readme"
     assert ctx.via_trusted_proxy is True

@@ -1,5 +1,5 @@
 """
-Dispatch-contract tests for litellm/videos/main.py
+Dispatch-contract tests for hangarllm/videos/main.py
 
 Each public video operation is a pair: a sync `video_*` worker (decorated with
 @client) that resolves the provider, fetches the provider config, logs, and then
@@ -35,16 +35,16 @@ from dataclasses import dataclass
 from typing import Any, Dict, Final
 from unittest.mock import MagicMock, patch
 
-from litellm.types.videos.main import VideoCreateOptionalRequestParams
+from hangarllm.types.videos.main import VideoCreateOptionalRequestParams
 
 import pytest
 
 
-import litellm
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.types.videos.main import CharacterObject, VideoObject
-from litellm.types.videos.utils import encode_video_id_with_provider
-from litellm.videos import main as videos_main
+import hangarllm
+from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from hangarllm.types.videos.main import CharacterObject, VideoObject
+from hangarllm.types.videos.utils import encode_video_id_with_provider
+from hangarllm.videos import main as videos_main
 
 # A real model-encoded video id: decodes (for real) to provider "azure". Used to
 # prove the sync workers derive custom_llm_provider from the id, not a hardcode.
@@ -158,7 +158,7 @@ def test_video_status__dispatch_and_provider_from_id(seams):
     assert kw["video_status_provider_config"] is seams.config
     assert kw["_is_async"] is False
     # provider config requested for the decoded provider, not a hardcode.
-    assert seams.get_config.call_args.kwargs["provider"] == litellm.LlmProviders.AZURE
+    assert seams.get_config.call_args.kwargs["provider"] == hangarllm.LlmProviders.AZURE
 
 
 def test_video_content__dispatch_and_provider_from_id(seams):
@@ -316,7 +316,7 @@ def test_get_character__mock_response_short_circuits(seams):
 def test_unsupported_provider_raises_without_dispatch(seams):
     seams.get_config.return_value = None
 
-    with pytest.raises(litellm.BadRequestError, match="video status is not supported for azure"):
+    with pytest.raises(hangarllm.BadRequestError, match="video status is not supported for azure"):
         videos_main.video_status(video_id=AZURE_VIDEO_ID)
 
     seams.handler.video_status_handler.assert_not_called()
@@ -333,7 +333,7 @@ async def test_avideo_generation__delegates_with_async_flag():
     with (
         patch.object(videos_main, "video_generation", MagicMock(return_value=sentinel)) as sync,
         patch.object(
-            litellm,
+            hangarllm,
             "get_llm_provider",
             MagicMock(return_value=("sora-2", "openai", None, None)),
         ),
@@ -372,7 +372,7 @@ async def test_avideo_content__pre_decodes_provider_before_delegating():
 # =========================================================================== #
 # Credential passthrough - DB/YAML model-config credentials the router injects
 # via kwargs must reach the provider call for EVERY video handler, carried in
-# litellm_params. Distinct per-field values catch a cross-wired field.
+# hangarllm_params. Distinct per-field values catch a cross-wired field.
 # =========================================================================== #
 
 DB_YAML_CREDS = {
@@ -430,15 +430,15 @@ CREDENTIAL_OPERATIONS = [
 def test_db_yaml_credentials_reach_every_handler(seams, handler_name, invoke):
     invoke()
 
-    litellm_params = seams.kwargs_of(handler_name)["litellm_params"]
-    assert litellm_params.get("api_key") == DB_YAML_CREDS["api_key"]
-    assert litellm_params.get("api_base") == DB_YAML_CREDS["api_base"]
-    assert litellm_params.get("api_version") == DB_YAML_CREDS["api_version"]
-    assert litellm_params.get("vertex_project") == DB_YAML_CREDS["vertex_project"]
+    hangarllm_params = seams.kwargs_of(handler_name)["hangarllm_params"]
+    assert hangarllm_params.get("api_key") == DB_YAML_CREDS["api_key"]
+    assert hangarllm_params.get("api_base") == DB_YAML_CREDS["api_base"]
+    assert hangarllm_params.get("api_version") == DB_YAML_CREDS["api_version"]
+    assert hangarllm_params.get("vertex_project") == DB_YAML_CREDS["vertex_project"]
 
 
 def test_video_generation__custom_provider_map_base_video_config_is_dispatched(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.llms.openai.videos.transformation import OpenAIVideoConfig
+    from hangarllm.llms.openai.videos.transformation import OpenAIVideoConfig
 
     class QueueVideoConfig(OpenAIVideoConfig):
         def map_openai_params(
@@ -447,8 +447,8 @@ def test_video_generation__custom_provider_map_base_video_config_is_dispatched(m
             return dict(video_create_optional_params)
 
     video_config: Final = QueueVideoConfig()
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": "queue-video", "custom_handler": video_config}])
-    monkeypatch.setattr(litellm, "_custom_providers", ["queue-video"])
+    monkeypatch.setattr(hangarllm, "custom_provider_map", [{"provider": "queue-video", "custom_handler": video_config}])
+    monkeypatch.setattr(hangarllm, "_custom_providers", ["queue-video"])
     handler: Final = MagicMock(spec=BaseLLMHTTPHandler)
     with patch.object(videos_main, "base_llm_http_handler", handler):
         videos_main.video_generation(
@@ -477,12 +477,12 @@ def test_video_generation__custom_provider_map_base_video_config_is_dispatched(m
 
 
 def test_video_generation__custom_provider_without_a_video_config_is_a_400(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.llms.custom_llm import CustomLLM
+    from hangarllm.llms.custom_llm import CustomLLM
 
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": "image-only", "custom_handler": CustomLLM()}])
-    monkeypatch.setattr(litellm, "_custom_providers", ["image-only"])
+    monkeypatch.setattr(hangarllm, "custom_provider_map", [{"provider": "image-only", "custom_handler": CustomLLM()}])
+    monkeypatch.setattr(hangarllm, "_custom_providers", ["image-only"])
     handler: Final = MagicMock(spec=BaseLLMHTTPHandler)
     with patch.object(videos_main, "base_llm_http_handler", handler):
-        with pytest.raises(litellm.BadRequestError, match="video generation is not supported for image-only"):
+        with pytest.raises(hangarllm.BadRequestError, match="video generation is not supported for image-only"):
             videos_main.video_generation(model="image-only/seedance-1", prompt="a cat")
     handler.video_generation_handler.assert_not_called()

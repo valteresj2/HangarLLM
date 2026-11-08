@@ -13,12 +13,12 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
 
-from litellm.google_genai.adapters.handler import GenerateContentToCompletionHandler
-from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter, GoogleGenAIStreamWrapper
-from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices, Usage
+from hangarllm.google_genai.adapters.handler import GenerateContentToCompletionHandler
+from hangarllm.google_genai.adapters.transformation import GoogleGenAIAdapter, GoogleGenAIStreamWrapper
+from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices, Usage
 
 
 def test_stream_response_when_stream_requested_sync():
@@ -36,12 +36,12 @@ def test_stream_response_when_stream_requested_sync():
         "translate_completion_output_params_streaming",
         return_value=mock_stream,
     ) as mock_translate:
-        with patch("litellm.completion", return_value=mock_stream):
+        with patch("hangarllm.completion", return_value=mock_stream):
             # Call the handler with stream=True
             result = GenerateContentToCompletionHandler.generate_content_handler(
                 model="gemini-pro",
                 contents=[{"role": "user", "parts": [{"text": "Hello"}]}],
-                litellm_params={},  # Empty dict for params
+                hangarllm_params={},  # Empty dict for params
                 stream=True,
             )
 
@@ -67,12 +67,12 @@ async def test_stream_response_when_stream_requested_async():
         "translate_completion_output_params_streaming",
         return_value=mock_stream,
     ) as mock_translate:
-        with patch("litellm.acompletion", return_value=mock_stream):
+        with patch("hangarllm.acompletion", return_value=mock_stream):
             # Call the handler with stream=True
             result = await GenerateContentToCompletionHandler.async_generate_content_handler(
                 model="gemini-pro",
                 contents=[{"role": "user", "parts": [{"text": "Hello"}]}],
-                litellm_params={},  # Empty dict for params
+                hangarllm_params={},  # Empty dict for params
                 stream=True,
             )
 
@@ -96,14 +96,14 @@ def test_stream_transformation_error_sync():
         "translate_completion_output_params_streaming",
         return_value=None,
     ):
-        # Patch litellm.completion directly to prevent real API calls
-        with patch("litellm.completion", return_value=mock_stream):
+        # Patch hangarllm.completion directly to prevent real API calls
+        with patch("hangarllm.completion", return_value=mock_stream):
             # Call the handler with stream=True and expect a ValueError
             with pytest.raises(ValueError, match="Failed to transform streaming response"):
                 GenerateContentToCompletionHandler.generate_content_handler(
                     model="gemini-pro",
                     contents=[{"role": "user", "parts": [{"text": "Hello"}]}],
-                    litellm_params={},  # Empty dict for params
+                    hangarllm_params={},  # Empty dict for params
                     stream=True,
                 )
 
@@ -123,17 +123,17 @@ async def test_stream_transformation_error_async():
         "translate_completion_output_params_streaming",
         return_value=None,
     ):
-        # Mock litellm.acompletion at the module level where it's imported
-        # We need to patch it in the handler module, not in litellm itself
-        with patch("litellm.google_genai.adapters.handler.litellm") as mock_litellm:
+        # Mock hangarllm.acompletion at the module level where it's imported
+        # We need to patch it in the handler module, not in hangarllm itself
+        with patch("hangarllm.google_genai.adapters.handler.hangarllm") as mock_hangarllm:
             # Use AsyncMock for async function
-            mock_litellm.acompletion = AsyncMock(return_value=mock_stream)
+            mock_hangarllm.acompletion = AsyncMock(return_value=mock_stream)
             # Call the handler with stream=True and expect a ValueError
             with pytest.raises(ValueError, match="Failed to transform streaming response"):
                 await GenerateContentToCompletionHandler.async_generate_content_handler(
                     model="gemini-pro",
                     contents=[{"role": "user", "parts": [{"text": "Hello"}]}],
-                    litellm_params={},  # Empty dict for params
+                    hangarllm_params={},  # Empty dict for params
                     stream=True,
                 )
 
@@ -147,8 +147,8 @@ def test_citation_metadata_transformation():
 
     import httpx
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.gemini.google_genai.transformation import GoogleGenAIConfig
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+    from hangarllm.llms.gemini.google_genai.transformation import GoogleGenAIConfig
 
     # Create a mock response with citationMetadata.citationSources (the problematic format)
     mock_response_data = {
@@ -198,13 +198,13 @@ def test_citation_metadata_transformation():
     mock_httpx_response.headers = {}
 
     # Create logging object
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = HangarLLMLoggingObj(
         model="gemini-2.5-flash",
         messages=[],
         stream=False,
         call_type="generate_content",
         start_time=1234567890,
-        litellm_call_id="test-call-123",
+        hangarllm_call_id="test-call-123",
         function_id="test-function-123",
     )
 
@@ -250,8 +250,8 @@ async def test_generate_content_adapter_preserves_proxy_server_request():
     Ensure GenerateContentToCompletionHandler forwards proxy_server_request
     to the downstream completion call so proxy spend logging captures the request body.
     """
-    from litellm.types.router import GenericLiteLLMParams
-    from litellm.types.utils import Choices, Message, ModelResponse
+    from hangarllm.types.router import GenericHangarLLMParams
+    from hangarllm.types.utils import Choices, Message, ModelResponse
 
     handler = GenerateContentToCompletionHandler()
 
@@ -267,7 +267,7 @@ async def test_generate_content_adapter_preserves_proxy_server_request():
     mock_response = ModelResponse(choices=[Choices(message=Message(content="Hi!", role="assistant"))])
 
     with patch(
-        "litellm.google_genai.adapters.handler.litellm.acompletion",
+        "hangarllm.google_genai.adapters.handler.hangarllm.acompletion",
         new_callable=AsyncMock,
     ) as mock_acompletion:
         mock_acompletion.return_value = mock_response
@@ -275,7 +275,7 @@ async def test_generate_content_adapter_preserves_proxy_server_request():
         await handler.async_generate_content_handler(
             model="gemini-2.0-flash",
             contents=gemini_data,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             proxy_server_request=dummy_proxy_request,
             metadata={"source": "unit_test"},
         )
@@ -370,7 +370,7 @@ class _SuccessPayloads(CustomLogger):
 
 @pytest.fixture
 def _httpx_transport(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
 
 async def _drain(stream: object) -> None:
@@ -380,17 +380,17 @@ async def _drain(stream: object) -> None:
 
 @pytest.mark.asyncio
 async def test_generate_content_adapter_keeps_provider_error_status(_httpx_transport: None):
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     with respx.mock() as upstream:
         upstream.post("http://upstream.test/v1/chat/completions").mock(
             return_value=httpx.Response(400, json={"error": {"message": "max_tokens must be positive"}})
         )
-        with pytest.raises(litellm.BadRequestError) as exc_info:
+        with pytest.raises(hangarllm.BadRequestError) as exc_info:
             await GenerateContentToCompletionHandler.async_generate_content_handler(
                 model="hosted_vllm/grok",
                 contents=[{"role": "user", "parts": [{"text": "Hello"}]}],
-                litellm_params=GenericLiteLLMParams(api_base="http://upstream.test/v1", api_key="k"),
+                hangarllm_params=GenericHangarLLMParams(api_base="http://upstream.test/v1", api_key="k"),
                 config={"maxOutputTokens": -5},
             )
 
@@ -401,10 +401,10 @@ async def test_generate_content_adapter_keeps_provider_error_status(_httpx_trans
 async def test_generate_content_adapter_logs_router_model_group(
     _httpx_transport: None, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     success_payloads = _SuccessPayloads()
-    monkeypatch.setattr(litellm, "callbacks", [success_payloads])
+    monkeypatch.setattr(hangarllm, "callbacks", [success_payloads])
 
     with respx.mock() as upstream:
         upstream.post("http://upstream.test/v1/chat/completions").mock(
@@ -413,8 +413,8 @@ async def test_generate_content_adapter_logs_router_model_group(
         await GenerateContentToCompletionHandler.async_generate_content_handler(
             model="hosted_vllm/grok",
             contents=[{"role": "user", "parts": [{"text": "Hello"}]}],
-            litellm_params=GenericLiteLLMParams(api_base="http://upstream.test/v1", api_key="k"),
-            litellm_metadata={"model_group": "grok-group"},
+            hangarllm_params=GenericHangarLLMParams(api_base="http://upstream.test/v1", api_key="k"),
+            hangarllm_metadata={"model_group": "grok-group"},
         )
     await asyncio.sleep(0.5)
 
@@ -437,7 +437,7 @@ async def test_generate_content_adapter_asks_openai_compatible_upstream_for_stre
     requested_stream_options: dict[str, bool] | None,
     expected_stream_options: dict[str, bool] | None,
 ):
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     with respx.mock() as upstream:
         route = upstream.post("http://upstream.test/v1/chat/completions").mock(
@@ -450,7 +450,7 @@ async def test_generate_content_adapter_asks_openai_compatible_upstream_for_stre
         response = await GenerateContentToCompletionHandler.async_generate_content_handler(
             model="hosted_vllm/grok",
             contents=[{"role": "user", "parts": [{"text": "Hello"}]}],
-            litellm_params=GenericLiteLLMParams(api_base="http://upstream.test/v1", api_key="k"),
+            hangarllm_params=GenericHangarLLMParams(api_base="http://upstream.test/v1", api_key="k"),
             stream=stream,
             **({} if requested_stream_options is None else {"stream_options": requested_stream_options}),
         )
@@ -506,7 +506,7 @@ async def test_generate_content_adapter_stream_without_usage_still_ends_with_sto
 async def _adapter_stream_payloads(
     model: str, api_base: str, upstream_url: str, upstream_sse: str, **kwargs: object
 ):
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     with respx.mock() as upstream:
         upstream.post(upstream_url).mock(
@@ -515,7 +515,7 @@ async def _adapter_stream_payloads(
         response = await GenerateContentToCompletionHandler.async_generate_content_handler(
             model=model,
             contents=[{"role": "user", "parts": [{"text": "Hello"}]}],
-            litellm_params=GenericLiteLLMParams(api_base=api_base, api_key="k"),
+            hangarllm_params=GenericHangarLLMParams(api_base=api_base, api_key="k"),
             stream=True,
             **kwargs,
         )
@@ -534,14 +534,14 @@ async def test_generate_content_adapter_failure_is_logged_once(
     _httpx_transport: None, monkeypatch: pytest.MonkeyPatch, entrypoint: str
 ):
     failures = _FailureCallTypes()
-    monkeypatch.setattr(litellm, "callbacks", [failures])
+    monkeypatch.setattr(hangarllm, "callbacks", [failures])
 
     with respx.mock() as upstream:
         upstream.post("http://upstream.test/v1/chat/completions").mock(
             return_value=httpx.Response(400, json={"error": {"message": "max_tokens must be positive"}})
         )
-        with pytest.raises(litellm.BadRequestError):
-            await getattr(litellm.google_genai, entrypoint)(
+        with pytest.raises(hangarllm.BadRequestError):
+            await getattr(hangarllm.google_genai, entrypoint)(
                 model="hosted_vllm/grok",
                 contents=[{"role": "user", "parts": [{"text": "Hello"}]}],
                 api_base="http://upstream.test/v1",
@@ -554,14 +554,14 @@ async def test_generate_content_adapter_failure_is_logged_once(
 
 def test_sync_generate_content_adapter_failure_is_logged_once(_httpx_transport: None, monkeypatch: pytest.MonkeyPatch):
     failures = _FailureCallTypes()
-    monkeypatch.setattr(litellm, "callbacks", [failures])
+    monkeypatch.setattr(hangarllm, "callbacks", [failures])
 
     with respx.mock() as upstream:
         upstream.post("http://upstream.test/v1/chat/completions").mock(
             return_value=httpx.Response(400, json={"error": {"message": "max_tokens must be positive"}})
         )
-        with pytest.raises(litellm.BadRequestError):
-            litellm.google_genai.generate_content(
+        with pytest.raises(hangarllm.BadRequestError):
+            hangarllm.google_genai.generate_content(
                 model="hosted_vllm/grok",
                 contents=[{"role": "user", "parts": [{"text": "Hello"}]}],
                 api_base="http://upstream.test/v1",

@@ -1,18 +1,18 @@
 import asyncio
 from unittest.mock import Mock
-from litellm.proxy.utils import get_redoc_url, get_docs_url
+from hangarllm.proxy.utils import get_redoc_url, get_docs_url
 
 import pytest
 from fastapi import Request
 
-import litellm
+import hangarllm
 from unittest.mock import MagicMock, patch, AsyncMock
 
 
 import httpx
 import math
-from litellm.constants import SPEND_LOG_WRITE_BATCH_MAX_ROWS
-from litellm.proxy.utils import update_spend
+from hangarllm.constants import SPEND_LOG_WRITE_BATCH_MAX_ROWS
+from hangarllm.proxy.utils import update_spend
 
 # The flush chunks the queue by BATCH_SIZE and then splits each chunk by the row
 # budget, so statement counts below are derived from both rather than hardcoded.
@@ -29,8 +29,8 @@ class MockPrismaClient:
     def __init__(self):
         # Create AsyncMock for db operations
         self.db = AsyncMock()
-        self.db.litellm_spendlogs = AsyncMock()
-        self.db.litellm_spendlogs.create_many = AsyncMock()
+        self.db.hangarllm_spendlogs = AsyncMock()
+        self.db.hangarllm_spendlogs.create_many = AsyncMock()
 
         # Initialize transaction lists
         self.spend_log_transactions = []
@@ -109,7 +109,7 @@ async def test_update_spend_logs_connection_errors(error_type):
         None,  # Fourth attempt succeeds
     ]
 
-    prisma_client.db.litellm_spendlogs.create_many = create_many_mock
+    prisma_client.db.hangarllm_spendlogs.create_many = create_many_mock
 
     # Execute
     await update_spend(prisma_client, None, proxy_logging_obj)
@@ -145,7 +145,7 @@ async def test_update_spend_logs_max_retries_exceeded(error_type):
     # Mock the database to always fail
     create_many_mock = AsyncMock(side_effect=error_type)
 
-    prisma_client.db.litellm_spendlogs.create_many = create_many_mock
+    prisma_client.db.hangarllm_spendlogs.create_many = create_many_mock
 
     # Execute and verify it raises after max retries
     with pytest.raises(type(error_type)) as exc_info:
@@ -178,7 +178,7 @@ async def test_update_spend_logs_non_connection_error():
     unexpected_error = ValueError("Unexpected database error")
     create_many_mock = AsyncMock(side_effect=unexpected_error)
 
-    prisma_client.db.litellm_spendlogs.create_many = create_many_mock
+    prisma_client.db.hangarllm_spendlogs.create_many = create_many_mock
 
     # Execute and verify it raises immediately without retrying
     with pytest.raises(ValueError, match='Unexpected database error') as exc_info:
@@ -218,7 +218,7 @@ async def test_update_spend_logs_exponential_backoff():
         ]
     )
 
-    prisma_client.db.litellm_spendlogs.create_many = create_many_mock
+    prisma_client.db.hangarllm_spendlogs.create_many = create_many_mock
 
     # Apply mocks
     with patch("asyncio.sleep", mock_sleep):
@@ -251,7 +251,7 @@ async def test_update_spend_logs_multiple_batches_success():
     ]
 
     create_many_mock = AsyncMock(return_value=None)
-    prisma_client.db.litellm_spendlogs.create_many = create_many_mock
+    prisma_client.db.hangarllm_spendlogs.create_many = create_many_mock
 
     # Execute
     await update_spend(prisma_client, None, proxy_logging_obj)
@@ -299,7 +299,7 @@ async def test_update_spend_logs_multiple_batches_with_failure():
         return None
 
     create_many_mock = AsyncMock(side_effect=create_many_side_effect)
-    prisma_client.db.litellm_spendlogs.create_many = create_many_mock
+    prisma_client.db.hangarllm_spendlogs.create_many = create_many_mock
 
     # Execute
     await update_spend(prisma_client, None, proxy_logging_obj)
@@ -344,7 +344,7 @@ async def test_update_spend_logs_drops_row_prisma_cannot_encode_and_keeps_the_re
             raise UnicodeEncodeError("utf-8", "\ud800", 0, 1, "surrogates not allowed")
         written.extend(row["request_id"] for row in data)
 
-    prisma_client.db.litellm_spendlogs.create_many = AsyncMock(side_effect=create_many)
+    prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock(side_effect=create_many)
 
     await update_spend(prisma_client, None, proxy_logging_obj)
 
@@ -380,7 +380,7 @@ class _RawInsertRepository:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("sqlstate", ["22P02", "23502", "54000"])
 async def test_raw_insert_rejecting_one_row_drops_only_that_row(sqlstate):
-    from litellm.proxy.utils import _create_spend_logs_with_poison_isolation
+    from hangarllm.proxy.utils import _create_spend_logs_with_poison_isolation
 
     repo = _RawInsertRepository(sqlstate)
     rows = [{"request_id": "good-1"}, {"request_id": "rejected"}, {"request_id": "good-2"}]
@@ -395,7 +395,7 @@ async def test_raw_insert_rejecting_one_row_drops_only_that_row(sqlstate):
 async def test_systemic_raw_insert_failure_is_retried_not_dropped(sqlstate):
     from prisma.errors import RawQueryError
 
-    from litellm.proxy.utils import _create_spend_logs_with_poison_isolation
+    from hangarllm.proxy.utils import _create_spend_logs_with_poison_isolation
 
     repo = _RawInsertRepository(sqlstate)
     rows = [{"request_id": "good-1"}, {"request_id": "rejected"}]
@@ -419,7 +419,7 @@ class _RescueFailsRepository:
 
 @pytest.mark.asyncio
 async def test_a_transient_failure_while_keeping_a_dropped_rows_charge_is_retried_not_lost():
-    from litellm.proxy.utils import _create_spend_logs_with_poison_isolation
+    from hangarllm.proxy.utils import _create_spend_logs_with_poison_isolation
 
     outage = _raw_query_error("40P01")
     repo = _RescueFailsRepository(outage)
@@ -431,7 +431,7 @@ async def test_a_transient_failure_while_keeping_a_dropped_rows_charge_is_retrie
 
 @pytest.mark.asyncio
 async def test_a_rejected_charge_rescue_is_logged_and_the_flush_continues():
-    from litellm.proxy.utils import _create_spend_logs_with_poison_isolation
+    from hangarllm.proxy.utils import _create_spend_logs_with_poison_isolation
 
     repo = _RescueFailsRepository(_raw_query_error("22P02"))
     rows = [{"request_id": "rejected", "accounting_payload": {"spend": 1.0}}]
@@ -445,7 +445,7 @@ class _StatementValidatingRepository:
         self.charges_kept = []
 
     async def insert_with_deliveries(self, rows):
-        from litellm.repositories.spend_log_insert import spend_log_insert_statement
+        from hangarllm.repositories.spend_log_insert import spend_log_insert_statement
 
         if all(row.get("accounting_log_disabled") for row in rows):
             self.charges_kept.extend(row["request_id"] for row in rows)
@@ -457,7 +457,7 @@ class _StatementValidatingRepository:
 
 @pytest.mark.asyncio
 async def test_a_row_the_insert_statement_rejects_is_dropped_alone_and_keeps_its_charge():
-    from litellm.proxy.utils import _create_spend_logs_with_poison_isolation
+    from hangarllm.proxy.utils import _create_spend_logs_with_poison_isolation
 
     repo = _StatementValidatingRepository()
     rows = [

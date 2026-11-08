@@ -17,14 +17,14 @@ from opentelemetry.trace import StatusCode
 from prisma.errors import ClientNotConnectedError
 from pydantic import TypeAdapter
 
-import litellm
-from litellm._service_logger import ServiceTypes
-from litellm.integrations.datadog.datadog import DataDogLogger
-from litellm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
-from litellm.proxy.db.log_db_metrics import log_db_metrics
-from litellm.proxy.db.prisma_client import _PrismaDrainTracker, _TrackedPrismaEngine
-from litellm.proxy.proxy_server import proxy_logging_obj
-from litellm.integrations.prometheus_services import PrometheusServicesLogger
+import hangarllm
+from hangarllm._service_logger import ServiceTypes
+from hangarllm.integrations.datadog.datadog import DataDogLogger
+from hangarllm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
+from hangarllm.proxy.db.log_db_metrics import log_db_metrics
+from hangarllm.proxy.db.prisma_client import _PrismaDrainTracker, _TrackedPrismaEngine
+from hangarllm.proxy.proxy_server import proxy_logging_obj
+from hangarllm.integrations.prometheus_services import PrometheusServicesLogger
 from prometheus_client import REGISTRY
 
 
@@ -72,14 +72,14 @@ def _discard_periodic_flush(coroutine: object) -> None:
 def rig(monkeypatch: pytest.MonkeyPatch) -> _Rig:
     monkeypatch.setenv("DD_API_KEY", "test_api_key")
     monkeypatch.setenv("DD_SITE", "test.datadoghq.com")
-    monkeypatch.setattr(litellm, "datadog_params", None)
+    monkeypatch.setattr(hangarllm, "datadog_params", None)
     exporter: Final = _ServiceSpanExporter()
     provider: Final = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
     otel: Final = OpenTelemetry(config=OpenTelemetryConfig(exporter=exporter), tracer_provider=provider)
     with patch("asyncio.create_task", side_effect=_discard_periodic_flush):
         datadog: Final = DataDogLogger()
-    monkeypatch.setattr(litellm, "service_callback", [otel, datadog, "prometheus_system"])
+    monkeypatch.setattr(hangarllm, "service_callback", [otel, datadog, "prometheus_system"])
     monkeypatch.setattr(proxy_logging_obj.service_logging_obj, "dd_logger", datadog, raising=False)
     monkeypatch.setattr(
         proxy_logging_obj.service_logging_obj, "prometheusServicesLogger", PrometheusServicesLogger(), raising=False
@@ -100,8 +100,8 @@ async def read_spend_rows(**kwargs: object) -> str:
 
 def _logged_db_latency() -> tuple[float, float]:
     labels: Final = {ServiceTypes.DB.value: ServiceTypes.DB.value}
-    total: Final = REGISTRY.get_sample_value("litellm_postgres_latency_sum", labels)
-    count: Final = REGISTRY.get_sample_value("litellm_postgres_latency_count", labels)
+    total: Final = REGISTRY.get_sample_value("hangarllm_postgres_latency_sum", labels)
+    count: Final = REGISTRY.get_sample_value("hangarllm_postgres_latency_count", labels)
     return (total or 0.0, count or 0.0)
 
 
@@ -124,7 +124,7 @@ class _ScriptedClock:
 @pytest.fixture
 def scripted_db_clock(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        importlib.import_module("litellm.proxy.db.log_db_metrics"),
+        importlib.import_module("hangarllm.proxy.db.log_db_metrics"),
         "datetime",
         _ScriptedClock(_DB_CALL_START, _DB_CALL_START + _DB_CALL_DURATION),
     )
@@ -164,7 +164,7 @@ async def test_db_event_metadata_names_only_the_table_and_never_the_raw_kwargs(r
 
     await read_spend_rows(
         parent_otel_span=parent,
-        table_name="LiteLLM_SpendLogs",
+        table_name="HangarLLM_SpendLogs",
         token="sk-secret-should-not-leak",
         prisma_client=object(),
     )
@@ -172,7 +172,7 @@ async def test_db_event_metadata_names_only_the_table_and_never_the_raw_kwargs(r
 
     span_attributes: Final = rig.service_spans()[0].attributes
     assert span_attributes is not None
-    assert span_attributes["table_name"] == "LiteLLM_SpendLogs"
+    assert span_attributes["table_name"] == "HangarLLM_SpendLogs"
     assert not {"token", "prisma_client", "parent_otel_span"} & set(span_attributes)
     assert all("sk-secret-should-not-leak" not in str(value) for value in span_attributes.values())
 

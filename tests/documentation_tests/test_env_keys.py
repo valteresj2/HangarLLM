@@ -2,15 +2,15 @@ import os
 import re
 from collections.abc import Iterator
 
-# Define the base directory for the litellm repository and documentation path
-repo_base = "./litellm"  # Change this to your actual path
+# Define the base directory for the hangarllm repository and documentation path
+repo_base = "./hangarllm"  # Change this to your actual path
 
 _GETENV_ARGS = r"""\(\s*['"]([^'"]+)['"]\s*(?:,\s*[^)]*)?\)"""
 _GET_SECRET_ARGS = r"""\(\s*['"]([^'"]+)['"]\s*(?:,\s*[^)]*|,\s*default_value=[^)]*)?\)"""
 
 ENV_KEY_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"os\.getenv" + _GETENV_ARGS),
-    re.compile(r"(?<![\w.])(?:litellm\.(?:utils\.)?)?get_secret(?:_str|_bool)?" + _GET_SECRET_ARGS),
+    re.compile(r"(?<![\w.])(?:hangarllm\.(?:utils\.)?)?get_secret(?:_str|_bool)?" + _GET_SECRET_ARGS),
 )
 
 DOCS_BASE = "./docs/my-website/docs"
@@ -29,9 +29,9 @@ EXCLUDED_GUARD_ONLY_VARS = {
 # Temporary/internal rollout flags are intentionally not added to the public
 # environment settings docs until the feature is ready for broad use.
 EXCLUDED_ROLLOUT_FLAGS = {
-    "LITELLM_USE_RUST_OCR",
-    "LITELLM_RUST",
-    "LITELLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST",
+    "HANGARLLM_USE_RUST_OCR",
+    "HANGARLLM_RUST",
+    "HANGARLLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST",
 }
 
 # Internal infrastructure tuning parameters for streaming/queue management
@@ -63,7 +63,7 @@ EXCLUDED_KEYS = frozenset(
     EXCLUDED_TERMINAL_VARS | EXCLUDED_GUARD_ONLY_VARS | EXCLUDED_ROLLOUT_FLAGS | EXCLUDED_INTERNAL_TUNING_VARS
 )
 
-# Directories to skip (dependencies, venvs, caches) - only scan litellm source
+# Directories to skip (dependencies, venvs, caches) - only scan hangarllm source
 SKIP_DIRS = {
     ".venv",
     "venv",
@@ -124,7 +124,7 @@ def undocumented_env_keys(base_dir: str, docs_dir: str) -> frozenset[str]:
 
 def main() -> None:
     if not os.path.isdir(DOCS_BASE):
-        raise Exception(f"No documentation found at {DOCS_BASE}; check out BerriAI/litellm-docs into docs/my-website")
+        raise Exception(f"No documentation found at {DOCS_BASE}; check out valteresj2/HangarLLM-docs into docs/my-website")
 
     undocumented_keys = undocumented_env_keys(repo_base, DOCS_BASE)
     if undocumented_keys:

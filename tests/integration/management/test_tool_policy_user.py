@@ -20,11 +20,11 @@ from integration._support.wire import Reply, Request, Wire, wire_server
 from jwt.algorithms import RSAAlgorithm
 from pydantic import BaseModel, JsonValue
 
-from litellm.repositories.chunked_in import IN_LIST_CHUNK_SIZE
+from hangarllm.repositories.chunked_in import IN_LIST_CHUNK_SIZE
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
-AUDIENCE: Final = "litellm-integration"
+AUDIENCE: Final = "hangarllm-integration"
 KEY_ID: Final = "integration-signing-key"
 CLIENT_CLAIM: Final = "client_id"
 
@@ -47,7 +47,7 @@ def _tool_call_request(model: str, tool_name: str) -> dict[str, JsonValue]:
 
 
 def _forget_tool(tool_name: str) -> None:
-    write_rows('DELETE FROM "LiteLLM_ToolTable" WHERE tool_name = %s', (tool_name,))
+    write_rows('DELETE FROM "HangarLLM_ToolTable" WHERE tool_name = %s', (tool_name,))
 
 
 def _discovered_tool(gateway: Gateway, tool_name: str) -> dict[str, JsonValue]:
@@ -91,7 +91,7 @@ def test_tool_list_reports_no_user_for_a_key_without_an_owner(gateway: Gateway) 
 
 JWT_SETTINGS: Final[Mapping[str, JsonValue]] = {
     "enable_jwt_auth": True,
-    "litellm_jwtauth": {
+    "hangarllm_jwtauth": {
         "user_id_jwt_field": "sub",
         "user_email_jwt_field": "email",
         "user_id_upsert": True,
@@ -111,7 +111,7 @@ def _proxy_config(
                 "model_list": [
                     {
                         "model_name": model,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/" + model,
                             "api_base": upstream_url + "/v1",
                             "api_key": "sk-upstream",
@@ -119,7 +119,7 @@ def _proxy_config(
                     }
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                     "proxy_batch_write_at": 1,
@@ -145,12 +145,12 @@ def _signed_token(private_key: rsa.RSAPrivateKey, user_id: str, email: str, clie
 
 def _forget_auto_registered_client(client_id: str, user_id: str) -> None:
     write_rows(
-        'DELETE FROM "LiteLLM_VerificationToken" WHERE token IN '
-        '(SELECT token FROM "LiteLLM_JWTKeyMapping" WHERE jwt_claim_value = %s)',
+        'DELETE FROM "HangarLLM_VerificationToken" WHERE token IN '
+        '(SELECT token FROM "HangarLLM_JWTKeyMapping" WHERE jwt_claim_value = %s)',
         (client_id,),
     )
-    write_rows('DELETE FROM "LiteLLM_JWTKeyMapping" WHERE jwt_claim_value = %s', (client_id,))
-    write_rows('DELETE FROM "LiteLLM_UserTable" WHERE user_id = %s', (user_id,))
+    write_rows('DELETE FROM "HangarLLM_JWTKeyMapping" WHERE jwt_claim_value = %s', (client_id,))
+    write_rows('DELETE FROM "HangarLLM_UserTable" WHERE user_id = %s', (user_id,))
 
 
 def test_tool_list_reports_the_jwt_user_behind_an_auto_registered_key(gateway: Gateway, tmp_path: Path) -> None:
@@ -181,12 +181,12 @@ def test_tool_list_reports_the_jwt_user_behind_an_auto_registered_key(gateway: G
             )
             assert response.status_code == 200, response.text
             mapped: Final = read_rows(
-                'SELECT token FROM "LiteLLM_JWTKeyMapping" WHERE jwt_claim_name = %s AND jwt_claim_value = %s',
+                'SELECT token FROM "HangarLLM_JWTKeyMapping" WHERE jwt_claim_name = %s AND jwt_claim_value = %s',
                 (CLIENT_CLAIM, client_id),
             )
             assert len(mapped) == 1, mapped
             assert read_rows(
-                'SELECT user_id FROM "LiteLLM_VerificationToken" WHERE token = %s', (mapped[0]["token"],)
+                'SELECT user_id FROM "HangarLLM_VerificationToken" WHERE token = %s', (mapped[0]["token"],)
             ) == [{"user_id": user}]
             tool: Final = _discovered_tool(candidate, tool_name)
             assert tool["key_hash"] == mapped[0]["token"], tool
@@ -317,7 +317,7 @@ def test_deleting_the_owner_keeps_the_tool_row_without_a_user(gateway: Gateway) 
         assert _discovered_tool(gateway, tool_name)["user"] == _owner(user, None, None)
         deleted: Final = gateway.request("POST", "/user/delete", {"user_ids": [user]})
         assert deleted.status_code == 200, deleted.text
-        assert read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE user_id = %s', (user,)) == []
+        assert read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE user_id = %s', (user,)) == []
         tool: Final = _discovered_tool(gateway, tool_name)
         assert tool["user"] is None, tool
         assert tool["key_hash"] == sha256(key.encode()).hexdigest()
@@ -342,7 +342,7 @@ def test_tool_row_without_a_key_hash_is_listed_without_a_user(gateway: Gateway) 
     with ExitStack() as cleanups:
         cleanups.callback(_forget_tool, tool_name)
         write_rows(
-            'INSERT INTO "LiteLLM_ToolTable" (tool_id, tool_name) VALUES (gen_random_uuid()::text, %s)', (tool_name,)
+            'INSERT INTO "HangarLLM_ToolTable" (tool_id, tool_name) VALUES (gen_random_uuid()::text, %s)', (tool_name,)
         )
         tool: Final = _discovered_tool(gateway, tool_name)
         assert tool["key_hash"] is None, tool
@@ -356,7 +356,7 @@ def test_tool_row_with_an_unknown_key_hash_is_listed_without_a_user(gateway: Gat
     with ExitStack() as cleanups:
         cleanups.callback(_forget_tool, tool_name)
         write_rows(
-            'INSERT INTO "LiteLLM_ToolTable" (tool_id, tool_name, key_hash) VALUES (gen_random_uuid()::text, %s, %s)',
+            'INSERT INTO "HangarLLM_ToolTable" (tool_id, tool_name, key_hash) VALUES (gen_random_uuid()::text, %s, %s)',
             (tool_name, key_hash),
         )
         tool: Final = _discovered_tool(gateway, tool_name)
@@ -365,8 +365,8 @@ def test_tool_row_with_an_unknown_key_hash_is_listed_without_a_user(gateway: Gat
 
 
 def _forget_prefixed(prefix: str) -> None:
-    write_rows('DELETE FROM "LiteLLM_ToolTable" WHERE tool_name LIKE %s', (prefix + "%",))
-    write_rows('DELETE FROM "LiteLLM_VerificationToken" WHERE token LIKE %s', (prefix + "%",))
+    write_rows('DELETE FROM "HangarLLM_ToolTable" WHERE tool_name LIKE %s', (prefix + "%",))
+    write_rows('DELETE FROM "HangarLLM_VerificationToken" WHERE token LIKE %s', (prefix + "%",))
 
 
 def test_owner_lookup_spans_more_keys_than_one_chunk(gateway: Gateway) -> None:
@@ -376,12 +376,12 @@ def test_owner_lookup_spans_more_keys_than_one_chunk(gateway: Gateway) -> None:
         user: Final = scenario.user(user_alias="chunk-owner-" + uuid.uuid4().hex)
         scenario.cleanups.callback(_forget_prefixed, prefix)
         write_rows(
-            'INSERT INTO "LiteLLM_VerificationToken" (token, user_id) '
+            'INSERT INTO "HangarLLM_VerificationToken" (token, user_id) '
             "SELECT %s || g, %s FROM generate_series(1, %s::int) AS g",
             (prefix, user, str(count)),
         )
         write_rows(
-            'INSERT INTO "LiteLLM_ToolTable" (tool_id, tool_name, key_hash) '
+            'INSERT INTO "HangarLLM_ToolTable" (tool_id, tool_name, key_hash) '
             "SELECT gen_random_uuid()::text, %s || g, %s || g FROM generate_series(1, %s::int) AS g",
             (prefix, prefix, str(count)),
         )
@@ -397,12 +397,12 @@ def test_repeated_tool_list_reads_are_identical_and_leave_rows_unchanged(gateway
         tool_name, _, _, _ = _owned_tool(gateway, scenario)
         first: Final = _discovered_tool(gateway, tool_name)
         before: Final = read_rows(
-            'SELECT tool_name, key_hash, call_count, updated_at::text FROM "LiteLLM_ToolTable" WHERE tool_name = %s',
+            'SELECT tool_name, key_hash, call_count, updated_at::text FROM "HangarLLM_ToolTable" WHERE tool_name = %s',
             (tool_name,),
         )
         second: Final = _discovered_tool(gateway, tool_name)
         after: Final = read_rows(
-            'SELECT tool_name, key_hash, call_count, updated_at::text FROM "LiteLLM_ToolTable" WHERE tool_name = %s',
+            'SELECT tool_name, key_hash, call_count, updated_at::text FROM "HangarLLM_ToolTable" WHERE tool_name = %s',
             (tool_name,),
         )
         assert first == second, (first, second)
@@ -418,7 +418,7 @@ def test_tool_list_total_matches_the_rows_in_postgres(gateway: Gateway) -> None:
         assert isinstance(tools, list)
         names: Final = sorted(str(object_value(tool)["tool_name"]) for tool in tools)
         stored: Final = sorted(
-            str(row["tool_name"]) for row in read_rows('SELECT tool_name FROM "LiteLLM_ToolTable"', ())
+            str(row["tool_name"]) for row in read_rows('SELECT tool_name FROM "HangarLLM_ToolTable"', ())
         )
         assert body["total"] == len(tools) == len(stored), body["total"]
         assert names == stored
@@ -484,7 +484,7 @@ def test_owner_lookup_failure_keeps_tools_listed_without_a_user(gateway: Gateway
             tool_name: Final = _discover(candidate, cleanups, model, key)
             cleanups.pop_all()
         assert _discovered_tool(candidate, tool_name)["user"] == _owner(user, None, alias)
-        write_rows('ALTER TABLE "LiteLLM_UserTable" RENAME TO "LiteLLM_UserTable_away"', (), database_url=database_url)
+        write_rows('ALTER TABLE "HangarLLM_UserTable" RENAME TO "HangarLLM_UserTable_away"', (), database_url=database_url)
         try:
             degraded: Final = _discovered_tool(candidate, tool_name)
             assert degraded["user"] is None, degraded
@@ -492,7 +492,7 @@ def test_owner_lookup_failure_keeps_tools_listed_without_a_user(gateway: Gateway
             assert _single(candidate, tool_name)["user"] is None
         finally:
             write_rows(
-                'ALTER TABLE "LiteLLM_UserTable_away" RENAME TO "LiteLLM_UserTable"', (), database_url=database_url
+                'ALTER TABLE "HangarLLM_UserTable_away" RENAME TO "HangarLLM_UserTable"', (), database_url=database_url
             )
         assert _discovered_tool(candidate, tool_name)["user"] == _owner(user, None, alias)
 
@@ -522,7 +522,7 @@ def _tool_policy_config(directory: Path, model: str, upstream_url: str, mode: st
     config["guardrails"] = [
         {
             "guardrail_name": "integration-tool-policy",
-            "litellm_params": {"guardrail": "tool_policy", "mode": mode, "default_on": True},
+            "hangarllm_params": {"guardrail": "tool_policy", "mode": mode, "default_on": True},
         }
     ]
     path.write_text(json.dumps(config))
@@ -628,7 +628,7 @@ def test_global_tool_policy_update_reads_back_persists_and_blocks_the_next_reque
         detail_tool: Final = object_value(detail["tool"])
         assert (detail_tool["input_policy"], detail_tool["output_policy"]) == ("blocked", "trusted"), detail
         assert read_rows(
-            'SELECT input_policy, output_policy FROM "LiteLLM_ToolTable" WHERE tool_name = %s', (blocked,)
+            'SELECT input_policy, output_policy FROM "HangarLLM_ToolTable" WHERE tool_name = %s', (blocked,)
         ) == [{"input_policy": "blocked", "output_policy": "trusted"}]
         assert (_single(candidate, untouched)["input_policy"], _single(candidate, untouched)["output_policy"]) == (
             "untrusted",
@@ -802,7 +802,7 @@ def test_output_policy_decides_whether_a_trusted_input_tool_may_act_on_an_earlie
         single: Final = _single(candidate, source)
         assert (single["input_policy"], single["output_policy"]) == ("untrusted", "trusted"), single
         assert read_rows(
-            'SELECT tool_name, input_policy, output_policy FROM "LiteLLM_ToolTable" WHERE tool_name IN (%s, %s)'
+            'SELECT tool_name, input_policy, output_policy FROM "HangarLLM_ToolTable" WHERE tool_name IN (%s, %s)'
             " ORDER BY tool_name",
             (source, sink),
         ) == [
@@ -831,7 +831,7 @@ class _McpRpcReply(BaseModel):
 def _mcp_call(gateway: Gateway, key: str, identity: str, name: str) -> httpx.Response:
     return gateway.client.post(
         "/mcp-rest/tools/call",
-        headers={"x-litellm-api-key": key},
+        headers={"x-hangarllm-api-key": key},
         json={"server_id": identity, "name": name, "arguments": {"probe": "policy"}},
     )
 
@@ -839,7 +839,7 @@ def _mcp_call(gateway: Gateway, key: str, identity: str, name: str) -> httpx.Res
 def _mcp_rpc_call(gateway: Gateway, key: str, alias: str, name: str) -> httpx.Response:
     return gateway.client.post(
         f"/{alias}/mcp",
-        headers={"x-litellm-api-key": key, "Accept": "application/json, text/event-stream"},
+        headers={"x-hangarllm-api-key": key, "Accept": "application/json, text/event-stream"},
         json={
             "jsonrpc": "2.0",
             "id": 1,
@@ -993,14 +993,14 @@ def test_scoped_tool_override_refuses_the_mcp_call_only_for_its_team_or_key_and_
         assert_scopes((), (team_key, sibling_team_key, blocked_key, sibling_key))
 
 
-_TEAM_PERMISSION: Final = 'SELECT object_permission_id FROM "LiteLLM_TeamTable" WHERE team_id = %s'
-_KEY_PERMISSION: Final = 'SELECT object_permission_id FROM "LiteLLM_VerificationToken" WHERE token = %s'
+_TEAM_PERMISSION: Final = 'SELECT object_permission_id FROM "HangarLLM_TeamTable" WHERE team_id = %s'
+_KEY_PERMISSION: Final = 'SELECT object_permission_id FROM "HangarLLM_VerificationToken" WHERE token = %s'
 _TEAM_BLOCKED_TOOLS: Final = (
-    'SELECT p.blocked_tools FROM "LiteLLM_TeamTable" t JOIN "LiteLLM_ObjectPermissionTable" p'
+    'SELECT p.blocked_tools FROM "HangarLLM_TeamTable" t JOIN "HangarLLM_ObjectPermissionTable" p'
     " ON p.object_permission_id = t.object_permission_id WHERE t.team_id = %s"
 )
 _KEY_BLOCKED_TOOLS: Final = (
-    'SELECT p.blocked_tools FROM "LiteLLM_VerificationToken" k JOIN "LiteLLM_ObjectPermissionTable" p'
+    'SELECT p.blocked_tools FROM "HangarLLM_VerificationToken" k JOIN "HangarLLM_ObjectPermissionTable" p'
     " ON p.object_permission_id = k.object_permission_id WHERE k.token = %s"
 )
 

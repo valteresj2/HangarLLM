@@ -1,10 +1,10 @@
-# Contributing to LiteLLM
+# Contributing to HangarLLM
 
-Thank you for your interest in contributing to LiteLLM! We welcome contributions of all kinds - from bug fixes and documentation improvements to new features and integrations.
+Thank you for your interest in contributing to HangarLLM! We welcome contributions of all kinds - from bug fixes and documentation improvements to new features and integrations.
 
 ## **Checklist before submitting a PR**
 
-Here are the core requirements for any PR submitted to LiteLLM:
+Here are the core requirements for any PR submitted to HangarLLM:
 
 - [ ] **Sign the Contributor License Agreement (CLA)** - [see details](#contributor-license-agreement-cla)
 - [ ] **Keep scope isolated** - Your changes should address 1 specific problem at a time
@@ -25,7 +25,7 @@ Here are the core requirements for any PR submitted to LiteLLM:
 
 ## **Contributor License Agreement (CLA)**
 
-Before contributing code to LiteLLM, you must sign our [Contributor License Agreement (CLA)](https://cla-assistant.io/BerriAI/litellm). This is a legal requirement for all contributions to be merged into the main repository.
+Before contributing code to HangarLLM, you must sign our [Contributor License Agreement (CLA)](https://cla-assistant.io/valteresj2/HangarLLM). This is a legal requirement for all contributions to be merged into the main repository.
 
 **Important:** We strongly recommend reviewing and signing the CLA before starting work on your contribution to avoid any delays in the PR process.
 
@@ -34,13 +34,13 @@ Before contributing code to LiteLLM, you must sign our [Contributor License Agre
 ### 1. Setup Your Local Development Environment
 
 ```bash
-# Fork the repository on GitHub (click the Fork button at https://github.com/BerriAI/litellm)
+# Fork the repository on GitHub (click the Fork button at https://github.com/valteresj2/HangarLLM)
 # Then clone your fork locally
-git clone https://github.com/YOUR_USERNAME/litellm.git
-cd litellm
+git clone https://github.com/YOUR_USERNAME/hangarllm.git
+cd hangarllm
 
 # Create a new branch for your feature (see "Commit and Branch Conventions" below)
-git checkout -b litellm_your_feature
+git checkout -b hangarllm_your_feature
 
 # Install development dependencies
 make install-dev
@@ -56,7 +56,7 @@ That's it! Your local development environment is ready.
 
 ## Commit and Branch Conventions
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). Internal contributors name branches with the `litellm_` prefix and no `/`, and fork branches can use any name. Run `make install-hooks` once per clone to enable the local hook that enforces the commit convention. See the [contributor docs](https://docs.litellm.ai/docs/extras/contributing_code#commit-and-branch-conventions) for details
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). Internal contributors name branches with the `hangarllm_` prefix and no `/`, and fork branches can use any name. Run `make install-hooks` once per clone to enable the local hook that enforces the commit convention. See the [contributor docs](https://github.com/valteresj2/HangarLLM#readme) for details
 
 ### 2. Development Workflow
 
@@ -80,7 +80,7 @@ git add .
 git commit -m "feat(scope): your descriptive commit message"
 
 # Push and create a PR
-git push origin litellm_your_feature
+git push origin hangarllm_your_feature
 ```
 
 ## Adding Testing
@@ -89,26 +89,26 @@ git push origin litellm_your_feature
 
 ### Where to Add Tests
 
-Add your tests to the [`tests/unit/` directory](https://github.com/BerriAI/litellm/tree/main/tests/unit).
+Add your tests to the [`tests/unit/` directory](https://github.com/valteresj2/HangarLLM/tree/main/tests/unit).
 
-- This directory mirrors the structure of the `litellm/` directory
+- This directory mirrors the structure of the `hangarllm/` directory
 - **Only add mocked tests** - no real LLM API calls in this directory
 - For integration tests with real APIs, use the appropriate test directories
 
-Tests that call `litellm.register_model` or change `litellm.model_cost` should use the `local_model_cost_map` fixture from `tests/unit/conftest.py`. It provides a fresh catalog and restores the previous map, so pricing and capability overrides cannot leak into later tests
+Tests that call `hangarllm.register_model` or change `hangarllm.model_cost` should use the `local_model_cost_map` fixture from `tests/unit/conftest.py`. It provides a fresh catalog and restores the previous map, so pricing and capability overrides cannot leak into later tests
 
 ### File Naming Convention
 
-The `tests/unit/` directory follows the same structure as `litellm/`:
+The `tests/unit/` directory follows the same structure as `hangarllm/`:
 
-- `litellm/proxy/caching_routes.py` → `tests/unit/proxy/test_caching_routes.py`
-- `litellm/utils.py` → `tests/unit/test_utils.py`
+- `hangarllm/proxy/caching_routes.py` → `tests/unit/proxy/test_caching_routes.py`
+- `hangarllm/utils.py` → `tests/unit/test_utils.py`
 
 ### Example Test
 
 ```python
 import pytest
-from litellm import completion
+from hangarllm import completion
 
 def test_your_feature():
     """Test your feature with a descriptive docstring."""
@@ -210,7 +210,7 @@ make test-unit-helm            # Run Helm unit tests
 
 ## Code Quality Standards
 
-LiteLLM follows the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html).
+HangarLLM follows the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html).
 
 Our automated quality checks include:
 - **Ruff** for formatting, linting, and code quality
@@ -255,17 +255,17 @@ Tests are required, but they do not prove that your change works for a user. A P
 
 A good proof looks like this:
 
-1. Install the proxy dependencies with `make install-proxy-dev`, then start the proxy from your branch with a config that has the model you changed, `uv run litellm --config your_config.yaml --detailed_debug`
-2. Send the request a user would send with `curl`, and paste both the command and the response. When cost or routing is involved, include the response headers, since `x-litellm-response-cost` is what the user sees
-3. For a bug fix, do this twice, once at the merge base with BerriAI/litellm's main (`git merge-base origin/main HEAD`, with your remote for BerriAI/litellm in place of `origin` in a fork clone) to show the bug and once at your branch's latest commit to show the fix. Name both commit hashes
+1. Install the proxy dependencies with `make install-proxy-dev`, then start the proxy from your branch with a config that has the model you changed, `uv run hangarllm --config your_config.yaml --detailed_debug`
+2. Send the request a user would send with `curl`, and paste both the command and the response. When cost or routing is involved, include the response headers, since `x-hangarllm-response-cost` is what the user sees
+3. For a bug fix, do this twice, once at the merge base with valteresj2/HangarLLM's main (`git merge-base origin/main HEAD`, with your remote for valteresj2/HangarLLM in place of `origin` in a fork clone) to show the bug and once at your branch's latest commit to show the fix. Name both commit hashes
 4. If your change is reachable from more than one endpoint (`/v1/chat/completions`, `/v1/responses`, `/v1/messages`), show each one
-5. If the request can stream, show a `"stream": true` run too, because streaming builds usage and cost on a different path. A stream sends its headers before its usage exists, so show the `usage.cost` on the last chunk, which `/v1/chat/completions` sends when the request has `"stream_options": {"include_usage": true}` and other endpoints send with `include_cost_in_streaming_usage: true` under `litellm_settings`, or, when the proxy has a database, the request's row on the Admin UI's Logs page or `GET /spend/logs`
+5. If the request can stream, show a `"stream": true` run too, because streaming builds usage and cost on a different path. A stream sends its headers before its usage exists, so show the `usage.cost` on the last chunk, which `/v1/chat/completions` sends when the request has `"stream_options": {"include_usage": true}` and other endpoints send with `include_cost_in_streaming_usage: true` under `hangarllm_settings`, or, when the proxy has a database, the request's row on the Admin UI's Logs page or `GET /spend/logs`
 6. For UI changes, add before and after screenshots and name the page
 7. If users reach your change through a coding tool such as Claude Code or Codex, drive that tool the way a user does and add before and after screenshots of it, because a `curl` or a headless run alone does not show what the user sees
 
 ```bash
 curl -sD - http://localhost:4000/v1/chat/completions \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -H "Authorization: Bearer $HANGARLLM_MASTER_KEY" \
   -H "Content-Type: application/json" \
   -d '{"model": "your-model", "messages": [{"role": "user", "content": "hi"}]}'
 ```
@@ -278,9 +278,9 @@ Provider work (a new provider, a new parameter, a new usage or cost field) is th
 
 **Preserve zero prices.** In [`model_prices_and_context_window.json`](model_prices_and_context_window.json), an explicit `0.0` means that the priced operation is free. A missing field or `null` means no rate is specified, so the relevant calculator may use a fallback. For example, when no batch input rate is configured, batch cache writes use `cache_creation_input_token_cost` if set, otherwise the regular input rate, then apply the batch discount. A zero ordinary input rate does not make separately priced cache reads or writes free. Test `rate is None` before substituting a fallback, since `row.get("cache_creation_input_token_cost") or fallback` would discard a valid zero. Speech keeps character pricing ahead of token pricing even when the character rate is zero. If neither rate is configured, speech cost calculation raises an error. Its model lookup preserves unset rates instead of treating compatibility defaults as explicit zero prices. Perplexity keeps a configured legacy search rate ahead of the current search rate, including zero. When registering custom prices, `None` leaves an existing rate unchanged and `0.0` overrides it
 
-**Find the existing machinery before you add plumbing.** LiteLLM already has generic paths that move data between the endpoints, the provider transformations, and cost tracking. A second, hand-rolled path for the same data is a common reason a provider PR gets rewritten before merge. [`ARCHITECTURE.md`](ARCHITECTURE.md) shows where the layers live, and the decision records in [`docs/adrs/`](docs/adrs/AGENTS.md) explain why they are shaped that way. For example, [the ADR on provider usage fields](docs/adrs/adr_001_provider_usage_fields_ride_as_usage_extras.md) covers how provider-specific usage fields reach cost tracking. If you cannot find a mechanism for what you need, say so in the PR or ask in [#pr-review on Slack](https://join.slack.com/t/litellmossslack/shared_invite/zt-3o7nkuyfr-p_kbNJj8taRfXGgQI1~YyA) before you build one
+**Find the existing machinery before you add plumbing.** HangarLLM already has generic paths that move data between the endpoints, the provider transformations, and cost tracking. A second, hand-rolled path for the same data is a common reason a provider PR gets rewritten before merge. [`ARCHITECTURE.md`](ARCHITECTURE.md) shows where the layers live, and the decision records in [`docs/adrs/`](docs/adrs/AGENTS.md) explain why they are shaped that way. For example, [the ADR on provider usage fields](docs/adrs/adr_001_provider_usage_fields_ride_as_usage_extras.md) covers how provider-specific usage fields reach cost tracking. If you cannot find a mechanism for what you need, say so in the PR or ask in [#pr-review on Slack](https://join.slack.com/t/hangarllmossslack/shared_invite/zt-3o7nkuyfr-p_kbNJj8taRfXGgQI1~YyA) before you build one
 
-**Bill a new provider usage field from the usage object.** Leave the field on the usage object as an extra and read it in that provider's `cost_calculator.py`. A provider without one gets a new `cost_calculator.py` and an arm for it in `cost_per_token` (`litellm/cost_calculator.py`), which picks the calculator by provider. If the provider's transform builds `Usage` from named fields, as the Anthropic, Gemini, and Bedrock Converse ones do, pass the new field there too. Streamed requests rebuild usage in `ChunkProcessor.calculate_usage` (`litellm/litellm_core_utils/streaming_chunk_builder_utils.py`), which does not copy extras yet the way the Responses-to-chat bridge does (minus a short exclusion list), so until it does, bill the field on streams by naming it there, as Anthropic's `inference_geo` is. A provider that reports its own charge for the request, as OpenRouter does in `usage.cost`, is billed at that charge from `_hidden_params` before any calculator runs, unless the deployment sets its own prices. When the field counts a built-in tool such as web search, add the provider to `get_cost_for_web_search_request` in `litellm/llms/__init__.py`, and add a gate to `litellm/litellm_core_utils/llm_cost_calc/tool_call_cost_tracking.py` only when no existing gate fires. Then show the field's cost in your proof on every endpoint it reaches, streaming included
+**Bill a new provider usage field from the usage object.** Leave the field on the usage object as an extra and read it in that provider's `cost_calculator.py`. A provider without one gets a new `cost_calculator.py` and an arm for it in `cost_per_token` (`hangarllm/cost_calculator.py`), which picks the calculator by provider. If the provider's transform builds `Usage` from named fields, as the Anthropic, Gemini, and Bedrock Converse ones do, pass the new field there too. Streamed requests rebuild usage in `ChunkProcessor.calculate_usage` (`hangarllm/hangarllm_core_utils/streaming_chunk_builder_utils.py`), which does not copy extras yet the way the Responses-to-chat bridge does (minus a short exclusion list), so until it does, bill the field on streams by naming it there, as Anthropic's `inference_geo` is. A provider that reports its own charge for the request, as OpenRouter does in `usage.cost`, is billed at that charge from `_hidden_params` before any calculator runs, unless the deployment sets its own prices. When the field counts a built-in tool such as web search, add the provider to `get_cost_for_web_search_request` in `hangarllm/llms/__init__.py`, and add a gate to `hangarllm/hangarllm_core_utils/llm_cost_calc/tool_call_cost_tracking.py` only when no existing gate fires. Then show the field's cost in your proof on every endpoint it reaches, streaming included
 
 **Do not change what a caller sees to make internals easier.** Each endpoint keeps the schema of the API it emulates. A `/v1/responses` caller gets `input_tokens` and a `/v1/chat/completions` caller gets `prompt_tokens`, whatever the provider sent and whatever cost tracking needs. A provider usage field that shows up as an extra key is fine, since it only adds a key, but renaming, removing, or reshaping a key the endpoint defines is not. Reshaping a public response to feed an internal consumer breaks every user of that endpoint
 
@@ -288,7 +288,7 @@ If your change makes an architecture decision, such as a new cross-cutting mecha
 
 ## Building and Running Locally
 
-### LiteLLM Proxy Server
+### HangarLLM Proxy Server
 
 To run the proxy server locally:
 
@@ -297,7 +297,7 @@ To run the proxy server locally:
 make install-proxy-dev
 
 # Start the proxy server
-uv run litellm --config your_config.yaml
+uv run hangarllm --config your_config.yaml
 ```
 
 ### Docker Development
@@ -306,17 +306,17 @@ If you want to build the Docker image yourself:
 
 ```bash
 # Build using the non-root Dockerfile
-docker build -f docker/Dockerfile.non_root -t litellm_dev .
+docker build -f docker/Dockerfile.non_root -t hangarllm_dev .
 
 # Generate a master key. Requests send it as the bearer token
-export LITELLM_MASTER_KEY="sk-$(openssl rand -hex 32)"
+export HANGARLLM_MASTER_KEY="sk-$(openssl rand -hex 32)"
 
 # Run with your config
 docker run \
     -v $(pwd)/proxy_config.yaml:/app/config.yaml \
-    -e LITELLM_MASTER_KEY \
+    -e HANGARLLM_MASTER_KEY \
     -p 4000:4000 \
-    litellm_dev \
+    hangarllm_dev \
     --config /app/config.yaml --detailed_debug
 ```
 
@@ -326,11 +326,11 @@ docker run \
 
 ```bash
 # Clone the repo (if you haven't already)
-git clone https://github.com/YOUR_USERNAME/litellm.git
-cd litellm
+git clone https://github.com/YOUR_USERNAME/hangarllm.git
+cd hangarllm
 
 # Navigate to the UI dashboard directory
-cd ui/litellm-dashboard
+cd ui/hangarllm-dashboard
 
 # Install dependencies
 npm install
@@ -373,18 +373,18 @@ Local lint and budget checks follow origin's current default branch. They refres
 If you need help:
 
 - 💬 [Join our Discord](https://discord.gg/wuPM9dRgDw)
-- 💬 [Join our Slack](https://www.litellm.ai/support)
+- 💬 [Join our Slack](https://github.com/valteresj2/HangarLLM#readme)
 - 📧 Email us: ishaan@berri.ai / krrish@berri.ai
-- 🐛 [Create an issue](https://github.com/BerriAI/litellm/issues/new)
+- 🐛 [Create an issue](https://github.com/valteresj2/HangarLLM/issues/new)
 
 ## What to Contribute
 
 Looking for ideas? Check out:
 
-- 🐛 [Good first issues](https://github.com/BerriAI/litellm/labels/good%20first%20issue)
-- 🚀 [Feature requests](https://github.com/BerriAI/litellm/labels/enhancement)
+- 🐛 [Good first issues](https://github.com/valteresj2/HangarLLM/labels/good%20first%20issue)
+- 🚀 [Feature requests](https://github.com/valteresj2/HangarLLM/labels/enhancement)
 - 📚 Documentation improvements
 - 🧪 Test coverage improvements
 - 🔌 New LLM provider integrations
 
-Thank you for contributing to LiteLLM! 🚀 
+Thank you for contributing to HangarLLM! 🚀 

@@ -8,10 +8,10 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.router_api import ChangeSet
-from litellm.router_utils.client_initalization_utils import MaxParallelRequestsLimit
-from litellm.types.router import Deployment, LiteLLM_Params, RoutingContext
+import hangarllm
+from hangarllm.router_api import ChangeSet
+from hangarllm.router_utils.client_initalization_utils import MaxParallelRequestsLimit
+from hangarllm.types.router import Deployment, HangarLLM_Params, RoutingContext
 from tests.unit.test_router.core.scripted_host import deployment
 from tests.unit.test_router.core.selection_helpers import MESSAGES, MakeCore
 
@@ -35,7 +35,7 @@ def test_split_priority_without_a_default_leaves_the_request_unqueued(make_core:
 
 def test_split_priority_refuses_a_priority_that_is_no_integer(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=[deployment("g", "a")], default_priority=2)
-    with pytest.raises(litellm.BadRequestError, match="priority must be an integer, got str 'high'"):
+    with pytest.raises(hangarllm.BadRequestError, match="priority must be an integer, got str 'high'"):
         core.health().split_priority("g", {"priority": "high"})
 
 
@@ -51,7 +51,7 @@ def test_split_priority_reads_a_pinned_deployment_s_params_for_its_id(make_core:
         model_list=[deployment("g", "a", drop_params=True), deployment("g", "b")], default_priority=1
     )
     assert core.health().split_priority("a", {"priority": "high"}) == (1, {})
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         core.health().split_priority("b", {"priority": "high"})
 
 
@@ -110,7 +110,7 @@ def test_a_deployment_without_a_limit_has_no_max_parallel_requests_client(make_c
 def test_the_client_lookup_reads_the_deployment_id_first(make_core: MakeCore) -> None:
     """``deployment["model_info"]["id"]``: a deployment without model_info raises, whatever the client type."""
     core: Final = make_core(model_list=[deployment("g", "a")])
-    entry: Final = {"model_name": "g", "litellm_params": {"model": "openai/a"}}
+    entry: Final = {"model_name": "g", "hangarllm_params": {"model": "openai/a"}}
     for client_type in ("max_parallel_requests", "async", None):
         with pytest.raises(KeyError, match="model_info"):
             core.registry().client(entry, client_type=client_type)
@@ -123,7 +123,7 @@ async def test_a_full_max_parallel_requests_client_turns_the_next_call_away(make
     entry: Final = deployment("g", "a", max_parallel_requests=1)
     limit: Final = core.registry().client(entry, client_type="max_parallel_requests")
     assert isinstance(limit, MaxParallelRequestsLimit)
-    with limit, pytest.raises(litellm.RateLimitError, match="already has max_parallel_requests=1"):
+    with limit, pytest.raises(hangarllm.RateLimitError, match="already has max_parallel_requests=1"):
         await core.acompletion(model="g", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # every core serves acompletion
     assert limit.in_flight == 0
 
@@ -165,7 +165,7 @@ def test_a_deployment_change_empties_the_zero_cost_lookup(make_core: MakeCore) -
             upsert=[
                 Deployment(
                     model_name="g",
-                    litellm_params=LiteLLM_Params(model="openai/b", api_key="sk-test"),
+                    hangarllm_params=HangarLLM_Params(model="openai/b", api_key="sk-test"),
                     model_info={"id": "b"},
                 )
             ]

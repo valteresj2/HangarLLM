@@ -34,10 +34,10 @@ const section = (heading: string, text: string): string => `### ${heading}\n\n${
 const bugBody = (overrides: Partial<Record<(typeof BUG_SECTIONS)[number] | "dropdown" | "deploy", string>> = {}): string =>
   [
     section("Description", overrides.Description ?? "Streaming responses from Bedrock drop the last chunk when tools are used."),
-    section("Config", overrides.Config ?? "```yaml\nmodel_list:\n  - model_name: claude\n    litellm_params:\n      model: bedrock/claude\n```"),
-    section("LiteLLM Version", overrides["LiteLLM Version"] ?? "v1.100.0"),
+    section("Config", overrides.Config ?? "```yaml\nmodel_list:\n  - model_name: claude\n    hangarllm_params:\n      model: bedrock/claude\n```"),
+    section("HangarLLM Version", overrides["HangarLLM Version"] ?? "v1.100.0"),
     section("Steps to Repro", overrides["Steps to Repro"] ?? "1. curl -X POST http://localhost:4000/v1/chat/completions -d '{...}'\n2. Response: 500"),
-    section("Which part of LiteLLM is this about?", overrides.dropdown ?? "LLM translation: a specific provider's request or response"),
+    section("Which part of HangarLLM is this about?", overrides.dropdown ?? "LLM translation: a specific provider's request or response"),
     section("How are you deploying?", overrides.deploy ?? "_No response_"),
   ].join("");
 
@@ -47,7 +47,7 @@ const featureBody = (): string =>
     section("The Feature", "Scope guardrail policies to specific MCP servers so one server is masked and another is not."),
     section("User Flow", "Before this feature (today): the admin attaches the policy globally and both servers get masked."),
     section("How far you got", "Config / setup the proxy ran with: two MCP servers and a Presidio guardrail; both calls come back raw."),
-    section("Which part of LiteLLM is this about?", "Guardrails: moderation, PII masking, policies"),
+    section("Which part of HangarLLM is this about?", "Guardrails: moderation, PII masking, policies"),
   ].join("");
 
 const issue = (overrides: Partial<IssueForClassification> = {}): IssueForClassification => ({
@@ -113,10 +113,10 @@ describe("sections", () => {
 
   test("a heading the reporter typed inside a field stays inside that field", () => {
     const found = sections(
-      "### Steps to Repro\n\n### Actual response\n\n500 from the proxy\n\n### Expected\n\n200\n\n### LiteLLM Version\n\nv1.100.0\n",
+      "### Steps to Repro\n\n### Actual response\n\n500 from the proxy\n\n### Expected\n\n200\n\n### HangarLLM Version\n\nv1.100.0\n",
     );
     expect(found.get("Steps to Repro")).toBe("### Actual response\n\n500 from the proxy\n\n### Expected\n\n200");
-    expect(found.get("LiteLLM Version")).toBe("v1.100.0");
+    expect(found.get("HangarLLM Version")).toBe("v1.100.0");
   });
 
   test("a repeated field heading does not overwrite the first value", () => {
@@ -176,8 +176,8 @@ describe("gate", () => {
   });
 
   test("a version has to carry a number", () => {
-    expect(gate(issue({ body: bugBody({ "LiteLLM Version": "latest" }) }))).toMatchObject({ missing: ["LiteLLM Version"] });
-    expect(gate(issue({ body: bugBody({ "LiteLLM Version": "main-v1.101.3-nightly" }) }))).toMatchObject({
+    expect(gate(issue({ body: bugBody({ "HangarLLM Version": "latest" }) }))).toMatchObject({ missing: ["HangarLLM Version"] });
+    expect(gate(issue({ body: bugBody({ "HangarLLM Version": "main-v1.101.3-nightly" }) }))).toMatchObject({
       kind: "pass",
       version: "main-v1.101.3-nightly",
     });
@@ -244,7 +244,7 @@ describe("buildRequest", () => {
     const message = userMessage(issue(), passed);
     expect(message.startsWith("Title: [Bug]: Bedrock streaming drops the last chunk with tools\nTemplate: bug\n")).toBe(true);
     expect(message).toContain("Reporter's pick from the domain dropdown: Caching: response cache");
-    expect(message).toContain("LiteLLM Version (from the template): v1.99.0");
+    expect(message).toContain("HangarLLM Version (from the template): v1.99.0");
     expect(message).toContain("### Steps to Repro");
   });
 
@@ -266,13 +266,13 @@ describe("buildRequest", () => {
     const message = userMessage(issue({ body }), passed);
     expect(message.length).toBeLessThan(BODY_CAP_CHARS + 500);
     expect(message).toContain(`[body truncated at ${BODY_CAP_CHARS} characters]`);
-    expect(message).toContain("LiteLLM Version (from the template): v1.99.0");
+    expect(message).toContain("HangarLLM Version (from the template): v1.99.0");
   });
 
   test("no hint and no version are said plainly", () => {
     const message = userMessage(issue({ body: null }), { ...passed, domainHint: null, version: null });
     expect(message).toContain("Reporter's pick from the domain dropdown: none\n");
-    expect(message).not.toContain("LiteLLM Version (from the template)");
+    expect(message).not.toContain("HangarLLM Version (from the template)");
   });
 });
 
@@ -350,7 +350,7 @@ describe("shouldReclassify", () => {
 
 describe("classifyIssue", () => {
   const config = {
-    repo: "BerriAI/litellm",
+    repo: "valteresj2/HangarLLM",
     issueNumber: 41700,
     model: "gpt-5.6-luna",
     action: "opened",
@@ -360,7 +360,7 @@ describe("classifyIssue", () => {
   function fakeApi(fetched: IssueForClassification): GitHubApi {
     return {
       request: async <T>(method: string, path: string): Promise<T> => {
-        if (method === "GET" && path === "/repos/BerriAI/litellm/issues/41700") {
+        if (method === "GET" && path === "/repos/valteresj2/HangarLLM/issues/41700") {
           return fetched as T;
         }
         throw new Error(`unexpected ${method} ${path}`);
@@ -447,10 +447,10 @@ describe("classifyIssue", () => {
 describe("readConfig", () => {
   const env = {
     GITHUB_TOKEN: "t",
-    GITHUB_REPOSITORY: "BerriAI/litellm",
+    GITHUB_REPOSITORY: "valteresj2/HangarLLM",
     ISSUE_NUMBER: "41700",
-    LITELLM_API_BASE: "https://llm.example.com",
-    LITELLM_API_KEY: "sk-test",
+    HANGARLLM_API_BASE: "https://llm.example.com",
+    HANGARLLM_API_KEY: "sk-test",
     ISSUE_CLASSIFIER_MODEL: "gpt-5.6-luna",
   };
 
@@ -459,7 +459,7 @@ describe("readConfig", () => {
   test("reads the six settings, and the event action when the workflow passes one", () => {
     expect(readConfig(env, now)).toEqual({
       token: "t",
-      repo: "BerriAI/litellm",
+      repo: "valteresj2/HangarLLM",
       issueNumber: 41700,
       apiBase: "https://llm.example.com",
       apiKey: "sk-test",
@@ -474,9 +474,9 @@ describe("readConfig", () => {
     expect(() => readConfig({ ...env, GITHUB_TOKEN: undefined }, now)).toThrow("GITHUB_TOKEN");
     expect(() => readConfig({ ...env, GITHUB_REPOSITORY: "nope" }, now)).toThrow("GITHUB_REPOSITORY");
     expect(() => readConfig({ ...env, ISSUE_NUMBER: "0" }, now)).toThrow("ISSUE_NUMBER");
-    expect(() => readConfig({ ...env, LITELLM_API_BASE: "" }, now)).toThrow("LITELLM_API_BASE");
-    expect(() => readConfig({ ...env, LITELLM_API_BASE: "llm.example.com" }, now)).toThrow("LITELLM_API_BASE");
-    expect(() => readConfig({ ...env, LITELLM_API_KEY: "" }, now)).toThrow("LITELLM_API_KEY");
+    expect(() => readConfig({ ...env, HANGARLLM_API_BASE: "" }, now)).toThrow("HANGARLLM_API_BASE");
+    expect(() => readConfig({ ...env, HANGARLLM_API_BASE: "llm.example.com" }, now)).toThrow("HANGARLLM_API_BASE");
+    expect(() => readConfig({ ...env, HANGARLLM_API_KEY: "" }, now)).toThrow("HANGARLLM_API_KEY");
     expect(() => readConfig({ ...env, ISSUE_CLASSIFIER_MODEL: undefined }, now)).toThrow("ISSUE_CLASSIFIER_MODEL");
   });
 });

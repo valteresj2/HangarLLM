@@ -4,7 +4,7 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 
 BEDROCK_COHERE_INVOKE_URL: Final = (
     "https://bedrock-runtime.us-east-1.amazonaws.com/model/cohere.embed-english-v3/invoke"
@@ -16,7 +16,7 @@ COHERE_EMBED_RESPONSE: Final = {"embeddings": [[0.1, 0.2]], "meta": {"billed_uni
 async def test_bedrock_cohere_embedding_sends_the_caller_timeout(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, sync_mode: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post(BEDROCK_COHERE_INVOKE_URL).mock(
         return_value=httpx.Response(200, json=COHERE_EMBED_RESPONSE)
     )
@@ -29,7 +29,7 @@ async def test_bedrock_cohere_embedding_sends_the_caller_timeout(
         "aws_secret_access_key": "mockaws_secret_access_key",
     }
 
-    response: Final = litellm.embedding(**request) if sync_mode else await litellm.aembedding(**request)
+    response: Final = hangarllm.embedding(**request) if sync_mode else await hangarllm.aembedding(**request)
 
     assert route.calls.last.request.extensions["timeout"]["read"] == 45
     assert response.data[0]["embedding"] == [0.1, 0.2]

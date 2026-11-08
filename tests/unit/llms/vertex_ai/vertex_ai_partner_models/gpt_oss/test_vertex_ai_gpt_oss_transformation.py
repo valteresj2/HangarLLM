@@ -5,16 +5,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.llms.vertex_ai.vertex_ai_partner_models.gpt_oss.transformation import (
+import hangarllm
+from hangarllm.llms.vertex_ai.vertex_ai_partner_models.gpt_oss.transformation import (
     VertexAIGPTOSSTransformation,
 )
 
 
 @pytest.fixture(autouse=True)
-def _reset_litellm_http_client_cache():
+def _reset_hangarllm_http_client_cache():
     """Ensure each test gets a fresh async HTTP client mock."""
-    from litellm import in_memory_llm_clients_cache
+    from hangarllm import in_memory_llm_clients_cache
 
     in_memory_llm_clients_cache.flush_cache()
 
@@ -61,8 +61,8 @@ class TestVertexAIGPTOSSTransformation:
         """Test that tool calling parameters are removed when function calling is not supported."""
         config = VertexAIGPTOSSTransformation()
 
-        # Mock litellm.supports_function_calling to return False
-        with patch("litellm.supports_function_calling", return_value=False):
+        # Mock hangarllm.supports_function_calling to return False
+        with patch("hangarllm.supports_function_calling", return_value=False):
             supported_params = config.get_supported_openai_params(
                 model="openai/gpt-oss-20b-maas"
             )
@@ -97,7 +97,7 @@ async def test_vertex_ai_gpt_oss_simple_request():
                 "index": 0,
                 "message": {
                     "role": "assistant",
-                    "content": "Hello! I'm Litellm Bot, a helpful assistant. I don't have access to real-time weather information, but I'd be happy to help you with other questions or tasks!",
+                    "content": "Hello! I'm Hangarllm Bot, a helpful assistant. I don't have access to real-time weather information, but I'd be happy to help you with other questions or tasks!",
                 },
                 "finish_reason": "stop",
             }
@@ -111,10 +111,10 @@ async def test_vertex_ai_gpt_oss_simple_request():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler"
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler"
         ) as mock_http_handler,
         patch(
-            "litellm.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels._ensure_access_token",
+            "hangarllm.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels._ensure_access_token",
             return_value=("fake-token", "pathrise-convert-1606954137718"),
         ),
         patch.dict(
@@ -125,12 +125,12 @@ async def test_vertex_ai_gpt_oss_simple_request():
     ):
         mock_http_handler.return_value.post = AsyncMock(return_value=mock_response)
 
-        response = await litellm.acompletion(
+        response = await hangarllm.acompletion(
             model="vertex_ai/openai/gpt-oss-20b-maas",
             messages=[
                 {
                     "role": "system",
-                    "content": "Your name is Litellm Bot, you are a helpful assistant",
+                    "content": "Your name is Hangarllm Bot, you are a helpful assistant",
                 },
                 {
                     "role": "user",
@@ -159,7 +159,7 @@ async def test_vertex_ai_gpt_oss_simple_request():
             "messages": [
                 {
                     "role": "system",
-                    "content": "Your name is Litellm Bot, you are a helpful assistant",
+                    "content": "Your name is Hangarllm Bot, you are a helpful assistant",
                 },
                 {
                     "role": "user",
@@ -210,10 +210,10 @@ async def test_vertex_ai_gpt_oss_reasoning_effort():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler"
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler"
         ) as mock_http_handler,
         patch(
-            "litellm.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels._ensure_access_token",
+            "hangarllm.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels._ensure_access_token",
             return_value=("fake-token", "pathrise-convert-1606954137718"),
         ),
         patch.dict(
@@ -224,12 +224,12 @@ async def test_vertex_ai_gpt_oss_reasoning_effort():
     ):
         mock_http_handler.return_value.post = AsyncMock(return_value=mock_response)
 
-        response = await litellm.acompletion(
+        response = await hangarllm.acompletion(
             model="vertex_ai/openai/gpt-oss-20b-maas",
             messages=[
                 {
                     "role": "system",
-                    "content": "Your name is Litellm Bot, you are a helpful assistant",
+                    "content": "Your name is Hangarllm Bot, you are a helpful assistant",
                 },
                 {
                     "role": "user",
@@ -258,7 +258,7 @@ async def test_vertex_ai_gpt_oss_reasoning_effort():
             "messages": [
                 {
                     "role": "system",
-                    "content": "Your name is Litellm Bot, you are a helpful assistant",
+                    "content": "Your name is Hangarllm Bot, you are a helpful assistant",
                 },
                 {
                     "role": "user",

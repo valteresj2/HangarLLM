@@ -65,7 +65,7 @@ def cleanup_file(client: BatchCleanupClient, file_id: str, *, key: str, provider
         return
     if isinstance(result, UnknownApiError) and result.status_code == 400 and FILE_IN_USE_REFUSAL in result.body:
         warnings.warn(
-            f"Left file {file_id} in place: LiteLLM refused to delete it while a batch still references it",
+            f"Left file {file_id} in place: HangarLLM refused to delete it while a batch still references it",
             UserWarning,
             stacklevel=2 + STEP_FRAMES,
         )

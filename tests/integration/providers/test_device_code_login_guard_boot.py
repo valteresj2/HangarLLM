@@ -42,7 +42,7 @@ _SHAPES: Final[Mapping[str, bool]] = MappingProxyType(
 )
 _CONTROL: Final = "device-login-boot-control"
 _EXTRA: Final[Mapping[str, JsonValue]] = MappingProxyType({"num_retries": 0, "cache": {"no-cache": True}})
-_CALL_ID: Final = "x-litellm-call-id"
+_CALL_ID: Final = "x-hangarllm-call-id"
 _REQUEST_TIMEOUT_SECONDS: Final = 6
 _POLL_SECONDS: Final = 3
 _ADDRESS: Final = TypeAdapter(tuple[str, int])
@@ -81,15 +81,15 @@ def _token_dirs(directory: Path) -> _TokenDirs:
 
 def _config(control_api_url: str, directory: Path, *, fixed: bool, wildcards: bool, universal: bool = False) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    fixed_entries: Final = [{"model_name": name, "litellm_params": {"model": model}} for name, model in _FIXED.items()]
-    wildcard_entries: Final = [{"model_name": pattern, "litellm_params": {"model": pattern}} for pattern in _WILDCARDS]
+    fixed_entries: Final = [{"model_name": name, "hangarllm_params": {"model": model}} for name, model in _FIXED.items()]
+    wildcard_entries: Final = [{"model_name": pattern, "hangarllm_params": {"model": pattern}} for pattern in _WILDCARDS]
     config["model_list"] = [
         *(fixed_entries if fixed else []),
         *(wildcard_entries if wildcards else []),
-        *([{"model_name": "*", "litellm_params": {"model": "*"}}] if universal else []),
+        *([{"model_name": "*", "hangarllm_params": {"model": "*"}}] if universal else []),
         {
             "model_name": _CONTROL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_base": f"{control_api_url}/v1",
                 "api_key": dl.CONTROL_KEY,
@@ -183,7 +183,7 @@ def _every_worker_lists(owned: OwnedProxy, workers: tuple[int, ...]) -> Mapping[
 def _successes_logged(key: str, at_least: int) -> None:
     eventually(
         lambda: read_rows(
-            'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE api_key = %s AND status = %s',
+            'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE api_key = %s AND status = %s',
             (hashlib.sha256(key.encode()).hexdigest(), "success"),
         ),
         lambda rows: len(rows) >= at_least,
@@ -193,7 +193,7 @@ def _successes_logged(key: str, at_least: int) -> None:
 
 def _logged(served: _Served, status: str) -> None:
     rows: Final = eventually(
-        lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (served.call_id,)),
+        lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (served.call_id,)),
         lambda found: len(found) >= 1,
         seconds=40,
     )

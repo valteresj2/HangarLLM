@@ -3,19 +3,19 @@ from collections.abc import Mapping
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.decisions.call import _decisions_config
-from litellm.hangar.decisions.formats import (
+import hangarllm
+from hangarllm.decisions.call import _decisions_config
+from hangarllm.hangar.decisions.formats import (
     OpenAIShapedDecisionsFormat,
     available_decisions_formats,
     register_decisions_format,
     reset_decisions_formats,
     resolve_decisions_format,
 )
-from litellm.llms.openai.decisions.transformation import OpenAIDecisionsConfig
-from litellm.llms.openrouter.decisions.transformation import OpenRouterDecisionsConfig
-from litellm.proxy.auth.auth_utils import is_request_body_safe
-from litellm.types.decisions import DecisionsIRRequest, OpenAIDecisionRequestBody
+from hangarllm.llms.openai.decisions.transformation import OpenAIDecisionsConfig
+from hangarllm.llms.openrouter.decisions.transformation import OpenRouterDecisionsConfig
+from hangarllm.proxy.auth.auth_utils import is_request_body_safe
+from hangarllm.types.decisions import DecisionsIRRequest, OpenAIDecisionRequestBody
 
 
 class AcmeFormat(OpenAIShapedDecisionsFormat):
@@ -33,13 +33,13 @@ class AcmeFormat(OpenAIShapedDecisionsFormat):
 @pytest.fixture(autouse=True)
 def _clean_registry(monkeypatch):
     reset_decisions_formats()
-    monkeypatch.setattr(litellm, "decisions_formats", None, raising=False)
+    monkeypatch.setattr(hangarllm, "decisions_formats", None, raising=False)
     yield
     reset_decisions_formats()
 
 
 def _request() -> DecisionsIRRequest:
-    from litellm.llms.openai.decisions.transformation import openai_request_to_ir
+    from hangarllm.llms.openai.decisions.transformation import openai_request_to_ir
 
     return openai_request_to_ir(
         OpenAIDecisionRequestBody.model_validate(
@@ -82,8 +82,8 @@ class TestResolution:
             calls.append(path)
             return AcmeFormat
 
-        monkeypatch.setattr("litellm.proxy.types_utils.utils.get_instance_fn", fake_get_instance)
-        monkeypatch.setattr(litellm, "decisions_formats", {"acme": "acme_decisions.AcmeFormat"}, raising=False)
+        monkeypatch.setattr("hangarllm.proxy.types_utils.utils.get_instance_fn", fake_get_instance)
+        monkeypatch.setattr(hangarllm, "decisions_formats", {"acme": "acme_decisions.AcmeFormat"}, raising=False)
         assert isinstance(resolve_decisions_format("acme"), AcmeFormat)
         assert isinstance(resolve_decisions_format("acme"), AcmeFormat)
         assert calls == ["acme_decisions.AcmeFormat"]
@@ -95,8 +95,8 @@ class TestResolution:
         def failing(path, config_file_path=None):
             raise ImportError("missing module")
 
-        monkeypatch.setattr("litellm.proxy.types_utils.utils.get_instance_fn", failing)
-        monkeypatch.setattr(litellm, "decisions_formats", {"acme": "missing.Format"}, raising=False)
+        monkeypatch.setattr("hangarllm.proxy.types_utils.utils.get_instance_fn", failing)
+        monkeypatch.setattr(hangarllm, "decisions_formats", {"acme": "missing.Format"}, raising=False)
         assert resolve_decisions_format("acme") is None
         assert "acme" not in {item.name for item in available_decisions_formats()}
 
@@ -126,10 +126,16 @@ class TestDeploymentSelection:
         assert type(_decisions_config("x", "openrouter", unset)) is OpenRouterDecisionsConfig
 
     def test_unknown_format_is_a_clear_client_error(self):
-        with pytest.raises(litellm.BadRequestError, match="openrouter"):
+        with pytest.raises(hangarllm.BadRequestError, match="openrouter"):
             _decisions_config("x", "openai", "nope")
 
 
 def test_callers_cannot_pick_the_format_from_the_request_body():
     with pytest.raises((ValueError, HTTPException), match="decisions_format"):
         is_request_body_safe({"model": "m", "decisions_format": "acme"}, {}, None, "m", route="/v1/decisions")
+
+
+def test_third_party_import_of_the_upstream_name_gets_this_package():
+    import importlib
+
+    assert importlib.import_module("litellm").__name__ == hangarllm.__name__

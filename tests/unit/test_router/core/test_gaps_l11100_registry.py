@@ -14,9 +14,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.router_api import ChangeSet
-from litellm.types.router import Deployment
+import hangarllm
+from hangarllm.router_api import ChangeSet
+from hangarllm.types.router import Deployment
 from tests.unit.test_router.core.construction_precall_helpers import restoring_model_cost
 from tests.unit.test_router.core.gaps_l11100_helpers import MakeCore, ModelsEndpoint, complexity_marker, model_ids
 from tests.unit.test_router.core.registry_helpers import team_deployment
@@ -95,7 +95,7 @@ def test_data_source_endpoint_and_key_env_references_are_resolved(make_core: Mak
         ]
     )
 
-    stored: Final = core.registry().all()[0]["litellm_params"]["dataSources"]
+    stored: Final = core.registry().all()[0]["hangarllm_params"]["dataSources"]
     assert stored == [
         {
             "type": "AzureCognitiveSearch",
@@ -112,7 +112,7 @@ def test_a_vertex_pass_through_deployment_without_project_and_location_is_reject
     with pytest.raises(ValueError, match="vertex_project") as raised:
         make_core(model_list=[deployment("gem", "g", model="vertex_ai/gemini-pro", use_in_pass_through=True)])
     assert str(raised.value) == (
-        "vertex_project, and vertex_location must be set in litellm_params for pass-through endpoints."
+        "vertex_project, and vertex_location must be set in hangarllm_params for pass-through endpoints."
     )
 
 
@@ -171,7 +171,7 @@ def catalog_backend_keys() -> Generator[None, None, None]:
 
 
 def _limits(key: str) -> tuple[object, object]:
-    entry: Final = litellm.model_cost.get(key) or {}
+    entry: Final = hangarllm.model_cost.get(key) or {}
     return entry.get("max_input_tokens"), entry.get("max_output_tokens")
 
 
@@ -221,9 +221,9 @@ def test_a_responses_model_registers_its_backend_key_with_and_without_the_respon
     deployment_id: Final = _unique("l11100-id")
     make_core(model_list=[deployment("gpt", deployment_id, model=f"openai/responses/{name}", input_cost_per_token=0.1)])
 
-    assert litellm.model_cost[f"openai/responses/{name}"].get("input_cost_per_token") is None
-    assert litellm.model_cost[f"openai/{name}"].get("input_cost_per_token") is None
-    assert litellm.model_cost[deployment_id]["input_cost_per_token"] == 0.1
+    assert hangarllm.model_cost[f"openai/responses/{name}"].get("input_cost_per_token") is None
+    assert hangarllm.model_cost[f"openai/{name}"].get("input_cost_per_token") is None
+    assert hangarllm.model_cost[deployment_id]["input_cost_per_token"] == 0.1
 
 
 def test_custom_pricing_on_a_strategy_marker_is_not_registered_as_a_price(make_core: MakeCore) -> None:
@@ -238,7 +238,7 @@ def test_custom_pricing_on_a_strategy_marker_is_not_registered_as_a_price(make_c
         ]
     )
 
-    entry: Final = litellm.model_cost[marker_id]
+    entry: Final = hangarllm.model_cost[marker_id]
     assert "input_cost_per_token" not in entry
     assert "output_cost_per_token" not in entry
 
@@ -253,13 +253,13 @@ def test_replaying_cost_registrations_restores_the_entries_of_deployments_still_
         ]
     )
     core.apply(ChangeSet(delete=[deleted]))
-    litellm.model_cost.pop(kept, None)
-    litellm.model_cost.pop(deleted, None)
+    hangarllm.model_cost.pop(kept, None)
+    hangarllm.model_cost.pop(deleted, None)
 
     core.replay_model_cost_registrations()  # pyright: ignore[reportAttributeAccessIssue]  # public on the core
 
-    assert litellm.model_cost[kept]["input_cost_per_token"] == 0.25
-    assert deleted not in litellm.model_cost
+    assert hangarllm.model_cost[kept]["input_cost_per_token"] == 0.25
+    assert deleted not in hangarllm.model_cost
 
 
 # --- deployment budgets --------------------------------------------------------------------------------------
@@ -337,7 +337,7 @@ def test_credentials_with_provider_name_the_provider(
 
 def test_credentials_with_provider_drop_an_unknown_credential_name(make_core: MakeCore) -> None:
     found: Final = (
-        make_core(model_list=[deployment("gpt", "a", litellm_credential_name="l11100-no-such-credential")])
+        make_core(model_list=[deployment("gpt", "a", hangarllm_credential_name="l11100-no-such-credential")])
         .registry()
         .credentials("a", form="with_provider")
     )
@@ -366,7 +366,7 @@ def test_router_model_info_of_an_azure_deployment(
     )
 
     info: Final = core.registry().router_model_info(None, "az", id="az")
-    builtin: Final = litellm.get_model_info("azure/gpt-4o")
+    builtin: Final = hangarllm.get_model_info("azure/gpt-4o")
     assert info["key"] == expected_key
     assert info["max_input_tokens"] == builtin["max_input_tokens"]
     assert info["input_cost_per_token"] == builtin["input_cost_per_token"]
@@ -395,7 +395,7 @@ def test_deployment_model_info_takes_defaults_from_a_custom_base_model(make_core
     )
 
     info: Final = core.registry().deployment_model_info(name, f"openai/{name}")
-    builtin: Final = litellm.get_model_info("gpt-4o")
+    builtin: Final = hangarllm.get_model_info("gpt-4o")
     assert info is not None
     assert info["input_cost_per_token"] == 0.5
     assert info["output_cost_per_token"] == builtin["output_cost_per_token"]
@@ -426,7 +426,7 @@ def test_group_info_takes_the_widest_limits_highest_prices_and_any_capability(ma
     )
 
     info: Final = core.registry().group("g")
-    opus: Final = litellm.get_model_info("anthropic/claude-opus-4-6")
+    opus: Final = hangarllm.get_model_info("anthropic/claude-opus-4-6")
     assert info is not None
     assert info.providers == ["openai", "anthropic"]
     assert (info.max_input_tokens, info.max_output_tokens) == (opus["max_input_tokens"], opus["max_output_tokens"])
@@ -600,7 +600,7 @@ VLLM_CARDS: Final = {"data": [{"id": "my-model", "max_model_len": 8192}, {"id": 
 
 def _vllm(
     deployment_id: str = "v", **params: object
-) -> dict[str, object]:  # mutable-ok: a model_list entry  # kwargs-ok: litellm_params
+) -> dict[str, object]:  # mutable-ok: a model_list entry  # kwargs-ok: hangarllm_params
     return deployment(
         "vllm", deployment_id, model="hosted_vllm/my-model", api_base="http://vllm.local", api_key="sk-vllm", **params
     )
@@ -711,7 +711,7 @@ def test_a_replay_retries_deployments_whose_provider_did_not_resolve_and_keeps_t
 
 def test_group_info_without_a_cost_map_entry_falls_back_to_the_configured_mode_and_costs(make_core: MakeCore) -> None:
     """With the entries construction registered withdrawn from the cost map (as a price data reload
-    does before the replay) and a model litellm does not map, the group is described from the
+    does before the replay) and a model hangarllm does not map, the group is described from the
     deployment's own model_info: its mode, its costs (a string cost read as a float, a missing one as
     None) and the provider's supported params, with no token limits."""
     name: Final = _unique()
@@ -722,8 +722,8 @@ def test_group_info_without_a_cost_map_entry_falls_back_to_the_configured_mode_a
             )
         ]
     )
-    litellm.model_cost.pop(name, None)
-    litellm.model_cost.pop(f"openai/{name}", None)
+    hangarllm.model_cost.pop(name, None)
+    hangarllm.model_cost.pop(f"openai/{name}", None)
 
     info: Final = core.registry().group("g")
     assert info is not None

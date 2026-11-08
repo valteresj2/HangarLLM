@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from prisma.errors import DataError
 
-from litellm.proxy.db.log_db_metrics import record_db_io
+from hangarllm.proxy.db.log_db_metrics import record_db_io
 
 _T = TypeVar("_T")
 

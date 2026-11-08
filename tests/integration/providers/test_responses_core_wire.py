@@ -16,9 +16,9 @@ from integration._support.worker_readiness import wait_for_worker_readiness
 from openai.types.responses import ResponseCompletedEvent
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.types.llms.openai import ResponseCompletedEvent as LiteLLMResponseCompletedEvent
-from litellm.types.llms.openai import ResponsesAPIResponse
+import hangarllm
+from hangarllm.types.llms.openai import ResponseCompletedEvent as HangarLLMResponseCompletedEvent
+from hangarllm.types.llms.openai import ResponsesAPIResponse
 
 _MODEL: Final = "gpt-5"
 _API_KEY: Final = "synthetic-responses-key"
@@ -112,7 +112,7 @@ async def test_regression_sdk_comparison_response_id_is_raw_on_the_wire(
         )
 
     with wire_server(respond) as wire:
-        seeded: Final = litellm.responses(
+        seeded: Final = hangarllm.responses(
             model=f"openai/{_MODEL}", input="seed comparison", api_base=f"{wire.url}/v1", api_key=_API_KEY
         )
         assert isinstance(seeded, ResponsesAPIResponse), seeded
@@ -135,19 +135,19 @@ async def test_regression_sdk_comparison_response_id_is_raw_on_the_wire(
             ),
         }
         original: Final = deepcopy(params)
-        result: Final = await litellm.aresponses(**params) if asynchronous else litellm.responses(**params)
+        result: Final = await hangarllm.aresponses(**params) if asynchronous else hangarllm.responses(**params)
         if stream:
             if asynchronous:
                 assert isinstance(result, _AsyncResponseEvents), result
                 async_events: Final = tuple([event async for event in result])
                 async_completed: Final = async_events[-1]
-                assert isinstance(async_completed, LiteLLMResponseCompletedEvent), async_events
+                assert isinstance(async_completed, HangarLLMResponseCompletedEvent), async_events
                 assert async_completed.response.status == "completed", async_events
             else:
                 assert isinstance(result, _ResponseEvents), result
                 sync_events: Final = tuple(result)
                 sync_completed: Final = sync_events[-1]
-                assert isinstance(sync_completed, LiteLLMResponseCompletedEvent), sync_events
+                assert isinstance(sync_completed, HangarLLMResponseCompletedEvent), sync_events
                 assert sync_completed.response.status == "completed", sync_events
         else:
             assert isinstance(result, ResponsesAPIResponse), result
@@ -165,7 +165,7 @@ async def test_regression_sdk_comparison_response_id_is_raw_on_the_wire(
         "cmF3X3ZlbmRvcl9pZA==",
         pytest.param(
             "resp_"
-            + base64.b64encode(b"litellm:custom_llm_provider:xai;model_id:foreign;response_id:resp_foreign").decode(),
+            + base64.b64encode(b"hangarllm:custom_llm_provider:xai;model_id:foreign;response_id:resp_foreign").decode(),
             id="foreign-provider-wrapper",
         ),
         pytest.param("resp_" + base64.b64encode(b"custom;id;response").decode(), id="unmanaged-semicolons"),
@@ -194,7 +194,7 @@ def test_guard_sdk_custom_host_preserves_unmanaged_comparison_ids(extra: bool, c
             {"extra_body": {"prompt_cache_options": options}} if extra else {"prompt_cache_options": options}
         )
         original: Final = deepcopy(params)
-        result: Final = litellm.responses(
+        result: Final = hangarllm.responses(
             model=f"openai/{_MODEL}", input="custom comparison", api_base=f"{wire.url}/v1", api_key=_API_KEY, **params
         )
         assert isinstance(result, ResponsesAPIResponse), result
@@ -213,7 +213,7 @@ def test_guard_inherited_responses_providers_preserve_comparison_wrappers(provid
         return Reply(body=_response(raw_id))
 
     with wire_server(seed) as seed_wire:
-        seeded: Final = litellm.responses(
+        seeded: Final = hangarllm.responses(
             model=f"openai/{_MODEL}",
             input="seed inherited comparison",
             api_base=f"{seed_wire.url}/v1",
@@ -241,7 +241,7 @@ def test_guard_inherited_responses_providers_preserve_comparison_wrappers(provid
         params: Final = (
             {"extra_body": {"prompt_cache_options": options}} if extra else {"prompt_cache_options": options}
         )
-        result: Final = litellm.responses(
+        result: Final = hangarllm.responses(
             model=f"{provider}/{_MODEL}",
             input="inherited comparison",
             api_base=wire.url if provider == "azure" else f"{wire.url}/v1",
@@ -260,7 +260,7 @@ def _register_in_group(scenario: Scenario, wire: Wire, group: str, order: int | 
         "/model/new",
         {
             "model_name": group,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{_MODEL}",
                 "api_key": _API_KEY,
                 "api_base": f"{wire.url}/v1",

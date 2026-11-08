@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.llms.fireworks_ai.common_utils import resolve_fireworks_resource_name
+from hangarllm.llms.fireworks_ai.common_utils import resolve_fireworks_resource_name
 
 
 @pytest.mark.parametrize(

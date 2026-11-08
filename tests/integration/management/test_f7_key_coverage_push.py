@@ -5,7 +5,7 @@ from typing import Any, Dict, Final, Optional
 import pytest
 from prisma import Json
 
-from litellm.proxy.utils import hash_token
+from hangarllm.proxy.utils import hash_token
 
 from tests.integration._support.actors import TEAM_ALPHA, TEAM_BETA, Actor
 from tests.integration._support.actors import create_scratch_key, create_scratch_team
@@ -39,7 +39,7 @@ async def _seed_token(
         data["metadata"] = Json(metadata)
     if team_id is not None:
         data["team_id"] = team_id
-    await db.db.litellm_verificationtoken.create(data=data)
+    await db.db.hangarllm_verificationtoken.create(data=data)
     return cleartext
 
 
@@ -133,7 +133,7 @@ async def test_reset_spend_happy_path(gateway_client, db, resources, actors):
     assert resp.json()["spend"] == 1.0
     assert resp.json()["previous_spend"] == 5.0
 
-    row = await db.db.litellm_verificationtoken.find_unique(
+    row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": hash_token(cleartext)}
     )
     assert row is not None
@@ -170,7 +170,7 @@ async def test_reset_spend_validate_value_branches(
     assert resp.status_code == 400, resp.text
     assert expected_detail in resp.text, resp.text
     # Row spend must be unchanged.
-    row = await db.db.litellm_verificationtoken.find_unique(
+    row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": hash_token(cleartext)}
     )
     assert row.spend == 5.0, "spend mutated despite validation rejection"
@@ -199,7 +199,7 @@ async def test_reset_spend_non_admin_caller_rejected(
     # Route-level admin gate may fire first (401) or the helper's own 403 —
     # both prove the path is guarded; pin either as rejection.
     assert resp.status_code in (401, 403), resp.text
-    row = await db.db.litellm_verificationtoken.find_unique(
+    row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": hash_token(cleartext)}
     )
     assert row.spend == 5.0, "spend mutated despite rejection"
@@ -255,13 +255,13 @@ async def test_regenerate_happy_path(gateway_client, db, resources, actors):
     assert new_hash != old_hash
 
     # Old token should no longer be in active tokens (deleted by regenerate).
-    old_row = await db.db.litellm_verificationtoken.find_unique(
+    old_row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": old_hash}
     )
     assert old_row is None, "old token still present after regenerate"
 
     # New token should be active.
-    new_row = await db.db.litellm_verificationtoken.find_unique(
+    new_row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": new_hash}
     )
     assert new_row is not None, "new token not written after regenerate"
@@ -283,7 +283,7 @@ async def test_regenerate_with_explicit_new_key(gateway_client, db, resources, a
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["key"] == new_key
-    new_row = await db.db.litellm_verificationtoken.find_unique(
+    new_row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": hash_token(new_key)}
     )
     assert new_row is not None
@@ -410,7 +410,7 @@ async def test_key_bulk_update_mixed_success_and_failure(
     assert len(body["successful_updates"]) == 1
     assert len(body["failed_updates"]) == 1
     # Re-read confirms the successful key was actually updated.
-    row = await db.db.litellm_verificationtoken.find_unique(
+    row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": hash_token(existing)}
     )
     assert row.max_budget == 5.0
@@ -480,7 +480,7 @@ async def test_key_update_with_duration_and_budget_duration(
         },
     )
     assert resp.status_code == 200, resp.text
-    row = await db.db.litellm_verificationtoken.find_unique(
+    row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": hash_token(cleartext)}
     )
     assert row is not None
@@ -510,7 +510,7 @@ async def test_key_update_with_clear_duration(gateway_client, db, resources, act
         json={"key": cleartext, "duration": "1h"},
     )
     assert expiring.status_code == 200, expiring.text
-    expiring_row = await db.db.litellm_verificationtoken.find_unique(
+    expiring_row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": hash_token(cleartext)}
     )
     assert expiring_row.expires is not None, "duration=1h did not set expires"
@@ -521,7 +521,7 @@ async def test_key_update_with_clear_duration(gateway_client, db, resources, act
         json={"key": cleartext, "duration": "-1"},
     )
     assert resp.status_code == 200, resp.text
-    row = await db.db.litellm_verificationtoken.find_unique(
+    row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": hash_token(cleartext)}
     )
     assert row.expires is None, "expires not cleared by duration=-1"
@@ -593,7 +593,7 @@ async def test_team_key_bulk_update_all_keys_in_team(
     assert body["total_requested"] == 2
     # Re-read both keys; max_budget should be set.
     for k in (k1, k2):
-        row = await db.db.litellm_verificationtoken.find_unique(
+        row = await db.db.hangarllm_verificationtoken.find_unique(
             where={"token": hash_token(k)}
         )
         assert row.max_budget == 7.0
@@ -821,7 +821,7 @@ async def test_key_list_filter_branches(filter_name: str, gateway_client, resour
 # ---------------------------------------------------------------------------
 # /key/regenerate with grace_period — pins _insert_deprecated_key body
 # (lines 4168–4202). The old token gets retained in
-# LiteLLM_DeprecatedVerificationToken; assert it lands there.
+# HangarLLM_DeprecatedVerificationToken; assert it lands there.
 # ---------------------------------------------------------------------------
 
 
@@ -844,14 +844,14 @@ async def test_regenerate_with_grace_period_inserts_deprecated_row(
     assert resp.status_code == 200, resp.text
     new_key = resp.json()["key"]
     # Old token should now be in the deprecated table.
-    deprecated_row = await db.db.litellm_deprecatedverificationtoken.find_unique(
+    deprecated_row = await db.db.hangarllm_deprecatedverificationtoken.find_unique(
         where={"token": old_hash}
     )
     assert deprecated_row is not None, "old token not retained in deprecated table"
     assert deprecated_row.active_token_id == hash_token(new_key)
     assert deprecated_row.revoke_at is not None
     # Manual cleanup — resources prefix sweep doesn't cover this table.
-    await db.db.litellm_deprecatedverificationtoken.delete(
+    await db.db.hangarllm_deprecatedverificationtoken.delete(
         where={"token": old_hash}
     )
 
@@ -875,7 +875,7 @@ async def test_regenerate_with_invalid_grace_period_format(
         json={"grace_period": "totally-not-a-duration"},
     )
     assert resp.status_code == 200, resp.text
-    deprecated_row = await db.db.litellm_deprecatedverificationtoken.find_unique(
+    deprecated_row = await db.db.hangarllm_deprecatedverificationtoken.find_unique(
         where={"token": old_hash}
     )
     assert deprecated_row is None, "deprecated row created despite invalid grace_period"

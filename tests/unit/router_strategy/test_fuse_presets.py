@@ -6,7 +6,7 @@ from typing import Final, Literal
 import pytest
 from pydantic import ValidationError
 
-from litellm.router_strategy.complexity_router.fuse_presets import get_fuse_presets, resolve_fuse_profile
+from hangarllm.router_strategy.complexity_router.fuse_presets import get_fuse_presets, resolve_fuse_profile
 
 
 def test_catalog_is_loaded_once_and_preserves_bundled_content() -> None:
@@ -15,7 +15,7 @@ def test_catalog_is_loaded_once_and_preserves_bundled_content() -> None:
     second: Final = get_fuse_presets()
     assert first is second
     bundled: Final = json.loads(
-        files("litellm.router_strategy.complexity_router").joinpath("fuse_presets.json").read_text(encoding="utf-8")
+        files("hangarllm.router_strategy.complexity_router").joinpath("fuse_presets.json").read_text(encoding="utf-8")
     )
     assert first.model_dump(mode="json") == bundled
     entries: Final = (*first.models, *first.harnesses)

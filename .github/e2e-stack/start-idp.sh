@@ -35,7 +35,7 @@ docker run -d --name e2e-keycloak "${IDP_NETWORK_ARGS[@]}" --memory 1536m \
 
 deadline=$((SECONDS + ${E2E_KEYCLOAK_STARTUP_TIMEOUT:-300}))
 until curl -fsS --connect-timeout 2 --max-time 3 \
-  "http://127.0.0.1:${KEYCLOAK_PORT}/realms/litellm-e2e/.well-known/openid-configuration" >/dev/null 2>&1; do
+  "http://127.0.0.1:${KEYCLOAK_PORT}/realms/hangarllm-e2e/.well-known/openid-configuration" >/dev/null 2>&1; do
   if ((SECONDS >= deadline)); then
     echo 'e2e-stack: timed out waiting for the Keycloak realm' >&2
     exit 1

@@ -26,7 +26,7 @@ from typing import Any, Dict, Optional
 import pytest
 from prisma import Json
 
-from litellm.proxy.utils import hash_token
+from hangarllm.proxy.utils import hash_token
 
 from tests.integration._support.actors import TEAM_ALPHA, Actor
 from tests.integration._support.actors import create_scratch_org, create_scratch_team
@@ -79,7 +79,7 @@ async def test_org_team_guaranteed_throughput_model_over_bound_rejected(
     # 20 (sibling) + 100 (new) > 30 (org cap) → guard fires.
     assert resp.status_code == 400, resp.text
     assert "RPM" in resp.text, resp.text
-    rows = await db.db.litellm_teamtable.find_many(where={"team_id": team_id})
+    rows = await db.db.hangarllm_teamtable.find_many(where={"team_id": team_id})
     assert rows == []
 
 
@@ -118,7 +118,7 @@ async def test_org_team_guaranteed_throughput_model_tpm_over_bound_rejected(
     )
     assert resp.status_code == 400, resp.text
     assert "TPM" in resp.text, resp.text
-    rows = await db.db.litellm_teamtable.find_many(where={"team_id": team_id})
+    rows = await db.db.hangarllm_teamtable.find_many(where={"team_id": team_id})
     assert rows == []
 
 
@@ -149,7 +149,7 @@ async def test_org_team_guaranteed_throughput_counts_sibling_allocations(
         },
     )
     assert resp.status_code == expected_status, resp.text
-    rows = await db.db.litellm_teamtable.find_many(where={"team_id": team_id})
+    rows = await db.db.hangarllm_teamtable.find_many(where={"team_id": team_id})
     assert len(rows) == (1 if expected_status == 200 else 0)
     if expected_status == 400:
         assert "Allocated TPM limit=100" in resp.text, resp.text
@@ -178,7 +178,7 @@ async def test_key_generate_with_unknown_project_id_rejected(
     # The route's exception handler may wrap it; pin both shapes.
     assert resp.status_code in (400, 404), resp.text
     assert "project" in resp.text.lower() or "not found" in resp.text.lower(), resp.text
-    rows = await db.db.litellm_verificationtoken.find_many(
+    rows = await db.db.hangarllm_verificationtoken.find_many(
         where={"key_alias": resources.prefix}
     )
     assert rows == [], "rejected key leaked a row"
@@ -196,7 +196,7 @@ async def _seed_key_for_relocation(
     db, scratch_prefix: str, *, user_id: str, team_id: str
 ) -> str:
     cleartext = "sk-" + uuid.uuid4().hex
-    await db.db.litellm_verificationtoken.create(
+    await db.db.hangarllm_verificationtoken.create(
         data={
             "token": hash_token(cleartext),
             "key_alias": f"{scratch_prefix}-key",
@@ -214,7 +214,7 @@ async def test_team_new_with_team_member_budget_creates_budget_row(
 ):
     """/team/new with `team_member_budget` routes through
     TeamMemberBudgetHandler.create_team_member_budget_table (lines 196–248).
-    Observable end-state: a litellm_budgettable row is created and the
+    Observable end-state: a hangarllm_budgettable row is created and the
     team's metadata.team_member_budget_id points at it."""
     seeder = actors.keys[Actor.PROXY_ADMIN].cleartext
     team_id = resources.tag("team-with-mbudget")
@@ -230,7 +230,7 @@ async def test_team_new_with_team_member_budget_creates_budget_row(
         },
     )
     assert resp.status_code == 200, resp.text
-    team_row = await db.db.litellm_teamtable.find_unique(where={"team_id": team_id})
+    team_row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": team_id})
     assert team_row is not None
     budget_id = (team_row.metadata or {}).get("team_member_budget_id")
     assert (
@@ -242,7 +242,7 @@ async def test_team_new_with_team_member_budget_creates_budget_row(
     # reclaim it. Cleanup must run even when a downstream assertion fires;
     # otherwise orphan rows accumulate across CI re-runs.
     try:
-        budget_row = await db.db.litellm_budgettable.find_unique(
+        budget_row = await db.db.hangarllm_budgettable.find_unique(
             where={"budget_id": budget_id}
         )
         assert budget_row is not None, "team_member_budget row was not created"
@@ -250,11 +250,11 @@ async def test_team_new_with_team_member_budget_creates_budget_row(
         assert budget_row.rpm_limit == 100
         assert budget_row.tpm_limit == 1000
     finally:
-        await db.db.litellm_teamtable.update(
+        await db.db.hangarllm_teamtable.update(
             where={"team_id": team_id},
             data={"metadata": Json({})},
         )
-        await db.db.litellm_budgettable.delete(where={"budget_id": budget_id})
+        await db.db.hangarllm_budgettable.delete(where={"budget_id": budget_id})
 
 
 async def test_team_update_team_member_budget_upserts(
@@ -271,25 +271,25 @@ async def test_team_update_team_member_budget_upserts(
         },
     )
     assert resp.status_code == 200, resp.text
-    team_row = await db.db.litellm_teamtable.find_unique(where={"team_id": team_id})
+    team_row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": team_id})
     assert team_row is not None
     budget_id = (team_row.metadata or {}).get("team_member_budget_id")
     assert budget_id is not None, "team_member_budget_id not upserted"
-    budget_row = await db.db.litellm_budgettable.find_unique(where={"budget_id": budget_id})
+    budget_row = await db.db.hangarllm_budgettable.find_unique(where={"budget_id": budget_id})
     assert budget_row is not None and budget_row.max_budget == 5.0, budget_row
 
     try:
-        budget_row: Final = await db.db.litellm_budgettable.find_unique(
+        budget_row: Final = await db.db.hangarllm_budgettable.find_unique(
             where={"budget_id": budget_id}
         )
         assert budget_row is not None, "team_member_budget row was not created"
         assert budget_row.max_budget == 5.0
     finally:
-        await db.db.litellm_teamtable.update(
+        await db.db.hangarllm_teamtable.update(
             where={"team_id": team_id},
             data={"metadata": Json({})},
         )
-        await db.db.litellm_budgettable.delete(where={"budget_id": budget_id})
+        await db.db.hangarllm_budgettable.delete(where={"budget_id": budget_id})
 
 
 async def test_key_team_change_accepted_by_target_team_admin(
@@ -302,10 +302,10 @@ async def test_key_team_change_accepted_by_target_team_admin(
     Hits validate_key_team_change line 3007–3011."""
     actor_user_id = f"{resources.prefix}-self-admin"
     actor_cleartext = "sk-" + uuid.uuid4().hex
-    await db.db.litellm_usertable.create(
+    await db.db.hangarllm_usertable.create(
         data={"user_id": actor_user_id, "user_role": "internal_user"}
     )
-    await db.db.litellm_verificationtoken.create(
+    await db.db.hangarllm_verificationtoken.create(
         data={
             "token": hash_token(actor_cleartext),
             "key_alias": f"{resources.prefix}-actor-key",
@@ -334,7 +334,7 @@ async def test_key_team_change_accepted_by_target_team_admin(
         json={"key": key_cleartext, "team_id": target_team},
     )
     assert resp.status_code == 200, resp.text
-    row = await db.db.litellm_verificationtoken.find_unique(
+    row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": hash_token(key_cleartext)}
     )
     assert row is not None

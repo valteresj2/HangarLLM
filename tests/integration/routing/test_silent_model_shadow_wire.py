@@ -123,7 +123,7 @@ class _SpendRow:
 
 def _spend_row(gateway: Gateway, request_id: str) -> tuple[_SpendRow, ...]:
     rows: Final = gateway.rows(
-        'SELECT model_group, spend FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (request_id,)
+        'SELECT model_group, spend FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (request_id,)
     )
     return tuple(_SpendRow(request_id, str(row["model_group"]), float(str(row["spend"]))) for row in rows)
 

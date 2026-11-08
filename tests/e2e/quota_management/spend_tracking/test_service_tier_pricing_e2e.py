@@ -43,7 +43,7 @@ from models import (
     ChatBody,
     ChatMessage,
     ChatStreamOptions,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     ResponsesStreamBody,
 )
 from pydantic import BaseModel
@@ -116,7 +116,7 @@ class TestServiceTierPricing:
             client.proxy,
             resources,
             "tier-priced",
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=BACKEND,
                 api_key=OPENAI_API_KEY,
                 input_cost_per_token=INPUT_RATE,
@@ -200,7 +200,7 @@ class TestServiceTierPricing:
             client.proxy,
             resources,
             "tier-priced-stream",
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=BACKEND,
                 api_key=OPENAI_API_KEY,
                 input_cost_per_token=INPUT_RATE,
@@ -254,7 +254,7 @@ class TestServiceTierPricing:
         self, client: SpendClient, resources: ResourceManager, scoped_key: str
     ) -> None:
         model = register_priced_model(
-            client.proxy, resources, "tier-echo-stream", LiteLLMParamsBody(model=STREAM_BACKEND, api_key=OPENAI_API_KEY)
+            client.proxy, resources, "tier-echo-stream", HangarLLMParamsBody(model=STREAM_BACKEND, api_key=OPENAI_API_KEY)
         )
         result = client.proxy.chat_stream(
             scoped_key,
@@ -296,7 +296,7 @@ class TestServiceTierPricing:
             client.proxy,
             resources,
             "tier-responses-stream",
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=STREAM_BACKEND,
                 api_key=OPENAI_API_KEY,
                 input_cost_per_token=INPUT_RATE,
@@ -351,7 +351,7 @@ class TestServiceTierPricing:
             client.proxy,
             resources,
             "tier-messages-stream",
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=STREAM_BACKEND,
                 api_key=OPENAI_API_KEY,
                 input_cost_per_token=INPUT_RATE,

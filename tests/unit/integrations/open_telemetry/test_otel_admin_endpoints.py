@@ -10,8 +10,8 @@ import httpx
 import pytest
 from fastapi import Request
 
-from litellm import Router
-from litellm.proxy._types import (
+from hangarllm import Router
+from hangarllm.proxy._types import (
     ManagementEndpointLoggingPayload,
     UserAPIKeyAuth,
 )
@@ -203,8 +203,8 @@ def test_management_wrapper_success_ends_server_span_without_http_request(
     the real wrapper around an ``http_request``-less handler and asserts the
     SERVER span reaches the exporter with status 200.
     """
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.management_helpers import utils as mgmt_utils
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.management_helpers import utils as mgmt_utils
 
     otel, exporter = otel_with_exporter
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", otel, raising=False)
@@ -236,8 +236,8 @@ def test_management_wrapper_failure_ends_server_span(server_span_factory, otel_w
     """When the handler raises, the wrapper must route through the failure hook
     and stamp + end the parent SERVER span with the error status — even for an
     ``http_request``-less handler (route falls back to ``func.__name__``)."""
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.management_helpers import utils as mgmt_utils
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.management_helpers import utils as mgmt_utils
 
     otel, exporter = otel_with_exporter
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", otel, raising=False)
@@ -262,8 +262,8 @@ def test_management_wrapper_failure_ends_server_span(server_span_factory, otel_w
 def test_management_wrapper_success_with_http_request(server_span_factory, otel_with_exporter, monkeypatch):
     """Cover the branch where the handler DOES declare ``http_request``: the
     route comes from ``http_request.url.path`` and the body is read from it."""
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.management_helpers import utils as mgmt_utils
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.management_helpers import utils as mgmt_utils
 
     otel, exporter = otel_with_exporter
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", otel, raising=False)
@@ -301,8 +301,8 @@ def test_management_wrapper_success_with_http_request(server_span_factory, otel_
 def test_management_wrapper_noop_when_otel_logger_absent(server_span_factory, otel_with_exporter, monkeypatch):
     """When no OTEL logger is registered, the helper early-returns and no SERVER
     span is exported — and the handler result is still returned unchanged."""
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.management_helpers import utils as mgmt_utils
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.management_helpers import utils as mgmt_utils
 
     _otel, exporter = otel_with_exporter
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", None, raising=False)
@@ -323,8 +323,8 @@ def test_management_wrapper_noop_when_otel_logger_absent(server_span_factory, ot
 def test_management_wrapper_swallows_post_success_errors(server_span_factory, otel_with_exporter, monkeypatch):
     """A failure in post-success bookkeeping (cache invalidation, alerting) must
     not propagate — the handler result is returned regardless (non-blocking)."""
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.management_helpers import utils as mgmt_utils
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.management_helpers import utils as mgmt_utils
 
     otel, _exporter = otel_with_exporter
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", otel, raising=False)
@@ -370,7 +370,7 @@ def _request(method: str, path: str, body: bytes = b"") -> Request:
 
 
 async def _answer_like_the_proxy(request: Request, exception: Exception) -> None:
-    from litellm.proxy.proxy_server import app
+    from hangarllm.proxy.proxy_server import app
 
     handler: Final = next(
         app.exception_handlers[cls] for cls in type(exception).__mro__ if cls in app.exception_handlers
@@ -383,8 +383,8 @@ async def _answer_like_the_proxy(request: Request, exception: Exception) -> None
     [("management_endpoint_wrapper", True), ("management_endpoint_span_wrapper", False)],
 )
 def test_span_wrapper_omits_payload(server_span_factory, otel_with_exporter, monkeypatch, wrapper_name, exports_payload):
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.management_helpers import utils as mgmt_utils
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.management_helpers import utils as mgmt_utils
 
     otel, exporter = otel_with_exporter
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", otel, raising=False)
@@ -417,8 +417,8 @@ def test_span_wrapper_omits_payload(server_span_factory, otel_with_exporter, mon
 def test_span_wrapper_omits_request_body_on_failure(
     server_span_factory, otel_with_exporter, monkeypatch, wrapper_name, exports_request_body
 ):
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.management_helpers import utils as mgmt_utils
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.management_helpers import utils as mgmt_utils
 
     otel, exporter = otel_with_exporter
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", otel, raising=False)
@@ -452,8 +452,8 @@ def test_span_wrapper_omits_request_body_on_failure(
     ],
 )
 def test_span_wrapper_failure_keeps_the_answered_status(otel_with_exporter, monkeypatch, raised, status_code):
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.management_helpers import utils as mgmt_utils
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.management_helpers import utils as mgmt_utils
 
     otel, exporter = otel_with_exporter
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", otel, raising=False)
@@ -486,7 +486,7 @@ def test_span_wrapper_failure_keeps_the_answered_status(otel_with_exporter, monk
 
 
 def _server_span(otel, path: str, headers: dict[str, str]):
-    server_span: Final = otel.create_litellm_proxy_request_started_span(start_time=datetime.now(), headers=headers)
+    server_span: Final = otel.create_hangarllm_proxy_request_started_span(start_time=datetime.now(), headers=headers)
     otel.set_proxy_request_route_attributes(server_span, url_path=path, http_route=path)
     return server_span
 
@@ -505,7 +505,7 @@ def _assert_ended_in_inbound_trace(exporter, path: str, handler_name: str) -> No
 
 
 def _install_proxy_state(monkeypatch, router: Router | None) -> None:
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     monkeypatch.setattr(proxy_server, "llm_router", router)
     monkeypatch.setattr(proxy_server, "prisma_client", None)
@@ -514,7 +514,7 @@ def _install_proxy_state(monkeypatch, router: Router | None) -> None:
 
 
 def test_model_list_ends_server_span_in_inbound_trace(otel_with_exporter, monkeypatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     otel, exporter = otel_with_exporter
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", otel, raising=False)
@@ -528,13 +528,13 @@ def test_model_list_ends_server_span_in_inbound_trace(otel_with_exporter, monkey
 
 
 def test_model_retrieve_ends_server_span_in_inbound_trace(otel_with_exporter, monkeypatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     otel, exporter = otel_with_exporter
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", otel, raising=False)
     _install_proxy_state(
         monkeypatch,
-        Router(model_list=[{"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-x"}}]),
+        Router(model_list=[{"model_name": "gpt-4o", "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-x"}}]),
     )
     server_span: Final = _server_span(otel, MODEL_RETRIEVE_PATH, headers={"traceparent": INBOUND_TRACEPARENT})
 

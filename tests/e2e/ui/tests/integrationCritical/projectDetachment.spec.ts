@@ -58,7 +58,7 @@ test("project creation and explicit detachment preserve saved scope and restore 
     for (const alias of [prefix, `${prefix}-outside`]) {
       const model = await post("/model/new", {
         model_name: alias,
-        litellm_params: {
+        hangarllm_params: {
           model: "openai/gpt-4o-mini",
           api_key: "synthetic-provider-key",
           api_base: `${process.env.INTEGRATION_UPSTREAM_URL}/v1`,

@@ -1,14 +1,14 @@
-# litellm_search_tools Data Source
+# hangarllm_search_tools Data Source
 
-Retrieves the list of search tools configured on the LiteLLM proxy, from both the database and the proxy config.
+Retrieves the list of search tools configured on the HangarLLM proxy, from both the database and the proxy config.
 
 ## Example Usage
 
 ```hcl
-data "litellm_search_tools" "all" {}
+data "hangarllm_search_tools" "all" {}
 
 output "search_tool_ids" {
-  value = data.litellm_search_tools.all.ids
+  value = data.hangarllm_search_tools.all.ids
 }
 ```
 
@@ -31,4 +31,4 @@ The following attributes are exported:
 
 ## Security Note
 
-`litellm_params` is not exposed through this data source because it may hold provider API keys.
+`hangarllm_params` is not exposed through this data source because it may hold provider API keys.

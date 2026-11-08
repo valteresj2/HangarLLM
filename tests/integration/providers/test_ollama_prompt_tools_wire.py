@@ -161,7 +161,7 @@ def _assert_tool_turn(prompt: str, result: str = _RESULT) -> None:
 def _spend_row(identity: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT model_group, status, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+            'SELECT model_group, status, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
             (identity,),
         ),
         lambda found: len(found) == 1,
@@ -173,7 +173,7 @@ def _spend_row(identity: str) -> dict[str, JsonValue]:
 def _model_spend_rows(model: str, expected: int) -> list[dict[str, JsonValue]]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, status, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE model_group=%s',
+            'SELECT request_id, status, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE model_group=%s',
             (model,),
         ),
         lambda found: len(found) >= expected,
@@ -875,7 +875,7 @@ def _raw_delta_contents(payloads: Sequence[dict[str, JsonValue]]) -> Iterator[st
 def _cache_rows(model: str) -> list[dict[str, JsonValue]]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, cache_hit, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)
+            'SELECT request_id, cache_hit, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)
         ),
         lambda found: len(found) >= 2,
         seconds=70,
@@ -1684,7 +1684,7 @@ def _first_message(payload: dict[str, JsonValue]) -> JsonValue:
 
 def _stored_messages(request_id: str) -> JsonValue:
     rows: Final = eventually(
-        lambda: read_rows('SELECT proxy_server_request FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (request_id,)),
+        lambda: read_rows('SELECT proxy_server_request FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (request_id,)),
         lambda found: len(found) == 1,
         seconds=70,
     )

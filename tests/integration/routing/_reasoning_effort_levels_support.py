@@ -235,7 +235,7 @@ def yaml_deployment(
     chosen: Final = backend(kind, wire_url)
     return {
         "model_name": model_name,
-        "litellm_params": {"model": chosen.provider_model, **chosen.params},
+        "hangarllm_params": {"model": chosen.provider_model, **chosen.params},
         "model_info": dict(model_info),
     }
 
@@ -244,13 +244,13 @@ def owned_config(
     directory: Path,
     model_list: Sequence[JsonValue],
     *,
-    litellm_settings: Mapping[str, JsonValue] = MappingProxyType({}),
+    hangarllm_settings: Mapping[str, JsonValue] = MappingProxyType({}),
 ) -> Path:
     config: Final = JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
     merged: Final = {
         **config,
         "model_list": list(model_list),
-        "litellm_settings": {**object_value(config["litellm_settings"]), "cache": False, **litellm_settings},
+        "hangarllm_settings": {**object_value(config["hangarllm_settings"]), "cache": False, **hangarllm_settings},
         "router_settings": {**object_value(config["router_settings"]), "num_retries": 0},
     }
     path: Final = directory / f"reasoning-effort-levels-{uuid.uuid4().hex}.yaml"

@@ -38,7 +38,7 @@ def served(seq: int, total_s: float) -> WireRecord:
 def _key_lookup(calls: int) -> StatementCalls:
     return StatementCalls(
         queryid=1,
-        query='SELECT * FROM "LiteLLM_VerificationToken" WHERE token = $1',
+        query='SELECT * FROM "HangarLLM_VerificationToken" WHERE token = $1',
         calls=calls,
         total_exec_ms=calls * 2.0,
     )
@@ -104,19 +104,19 @@ MAX_STATEMENT_CASE: Final = replace(CASE, limits=(Limit("postgres_max_statement_
 BACKGROUND_CAP_CASE: Final = replace(
     CASE,
     limits=(Limit("postgres_max_background_statement_per_request", max=0.9),),
-    background_cap_exempt_tables=frozenset({"LiteLLM_DailyGuardrailMetrics"}),
+    background_cap_exempt_tables=frozenset({"HangarLLM_DailyGuardrailMetrics"}),
 )
-GUARDRAIL_UPSERT: Final = 'INSERT INTO "LiteLLM_DailyGuardrailMetrics" ("guardrail_id","date") VALUES ($1,$2)'
-MODEL_USAGE_UPSERT: Final = 'INSERT INTO "LiteLLM_DailyModelUsage" ("date","model") VALUES ($1,$2)'
-TEAM_REFRESH: Final = 'SELECT * FROM "LiteLLM_TeamMembership" WHERE user_id = $1'
-USER_LOOKUP: Final = 'SELECT * FROM "LiteLLM_UserTable" WHERE user_id = $1'
+GUARDRAIL_UPSERT: Final = 'INSERT INTO "HangarLLM_DailyGuardrailMetrics" ("guardrail_id","date") VALUES ($1,$2)'
+MODEL_USAGE_UPSERT: Final = 'INSERT INTO "HangarLLM_DailyModelUsage" ("date","model") VALUES ($1,$2)'
+TEAM_REFRESH: Final = 'SELECT * FROM "HangarLLM_TeamMembership" WHERE user_id = $1'
+USER_LOOKUP: Final = 'SELECT * FROM "HangarLLM_UserTable" WHERE user_id = $1'
 
 
 def test_cache_refreshes_whose_sum_exceeds_the_cap_pass_the_per_statement_limit() -> None:
     statements: Final = (
         _statement(1, TEAM_REFRESH, calls=357),
         _statement(2, USER_LOOKUP, calls=245),
-        _statement(3, 'INSERT INTO "LiteLLM_DailyModelUsage" VALUES ($1)', calls=1000),
+        _statement(3, 'INSERT INTO "HangarLLM_DailyModelUsage" VALUES ($1)', calls=1000),
     )
 
     rows, exceeded = evaluate(MAX_STATEMENT_CASE, _observation_with(statements))
@@ -179,7 +179,7 @@ def test_background_cap_without_exemptions_counts_the_guardrail_upsert() -> None
 def _guardrail_rollup(calls: int) -> StatementCalls:
     return StatementCalls(
         queryid=2,
-        query='INSERT INTO "LiteLLM_DailyGuardrailMetrics" ("guardrail_id","date") VALUES ($1,$2) ON CONFLICT DO UPDATE',
+        query='INSERT INTO "HangarLLM_DailyGuardrailMetrics" ("guardrail_id","date") VALUES ($1,$2) ON CONFLICT DO UPDATE',
         calls=calls,
         total_exec_ms=calls * 1.0,
     )
@@ -188,7 +188,7 @@ def _guardrail_rollup(calls: int) -> StatementCalls:
 def _model_rollup(calls: int) -> StatementCalls:
     return StatementCalls(
         queryid=3,
-        query='INSERT INTO "LiteLLM_DailyModelUsage" ("model","date") VALUES ($1,$2) ON CONFLICT DO UPDATE',
+        query='INSERT INTO "HangarLLM_DailyModelUsage" ("model","date") VALUES ($1,$2) ON CONFLICT DO UPDATE',
         calls=calls,
         total_exec_ms=calls * 1.0,
     )
@@ -214,7 +214,7 @@ def test_breakdown_names_the_slices_behind_each_metric_and_skips_plain_gauges() 
 
     busiest: Final = breakdown("postgres_max_background_statement_per_request", None, observation)
     assert [(item.value, item.share) for item in busiest] == [(6.0, 24 / 36), (3.0, 12 / 36)]
-    assert "LiteLLM_DailyGuardrailMetrics" in busiest[0].label
+    assert "HangarLLM_DailyGuardrailMetrics" in busiest[0].label
     assert breakdown("gateway_added_seconds", 50, observation) == (Contributor("chat_completions", 0.5, 1.0),)
     assert breakdown("unexpected_status_count", None, observation) == (
         Contributor("chat_completions status 500", 1.0, 1.0),

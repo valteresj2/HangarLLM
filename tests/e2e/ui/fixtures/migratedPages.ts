@@ -131,6 +131,6 @@ export const MIGRATED_E2E_PAGES: Readonly<Record<string, MigratedPage>> = {
     segment: "organizations",
     linkName: "Organizations",
     content: { text: "Click on an organization ID to view its details." },
-    unlicensedText: "This is a LiteLLM Enterprise feature, and requires a valid key to use. Get a trial key here.",
+    unlicensedText: "This is a HangarLLM Enterprise feature, and requires a valid key to use. Get a trial key here.",
   },
 };

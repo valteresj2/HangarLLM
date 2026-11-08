@@ -5,16 +5,16 @@ import httpx
 import pytest
 
 
-import litellm
-from litellm.llms.azure.containers.transformation import AzureContainerConfig
-from litellm.llms.base_llm.containers.transformation import BaseContainerConfig
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.containers.main import (
+import hangarllm
+from hangarllm.llms.azure.containers.transformation import AzureContainerConfig
+from hangarllm.llms.base_llm.containers.transformation import BaseContainerConfig
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.types.containers.main import (
     ContainerListResponse,
     ContainerObject,
     DeleteContainerResult,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
 
 
 class TestAzureContainerConfig:
@@ -22,13 +22,13 @@ class TestAzureContainerConfig:
 
     def setup_method(self):
         self.config = AzureContainerConfig()
-        self.logging_obj = LiteLLMLogging(
+        self.logging_obj = HangarLLMLogging(
             model="",
             messages=[],
             stream=False,
             call_type="create_container",
             start_time=None,
-            litellm_call_id="test_call_id",
+            hangarllm_call_id="test_call_id",
             function_id="test_function_id",
         )
 
@@ -76,10 +76,10 @@ class TestAzureContainerConfig:
     def test_get_complete_url_default_v1(self):
         """With default_api_version='v1', URL should include /openai/v1/containers."""
         api_base = "https://my-resource.openai.azure.com"
-        litellm_params = {}
+        hangarllm_params = {}
 
         url = self.config.get_complete_url(
-            api_base=api_base, litellm_params=litellm_params
+            api_base=api_base, hangarllm_params=hangarllm_params
         )
 
         assert "/openai/v1/containers" in url
@@ -87,10 +87,10 @@ class TestAzureContainerConfig:
 
     def test_get_complete_url_with_explicit_api_version(self):
         api_base = "https://my-resource.openai.azure.com"
-        litellm_params = {"api_version": "2025-01-01"}
+        hangarllm_params = {"api_version": "2025-01-01"}
 
         url = self.config.get_complete_url(
-            api_base=api_base, litellm_params=litellm_params
+            api_base=api_base, hangarllm_params=hangarllm_params
         )
 
         assert "api-version=2025-01-01" in url
@@ -98,10 +98,10 @@ class TestAzureContainerConfig:
 
     def test_get_complete_url_with_latest_api_version(self):
         api_base = "https://my-resource.openai.azure.com"
-        litellm_params = {"api_version": "latest"}
+        hangarllm_params = {"api_version": "latest"}
 
         url = self.config.get_complete_url(
-            api_base=api_base, litellm_params=litellm_params
+            api_base=api_base, hangarllm_params=hangarllm_params
         )
 
         assert "/openai/v1/containers" in url
@@ -116,7 +116,7 @@ class TestAzureContainerConfig:
 
         url = self.config.get_complete_url(
             api_base=api_base,
-            litellm_params={"api_version": "2024-08-01-preview"},
+            hangarllm_params={"api_version": "2024-08-01-preview"},
         )
 
         assert (
@@ -126,21 +126,21 @@ class TestAzureContainerConfig:
         assert "/openai/containers" in url or "/openai/v1/containers" in url
         assert (
             "2025-04-01-preview" in url
-        ), "must use version from api_base, not litellm_params"
+        ), "must use version from api_base, not hangarllm_params"
         assert (
             "2024-08-01-preview" not in url
         ), "must not fall back to older chat api_version"
 
     def test_get_complete_url_raises_without_api_base(self, monkeypatch):
         monkeypatch.delenv("AZURE_API_BASE", raising=False)
-        monkeypatch.setattr(litellm, "api_base", None)
+        monkeypatch.setattr(hangarllm, "api_base", None)
         with pytest.raises(ValueError, match="api_base is required"):
-            self.config.get_complete_url(api_base=None, litellm_params={})
+            self.config.get_complete_url(api_base=None, hangarllm_params={})
 
     def test_transform_container_create_request(self):
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
         headers = {"api-key": "test-key"}
         name = "My Azure Container"
         optional_params = {
@@ -151,7 +151,7 @@ class TestAzureContainerConfig:
         data = self.config.transform_container_create_request(
             name=name,
             container_create_optional_request_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -181,15 +181,15 @@ class TestAzureContainerConfig:
         assert container.status == "running"
 
     def test_transform_container_list_request(self):
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         api_base = "https://my-resource.openai.azure.com/openai/v1/containers"
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
         headers = {"api-key": "test-key"}
 
         url, params = self.config.transform_container_list_request(
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
             limit=5,
             order="desc",
@@ -228,17 +228,17 @@ class TestAzureContainerConfig:
         assert container_list.first_id == "cntr_1"
 
     def test_transform_container_retrieve_request(self):
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         container_id = "cntr_azure_abc"
         api_base = "https://my-resource.openai.azure.com/openai/v1/containers"
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
         headers = {"api-key": "test-key"}
 
         url, params = self.config.transform_container_retrieve_request(
             container_id=container_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -246,17 +246,17 @@ class TestAzureContainerConfig:
         assert params == {}
 
     def test_transform_container_delete_request(self):
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         container_id = "cntr_azure_del"
         api_base = "https://my-resource.openai.azure.com/openai/v1/containers"
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
         headers = {"api-key": "test-key"}
 
         url, params = self.config.transform_container_delete_request(
             container_id=container_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -280,17 +280,17 @@ class TestAzureContainerConfig:
         assert delete_result.deleted is True
 
     def test_transform_container_file_list_request(self):
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         container_id = "cntr_azure_files"
         api_base = "https://my-resource.openai.azure.com/openai/v1/containers"
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
         headers = {"api-key": "test-key"}
 
         url, params = self.config.transform_container_file_list_request(
             container_id=container_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
             limit=10,
         )
@@ -300,19 +300,19 @@ class TestAzureContainerConfig:
 
     def test_transform_requests_preserve_query_string_after_path(self):
         """api-version must not appear before /{container_id}/... (Azure bases include ?)."""
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         api_base = (
             "https://my-resource.openai.azure.com/openai/v1/containers"
             "?api-version=v1"
         )
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
         headers: dict = {}
 
         url_r, _ = self.config.transform_container_retrieve_request(
             container_id="cntr_x",
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
         assert (
@@ -323,7 +323,7 @@ class TestAzureContainerConfig:
         url_fl, _ = self.config.transform_container_file_list_request(
             container_id="cntr_x",
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
         assert (
@@ -335,7 +335,7 @@ class TestAzureContainerConfig:
             container_id="cntr_x",
             file_id="cfile_y",
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
         expected_fc = (
@@ -346,7 +346,7 @@ class TestAzureContainerConfig:
         assert url_fc.index("/content") < url_fc.index("?")
 
     def test_transform_requests_encode_path_ids_before_query_string(self):
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         api_base = (
             "https://my-resource.openai.azure.com/openai/v1/containers"
@@ -357,7 +357,7 @@ class TestAzureContainerConfig:
             container_id="../../other",
             file_id="file?download=1#frag",
             api_base=api_base,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -369,8 +369,8 @@ class TestAzureContainerConfig:
         assert url == expected_url
 
     def test_provider_config_manager_returns_azure_config(self):
-        from litellm.types.utils import LlmProviders
-        from litellm.utils import ProviderConfigManager
+        from hangarllm.types.utils import LlmProviders
+        from hangarllm.utils import ProviderConfigManager
 
         config = ProviderConfigManager.get_provider_container_config(
             provider=LlmProviders.AZURE
@@ -380,7 +380,7 @@ class TestAzureContainerConfig:
         assert isinstance(config, AzureContainerConfig)
 
     def test_proxy_handler_factory_returns_azure_config(self):
-        from litellm.proxy.container_endpoints.handler_factory import (
+        from hangarllm.proxy.container_endpoints.handler_factory import (
             _get_container_provider_config,
         )
 
@@ -390,7 +390,7 @@ class TestAzureContainerConfig:
         assert isinstance(config, AzureContainerConfig)
 
     def test_proxy_handler_factory_raises_for_unsupported_provider(self):
-        from litellm.proxy.container_endpoints.handler_factory import (
+        from hangarllm.proxy.container_endpoints.handler_factory import (
             _get_container_provider_config,
         )
 
@@ -407,7 +407,7 @@ class TestAzureContainerKnownFailureRegressions:
        ("API version not supported" / 404-style routing).
 
     2. **Bare resource root** — ``AZURE_API_BASE`` is only the host (no ``?``). The
-       query appears only after LiteLLM builds the full container base; downstream
+       query appears only after HangarLLM builds the full container base; downstream
        transforms must still append ``/cntr_…/files/…`` *before* the query string.
 
     3. **File content path** — The worst case in logs was POST/GET logging showing
@@ -420,7 +420,7 @@ class TestAzureContainerKnownFailureRegressions:
 
     def test_regression_query_never_splits_before_container_segment(self):
         """Forbid the broken shape: …/containers?api-version=v1/cntr_…"""
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         api_base = (
             "https://my-resource.openai.azure.com/openai/v1/containers"
@@ -428,14 +428,14 @@ class TestAzureContainerKnownFailureRegressions:
         )
         cid = "cntr_69d4f27de324819082c54f6aeaab6391056f5dbdf1fe2b02"
         fid = "cfile_69d4f283bac0819094bfe7805a4f3ce8"
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
         headers: dict = {}
 
         url_fc, _ = self.config.transform_container_file_content_request(
             container_id=cid,
             file_id=fid,
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
         # Exact substring seen in broken logs
@@ -449,12 +449,12 @@ class TestAzureContainerKnownFailureRegressions:
 
     def test_regression_full_chain_bare_resource_root_like_env(self):
         """Mimics AZURE_API_BASE=https://resource.openai.azure.com — no ? in env."""
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         resource_root = "https://my-resource.openai.azure.com"
         container_base = self.config.get_complete_url(
             api_base=resource_root,
-            litellm_params={},
+            hangarllm_params={},
         )
         assert "openai.azure.com" in container_base
         assert (
@@ -468,7 +468,7 @@ class TestAzureContainerKnownFailureRegressions:
             container_id=cid,
             file_id=fid,
             api_base=container_base,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert cid in url_fc
@@ -482,7 +482,7 @@ class TestAzureContainerKnownFailureRegressions:
 
     def test_regression_all_crud_urls_with_azure_style_api_base(self):
         """Retrieve, delete, list files, and file content all keep ?api-version last."""
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         api_base = (
             "https://iamkankute-5584-resource.openai.azure.com/openai/v1/containers"
@@ -490,32 +490,32 @@ class TestAzureContainerKnownFailureRegressions:
         )
         cid = "cntr_69d4f1c5c6448190930a444af3f84f670b35dc2ee845cd1b"
         fid = "cfile_69d4f1c97a1081908d22a9f56268c743"
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
         headers: dict = {}
 
         url_r, _ = self.config.transform_container_retrieve_request(
             container_id=cid,
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
         url_d, _ = self.config.transform_container_delete_request(
             container_id=cid,
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
         url_lf, _ = self.config.transform_container_file_list_request(
             container_id=cid,
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
         url_fc, _ = self.config.transform_container_file_content_request(
             container_id=cid,
             file_id=fid,
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -534,7 +534,7 @@ class TestAzureContainerKnownFailureRegressions:
 
     def test_regression_api_base_with_extra_query_params(self):
         """Multiple query params must stay at the end after path join."""
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         api_base = (
             "https://my-resource.openai.azure.com/openai/v1/containers"
@@ -544,7 +544,7 @@ class TestAzureContainerKnownFailureRegressions:
         url_lf, _ = self.config.transform_container_file_list_request(
             container_id=cid,
             api_base=api_base,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         p = urlparse(url_lf)
@@ -565,14 +565,14 @@ class TestAzureContainerKnownFailureRegressions:
         model_id without container_id on POST /v1/containers must not gain
         access to an arbitrary deployment UUID.
         """
-        import litellm.containers
-        from litellm.router import Router
+        import hangarllm.containers
+        from hangarllm.router import Router
 
         router = Router(
             model_list=[
                 {
                     "model_name": "azure-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "azure/gpt-4",
                         "api_base": "https://my-resource.cognitiveservices.azure.com",
                         "api_key": "test-key",
@@ -589,7 +589,7 @@ class TestAzureContainerKnownFailureRegressions:
             called_with.update(kwargs)
             return {}
 
-        monkeypatch.setattr(litellm.containers, "acreate_container", _capture)
+        monkeypatch.setattr(hangarllm.containers, "acreate_container", _capture)
 
         # No container_id — simulates create; caller injects a model_id
         await router.acreate_container(
@@ -637,7 +637,7 @@ class TestAzureContainerKnownFailureRegressions:
 
     def test_regression_proxy_resolves_azure_text_same_as_azure(self):
         """Router/proxy treat azure_text like azure for container config."""
-        from litellm.proxy.container_endpoints.handler_factory import (
+        from hangarllm.proxy.container_endpoints.handler_factory import (
             _get_container_provider_config,
         )
 
@@ -652,7 +652,7 @@ class TestAzureContainerKnownFailureRegressions:
     ):
         from starlette.requests import Request
 
-        from litellm.proxy.container_endpoints import handler_factory
+        from hangarllm.proxy.container_endpoints import handler_factory
 
         encoded_id = ResponsesAPIRequestUtils.build_container_id(
             custom_llm_provider="azure",
@@ -673,7 +673,7 @@ class TestAzureContainerKnownFailureRegressions:
             captured["route_type"] = route_type
             return {"id": "cfile_abc"}
 
-        from litellm.proxy.common_request_processing import (
+        from hangarllm.proxy.common_request_processing import (
             ProxyBaseLLMRequestProcessing,
         )
 
@@ -723,7 +723,7 @@ class TestAzureContainerKnownFailureRegressions:
         from fastapi import Response
         from starlette.requests import Request
 
-        from litellm.proxy.container_endpoints import handler_factory
+        from hangarllm.proxy.container_endpoints import handler_factory
 
         encoded_id = ResponsesAPIRequestUtils.build_container_id(
             custom_llm_provider="azure",
@@ -742,10 +742,10 @@ class TestAzureContainerKnownFailureRegressions:
         ):
             captured["data"] = self.data
             captured["route_type"] = route_type
-            fastapi_response.headers["x-litellm-call-id"] = "call-123"
+            fastapi_response.headers["x-hangarllm-call-id"] = "call-123"
             return b"csv-bytes"
 
-        from litellm.proxy.common_request_processing import (
+        from hangarllm.proxy.common_request_processing import (
             ProxyBaseLLMRequestProcessing,
         )
 
@@ -789,7 +789,7 @@ class TestAzureContainerKnownFailureRegressions:
         assert captured["data"]["model_id"] == "model_abc123"
         assert response.status_code == 200
         assert response.body == b"csv-bytes"
-        assert response.headers["x-litellm-call-id"] == "call-123"
+        assert response.headers["x-hangarllm-call-id"] == "call-123"
 
     @pytest.mark.asyncio
     async def test_regression_multipart_upload_request_uses_provider_from_managed_id(
@@ -797,11 +797,11 @@ class TestAzureContainerKnownFailureRegressions:
     ):
         from starlette.requests import Request
 
-        from litellm.proxy.common_request_processing import (
+        from hangarllm.proxy.common_request_processing import (
             ProxyBaseLLMRequestProcessing,
         )
-        from litellm.proxy.common_utils import http_parsing_utils
-        from litellm.proxy.container_endpoints import handler_factory
+        from hangarllm.proxy.common_utils import http_parsing_utils
+        from hangarllm.proxy.container_endpoints import handler_factory
 
         encoded_id = ResponsesAPIRequestUtils.build_container_id(
             custom_llm_provider="azure",
@@ -880,12 +880,12 @@ class TestAzureContainerKnownFailureRegressions:
         self,
     ):
         """get_container_forwarding_params must extract model_id from a
-        LiteLLM-managed encoded container ID and include it in the forwarding
+        HangarLLM-managed encoded container ID and include it in the forwarding
         dict.  This is the proxy-side half of the native-Azure-ID routing fix:
         the router's _init_containers_api_endpoints reads kwargs["model_id"]
         which is set here.
         """
-        from litellm.proxy.container_endpoints.ownership import (
+        from hangarllm.proxy.container_endpoints.ownership import (
             get_container_forwarding_params,
         )
 
@@ -922,8 +922,8 @@ class TestAzureContainerKnownFailureRegressions:
         from types import SimpleNamespace
         from unittest.mock import AsyncMock
 
-        from litellm.proxy.container_endpoints import ownership
-        from litellm.proxy.container_endpoints.ownership import (
+        from hangarllm.proxy.container_endpoints import ownership
+        from hangarllm.proxy.container_endpoints.ownership import (
             get_container_forwarding_params,
         )
 
@@ -944,7 +944,7 @@ class TestAzureContainerKnownFailureRegressions:
             unified_object_id=encoded_stored_id,
         )
         prisma_client = SimpleNamespace(
-            db=SimpleNamespace(litellm_managedobjecttable=table)
+            db=SimpleNamespace(hangarllm_managedobjecttable=table)
         )
         monkeypatch.setattr(
             ownership,
@@ -969,18 +969,18 @@ class TestAzureContainerKnownFailureRegressions:
     async def test_regression_native_azure_container_id_uses_forwarded_model_id(
         self, monkeypatch
     ):
-        """Native Azure container IDs (cntr_ + hex, no LiteLLM payload) must
+        """Native Azure container IDs (cntr_ + hex, no HangarLLM payload) must
         still route through the deployment named by the model_id forwarded
         from the proxy ownership check so that deployment credentials
         (api_base) are applied."""
-        import litellm.containers
-        from litellm.router import Router
+        import hangarllm.containers
+        from hangarllm.router import Router
 
         router = Router(
             model_list=[
                 {
                     "model_name": "azure-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "azure/gpt-4",
                         "api_base": "https://my-resource.cognitiveservices.azure.com",
                         "api_key": "test-key",
@@ -997,7 +997,7 @@ class TestAzureContainerKnownFailureRegressions:
             called_with.update(kwargs)
             return {}
 
-        monkeypatch.setattr(litellm.containers, "aretrieve_container", _capture)
+        monkeypatch.setattr(hangarllm.containers, "aretrieve_container", _capture)
 
         native_azure_id = "cntr_6a058b43d24c8190a226cfb1d35405b20115fb7875ff11df"
 
@@ -1009,6 +1009,6 @@ class TestAzureContainerKnownFailureRegressions:
 
         assert called_with.get("api_base") == "https://my-resource.cognitiveservices.azure.com", (
             "the forwarded model_id's deployment credentials must be applied "
-            "when the container_id carries no LiteLLM routing payload"
+            "when the container_id carries no HangarLLM routing payload"
         )
         assert called_with.get("container_id") == native_azure_id

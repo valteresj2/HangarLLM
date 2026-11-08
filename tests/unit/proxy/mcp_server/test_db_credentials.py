@@ -1,7 +1,7 @@
 """
 Tests for the encrypted-at-rest persistence of MCP user credentials.
 
-The ``LiteLLM_MCPUserCredentials.credential_b64`` column previously stored
+The ``HangarLLM_MCPUserCredentials.credential_b64`` column previously stored
 both BYOK API keys and OAuth2 access tokens as plain ``urlsafe_b64encode``
 of the raw value, leaving credentials readable from any DB read. The fix
 runs every write through ``encrypt_value_helper`` (nacl SecretBox) and
@@ -16,17 +16,17 @@ from typing import Final
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from prisma.models import LiteLLM_MCPServerTable as PrismaMCPServer
+from prisma.models import HangarLLM_MCPServerTable as PrismaMCPServer
 
-from litellm.proxy._types import LiteLLM_MCPServerTable, NewMCPServerRequest, UpdateMCPServerRequest
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from hangarllm.proxy._types import HangarLLM_MCPServerTable, NewMCPServerRequest, UpdateMCPServerRequest
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import (
     SecretMapDecodeError,
     decode_secret_map,
     decrypt_value_helper,
     encrypt_secret_map,
     encrypt_value_helper,
 )
-from litellm.proxy.mcp_server.db import (
+from hangarllm.proxy.mcp_server.db import (
     _decode_user_credential,
     _prepare_mcp_server_data,
     create_mcp_server,
@@ -47,24 +47,24 @@ from litellm.proxy.mcp_server.db import (
     store_user_oauth_credential,
     update_mcp_server,
 )
-from litellm.types.mcp import MCPAuth, MCPTransport
+from hangarllm.types.mcp import MCPAuth, MCPTransport
 
 SALT_KEY = "test-salt-key-for-byok-credential-tests-1234"
 
 
 @pytest.fixture(autouse=True)
 def _set_salt_key(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", SALT_KEY)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"encryption_algorithm": "xsalsa20-poly1305"})
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", SALT_KEY)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"encryption_algorithm": "xsalsa20-poly1305"})
 
 
 def _make_prisma_with_existing(row):
     """Build a MagicMock prisma_client whose user-credentials table returns ``row``
     for find_unique and behaves async-correctly for upsert/find_many."""
     prisma = MagicMock()
-    prisma.db.litellm_mcpusercredentials.find_unique = AsyncMock(return_value=row)
-    prisma.db.litellm_mcpusercredentials.upsert = AsyncMock()
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[])
+    prisma.db.hangarllm_mcpusercredentials.find_unique = AsyncMock(return_value=row)
+    prisma.db.hangarllm_mcpusercredentials.upsert = AsyncMock()
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[])
     return prisma
 
 
@@ -121,7 +121,7 @@ def _identity_server(**overrides):
     ],
 )
 def test_mcp_oauth_token_identity_changes_on_mint_relevant_fields(overrides):
-    from litellm.proxy.mcp_server.db import mcp_oauth_token_identity
+    from hangarllm.proxy.mcp_server.db import mcp_oauth_token_identity
 
     assert mcp_oauth_token_identity(_identity_server()) != mcp_oauth_token_identity(_identity_server(**overrides))
 
@@ -134,13 +134,13 @@ def test_mcp_oauth_token_identity_changes_on_mint_relevant_fields(overrides):
     ],
 )
 def test_mcp_oauth_token_identity_stable_on_non_mint_fields(overrides):
-    from litellm.proxy.mcp_server.db import mcp_oauth_token_identity
+    from hangarllm.proxy.mcp_server.db import mcp_oauth_token_identity
 
     assert mcp_oauth_token_identity(_identity_server()) == mcp_oauth_token_identity(_identity_server(**overrides))
 
 
 def _encrypted_creds_json(client_id: str = "cid", client_secret: str = "csec") -> str:
-    from litellm.proxy.mcp_server.db import encrypt_credentials
+    from hangarllm.proxy.mcp_server.db import encrypt_credentials
 
     encrypted = encrypt_credentials(
         credentials={"client_id": client_id, "client_secret": client_secret, "scopes": ["a"]},
@@ -154,7 +154,7 @@ def test_mcp_oauth_token_identity_stable_across_reencryption():
     saves of the SAME plaintext produce different ciphertext. The identity must compare decrypted
     values; comparing ciphertext would flag every routine save as a mint-relevant change and purge
     per-user tokens that are still valid."""
-    from litellm.proxy.mcp_server.db import mcp_oauth_token_identity
+    from hangarllm.proxy.mcp_server.db import mcp_oauth_token_identity
 
     first = _encrypted_creds_json()
     second = _encrypted_creds_json()
@@ -166,7 +166,7 @@ def test_mcp_oauth_token_identity_stable_across_reencryption():
 
 
 def test_mcp_oauth_token_identity_detects_change_under_encryption():
-    from litellm.proxy.mcp_server.db import mcp_oauth_token_identity
+    from hangarllm.proxy.mcp_server.db import mcp_oauth_token_identity
 
     unchanged = _identity_server(credentials=_encrypted_creds_json())
     changed = _identity_server(credentials=_encrypted_creds_json(client_id="other"))
@@ -174,7 +174,7 @@ def test_mcp_oauth_token_identity_detects_change_under_encryption():
 
 
 def test_mcp_oauth_token_identity_reads_client_and_scopes_from_json_string_credentials():
-    from litellm.proxy.mcp_server.db import mcp_oauth_token_identity
+    from hangarllm.proxy.mcp_server.db import mcp_oauth_token_identity
 
     credentials: Final = json.dumps(
         {"client_id": "cid", "client_secret": "csec", "scopes": ["a"], "upstream_resource": "api://audience"}
@@ -198,7 +198,7 @@ def test_mcp_oauth_token_identity_reads_client_and_scopes_from_json_string_crede
 
 @pytest.mark.parametrize("credentials", ["[]", '["client_id"]', '"cid"', "5", "null", "not json"])
 def test_mcp_oauth_token_identity_treats_stored_credentials_that_are_not_a_json_object_as_empty(credentials):
-    from litellm.proxy.mcp_server.db import mcp_oauth_token_identity
+    from hangarllm.proxy.mcp_server.db import mcp_oauth_token_identity
 
     assert mcp_oauth_token_identity(_identity_server(credentials=credentials)) == (
         "https://up.example.com/mcp",
@@ -235,11 +235,11 @@ def _byok_row(user_id: str, server_id: str = "srv-1"):
 @pytest.mark.asyncio
 async def test_purge_user_oauth_credentials_for_server_invalidates_each_user():
     """The purge must route each (user, server) row through the invalidator exactly once."""
-    from litellm.proxy.mcp_server.db import purge_user_oauth_credentials_for_server
+    from hangarllm.proxy.mcp_server.db import purge_user_oauth_credentials_for_server
 
     prisma = MagicMock()
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[_oauth_row("alice"), _oauth_row("bob")])
-    prisma.db.litellm_mcpusercredentials.delete_many = AsyncMock(return_value=2)
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[_oauth_row("alice"), _oauth_row("bob")])
+    prisma.db.hangarllm_mcpusercredentials.delete_many = AsyncMock(return_value=2)
 
     invalidations = []
 
@@ -249,7 +249,7 @@ async def test_purge_user_oauth_credentials_for_server_invalidates_each_user():
     purged = await purge_user_oauth_credentials_for_server(prisma, "srv-1", invalidate_token_cache=record_invalidation)
 
     assert purged == 2
-    prisma.db.litellm_mcpusercredentials.delete_many.assert_awaited_once_with(
+    prisma.db.hangarllm_mcpusercredentials.delete_many.assert_awaited_once_with(
         where={"server_id": "srv-1", "user_id": {"in": ["alice", "bob"]}}
     )
     assert set(invalidations) == {("alice", "srv-1"), ("bob", "srv-1")}
@@ -259,7 +259,7 @@ async def test_purge_user_oauth_credentials_for_server_invalidates_each_user():
 async def test_list_server_user_credentials_types_each_row_without_leaking_the_secret():
     """The admin view of one server's stored credentials names the user and the kind of
     credential (OAuth2 vs BYOK) and echoes OAuth expiry, but never the token or key itself."""
-    from litellm.proxy.mcp_server.db import list_server_user_credentials
+    from hangarllm.proxy.mcp_server.db import list_server_user_credentials
 
     oauth_row = _legacy_row(
         json.dumps(
@@ -276,11 +276,11 @@ async def test_list_server_user_credentials_types_each_row_without_leaking_the_s
     byok_row = _byok_row("carol")
     byok_row.updated_at = datetime(2026, 2, 1, tzinfo=timezone.utc)
     prisma = MagicMock()
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[oauth_row, byok_row])
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[oauth_row, byok_row])
 
     items = await list_server_user_credentials(prisma, "srv-1")
 
-    prisma.db.litellm_mcpusercredentials.find_many.assert_awaited_once_with(where={"server_id": "srv-1"})
+    prisma.db.hangarllm_mcpusercredentials.find_many.assert_awaited_once_with(where={"server_id": "srv-1"})
     assert [item.model_dump() for item in items] == [
         {
             "user_id": "alice",
@@ -305,13 +305,13 @@ async def test_list_server_user_credentials_types_each_row_without_leaking_the_s
 @pytest.mark.asyncio
 async def test_purge_user_oauth_credentials_for_server_spares_byok_rows():
     """Regression: the purge used to delete_many on server_id alone, wiping BYOK API keys that share
-    the LiteLLM_MCPUserCredentials table. Only rows holding an OAuth2 payload may be deleted (one
+    the HangarLLM_MCPUserCredentials table. Only rows holding an OAuth2 payload may be deleted (one
     batched query filtered to their user_ids), and only their users' token caches invalidated."""
-    from litellm.proxy.mcp_server.db import purge_user_oauth_credentials_for_server
+    from hangarllm.proxy.mcp_server.db import purge_user_oauth_credentials_for_server
 
     prisma = MagicMock()
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[_byok_row("carol"), _oauth_row("alice")])
-    prisma.db.litellm_mcpusercredentials.delete_many = AsyncMock(return_value=1)
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[_byok_row("carol"), _oauth_row("alice")])
+    prisma.db.hangarllm_mcpusercredentials.delete_many = AsyncMock(return_value=1)
 
     invalidations = []
 
@@ -321,7 +321,7 @@ async def test_purge_user_oauth_credentials_for_server_spares_byok_rows():
     purged = await purge_user_oauth_credentials_for_server(prisma, "srv-1", invalidate_token_cache=record_invalidation)
 
     assert purged == 1
-    prisma.db.litellm_mcpusercredentials.delete_many.assert_awaited_once_with(
+    prisma.db.hangarllm_mcpusercredentials.delete_many.assert_awaited_once_with(
         where={"server_id": "srv-1", "user_id": {"in": ["alice"]}}
     )
     assert invalidations == [("alice", "srv-1")]
@@ -330,16 +330,16 @@ async def test_purge_user_oauth_credentials_for_server_spares_byok_rows():
 @pytest.mark.asyncio
 async def test_purge_user_oauth_credentials_for_server_all_byok_is_noop():
     """An api_key (BYOK-only) server whose identity tuple changes (e.g. its url) must purge nothing."""
-    from litellm.proxy.mcp_server.db import purge_user_oauth_credentials_for_server
+    from hangarllm.proxy.mcp_server.db import purge_user_oauth_credentials_for_server
 
     prisma = MagicMock()
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[_byok_row("carol"), _byok_row("dave")])
-    prisma.db.litellm_mcpusercredentials.delete_many = AsyncMock()
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[_byok_row("carol"), _byok_row("dave")])
+    prisma.db.hangarllm_mcpusercredentials.delete_many = AsyncMock()
 
     purged = await purge_user_oauth_credentials_for_server(prisma, "srv-1")
 
     assert purged == 0
-    prisma.db.litellm_mcpusercredentials.delete_many.assert_not_awaited()
+    prisma.db.hangarllm_mcpusercredentials.delete_many.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -348,12 +348,12 @@ async def test_purge_user_oauth_credentials_for_server_defaults_to_manager_inval
     invalidate_user_oauth_token_cache, the single point covering both the legacy per-user token cache
     and the v2 per-user OAuth token store; a wrong or no-op default silently leaves every cache
     serving tokens minted for the superseded config."""
-    from litellm.proxy.mcp_server import mcp_server_manager
-    from litellm.proxy.mcp_server.db import purge_user_oauth_credentials_for_server
+    from hangarllm.proxy.mcp_server import mcp_server_manager
+    from hangarllm.proxy.mcp_server.db import purge_user_oauth_credentials_for_server
 
     prisma = MagicMock()
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[_oauth_row("alice")])
-    prisma.db.litellm_mcpusercredentials.delete_many = AsyncMock(return_value=1)
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[_oauth_row("alice")])
+    prisma.db.hangarllm_mcpusercredentials.delete_many = AsyncMock(return_value=1)
 
     shared_invalidator = AsyncMock()
     monkeypatch.setattr(
@@ -370,12 +370,12 @@ async def test_purge_user_oauth_credentials_for_server_defaults_to_manager_inval
 
 @pytest.mark.asyncio
 async def test_purge_user_oauth_credentials_for_server_logs_raced_rows(monkeypatch):
-    from litellm.proxy.mcp_server import db as db_module
-    from litellm.proxy.mcp_server.db import purge_user_oauth_credentials_for_server
+    from hangarllm.proxy.mcp_server import db as db_module
+    from hangarllm.proxy.mcp_server.db import purge_user_oauth_credentials_for_server
 
     prisma = MagicMock()
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[_oauth_row("alice")])
-    prisma.db.litellm_mcpusercredentials.delete_many = AsyncMock(return_value=0)
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[_oauth_row("alice")])
+    prisma.db.hangarllm_mcpusercredentials.delete_many = AsyncMock(return_value=0)
     warning = MagicMock()
     monkeypatch.setattr(db_module.verbose_proxy_logger, "warning", warning)
 
@@ -390,13 +390,13 @@ async def test_delete_mcp_server_invalidates_cached_tokens_for_enumerated_users(
     """Deleting a server must invalidate each enumerated user's cached per-user token: the caches are
     keyed by (user_id, server_id), so a re-created server reusing the same server_id would otherwise
     serve tokens minted for the deleted server until TTL."""
-    from litellm.proxy.mcp_server.db import delete_mcp_server
+    from hangarllm.proxy.mcp_server.db import delete_mcp_server
 
     prisma = MagicMock()
-    prisma.db.litellm_mcpservertable.delete = AsyncMock(return_value=MagicMock(server_id="srv-1"))
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[_oauth_row("alice"), _byok_row("bob")])
-    prisma.db.litellm_mcpusercredentials.delete_many = AsyncMock(return_value=2)
-    prisma.db.litellm_mcpuserenvvars.delete_many = AsyncMock(return_value=0)
+    prisma.db.hangarllm_mcpservertable.delete = AsyncMock(return_value=MagicMock(server_id="srv-1"))
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[_oauth_row("alice"), _byok_row("bob")])
+    prisma.db.hangarllm_mcpusercredentials.delete_many = AsyncMock(return_value=2)
+    prisma.db.hangarllm_mcpuserenvvars.delete_many = AsyncMock(return_value=0)
 
     invalidations = []
 
@@ -411,35 +411,35 @@ async def test_delete_mcp_server_invalidates_cached_tokens_for_enumerated_users(
 
 @pytest.mark.asyncio
 async def test_delete_mcp_server_returns_none_without_cleanup_when_server_missing():
-    from litellm.proxy.mcp_server.db import delete_mcp_server
+    from hangarllm.proxy.mcp_server.db import delete_mcp_server
 
     prisma = MagicMock()
-    prisma.db.litellm_mcpservertable.delete = AsyncMock(return_value=None)
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock()
+    prisma.db.hangarllm_mcpservertable.delete = AsyncMock(return_value=None)
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock()
 
     deleted = await delete_mcp_server(prisma, "srv-1", invalidate_token_cache=AsyncMock())
 
     assert deleted is None
-    prisma.db.litellm_mcpusercredentials.find_many.assert_not_awaited()
+    prisma.db.hangarllm_mcpusercredentials.find_many.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_purge_user_oauth_credentials_for_server_noop_when_empty():
-    from litellm.proxy.mcp_server.db import purge_user_oauth_credentials_for_server
+    from hangarllm.proxy.mcp_server.db import purge_user_oauth_credentials_for_server
 
     prisma = MagicMock()
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[])
-    prisma.db.litellm_mcpusercredentials.delete_many = AsyncMock()
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[])
+    prisma.db.hangarllm_mcpusercredentials.delete_many = AsyncMock()
 
     purged = await purge_user_oauth_credentials_for_server(prisma, "srv-1")
 
     assert purged == 0
-    prisma.db.litellm_mcpusercredentials.delete_many.assert_not_awaited()
+    prisma.db.hangarllm_mcpusercredentials.delete_many.assert_not_awaited()
 
 
 def _stored_value(prisma) -> str:
     """Pull the credential_b64 value passed to the most recent upsert call."""
-    call = prisma.db.litellm_mcpusercredentials.upsert.call_args
+    call = prisma.db.hangarllm_mcpusercredentials.upsert.call_args
     data = call.kwargs["data"]
     create_value = data["create"]["credential_b64"]
     update_value = data["update"]["credential_b64"]
@@ -480,7 +480,7 @@ def test_client_private_key_encrypted_at_rest():
 
 @pytest.fixture(params=["xsalsa20-poly1305", "aes-256-gcm"])
 def map_algorithm(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> str:
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"encryption_algorithm": request.param})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"encryption_algorithm": request.param})
     return request.param
 
 
@@ -515,7 +515,7 @@ class _MapTable:
 @pytest.mark.parametrize("quoted", [False, True])
 async def test_secret_maps_create_update_round_trip(map_algorithm: str, field: str, quoted: bool) -> None:
     table: Final = _MapTable(quoted=quoted)
-    prisma: Final = SimpleNamespace(db=SimpleNamespace(litellm_mcpservertable=table, litellm_config=SimpleNamespace(find_unique=AsyncMock(return_value=None))))
+    prisma: Final = SimpleNamespace(db=SimpleNamespace(hangarllm_mcpservertable=table, hangarllm_config=SimpleNamespace(find_unique=AsyncMock(return_value=None))))
     original: Final = {"TOKEN": "  sensitive-secret\n", "PREFIX": "v2:gcm:literal", "TEMPLATE": "Bearer ${TOKEN}"}
     create: Final = NewMCPServerRequest.model_validate({
         "server_id": "srv-map", "transport": "http", "url": "https://up.example.com/mcp", field: original,
@@ -551,11 +551,11 @@ def test_secret_map_legacy_model_read_preserves_exact_values(field: str, as_json
         "server_id": "srv-map", "transport": "http", field: json.dumps(original) if as_json else original,
     }
     snapshot: Final = json.dumps(incoming)
-    parsed: Final = LiteLLM_MCPServerTable.model_validate(incoming)
+    parsed: Final = HangarLLM_MCPServerTable.model_validate(incoming)
     assert getattr(parsed, field) == original
     assert json.dumps(incoming) == snapshot
-    assert LiteLLM_MCPServerTable.model_validate(parsed.model_dump()).model_dump() == parsed.model_dump()
-    empty: Final = LiteLLM_MCPServerTable.model_validate({"server_id": "srv-map", "transport": "http", field: None})
+    assert HangarLLM_MCPServerTable.model_validate(parsed.model_dump()).model_dump() == parsed.model_dump()
+    empty: Final = HangarLLM_MCPServerTable.model_validate({"server_id": "srv-map", "transport": "http", field: None})
     assert getattr(empty, field) == ({} if field == "env" else None)
 
 
@@ -569,8 +569,8 @@ def test_secret_map_model_read_fails_closed(map_algorithm: str, field: str, fail
     )
     stored: Final = json.dumps(ciphertext[:-8] if failure == "corrupt" else ciphertext)
     with pytest.raises(SecretMapDecodeError) as exc:
-        LiteLLM_MCPServerTable.model_validate({"server_id": "srv-map", "transport": "http", field: stored})
-    assert field in str(exc.value) and "LITELLM_SALT_KEY" in str(exc.value)
+        HangarLLM_MCPServerTable.model_validate({"server_id": "srv-map", "transport": "http", field: stored})
+    assert field in str(exc.value) and "HANGARLLM_SALT_KEY" in str(exc.value)
     assert all(secret not in str(exc.value) for secret in (plaintext, ciphertext, "sensitive-secret"))
 
 
@@ -588,7 +588,7 @@ async def test_secret_map_rotation_migrates_rekeys_and_preserves_corrupt(
         {"server_id": "encrypted", field: old, other: None},
     )
     prisma: Final = SimpleNamespace(db=SimpleNamespace(
-        litellm_mcpservertable=table, litellm_mcpserveroauthclient=SimpleNamespace(find_many=AsyncMock(return_value=[])), litellm_config=SimpleNamespace(find_unique=AsyncMock(return_value=None))
+        hangarllm_mcpservertable=table, hangarllm_mcpserveroauthclient=SimpleNamespace(find_many=AsyncMock(return_value=[])), hangarllm_config=SimpleNamespace(find_unique=AsyncMock(return_value=None))
     ))
     await rotate_mcp_server_credentials_master_key(prisma, touched_by="test", new_master_key="rotated-map-key")
     assert table.rows["broken"][field] == corrupt
@@ -598,7 +598,7 @@ async def test_secret_map_rotation_migrates_rekeys_and_preserves_corrupt(
         assert isinstance(json.loads(stored), str) and stored != old and "rotation-sensitive-secret" not in stored
         with pytest.raises(SecretMapDecodeError):
             decode_secret_map(stored, key=map_field)
-    monkeypatch.setenv("LITELLM_SALT_KEY", "rotated-map-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "rotated-map-key")
     for server_id, map_field in (("broken", other), ("legacy", field), ("encrypted", field)):
         assert decode_secret_map(table.rows[server_id][map_field], key=map_field) == values
 
@@ -616,7 +616,7 @@ async def test_bulk_reads_isolate_corrupt_secret_maps(reader, field, map_algorit
     ]
     snapshot = [row.model_dump() for row in rows]
     table = SimpleNamespace(find_many=AsyncMock(return_value=rows))
-    prisma = SimpleNamespace(db=SimpleNamespace(litellm_mcpservertable=table, litellm_config=SimpleNamespace(find_unique=AsyncMock(return_value=None))))
+    prisma = SimpleNamespace(db=SimpleNamespace(hangarllm_mcpservertable=table, hangarllm_config=SimpleNamespace(find_unique=AsyncMock(return_value=None))))
     result = await reader(prisma, ["broken", "healthy"]) if reader is get_mcp_servers else await reader(prisma)
     items = result.items if reader is get_mcp_submissions else result
     assert [row.server_id for row in items] == ["healthy"]
@@ -635,7 +635,7 @@ async def test_bulk_reads_do_not_swallow_unrelated_validation_errors(reader):
 
     row = _prisma_map_row({"server_id": "invalid", "transport": "unsupported"})
     table = SimpleNamespace(find_many=AsyncMock(return_value=[row]))
-    prisma = SimpleNamespace(db=SimpleNamespace(litellm_mcpservertable=table, litellm_config=SimpleNamespace(find_unique=AsyncMock(return_value=None))))
+    prisma = SimpleNamespace(db=SimpleNamespace(hangarllm_mcpservertable=table, hangarllm_config=SimpleNamespace(find_unique=AsyncMock(return_value=None))))
     request = reader(prisma, ["invalid"]) if reader is get_mcp_servers else reader(prisma)
     with pytest.raises(ValidationError, match="transport"):
         await request
@@ -672,7 +672,7 @@ async def test_byok_round_trip_returns_plaintext():
     stored = _stored_value(prisma)
     row = MagicMock()
     row.credential_b64 = stored
-    prisma.db.litellm_mcpusercredentials.find_unique = AsyncMock(return_value=row)
+    prisma.db.hangarllm_mcpusercredentials.find_unique = AsyncMock(return_value=row)
 
     result = await get_user_credential(prisma, "alice", "srv-1")
     assert result == secret
@@ -735,7 +735,7 @@ async def test_oauth_round_trip_returns_payload(cimd_client_id):
     row = MagicMock()
     row.credential_b64 = stored
     row.server_id = "srv-1"
-    prisma.db.litellm_mcpusercredentials.find_unique = AsyncMock(return_value=row)
+    prisma.db.hangarllm_mcpusercredentials.find_unique = AsyncMock(return_value=row)
 
     result = await get_user_oauth_credential(prisma, "alice", "srv-1")
     assert result is not None
@@ -792,7 +792,7 @@ async def test_byok_guard_rejects_overwriting_encrypted_byok():
 
     encrypted_row = MagicMock()
     encrypted_row.credential_b64 = _stored_value(prisma)
-    prisma.db.litellm_mcpusercredentials.find_unique = AsyncMock(return_value=encrypted_row)
+    prisma.db.hangarllm_mcpusercredentials.find_unique = AsyncMock(return_value=encrypted_row)
 
     with pytest.raises(ValueError, match="could not be verified as an OAuth2"):
         await store_user_oauth_credential(prisma, "alice", "srv-1", "tok")
@@ -806,14 +806,14 @@ async def test_byok_guard_allows_overwriting_existing_oauth():
 
     oauth_row = MagicMock()
     oauth_row.credential_b64 = _stored_value(prisma)
-    prisma.db.litellm_mcpusercredentials.find_unique = AsyncMock(return_value=oauth_row)
+    prisma.db.hangarllm_mcpusercredentials.find_unique = AsyncMock(return_value=oauth_row)
 
     await store_user_oauth_credential(prisma, "alice", "srv-1", "tok-2")
     # Final upsert wrote a new payload (different from the first)
     assert _stored_value(prisma) != oauth_row.credential_b64
 
 
-# ── Recovery from an unplanned LITELLM_SALT_KEY change ────────────────────────
+# ── Recovery from an unplanned HANGARLLM_SALT_KEY change ────────────────────────
 
 PREVIOUS_SALT_KEY = "the-salt-key-this-deployment-used-before-9999"
 
@@ -824,9 +824,9 @@ def _row_written_under_previous_salt_key(monkeypatch, payload: str):
     Asserts the fixture really is undecryptable under the current key, so a test
     built on it cannot pass by accident.
     """
-    monkeypatch.setenv("LITELLM_SALT_KEY", PREVIOUS_SALT_KEY)
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", PREVIOUS_SALT_KEY)
     encrypted = encrypt_value_helper(payload)
-    monkeypatch.setenv("LITELLM_SALT_KEY", SALT_KEY)
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", SALT_KEY)
     assert _decode_user_credential(encrypted) is None, "fixture must not decrypt under the current salt key"
     row = MagicMock()
     row.credential_b64 = encrypted
@@ -847,7 +847,7 @@ async def test_reauthorization_replaces_row_written_under_previous_salt_key(monk
     replacement = MagicMock()
     replacement.credential_b64 = _stored_value(prisma)
     replacement.server_id = "srv-1"
-    prisma.db.litellm_mcpusercredentials.find_unique = AsyncMock(return_value=replacement)
+    prisma.db.hangarllm_mcpusercredentials.find_unique = AsyncMock(return_value=replacement)
     stored = await get_user_oauth_credential(prisma, "alice", "srv-1")
     assert stored is not None
     assert stored["access_token"] == "tok-after-reauthorization"
@@ -857,13 +857,13 @@ async def test_reauthorization_replaces_row_written_under_previous_salt_key(monk
 async def test_readable_byok_is_still_refused_after_a_salt_key_change(monkeypatch):
     # A legacy plain-base64 BYOK secret stays readable across a salt-key change, so
     # the recovery path must not use it as an excuse to clobber a live credential.
-    monkeypatch.setenv("LITELLM_SALT_KEY", "a-completely-different-salt-key-4321")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "a-completely-different-salt-key-4321")
     prisma = _make_prisma_with_existing(row=_legacy_row("sk-live-byok-secret"))
 
     with pytest.raises(ValueError, match="could not be verified as an OAuth2"):
         await store_user_oauth_credential(prisma, "alice", "srv-1", "tok")
 
-    prisma.db.litellm_mcpusercredentials.upsert.assert_not_awaited()
+    prisma.db.hangarllm_mcpusercredentials.upsert.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -874,7 +874,7 @@ async def test_recovery_warns_with_identifiers_and_never_logs_credentials(monkey
     row = _row_written_under_previous_salt_key(monkeypatch, old_payload)
     prisma = _make_prisma_with_existing(row=row)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         await store_user_oauth_credential(prisma, "alice", "srv-1", "tok-after-reauthorization")
 
     messages = [rec.getMessage() for rec in caplog.records]
@@ -892,7 +892,7 @@ async def test_get_user_oauth_credential_warns_when_row_cannot_be_decrypted(monk
     old_payload = json.dumps({"type": "oauth2", "access_token": "tok-written-before-rotation"})
     prisma = _make_prisma_with_existing(row=_row_written_under_previous_salt_key(monkeypatch, old_payload))
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         assert await get_user_oauth_credential(prisma, "alice", "srv-1") is None
 
     matching = [rec.getMessage() for rec in caplog.records if "could not be decrypted" in rec.getMessage()]
@@ -917,9 +917,9 @@ async def test_list_user_oauth_credentials_warns_per_row_when_rows_cannot_be_dec
     healthy = MagicMock()
     healthy.credential_b64 = _stored_value(prisma)
     healthy.server_id = "srv-3"
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[wedged_one, healthy, wedged_two])
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[wedged_one, healthy, wedged_two])
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await list_user_oauth_credentials(prisma, "alice")
 
     assert [cred["server_id"] for cred in result] == ["srv-3"]
@@ -937,8 +937,8 @@ async def test_skip_byok_guard_does_not_read_the_existing_row(monkeypatch):
 
     await store_user_oauth_credential(prisma, "alice", "srv-1", "tok", skip_byok_guard=True)
 
-    prisma.db.litellm_mcpusercredentials.find_unique.assert_not_awaited()
-    prisma.db.litellm_mcpusercredentials.upsert.assert_awaited_once()
+    prisma.db.hangarllm_mcpusercredentials.find_unique.assert_not_awaited()
+    prisma.db.hangarllm_mcpusercredentials.upsert.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -955,7 +955,7 @@ async def test_blank_credential_row_is_replaced_rather_than_refused():
 
     await store_user_oauth_credential(prisma, "alice", "srv-1", "tok-after-reauthorization")
 
-    prisma.db.litellm_mcpusercredentials.upsert.assert_awaited_once()
+    prisma.db.hangarllm_mcpusercredentials.upsert.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -965,7 +965,7 @@ async def test_readable_byok_row_does_not_warn_on_the_read_path(caplog):
 
     prisma = _make_prisma_with_existing(row=_legacy_row("sk-live-byok-secret"))
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         assert await get_user_oauth_credential(prisma, "alice", "srv-1") is None
 
     assert [rec.getMessage() for rec in caplog.records if "could not be decrypted" in rec.getMessage()] == []
@@ -999,7 +999,7 @@ async def test_list_oauth_credentials_filters_byok_and_returns_payloads():
     byok_row.credential_b64 = base64.urlsafe_b64encode(b"plain-byok-key").decode()
     byok_row.server_id = "srv-byok"
 
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[encrypted_row, legacy_row, byok_row])
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[encrypted_row, legacy_row, byok_row])
 
     results = await list_user_oauth_credentials(prisma, "alice")
 
@@ -1045,18 +1045,18 @@ async def test_rotate_re_encrypts_byok_with_new_key(monkeypatch):
     row.user_id = "alice"
     row.server_id = "srv-1"
     row.credential_b64 = encrypted_old
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[row])
-    prisma.db.litellm_mcpusercredentials.update = AsyncMock()
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[row])
+    prisma.db.hangarllm_mcpusercredentials.update = AsyncMock()
 
     new_master_key = "rotated-salt-key-9999-9999-9999-9999"
     await rotate_mcp_user_credentials_master_key(prisma_client=prisma, new_master_key=new_master_key)
 
-    update_call = prisma.db.litellm_mcpusercredentials.update.call_args
+    update_call = prisma.db.hangarllm_mcpusercredentials.update.call_args
     new_stored = update_call.kwargs["data"]["credential_b64"]
     assert new_stored != encrypted_old, "rotation must produce different ciphertext"
 
     # Decrypt the rotated value under the NEW salt key — round-trips to plaintext.
-    monkeypatch.setenv("LITELLM_SALT_KEY", new_master_key)
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", new_master_key)
     assert (
         decrypt_value_helper(
             value=new_stored,
@@ -1077,14 +1077,14 @@ async def test_rotate_migrates_legacy_plaintext_rows(monkeypatch):
     legacy_row.user_id = "alice"
     legacy_row.server_id = "srv-legacy"
     legacy_row.credential_b64 = base64.urlsafe_b64encode(b"legacy-plain").decode()
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[legacy_row])
-    prisma.db.litellm_mcpusercredentials.update = AsyncMock()
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[legacy_row])
+    prisma.db.hangarllm_mcpusercredentials.update = AsyncMock()
 
     new_key = "another-rotation-key-aaaa-bbbb-cccc-dddd"
     await rotate_mcp_user_credentials_master_key(prisma_client=prisma, new_master_key=new_key)
 
-    new_stored = prisma.db.litellm_mcpusercredentials.update.call_args.kwargs["data"]["credential_b64"]
-    monkeypatch.setenv("LITELLM_SALT_KEY", new_key)
+    new_stored = prisma.db.hangarllm_mcpusercredentials.update.call_args.kwargs["data"]["credential_b64"]
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", new_key)
     assert (
         decrypt_value_helper(
             value=new_stored,
@@ -1111,14 +1111,14 @@ async def test_rotate_skips_undecodable_rows():
     good_row.server_id = "srv-ok"
     good_row.credential_b64 = base64.urlsafe_b64encode(b"good-byok").decode()
 
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[bad_row, good_row])
-    prisma.db.litellm_mcpusercredentials.update = AsyncMock()
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[bad_row, good_row])
+    prisma.db.hangarllm_mcpusercredentials.update = AsyncMock()
 
     await rotate_mcp_user_credentials_master_key(prisma_client=prisma, new_master_key="new-key-xxxx")
 
     # Only one update call — the good row.
-    assert prisma.db.litellm_mcpusercredentials.update.call_count == 1
-    where = prisma.db.litellm_mcpusercredentials.update.call_args.kwargs["where"]
+    assert prisma.db.hangarllm_mcpusercredentials.update.call_count == 1
+    where = prisma.db.hangarllm_mcpusercredentials.update.call_args.kwargs["where"]
     assert where["user_id_server_id"]["server_id"] == "srv-ok"
 
 
@@ -1164,7 +1164,7 @@ def test_expiry_missing_expires_at_is_never_expired():
 @pytest.mark.asyncio
 async def test_resolve_returns_valid_token_without_refreshing(monkeypatch):
     # A token good for 10 minutes must be returned as-is, with no refresh call.
-    import litellm.proxy.mcp_server.db as db_mod
+    import hangarllm.proxy.mcp_server.db as db_mod
 
     refresh = AsyncMock()
     monkeypatch.setattr(db_mod, "refresh_user_oauth_token", refresh)
@@ -1183,7 +1183,7 @@ async def test_resolve_returns_valid_token_without_refreshing(monkeypatch):
 async def test_resolve_refreshes_expired_token_with_refresh_token(monkeypatch):
     # The core regression: an expired OBO cred with a refresh_token must mint a
     # new token rather than returning None (which left the UI tool list empty).
-    import litellm.proxy.mcp_server.db as db_mod
+    import hangarllm.proxy.mcp_server.db as db_mod
 
     refreshed = _oauth_cred(access_token="at-fresh", refresh_token="rt-2", expires_in_seconds=3600)
     refresh = AsyncMock(return_value=refreshed)
@@ -1202,7 +1202,7 @@ async def test_resolve_refreshes_expired_token_with_refresh_token(monkeypatch):
 async def test_resolve_refreshes_token_expiring_within_buffer(monkeypatch):
     # A token still technically valid (30s left) but inside the 60s buffer must
     # be proactively refreshed, not handed back.
-    import litellm.proxy.mcp_server.db as db_mod
+    import hangarllm.proxy.mcp_server.db as db_mod
 
     refreshed = _oauth_cred(access_token="at-fresh", expires_in_seconds=3600)
     refresh = AsyncMock(return_value=refreshed)
@@ -1220,7 +1220,7 @@ async def test_resolve_refreshes_token_expiring_within_buffer(monkeypatch):
 @pytest.mark.asyncio
 async def test_resolve_returns_none_when_expired_without_refresh_token(monkeypatch):
     # No refresh_token means nothing to refresh with — return None, never call refresh.
-    import litellm.proxy.mcp_server.db as db_mod
+    import hangarllm.proxy.mcp_server.db as db_mod
 
     refresh = AsyncMock()
     monkeypatch.setattr(db_mod, "refresh_user_oauth_token", refresh)
@@ -1237,7 +1237,7 @@ async def test_resolve_returns_none_when_expired_without_refresh_token(monkeypat
 @pytest.mark.asyncio
 async def test_resolve_returns_none_when_refresh_fails(monkeypatch):
     # A failed refresh (provider returns nothing usable) must surface as None.
-    import litellm.proxy.mcp_server.db as db_mod
+    import hangarllm.proxy.mcp_server.db as db_mod
 
     refresh = AsyncMock(return_value=None)
     monkeypatch.setattr(db_mod, "refresh_user_oauth_token", refresh)
@@ -1253,7 +1253,7 @@ async def test_resolve_returns_none_when_refresh_fails(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_resolve_returns_none_for_missing_credential(monkeypatch):
-    import litellm.proxy.mcp_server.db as db_mod
+    import hangarllm.proxy.mcp_server.db as db_mod
 
     refresh = AsyncMock()
     monkeypatch.setattr(db_mod, "refresh_user_oauth_token", refresh)
@@ -1301,7 +1301,7 @@ def _refresh_server(**overrides):
 
 
 async def _run_refresh(monkeypatch, server, response_body=None):
-    import litellm.proxy.mcp_server.db as db_mod
+    import hangarllm.proxy.mcp_server.db as db_mod
 
     captured: dict = {}
 
@@ -1370,16 +1370,16 @@ async def test_rotate_user_env_vars_re_encrypts_with_new_key(monkeypatch):
     encrypted_old = encrypt_value_helper(json.dumps(values))
 
     prisma = MagicMock()
-    prisma.db.litellm_mcpuserenvvars.find_many = AsyncMock(return_value=[_env_var_row(encrypted_old)])
-    prisma.db.litellm_mcpuserenvvars.update = AsyncMock()
+    prisma.db.hangarllm_mcpuserenvvars.find_many = AsyncMock(return_value=[_env_var_row(encrypted_old)])
+    prisma.db.hangarllm_mcpuserenvvars.update = AsyncMock()
 
     new_master_key = "rotated-env-key-1111-2222-3333-4444"
     await rotate_mcp_user_env_vars_master_key(prisma_client=prisma, new_master_key=new_master_key)
 
-    new_stored = prisma.db.litellm_mcpuserenvvars.update.call_args.kwargs["data"]["values_b64"]
+    new_stored = prisma.db.hangarllm_mcpuserenvvars.update.call_args.kwargs["data"]["values_b64"]
     assert new_stored != encrypted_old, "rotation must produce different ciphertext"
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", new_master_key)
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", new_master_key)
     decrypted = decrypt_value_helper(
         value=new_stored,
         key="mcp_user_env_vars",
@@ -1397,13 +1397,13 @@ async def test_rotate_user_env_vars_skips_undecryptable_rows():
     bad = _env_var_row("!!! not encrypted !!!", server_id="srv-corrupt")
 
     prisma = MagicMock()
-    prisma.db.litellm_mcpuserenvvars.find_many = AsyncMock(return_value=[bad, good])
-    prisma.db.litellm_mcpuserenvvars.update = AsyncMock()
+    prisma.db.hangarllm_mcpuserenvvars.find_many = AsyncMock(return_value=[bad, good])
+    prisma.db.hangarllm_mcpuserenvvars.update = AsyncMock()
 
     await rotate_mcp_user_env_vars_master_key(prisma_client=prisma, new_master_key="new-key-xxxx")
 
-    assert prisma.db.litellm_mcpuserenvvars.update.call_count == 1
-    where = prisma.db.litellm_mcpuserenvvars.update.call_args.kwargs["where"]
+    assert prisma.db.hangarllm_mcpuserenvvars.update.call_count == 1
+    where = prisma.db.hangarllm_mcpuserenvvars.update.call_args.kwargs["where"]
     assert where["user_id_server_id"]["server_id"] == "srv-ok"
 
 
@@ -1411,7 +1411,7 @@ async def test_rotate_user_env_vars_skips_undecryptable_rows():
 async def test_refresh_user_oauth_token_uses_client_secret_basic(monkeypatch):
     """LIT-4091: a per-user refresh against a server with token_endpoint_auth_method=client_secret_basic
     sends HTTP Basic and keeps the secret out of the body."""
-    import litellm.proxy.mcp_server.db as db_mod
+    import hangarllm.proxy.mcp_server.db as db_mod
 
     server = MagicMock(oauth_identity_binding=None)
     server.token_url = "https://idp.example.com/oauth2/token"
@@ -1450,7 +1450,7 @@ async def test_refresh_user_oauth_token_uses_client_secret_basic(monkeypatch):
 async def test_refresh_user_oauth_token_defaults_to_client_secret_post(monkeypatch):
     """Backward compatibility: with no token_endpoint_auth_method the refresh keeps credentials in
     the body (client_secret_post) and sends no Authorization header."""
-    import litellm.proxy.mcp_server.db as db_mod
+    import hangarllm.proxy.mcp_server.db as db_mod
 
     server = MagicMock(oauth_identity_binding=None)
     server.token_url = "https://idp.example.com/oauth2/token"
@@ -1531,13 +1531,13 @@ def test_prepare_mcp_server_data_update_carries_token_exchange_columns():
 
 @pytest.mark.asyncio
 async def test_master_key_rotation_reencrypts_oauth_client_store(monkeypatch):
-    """The server-scoped DCR client store (LiteLLM_MCPServerOAuthClient) is encrypted at rest, so a
+    """The server-scoped DCR client store (HangarLLM_MCPServerOAuthClient) is encrypted at rest, so a
     master-key rotation must re-encrypt it alongside the server rows. Skipping it leaves
     config-declared DCR clients under the retired key, where they decrypt back to ciphertext and
     force a full re-authorization."""
-    import litellm.proxy.common_utils.encrypt_decrypt_utils as enc
-    from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-    from litellm.proxy.mcp_server.db import (
+    import hangarllm.proxy.common_utils.encrypt_decrypt_utils as enc
+    from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
+    from hangarllm.proxy.mcp_server.db import (
         decrypt_credentials,
         encrypt_credentials,
         rotate_mcp_server_credentials_master_key,
@@ -1555,13 +1555,13 @@ async def test_master_key_rotation_reencrypts_oauth_client_store(monkeypatch):
     monkeypatch.setattr(enc, "get_salt_key", lambda: key_old)
 
     prisma = MagicMock()
-    prisma.db.litellm_mcpservertable.find_many = AsyncMock(return_value=[])
-    prisma.db.litellm_config.find_unique = AsyncMock(return_value=None)
-    prisma.db.litellm_mcpserveroauthclient.find_many = AsyncMock(
+    prisma.db.hangarllm_mcpservertable.find_many = AsyncMock(return_value=[])
+    prisma.db.hangarllm_config.find_unique = AsyncMock(return_value=None)
+    prisma.db.hangarllm_mcpserveroauthclient.find_many = AsyncMock(
         return_value=[SimpleNamespace(server_id="config_faros", credentials=blob_old)]
     )
     store_update = AsyncMock()
-    prisma.db.litellm_mcpserveroauthclient.update = store_update
+    prisma.db.hangarllm_mcpserveroauthclient.update = store_update
 
     await rotate_mcp_server_credentials_master_key(prisma, touched_by="test", new_master_key=key_new)
 
@@ -1580,18 +1580,18 @@ async def test_delete_mcp_server_cleans_oauth_client_store():
     """Deleting a server must remove its server-scoped DCR client store entry alongside the per-user
     credential and env-var rows, or a re-created server reusing the same server_id would inherit the
     deleted server's OAuth client."""
-    from litellm.proxy.mcp_server.db import delete_mcp_server
+    from hangarllm.proxy.mcp_server.db import delete_mcp_server
 
     prisma = MagicMock()
-    prisma.db.litellm_mcpservertable.delete = AsyncMock(return_value=SimpleNamespace(server_id="s1"))
-    prisma.db.litellm_mcpusercredentials.find_many = AsyncMock(return_value=[])
-    prisma.db.litellm_mcpusercredentials.delete_many = AsyncMock()
-    prisma.db.litellm_mcpuserenvvars.delete_many = AsyncMock()
-    prisma.db.litellm_mcpserveroauthclient.delete_many = AsyncMock()
+    prisma.db.hangarllm_mcpservertable.delete = AsyncMock(return_value=SimpleNamespace(server_id="s1"))
+    prisma.db.hangarllm_mcpusercredentials.find_many = AsyncMock(return_value=[])
+    prisma.db.hangarllm_mcpusercredentials.delete_many = AsyncMock()
+    prisma.db.hangarllm_mcpuserenvvars.delete_many = AsyncMock()
+    prisma.db.hangarllm_mcpserveroauthclient.delete_many = AsyncMock()
 
     await delete_mcp_server(prisma, "s1", invalidate_token_cache=AsyncMock())
 
-    prisma.db.litellm_mcpserveroauthclient.delete_many.assert_awaited_once_with(where={"server_id": "s1"})
+    prisma.db.hangarllm_mcpserveroauthclient.delete_many.assert_awaited_once_with(where={"server_id": "s1"})
 
 
 def test_mcp_oauth_token_identity_changes_when_only_upstream_resource_is_edited():
@@ -1603,7 +1603,7 @@ def test_mcp_oauth_token_identity_changes_when_only_upstream_resource_is_edited(
     calling tools with the previous audience's token until it expires, which is the token-reuse
     RFC 8707 exists to stop.
     """
-    from litellm.proxy.mcp_server.db import mcp_oauth_token_identity
+    from hangarllm.proxy.mcp_server.db import mcp_oauth_token_identity
 
     creds = {"client_id": "cid", "client_secret": "csec", "scopes": ["a"]}
     unset = _identity_server(credentials=dict(creds))
@@ -1623,9 +1623,9 @@ def test_mcp_oauth_token_identity_changes_when_only_upstream_resource_is_edited(
 async def test_refresh_user_oauth_token_uses_admin_entered_token_url_when_issuer_yield_empties_resolved(monkeypatch):
     """A pinned issuer empties the resolved token_url while configured_token_url keeps the
     admin-entered value; the silent per-user refresh must POST there instead of bailing."""
-    from litellm.proxy._types import MCPTransport
-    from litellm.types.mcp import MCPAuth
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.proxy._types import MCPTransport
+    from hangarllm.types.mcp import MCPAuth
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     server = MCPServer(
         server_id="srv-1",
@@ -1718,7 +1718,7 @@ def test_partial_update_defers_omitted_eligibility_fields_to_the_stored_row():
 
 @pytest.mark.asyncio
 async def test_enforcement_rejects_preexisting_unverified_credential():
-    from litellm.types.mcp_server.mcp_server_manager import MCPOAuthIdentityBinding, MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPOAuthIdentityBinding, MCPServer
 
     server = MCPServer(
         server_id="srv-1", name="srv-1", url="https://mcp.example.com", transport=MCPTransport.http, auth_type=MCPAuth.oauth2,
@@ -1737,7 +1737,7 @@ async def test_enforcement_rejects_preexisting_unverified_credential():
 async def test_refresh_identity_rejection_returns_reauthentication_without_persisting(monkeypatch):
     from fastapi import HTTPException
 
-    from litellm.proxy.mcp_server import db as module
+    from hangarllm.proxy.mcp_server import db as module
 
     validator = AsyncMock(side_effect=HTTPException(status_code=403, detail="oauth_principal_mismatch"))
     monkeypatch.setattr(module, "enforce_oauth_identity_binding", validator)
@@ -1751,12 +1751,12 @@ async def test_refresh_identity_rejection_returns_reauthentication_without_persi
 
 @pytest.mark.asyncio
 async def test_verified_legacy_cache_reads_avoid_database_and_reject_policy_changes(monkeypatch):
-    from litellm.caching.caching import DualCache
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server import db as module
-    from litellm.proxy.mcp_server.oauth2_token_cache import mcp_per_user_token_cache
-    from litellm.proxy.mcp_server.oauth_identity_binding import current_binding_proof
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server import db as module
+    from hangarllm.proxy.mcp_server.oauth2_token_cache import mcp_per_user_token_cache
+    from hangarllm.proxy.mcp_server.oauth_identity_binding import current_binding_proof
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     server = MCPServer(
         server_id="srv",
@@ -1788,11 +1788,11 @@ async def test_verified_legacy_cache_reads_avoid_database_and_reject_policy_chan
 
 @pytest.mark.asyncio
 async def test_unverified_legacy_cache_cannot_bypass_enforcement(monkeypatch):
-    from litellm.caching.caching import DualCache
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server import db as module
-    from litellm.proxy.mcp_server.oauth2_token_cache import mcp_per_user_token_cache
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server import db as module
+    from hangarllm.proxy.mcp_server.oauth2_token_cache import mcp_per_user_token_cache
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     server = MCPServer(
         server_id="srv",
@@ -1815,13 +1815,13 @@ async def test_unverified_legacy_cache_cannot_bypass_enforcement(monkeypatch):
 async def test_saved_cimd_grant_refreshes_from_encrypted_storage_on_a_fresh_replica(monkeypatch, respx_mock, owner, capability):
     from urllib.parse import parse_qs
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server import db as db_module
-    from litellm.proxy.mcp_server.discoverable_endpoints import _store_per_user_token_server_side
-    from litellm.proxy.mcp_server.outbound_credentials.per_user_oauth_store import (
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server import db as db_module
+    from hangarllm.proxy.mcp_server.discoverable_endpoints import _store_per_user_token_server_side
+    from hangarllm.proxy.mcp_server.outbound_credentials.per_user_oauth_store import (
         LazyPerUserOAuthTokenStore,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     monkeypatch.setenv("PROXY_BASE_URL", "https://gateway.example.com")
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
@@ -1842,7 +1842,7 @@ async def test_saved_cimd_grant_refreshes_from_encrypted_storage_on_a_fresh_repl
     async def read_row(**kwargs):
         return SimpleNamespace(credential_b64=_stored_value(prisma), user_id="alice", server_id=server.server_id)
 
-    prisma.db.litellm_mcpusercredentials.find_unique.side_effect = read_row
+    prisma.db.hangarllm_mcpusercredentials.find_unique.side_effect = read_row
     saved = await get_user_oauth_credential(prisma, "alice", server.server_id)
     assert saved is not None and saved["cimd_client_id"] == identity
     assert identity not in _stored_value(prisma)
@@ -1870,7 +1870,7 @@ async def test_saved_cimd_grant_refreshes_from_encrypted_storage_on_a_fresh_repl
 @pytest.mark.asyncio
 @pytest.mark.parametrize("provider_scope, expected", [(None, ["a"]), ("b", ["b"]), ("", [])])
 async def test_silent_refresh_preserves_omitted_scope_but_accepts_explicit_grant(monkeypatch, provider_scope, expected):
-    import litellm.proxy.mcp_server.db as db_mod
+    import hangarllm.proxy.mcp_server.db as db_mod
 
     await _run_refresh(monkeypatch, _refresh_server(), {
         "access_token": "new-access",

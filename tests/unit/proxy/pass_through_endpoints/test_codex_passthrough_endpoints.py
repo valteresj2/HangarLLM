@@ -14,31 +14,31 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 from jwt.algorithms import RSAAlgorithm
 
-import litellm
-from litellm import Router
-from litellm.caching.dual_cache import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.chatgpt.common_utils import OPENAI_AUTH_CLAIM_KEY
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LiteLLM_JWTAuth, LiteLLM_TeamTableCachedObj, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.handle_jwt import JWTHandler
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.codex_model_catalog import bundled_codex_models
-from litellm.proxy.pass_through_endpoints.codex_passthrough_endpoints import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.llms.chatgpt.common_utils import OPENAI_AUTH_CLAIM_KEY
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import HangarLLM_JWTAuth, HangarLLM_TeamTableCachedObj, HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.auth.handle_jwt import JWTHandler
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.common_utils.codex_model_catalog import bundled_codex_models
+from hangarllm.proxy.pass_through_endpoints.codex_passthrough_endpoints import (
     _ACCOUNT_SLUGS_FETCHES_PER_CALLER,
     codex_shared_cache,
 )
-from litellm.proxy.utils import hash_token
-from litellm.responses.litellm_completion_transformation.reasoning_items import (
+from hangarllm.proxy.utils import hash_token
+from hangarllm.responses.hangarllm_completion_transformation.reasoning_items import (
     encode_thinking_blocks,
     mint_reasoning_item_id,
 )
-from litellm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
 from tests._master_key import MASTER_KEY
 
 _BASE: Final = "https://chatgpt.com/backend-api/codex"
 _TOKEN: Final = "test-subscription-token"
-_HEADERS: Final = {"authorization": f"Bearer {_TOKEN}", "x-litellm-api-key": MASTER_KEY}
+_HEADERS: Final = {"authorization": f"Bearer {_TOKEN}", "x-hangarllm-api-key": MASTER_KEY}
 
 
 @pytest.fixture
@@ -60,14 +60,14 @@ def test_native_catalog_preserves_account_and_filters_gateway_credentials(
             "chatgpt-account-id": "account-a",
             "cookie": "session=test-cookie",
             "x-pass-authorization": "Bearer test-injected-token",
-            "x-pass-x-litellm-api-key": "test-injected-key",
+            "x-pass-x-hangarllm-api-key": "test-injected-key",
         },
     )
     assert response.status_code == 200
     assert response.json() == catalog
     assert upstream.calls.last.request.headers["authorization"] == f"Bearer {_TOKEN}"
     assert upstream.calls.last.request.headers["chatgpt-account-id"] == "account-a"
-    assert "x-litellm-api-key" not in upstream.calls.last.request.headers
+    assert "x-hangarllm-api-key" not in upstream.calls.last.request.headers
     assert "cookie" not in upstream.calls.last.request.headers
 
 
@@ -107,7 +107,7 @@ def test_gateway_auth_rejects_before_upstream(
 ) -> None:
     headers: Final = {
         "authorization": f"Bearer {_TOKEN}",
-        **({"x-litellm-api-key": gateway_key} if gateway_key else {}),
+        **({"x-hangarllm-api-key": gateway_key} if gateway_key else {}),
     }
     response: Final = client.get("/backend-api/codex/models", headers=headers)
     assert response.status_code in (400, 401, 403)
@@ -160,11 +160,11 @@ async def test_usage_logged_without_credentials(
 ) -> None:
     monkeypatch.setattr(proxy_server, "master_key", MASTER_KEY)
     recorder: Final = UsageRecorder()
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
-    litellm.register_model(
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
+    hangarllm.register_model(
         {
             "chatgpt/subscription-model": {
-                "litellm_provider": "chatgpt",
+                "hangarllm_provider": "chatgpt",
                 "mode": "responses",
                 "input_cost_per_token": 0.0,
                 "output_cost_per_token": 0.0,
@@ -239,7 +239,7 @@ _UPSTREAM_CATALOG: Final = {
 def _open_weights(model_name: str, mode: str | None = None, upstream: str | None = None) -> dict[str, object]:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"fireworks_ai/{upstream or model_name}",
             "api_base": _PROVIDER_BASE,
             "api_key": _PROVIDER_KEY,
@@ -254,15 +254,15 @@ def mixed_router(monkeypatch: pytest.MonkeyPatch) -> Router:
         model_list=[
             {
                 "model_name": "chatgpt/gpt-*",
-                "litellm_params": {"model": "chatgpt/gpt-*"},
+                "hangarllm_params": {"model": "chatgpt/gpt-*"},
                 "model_info": {"access_groups": ["chatgpt-native"]},
             },
             {
                 "model_name": "chatgpt/codex-*",
-                "litellm_params": {"model": "chatgpt/codex-*"},
+                "hangarllm_params": {"model": "chatgpt/codex-*"},
                 "model_info": {"access_groups": ["chatgpt-native"]},
             },
-            {"model_name": "chatgpt-subscription", "litellm_params": {"model": "chatgpt/subscription-model"}},
+            {"model_name": "chatgpt-subscription", "hangarllm_params": {"model": "chatgpt/subscription-model"}},
             _open_weights("open-weights"),
             _open_weights("shared-name"),
             _open_weights(_BUNDLED_SLUG),
@@ -273,12 +273,12 @@ def mixed_router(monkeypatch: pytest.MonkeyPatch) -> Router:
     )
     monkeypatch.setattr(proxy_server, "llm_router", router)
     unpriced_bundled: Final = {
-        name: price for name, price in litellm.model_cost.items() if name != f"chatgpt/{_BUNDLED_SLUG}"
+        name: price for name, price in hangarllm.model_cost.items() if name != f"chatgpt/{_BUNDLED_SLUG}"
     }
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
-        {**unpriced_bundled, f"chatgpt/{_PRICED_CHATGPT_SLUG}": {"litellm_provider": "chatgpt", "mode": "responses"}},
+        {**unpriced_bundled, f"chatgpt/{_PRICED_CHATGPT_SLUG}": {"hangarllm_provider": "chatgpt", "mode": "responses"}},
     )
     return router
 
@@ -427,11 +427,11 @@ def _account_catalog(respx_mock: respx.MockRouter) -> respx.Route:
     return respx_mock.get(f"{_BASE}/models").respond(json=_UPSTREAM_CATALOG)
 
 
-def test_litellm_model_on_native_route_streams_like_v1_without_chatgpt_credentials(
+def test_hangarllm_model_on_native_route_streams_like_v1_without_chatgpt_credentials(
     client: TestClient, respx_mock: respx.MockRouter, mixed_router: Router, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     recorder: Final = PreCallRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     _account_catalog(respx_mock)
     chatgpt: Final = respx_mock.post(f"{_BASE}/responses").respond(json={})
     provider: Final = respx_mock.post(f"{_PROVIDER_BASE}/responses").mock(
@@ -457,11 +457,11 @@ def test_litellm_model_on_native_route_streams_like_v1_without_chatgpt_credentia
     assert "account-a" not in native_call
 
 
-def test_litellm_model_on_native_route_keeps_chatgpt_credentials_out_of_hook_raw_headers(
+def test_hangarllm_model_on_native_route_keeps_chatgpt_credentials_out_of_hook_raw_headers(
     client: TestClient, respx_mock: respx.MockRouter, mixed_router: Router, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     recorder: Final = PreCallRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     _account_catalog(respx_mock)
     provider: Final = _open_weights_provider(respx_mock)
     response: Final = client.post(
@@ -472,7 +472,7 @@ def test_litellm_model_on_native_route_keeps_chatgpt_credentials_out_of_hook_raw
     assert response.status_code == 200
     assert provider.called
     (raw_header_names,) = recorder.raw_header_names
-    assert "x-litellm-api-key" in raw_header_names
+    assert "x-hangarllm-api-key" in raw_header_names
     assert not raw_header_names & {"authorization", "chatgpt-account-id"}, sorted(raw_header_names)
 
 
@@ -480,7 +480,7 @@ def test_litellm_model_on_native_route_keeps_chatgpt_credentials_out_of_hook_raw
     ("model", "sent", "drop_params", "expected"),
     [
         pytest.param("open-weights", "none", None, "none", id="none without drop_params"),
-        pytest.param("open-weights", "none", "global", None, id="none under litellm_settings drop_params"),
+        pytest.param("open-weights", "none", "global", None, id="none under hangarllm_settings drop_params"),
         pytest.param("open-weights", "none", "deployment", None, id="none under the deployment's drop_params"),
         pytest.param("open-weights", "none", "request", None, id="none under the request's drop_params"),
         pytest.param("open-weights", "high", "global", "high", id="effort set for a model without a default effort"),
@@ -490,7 +490,7 @@ def test_litellm_model_on_native_route_keeps_chatgpt_credentials_out_of_hook_raw
         pytest.param("declared-model", "none", "global", "none", id="none on a deployment whose model_info allows it"),
     ],
 )
-def test_litellm_model_on_native_route_gets_the_reasoning_effort_codex_m_would_send(
+def test_hangarllm_model_on_native_route_gets_the_reasoning_effort_codex_m_would_send(
     client: TestClient,
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
@@ -499,7 +499,7 @@ def test_litellm_model_on_native_route_gets_the_reasoning_effort_codex_m_would_s
     drop_params: str | None,
     expected: str | None,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", drop_params == "global")
+    monkeypatch.setattr(hangarllm, "drop_params", drop_params == "global")
     open_weights: Final = _open_weights("open-weights")
     monkeypatch.setattr(
         proxy_server,
@@ -508,7 +508,7 @@ def test_litellm_model_on_native_route_gets_the_reasoning_effort_codex_m_would_s
             model_list=[
                 {
                     **open_weights,
-                    "litellm_params": {**open_weights["litellm_params"], "drop_params": drop_params == "deployment"},
+                    "hangarllm_params": {**open_weights["hangarllm_params"], "drop_params": drop_params == "deployment"},
                 },
                 {
                     **_open_weights("coding-model", upstream="gpt-5.5"),
@@ -518,7 +518,7 @@ def test_litellm_model_on_native_route_gets_the_reasoning_effort_codex_m_would_s
                 {**_open_weights("declared-model"), "model_info": {"supports_none_reasoning_effort": True}},
                 {
                     "model_name": "api-model",
-                    "litellm_params": {"model": "openai/gpt-5.4", "api_base": _PROVIDER_BASE, "api_key": _PROVIDER_KEY},
+                    "hangarllm_params": {"model": "openai/gpt-5.4", "api_base": _PROVIDER_BASE, "api_key": _PROVIDER_KEY},
                 },
             ]
         ),
@@ -607,7 +607,7 @@ def restricted_key(monkeypatch: pytest.MonkeyPatch) -> Callable[..., str]:
     def mint(
         models: list[str],
         allowed_routes: tuple[str, ...] = (),
-        user_role: LitellmUserRoles | None = None,
+        user_role: HangarllmUserRoles | None = None,
         allowed_tools: tuple[str, ...] = (),
     ) -> str:
         key: Final = f"sk-test-{'-'.join((*models, *allowed_routes, str(user_role), *allowed_tools))}"
@@ -629,11 +629,11 @@ def restricted_key(monkeypatch: pytest.MonkeyPatch) -> Callable[..., str]:
 @pytest.mark.parametrize(
     ("models", "added"),
     [
-        pytest.param(["chatgpt-native", "open-weights"], ["open-weights"], id="key with a LiteLLM model"),
+        pytest.param(["chatgpt-native", "open-weights"], ["open-weights"], id="key with a HangarLLM model"),
         pytest.param(["chatgpt-native"], [], id="key with ChatGPT models only"),
     ],
 )
-def test_native_catalog_adds_only_the_litellm_models_the_key_can_call(
+def test_native_catalog_adds_only_the_hangarllm_models_the_key_can_call(
     client: TestClient,
     respx_mock: respx.MockRouter,
     mixed_router: Router,
@@ -644,7 +644,7 @@ def test_native_catalog_adds_only_the_litellm_models_the_key_can_call(
     respx_mock.get(f"{_BASE}/models").respond(json=_UPSTREAM_CATALOG, headers={"etag": '"upstream-v1"'})
     response: Final = client.get(
         "/backend-api/codex/models?client_version=1.0.0",
-        headers={**_HEADERS, "x-litellm-api-key": restricted_key(models)},
+        headers={**_HEADERS, "x-hangarllm-api-key": restricted_key(models)},
     )
     assert response.status_code == 200
     assert [model["slug"] for model in response.json()["models"]] == [
@@ -659,7 +659,7 @@ def test_native_catalog_adds_only_the_litellm_models_the_key_can_call(
     [
         pytest.param(["chatgpt-native", "open-weights"], "gpt-unlisted", True, id="chatgpt access group"),
         pytest.param(["chatgpt-subscription", "open-weights"], "gpt-unlisted", False, id="single subscription model"),
-        pytest.param(["chatgpt-native"], "open-weights", False, id="litellm model outside the key"),
+        pytest.param(["chatgpt-native"], "open-weights", False, id="hangarllm model outside the key"),
     ],
 )
 def test_native_route_serves_only_the_models_the_key_allows(
@@ -678,7 +678,7 @@ def test_native_route_serves_only_the_models_the_key_allows(
     response: Final = client.post(
         "/backend-api/codex/responses",
         json={"model": model, "input": "Hello", "stream": True},
-        headers={**_HEADERS, "x-litellm-api-key": restricted_key(models)},
+        headers={**_HEADERS, "x-hangarllm-api-key": restricted_key(models)},
     )
     assert (response.status_code == 200) is allowed
     assert chatgpt.called is allowed
@@ -713,7 +713,7 @@ def test_native_route_refuses_a_saved_alias_when_its_target_is_over_budget(
     response: Final = client.post(
         "/backend-api/codex/responses",
         json={"model": "group-a", "input": "Hello"},
-        headers={**_ACCOUNT_HEADERS, "x-litellm-api-key": key},
+        headers={**_ACCOUNT_HEADERS, "x-hangarllm-api-key": key},
     )
     assert response.json()["error"]["type"] == "budget_exceeded", response.text
     assert "model=group-b" in response.json()["error"]["message"]
@@ -729,7 +729,7 @@ def test_native_route_serves_a_saved_alias_target_within_budget_under_the_reques
     response: Final = client.post(
         "/backend-api/codex/responses",
         json={"model": "group-a", "input": "Hello"},
-        headers={**_ACCOUNT_HEADERS, "x-litellm-api-key": key},
+        headers={**_ACCOUNT_HEADERS, "x-hangarllm-api-key": key},
     )
     assert response.status_code == 200, response.text
     assert response.json()["model"] == "group-a"
@@ -757,7 +757,7 @@ def test_native_route_keeps_a_chatgpt_turn_on_the_subscription_despite_a_saved_a
     response: Final = client.post(
         "/backend-api/codex/responses",
         json={"model": _BUNDLED_SLUG, "input": "Hello", "stream": True},
-        headers={**_HEADERS, "x-litellm-api-key": key},
+        headers={**_HEADERS, "x-hangarllm-api-key": key},
     )
     assert response.status_code == 200, response.text
     assert not provider.called
@@ -787,7 +787,7 @@ def test_native_route_keeps_a_name_the_account_lists_on_the_subscription_despite
     response: Final = client.post(
         "/backend-api/codex/responses",
         json={"model": "gpt-reserve", "input": "Hello", "stream": True},
-        headers={**_ACCOUNT_HEADERS, "x-litellm-api-key": key},
+        headers={**_ACCOUNT_HEADERS, "x-hangarllm-api-key": key},
     )
     assert response.status_code == 200, response.text
     assert not provider.called
@@ -800,10 +800,10 @@ _BEARER_KEY: Final = "sk-test-alias-key-sent-as-the-bearer"
 
 @pytest.mark.parametrize(
     "gateway_header",
-    [{}, {"x-litellm-api-key": _BEARER_KEY}],
+    [{}, {"x-hangarllm-api-key": _BEARER_KEY}],
     ids=["key only in the bearer", "same key in both headers"],
 )
-def test_native_route_never_sends_a_litellm_key_sent_as_the_bearer_to_chatgpt(
+def test_native_route_never_sends_a_hangarllm_key_sent_as_the_bearer_to_chatgpt(
     client: TestClient, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, gateway_header: dict[str, str]
 ) -> None:
     monkeypatch.setattr(proxy_server, "prisma_client", "test-database")
@@ -863,7 +863,7 @@ _NATIVE_ROUTES: Final = ("/backend-api/codex/models", "/backend-api/codex/respon
         pytest.param((*_NATIVE_ROUTES, "/v1/responses"), ["open-weights"], id="key that may call /v1/responses"),
     ],
 )
-def test_native_catalog_adds_litellm_models_only_for_a_key_that_may_call_v1_responses(
+def test_native_catalog_adds_hangarllm_models_only_for_a_key_that_may_call_v1_responses(
     client: TestClient,
     respx_mock: respx.MockRouter,
     mixed_router: Router,
@@ -874,7 +874,7 @@ def test_native_catalog_adds_litellm_models_only_for_a_key_that_may_call_v1_resp
     respx_mock.get(f"{_BASE}/models").respond(json=_UPSTREAM_CATALOG)
     response: Final = client.get(
         "/backend-api/codex/models?client_version=1.0.0",
-        headers={**_HEADERS, "x-litellm-api-key": restricted_key(["chatgpt-native", "open-weights"], allowed_routes)},
+        headers={**_HEADERS, "x-hangarllm-api-key": restricted_key(["chatgpt-native", "open-weights"], allowed_routes)},
     )
     assert response.status_code == 200, response.text
     assert [model["slug"] for model in response.json()["models"]] == [
@@ -884,19 +884,19 @@ def test_native_catalog_adds_litellm_models_only_for_a_key_that_may_call_v1_resp
 
 
 @pytest.mark.parametrize(
-    ("allowed_routes", "through_litellm"),
+    ("allowed_routes", "through_hangarllm"),
     [
         pytest.param(_NATIVE_ROUTES, False, id="key limited to the native routes"),
         pytest.param((*_NATIVE_ROUTES, "/v1/responses"), True, id="key that may call /v1/responses"),
     ],
 )
-def test_native_responses_reach_litellm_models_only_for_a_key_that_may_call_v1_responses(
+def test_native_responses_reach_hangarllm_models_only_for_a_key_that_may_call_v1_responses(
     client: TestClient,
     respx_mock: respx.MockRouter,
     mixed_router: Router,
     restricted_key: Callable[..., str],
     allowed_routes: tuple[str, ...],
-    through_litellm: bool,
+    through_hangarllm: bool,
 ) -> None:
     _account_catalog(respx_mock)
     provider: Final = _open_weights_provider(respx_mock)
@@ -906,30 +906,30 @@ def test_native_responses_reach_litellm_models_only_for_a_key_that_may_call_v1_r
         json={"model": "open-weights", "input": "Hello", "stream": True},
         headers={
             **_ACCOUNT_HEADERS,
-            "x-litellm-api-key": restricted_key(["chatgpt-native", "open-weights"], allowed_routes),
+            "x-hangarllm-api-key": restricted_key(["chatgpt-native", "open-weights"], allowed_routes),
         },
     )
     assert response.status_code == 200, response.text
-    assert provider.called is through_litellm
-    assert chatgpt.called is not through_litellm
+    assert provider.called is through_hangarllm
+    assert chatgpt.called is not through_hangarllm
 
 
 
 @pytest.mark.parametrize(
-    ("user_role", "through_litellm"),
+    ("user_role", "through_hangarllm"),
     [
-        pytest.param(LitellmUserRoles.INTERNAL_USER, False, id="non-admin key"),
-        pytest.param(LitellmUserRoles.PROXY_ADMIN, True, id="proxy admin key"),
+        pytest.param(HangarllmUserRoles.INTERNAL_USER, False, id="non-admin key"),
+        pytest.param(HangarllmUserRoles.PROXY_ADMIN, True, id="proxy admin key"),
     ],
 )
-def test_admin_only_v1_responses_keeps_litellm_models_to_proxy_admins_on_native_routes(
+def test_admin_only_v1_responses_keeps_hangarllm_models_to_proxy_admins_on_native_routes(
     client: TestClient,
     respx_mock: respx.MockRouter,
     mixed_router: Router,
     restricted_key: Callable[..., str],
     monkeypatch: pytest.MonkeyPatch,
-    user_role: LitellmUserRoles,
-    through_litellm: bool,
+    user_role: HangarllmUserRoles,
+    through_hangarllm: bool,
 ) -> None:
     monkeypatch.setattr(proxy_server, "general_settings", {"admin_only_routes": ["/v1/responses"]})
     monkeypatch.setattr(proxy_server, "premium_user", True)
@@ -938,21 +938,21 @@ def test_admin_only_v1_responses_keeps_litellm_models_to_proxy_admins_on_native_
     chatgpt: Final = _chatgpt_responses(respx_mock)
     key: Final = restricted_key(["chatgpt-native", "open-weights"], user_role=user_role)
     catalog: Final = client.get(
-        "/backend-api/codex/models?client_version=1.0.0", headers={**_ACCOUNT_HEADERS, "x-litellm-api-key": key}
+        "/backend-api/codex/models?client_version=1.0.0", headers={**_ACCOUNT_HEADERS, "x-hangarllm-api-key": key}
     )
     response: Final = client.post(
         "/backend-api/codex/responses",
         json={"model": "open-weights", "input": "Hello", "stream": True},
-        headers={**_ACCOUNT_HEADERS, "x-litellm-api-key": key},
+        headers={**_ACCOUNT_HEADERS, "x-hangarllm-api-key": key},
     )
     assert (catalog.status_code, response.status_code) == (200, 200), response.text
-    assert ("open-weights" in [model["slug"] for model in catalog.json()["models"]]) is through_litellm
-    assert provider.called is through_litellm
-    assert chatgpt.called is not through_litellm
+    assert ("open-weights" in [model["slug"] for model in catalog.json()["models"]]) is through_hangarllm
+    assert provider.called is through_hangarllm
+    assert chatgpt.called is not through_hangarllm
 
 
 @pytest.mark.parametrize(
-    ("allowed_routes", "through_litellm"),
+    ("allowed_routes", "through_hangarllm"),
     [
         pytest.param(["/backend-api/codex/models", "/backend-api/codex/responses"], False, id="native routes only"),
         pytest.param(
@@ -962,14 +962,14 @@ def test_admin_only_v1_responses_keeps_litellm_models_to_proxy_admins_on_native_
         ),
     ],
 )
-def test_proxy_allowed_routes_keep_litellm_models_off_native_routes_unless_v1_responses_is_allowed(
+def test_proxy_allowed_routes_keep_hangarllm_models_off_native_routes_unless_v1_responses_is_allowed(
     client: TestClient,
     respx_mock: respx.MockRouter,
     mixed_router: Router,
     restricted_key: Callable[..., str],
     monkeypatch: pytest.MonkeyPatch,
     allowed_routes: list[str],
-    through_litellm: bool,
+    through_hangarllm: bool,
 ) -> None:
     monkeypatch.setattr(proxy_server, "general_settings", {"allowed_routes": allowed_routes})
     monkeypatch.setattr(proxy_server, "premium_user", True)
@@ -978,22 +978,22 @@ def test_proxy_allowed_routes_keep_litellm_models_off_native_routes_unless_v1_re
     chatgpt: Final = _chatgpt_responses(respx_mock)
     key: Final = restricted_key(["chatgpt-native", "open-weights"])
     catalog: Final = client.get(
-        "/backend-api/codex/models?client_version=1.0.0", headers={**_ACCOUNT_HEADERS, "x-litellm-api-key": key}
+        "/backend-api/codex/models?client_version=1.0.0", headers={**_ACCOUNT_HEADERS, "x-hangarllm-api-key": key}
     )
     response: Final = client.post(
         "/backend-api/codex/responses",
         json={"model": "open-weights", "input": "Hello", "stream": True},
-        headers={**_ACCOUNT_HEADERS, "x-litellm-api-key": key},
+        headers={**_ACCOUNT_HEADERS, "x-hangarllm-api-key": key},
     )
     assert (catalog.status_code, response.status_code) == (200, 200), response.text
-    assert ("open-weights" in [model["slug"] for model in catalog.json()["models"]]) is through_litellm
-    assert provider.called is through_litellm
-    assert chatgpt.called is not through_litellm
+    assert ("open-weights" in [model["slug"] for model in catalog.json()["models"]]) is through_hangarllm
+    assert provider.called is through_hangarllm
+    assert chatgpt.called is not through_hangarllm
 
 
 _JWT_ISSUER: Final = "https://idp.codex-test.example"
 _JWT_JWKS_URL: Final = f"{_JWT_ISSUER}/keys"
-_JWT_AUDIENCE: Final = "litellm-proxy"
+_JWT_AUDIENCE: Final = "hangarllm-proxy"
 _JWT_KID: Final = "codex-test-key"
 _JWT_TEAM: Final = "codex-team"
 
@@ -1007,12 +1007,12 @@ def _team_jwt(monkeypatch: pytest.MonkeyPatch, team_allowed_routes: list[str]) -
         "use": "sig",
     }
     keys_cache: Final = DualCache()
-    keys_cache.set_cache(key=f"litellm_jwt_auth_keys_{_JWT_JWKS_URL}", value=[public_jwk])
+    keys_cache.set_cache(key=f"hangarllm_jwt_auth_keys_{_JWT_JWKS_URL}", value=[public_jwk])
     handler: Final = JWTHandler()
     handler.update_environment(
         prisma_client=None,
         user_api_key_cache=keys_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             issuers=[{"issuer": _JWT_ISSUER, "jwks_url": _JWT_JWKS_URL, "audience": _JWT_AUDIENCE}],
             team_ids_jwt_field="groups",
             team_allowed_routes=team_allowed_routes,
@@ -1024,7 +1024,7 @@ def _team_jwt(monkeypatch: pytest.MonkeyPatch, team_allowed_routes: list[str]) -
     monkeypatch.setattr(proxy_server, "prisma_client", "test-database")
     proxy_server.user_api_key_cache.set_cache(
         key=f"team_id:{_JWT_TEAM}",
-        value=LiteLLM_TeamTableCachedObj(team_id=_JWT_TEAM, models=["chatgpt-native", "open-weights"]),
+        value=HangarLLM_TeamTableCachedObj(team_id=_JWT_TEAM, models=["chatgpt-native", "open-weights"]),
     )
     issued_at: Final = int(time.time())
     return jwt.encode(
@@ -1043,36 +1043,36 @@ def _team_jwt(monkeypatch: pytest.MonkeyPatch, team_allowed_routes: list[str]) -
 
 
 @pytest.mark.parametrize(
-    ("team_allowed_routes", "through_litellm"),
+    ("team_allowed_routes", "through_hangarllm"),
     [
         pytest.param(["/backend-api/codex/*"], False, id="team allowed only the native routes"),
         pytest.param(["/backend-api/codex/*", "openai_routes"], True, id="team allowed openai routes too"),
     ],
 )
-def test_jwt_team_routes_keep_litellm_models_off_native_routes_unless_v1_responses_is_allowed(
+def test_jwt_team_routes_keep_hangarllm_models_off_native_routes_unless_v1_responses_is_allowed(
     client: TestClient,
     respx_mock: respx.MockRouter,
     mixed_router: Router,
     monkeypatch: pytest.MonkeyPatch,
     team_allowed_routes: list[str],
-    through_litellm: bool,
+    through_hangarllm: bool,
 ) -> None:
     token: Final = _team_jwt(monkeypatch, team_allowed_routes)
     _account_catalog(respx_mock)
     provider: Final = _open_weights_provider(respx_mock)
     chatgpt: Final = _chatgpt_responses(respx_mock)
     catalog: Final = client.get(
-        "/backend-api/codex/models?client_version=1.0.0", headers={**_ACCOUNT_HEADERS, "x-litellm-api-key": token}
+        "/backend-api/codex/models?client_version=1.0.0", headers={**_ACCOUNT_HEADERS, "x-hangarllm-api-key": token}
     )
     response: Final = client.post(
         "/backend-api/codex/responses",
         json={"model": "open-weights", "input": "Hello", "stream": True},
-        headers={**_ACCOUNT_HEADERS, "x-litellm-api-key": token},
+        headers={**_ACCOUNT_HEADERS, "x-hangarllm-api-key": token},
     )
     assert (catalog.status_code, response.status_code) == (200, 200), response.text
-    assert ("open-weights" in [model["slug"] for model in catalog.json()["models"]]) is through_litellm
-    assert provider.called is through_litellm
-    assert chatgpt.called is not through_litellm
+    assert ("open-weights" in [model["slug"] for model in catalog.json()["models"]]) is through_hangarllm
+    assert provider.called is through_hangarllm
+    assert chatgpt.called is not through_hangarllm
 
 
 _USER_TURN: Final = {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "Hello"}]}
@@ -1245,7 +1245,7 @@ def test_rotating_chatgpt_logins_on_one_key_reads_the_account_catalog_a_bounded_
         headers={
             **_ACCOUNT_HEADERS,
             "authorization": "Bearer test-teammate-login",
-            "x-litellm-api-key": restricted_key(["open-weights"]),
+            "x-hangarllm-api-key": restricted_key(["open-weights"]),
         },
     )
     assert {response.status_code for response in (*rotated, teammate)} == {200}
@@ -1274,7 +1274,7 @@ def test_account_catalog_lookup_sends_the_callers_chatgpt_login_and_codex_versio
         "originator": "codex_cli_rs",
     }
     assert fetched.headers["user-agent"] == _CODEX_USER_AGENT
-    assert "x-litellm-api-key" not in fetched.headers
+    assert "x-hangarllm-api-key" not in fetched.headers
 
 
 def _models_etags(client: TestClient, headers: dict[str, str]) -> tuple[str | None, str | None]:
@@ -1291,7 +1291,7 @@ def _models_etags(client: TestClient, headers: dict[str, str]) -> tuple[str | No
 @pytest.mark.parametrize(
     ("models", "merged"),
     [
-        pytest.param(["chatgpt-native", "open-weights"], True, id="catalog with LiteLLM models"),
+        pytest.param(["chatgpt-native", "open-weights"], True, id="catalog with HangarLLM models"),
         pytest.param(["chatgpt-native"], False, id="catalog of ChatGPT models only"),
     ],
 )
@@ -1305,7 +1305,7 @@ def test_native_catalog_and_responses_carry_the_same_models_etag(
 ) -> None:
     respx_mock.get(f"{_BASE}/models").respond(json=_UPSTREAM_CATALOG, headers={"etag": _UPSTREAM_MODELS_ETAG})
     _chatgpt_responses(respx_mock)
-    catalog_etag, responses_etag = _models_etags(client, {**_HEADERS, "x-litellm-api-key": restricted_key(models)})
+    catalog_etag, responses_etag = _models_etags(client, {**_HEADERS, "x-hangarllm-api-key": restricted_key(models)})
     assert catalog_etag is not None
     assert catalog_etag == responses_etag
     assert (catalog_etag != _UPSTREAM_MODELS_ETAG) is merged
@@ -1323,7 +1323,7 @@ def test_native_models_etag_is_the_same_on_replicas_with_empty_caches(
     assert len({*first_replica, *second_replica}) == 1
 
 
-def test_native_models_etag_changes_with_the_keys_litellm_models_and_with_upstreams_etag(
+def test_native_models_etag_changes_with_the_keys_hangarllm_models_and_with_upstreams_etag(
     client: TestClient, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     open_weights: Final = _open_weights("open-weights")
@@ -1352,7 +1352,7 @@ class FailingModelListing(CustomLogger):
 def test_native_catalog_relays_chatgpts_answer_when_listing_the_keys_models_fails(
     client: TestClient, respx_mock: respx.MockRouter, mixed_router: Router, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [FailingModelListing()])
+    monkeypatch.setattr(hangarllm, "callbacks", [FailingModelListing()])
     respx_mock.get(f"{_BASE}/models").respond(json=_UPSTREAM_CATALOG, headers={"etag": '"upstream-v1"'})
     response: Final = client.get("/backend-api/codex/models?client_version=0.165.0", headers=_HEADERS)
     assert response.status_code == 200
@@ -1363,7 +1363,7 @@ def test_native_catalog_relays_chatgpts_answer_when_listing_the_keys_models_fail
 def test_native_responses_keep_chatgpts_models_etag_when_listing_the_keys_models_fails(
     client: TestClient, respx_mock: respx.MockRouter, mixed_router: Router, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [FailingModelListing()])
+    monkeypatch.setattr(hangarllm, "callbacks", [FailingModelListing()])
     chatgpt: Final = _chatgpt_responses(respx_mock)
     response: Final = client.post(
         "/backend-api/codex/responses",
@@ -1429,7 +1429,7 @@ def _reasoning_item_of(response: httpx.Response, stream: bool) -> dict[str, obje
 
 
 @pytest.mark.parametrize("stream", [False, True])
-def test_openai_reasoning_from_the_native_route_is_dropped_for_chatgpt_and_unwrapped_for_litellm(
+def test_openai_reasoning_from_the_native_route_is_dropped_for_chatgpt_and_unwrapped_for_hangarllm(
     client: TestClient, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, stream: bool
 ) -> None:
     monkeypatch.setattr(
@@ -1439,7 +1439,7 @@ def test_openai_reasoning_from_the_native_route_is_dropped_for_chatgpt_and_unwra
             model_list=[
                 {
                     "model_name": "api-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-5.6",
                         "api_base": _OPENAI_BASE,
                         "api_key": "test-openai-key",
@@ -1465,13 +1465,13 @@ def test_openai_reasoning_from_the_native_route_is_dropped_for_chatgpt_and_unwra
         json={**turn, "model": "subscription-model", "input": history, "stream": True},
         headers=_ACCOUNT_HEADERS,
     )
-    back_to_litellm: Final = client.post(
+    back_to_hangarllm: Final = client.post(
         "/backend-api/codex/responses", json={**turn, "input": history}, headers=_ACCOUNT_HEADERS
     )
     v1: Final = client.post(
         "/v1/responses", json={**turn, "stream": False}, headers={"authorization": f"Bearer {MASTER_KEY}"}
     )
-    assert to_chatgpt.status_code == back_to_litellm.status_code == v1.status_code == 200
+    assert to_chatgpt.status_code == back_to_hangarllm.status_code == v1.status_code == 200
     assert json.loads(chatgpt.calls.last.request.content)["input"] == [_USER_TURN, _ASSISTANT_TURN, _USER_TURN]
     replayed: Final = json.loads(provider.calls[1].request.content)["input"][1]
     assert (replayed["id"], replayed["encrypted_content"]) == ("rs_openai", _OPENAI_BLOB)
@@ -1495,12 +1495,12 @@ def xai_fireworks_and_openai_router(monkeypatch: pytest.MonkeyPatch) -> Router:
         model_list=[
             {
                 "model_name": "grok-4.7",
-                "litellm_params": {"model": "xai/grok-4.7", "api_base": _XAI_BASE, "api_key": "test-xai-key"},
+                "hangarllm_params": {"model": "xai/grok-4.7", "api_base": _XAI_BASE, "api_key": "test-xai-key"},
             },
             _open_weights("open-weights"),
             {
                 "model_name": "oai-luna",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-6-luna",
                     "api_base": _OPENAI_BASE,
                     "api_key": "test-openai-key",
@@ -1521,7 +1521,7 @@ def xai_fireworks_and_openai_router(monkeypatch: pytest.MonkeyPatch) -> Router:
         pytest.param("oai-luna", _LUNA_REASONING, _LUNA_BLOB, id="the minting deployment's reasoning is kept"),
     ],
 )
-def test_litellm_model_on_native_route_gets_only_the_reasoning_it_can_decrypt(
+def test_hangarllm_model_on_native_route_gets_only_the_reasoning_it_can_decrypt(
     client: TestClient,
     respx_mock: respx.MockRouter,
     xai_fireworks_and_openai_router: Router,
@@ -1732,7 +1732,7 @@ _FORBIDDEN_TOOL: Final = {"type": "function", "name": "delete_user", "parameters
         pytest.param([_EXEC_TOOL], [_USER_TURN], True, id="only allowed tools"),
     ],
 )
-def test_native_litellm_turn_enforces_the_key_tool_allowlist(
+def test_native_hangarllm_turn_enforces_the_key_tool_allowlist(
     client: TestClient,
     respx_mock: respx.MockRouter,
     xai_fireworks_and_openai_router: Router,
@@ -1749,7 +1749,7 @@ def test_native_litellm_turn_enforces_the_key_tool_allowlist(
     response: Final = client.post(
         "/backend-api/codex/responses",
         json={"model": "open-weights", "input": input_items, "tools": tools, "stream": False, "store": False},
-        headers={**_ACCOUNT_HEADERS, "x-litellm-api-key": key},
+        headers={**_ACCOUNT_HEADERS, "x-hangarllm-api-key": key},
     )
     assert response.status_code == (200 if allowed else 403), response.text
     assert fireworks.called is allowed
@@ -1768,7 +1768,7 @@ def test_codex_namespace_tool_called_through_the_chat_bridge_comes_back_with_its
             model_list=[
                 {
                     "model_name": "claude-sonnet-5-5",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "anthropic/claude-sonnet-5-5",
                         "api_base": _ANTHROPIC_BASE,
                         "api_key": "test-anthropic-key",
@@ -1966,7 +1966,7 @@ def test_encrypted_reasoning_stays_only_when_every_deployment_the_router_may_pic
                 model_list=[
                     {
                         "model_name": "oai-pair",
-                        "litellm_params": {"model": "openai/gpt-6-luna", "api_base": base, "api_key": "test-key"},
+                        "hangarllm_params": {"model": "openai/gpt-6-luna", "api_base": base, "api_key": "test-key"},
                         "model_info": {"id": model_id},
                     }
                     for base, model_id in ((_OPENAI_BASE, _LUNA_ID), (second_base, "second-org-deployment"))
@@ -2005,7 +2005,7 @@ def test_encrypted_reasoning_stays_on_a_global_alias_of_a_group_pinned_to_its_or
             model_list=[
                 {
                     "model_name": "oai-pair",
-                    "litellm_params": {"model": "openai/gpt-6-luna", "api_base": base, "api_key": "test-key"},
+                    "hangarllm_params": {"model": "openai/gpt-6-luna", "api_base": base, "api_key": "test-key"},
                     "model_info": {"id": model_id},
                 }
                 for base, model_id in ((_OPENAI_BASE, _LUNA_ID), (second_base, "second-org-deployment"))
@@ -2044,18 +2044,18 @@ def test_jwt_caller_builds_the_models_etag_once_across_chatgpt_turns(
     client: TestClient, respx_mock: respx.MockRouter, mixed_router: Router, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     counter: Final = ModelListingCounter()
-    monkeypatch.setattr(litellm, "callbacks", [counter])
+    monkeypatch.setattr(hangarllm, "callbacks", [counter])
     monkeypatch.setitem(
         proxy_server.app.dependency_overrides,
         user_api_key_auth,
-        lambda: UserAPIKeyAuth(api_key=None, user_id="jwt-user", user_role=LitellmUserRoles.PROXY_ADMIN),
+        lambda: UserAPIKeyAuth(api_key=None, user_id="jwt-user", user_role=HangarllmUserRoles.PROXY_ADMIN),
     )
     _chatgpt_responses(respx_mock)
     turns: Final = tuple(
         client.post(
             "/backend-api/codex/responses",
             json={"model": "gpt-unlisted", "input": "Hello", "stream": True},
-            headers={**_HEADERS, "x-litellm-api-key": "test-jwt-credential"},
+            headers={**_HEADERS, "x-hangarllm-api-key": "test-jwt-credential"},
         )
         for _ in range(2)
     )

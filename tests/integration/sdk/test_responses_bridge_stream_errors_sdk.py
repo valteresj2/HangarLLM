@@ -13,15 +13,15 @@ from integration._support.responses_stream import (
 )
 from integration._support.wire import Wire, wire_server
 
-import litellm
-from litellm import Router
-from litellm.exceptions import APIError, MidStreamFallbackError, RateLimitError
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+import hangarllm
+from hangarllm import Router
+from hangarllm.exceptions import APIError, MidStreamFallbackError, RateLimitError
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
 
 _MODEL: Final = "azure/gpt-6"
 _GROUP: Final = "bridged-gpt-6"
 _API_KEY: Final = "synthetic-azure-key"
-_SENTINEL_PREFIX: Final = "litellm.MidStreamFallbackError: "
+_SENTINEL_PREFIX: Final = "hangarllm.MidStreamFallbackError: "
 _TOOLS: Final = function_tools()
 
 
@@ -32,7 +32,7 @@ def _messages(marker: str) -> list[dict[str, str]]:
 def _router(wire: Wire) -> Router:
     return Router(
         model_list=[
-            {"model_name": _GROUP, "litellm_params": {"model": _MODEL, "api_base": wire.url, "api_key": _API_KEY}}
+            {"model_name": _GROUP, "hangarllm_params": {"model": _MODEL, "api_base": wire.url, "api_key": _API_KEY}}
         ],
         num_retries=0,
     )
@@ -66,7 +66,7 @@ def _assert_surfaces_the_provider_exception(raised: RateLimitError, wire: Wire, 
 def test_sync_completion_stream_in_stream_rate_limit_wraps_the_provider_exception_once() -> None:
     marker: Final = uuid.uuid4().hex
     with wire_server(serve(rate_limited_stream(f"resp_{marker}"), AZURE_TARGET)) as wire:
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=_MODEL,
             messages=_messages(marker),
             tools=_TOOLS,
@@ -85,7 +85,7 @@ def test_sync_completion_stream_in_stream_rate_limit_wraps_the_provider_exceptio
 async def test_async_completion_stream_in_stream_rate_limit_wraps_the_provider_exception_once() -> None:
     marker: Final = uuid.uuid4().hex
     with wire_server(serve(rate_limited_stream(f"resp_{marker}"), AZURE_TARGET)) as wire:
-        response: Final = await litellm.acompletion(
+        response: Final = await hangarllm.acompletion(
             model=_MODEL,
             messages=_messages(marker),
             tools=_TOOLS,
@@ -139,7 +139,7 @@ def test_sync_completion_stream_openai_error_event_raises_the_provider_code_and_
     marker: Final = uuid.uuid4().hex
     message: Final = f"The server had an error processing your request {marker}"
     with wire_server(serve(_openai_error_stream(marker, "server_error", message), AZURE_TARGET)) as wire:
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=_MODEL,
             messages=_messages(marker),
             tools=_TOOLS,
@@ -169,7 +169,7 @@ async def test_async_completion_stream_top_level_rate_limit_wraps_the_provider_e
     marker: Final = uuid.uuid4().hex
     stream: Final = _openai_error_stream(marker, "rate_limit_exceeded", RATE_LIMIT_MESSAGE)
     with wire_server(serve(stream, AZURE_TARGET)) as wire:
-        response: Final = await litellm.acompletion(
+        response: Final = await hangarllm.acompletion(
             model=_MODEL,
             messages=_messages(marker),
             tools=_TOOLS,
@@ -204,7 +204,7 @@ async def test_router_async_stream_top_level_rate_limit_falls_back_to_the_health
     ):
         router: Final = Router(
             model_list=[
-                {"model_name": name, "litellm_params": {"model": _MODEL, "api_base": wire.url, "api_key": _API_KEY}}
+                {"model_name": name, "hangarllm_params": {"model": _MODEL, "api_base": wire.url, "api_key": _API_KEY}}
                 for name, wire in ((_GROUP, primary), ("bridged-spare", spare))
             ],
             num_retries=0,
@@ -228,7 +228,7 @@ def test_sync_responses_stream_top_level_rate_limit_raises_the_provider_rate_lim
     marker: Final = uuid.uuid4().hex
     stream: Final = _openai_error_stream(marker, "rate_limit_exceeded", RATE_LIMIT_MESSAGE)
     with wire_server(serve(stream, AZURE_TARGET)) as wire:
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model=_MODEL, input=marker, stream=True, api_base=wire.url, api_key=_API_KEY
         )
         with pytest.raises((MidStreamFallbackError, RateLimitError)) as raised:
@@ -242,7 +242,7 @@ async def test_async_responses_stream_top_level_insufficient_quota_raises_a_rate
     marker: Final = uuid.uuid4().hex
     quota: Final = "You exceeded your current quota, please check your plan and billing details."
     with wire_server(serve(_openai_error_stream(marker, "insufficient_quota", quota), AZURE_TARGET)) as wire:
-        response: Final = await litellm.aresponses(
+        response: Final = await hangarllm.aresponses(
             model=_MODEL, input=marker, stream=True, api_base=wire.url, api_key=_API_KEY
         )
         with pytest.raises((MidStreamFallbackError, RateLimitError)) as raised:

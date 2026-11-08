@@ -4,48 +4,48 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.redis.stores.connection import connect
-from litellm.redis.stores.spend_counters import SpendCounterStore
+from hangarllm.redis.stores.connection import connect
+from hangarllm.redis.stores.spend_counters import SpendCounterStore
 from pydantic import BaseModel
 
-import litellm.proxy.proxy_server as proxy_server
-from litellm.caching.dual_cache import DualCache
-from litellm.proxy._types import (
-    LiteLLM_EndUserTable,
-    LiteLLM_ProjectTableCachedObj,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_UserTable,
+import hangarllm.proxy.proxy_server as proxy_server
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.proxy._types import (
+    HangarLLM_EndUserTable,
+    HangarLLM_ProjectTableCachedObj,
+    HangarLLM_TeamMembership,
+    HangarLLM_TeamTableCachedObj,
+    HangarLLM_UserTable,
 )
-from litellm.proxy.common_utils.user_api_key_cache import (
+from hangarllm.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     end_user_cache_key,
     project_cache_key,
     team_membership_reservation_cache_key,
 )
-from litellm.proxy.utils import ProxyLogging
-from litellm.router import Router
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.router import Router
 
 _ProxyObject = (
-    LiteLLM_TeamTableCachedObj
-    | LiteLLM_UserTable
-    | LiteLLM_EndUserTable
-    | LiteLLM_ProjectTableCachedObj
-    | LiteLLM_TeamMembership
+    HangarLLM_TeamTableCachedObj
+    | HangarLLM_UserTable
+    | HangarLLM_EndUserTable
+    | HangarLLM_ProjectTableCachedObj
+    | HangarLLM_TeamMembership
 )
 
 
 def _cache_key(row: _ProxyObject) -> str:
     match row:
-        case LiteLLM_TeamTableCachedObj():
+        case HangarLLM_TeamTableCachedObj():
             return f"team_id:{row.team_id}"
-        case LiteLLM_UserTable():
+        case HangarLLM_UserTable():
             return row.user_id
-        case LiteLLM_EndUserTable():
+        case HangarLLM_EndUserTable():
             return end_user_cache_key(row.user_id)
-        case LiteLLM_ProjectTableCachedObj():
+        case HangarLLM_ProjectTableCachedObj():
             return project_cache_key(row.project_id)
-        case LiteLLM_TeamMembership():
+        case HangarLLM_TeamMembership():
             return team_membership_reservation_cache_key(user_id=row.user_id, team_id=row.team_id)
 
 
@@ -77,7 +77,7 @@ def proxy_auth_state(monkeypatch: pytest.MonkeyPatch) -> ProxyAuthState:
         "proxy_logging_obj": ProxyLogging(user_api_key_cache=cache),
         "general_settings": {},
         "user_custom_auth": None,
-        "litellm_proxy_admin_name": "admin",
+        "hangarllm_proxy_admin_name": "admin",
         "llm_router": None,
         "llm_model_list": None,
     }

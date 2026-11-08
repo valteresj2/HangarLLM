@@ -47,7 +47,7 @@ class _Response(_CassetteModel):
     status: _Status
     headers: dict[str, tuple[str, ...]]
     body: _Body
-    chunk_lengths: tuple[int, ...] | None = Field(default=None, alias="x-litellm-chunk-lengths")
+    chunk_lengths: tuple[int, ...] | None = Field(default=None, alias="x-hangarllm-chunk-lengths")
 
     def recorded_response(self) -> RecordedResponse:
         headers: Final = tuple(
@@ -83,7 +83,7 @@ class ParityCassette(_CassetteModel):
     recorded_at: AwareDatetime
     ttl_seconds: Literal[0]
     interactions: tuple[_Interaction, ...]
-    parity: _ParityMetadata = Field(alias="x-litellm")
+    parity: _ParityMetadata = Field(alias="x-hangarllm")
 
     def case_data(self) -> dict[str, object]:
         return {
@@ -107,7 +107,7 @@ def _response_dict(response: RecordedResponse) -> dict[str, object]:
         "status": {"code": response.status_code, "message": ""},
         "headers": headers,
         "body": {"string": body},
-        **({"x-litellm-chunk-lengths": list(map(len, chunks))} if chunks is not None else {}),
+        **({"x-hangarllm-chunk-lengths": list(map(len, chunks))} if chunks is not None else {}),
     }
 
 
@@ -132,7 +132,7 @@ def serialize_cassette(
         **normalized,
         "recorded_at": recorded_at.isoformat(),
         "ttl_seconds": 0,
-        "x-litellm": {
+        "x-hangarllm": {
             "schema_version": 1,
             "request_source": request_source,
             "case": {key: value for key, value in case.items() if key != "provider_responses"},

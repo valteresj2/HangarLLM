@@ -1,28 +1,28 @@
 import pytest
 
-from litellm.proxy._types import (
-    LiteLLM_BudgetTable,
-    LiteLLM_ObjectPermissionTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LiteLLM_VerificationTokenView,
+from hangarllm.proxy._types import (
+    HangarLLM_BudgetTable,
+    HangarLLM_ObjectPermissionTable,
+    HangarLLM_TeamMembership,
+    HangarLLM_TeamTable,
+    HangarLLM_VerificationTokenView,
     Member,
     UserAPIKeyAuth,
 )
-from litellm.models.team import LiteLLM_ModelTable
-from litellm.proxy.auth.team_grants import team_grants, team_model_aliases
+from hangarllm.models.team import HangarLLM_ModelTable
+from hangarllm.proxy.auth.team_grants import team_grants, team_model_aliases
 
 TEAM_ID = "team-grants"
 USER_ID = "user-in-team"
 ALIASES = {"fast": "gpt-4o-mini", "smart": "gpt-4o"}
 
 
-def _alias_table(model_aliases) -> LiteLLM_ModelTable:
-    return LiteLLM_ModelTable(model_aliases=model_aliases, created_by="admin", updated_by="admin")
+def _alias_table(model_aliases) -> HangarLLM_ModelTable:
+    return HangarLLM_ModelTable(model_aliases=model_aliases, created_by="admin", updated_by="admin")
 
 
-def _full_team(model_aliases=ALIASES) -> LiteLLM_TeamTable:
-    return LiteLLM_TeamTable(
+def _full_team(model_aliases=ALIASES) -> HangarLLM_TeamTable:
+    return HangarLLM_TeamTable(
         team_id=TEAM_ID,
         team_alias="grants-team",
         tpm_limit=1000,
@@ -35,9 +35,9 @@ def _full_team(model_aliases=ALIASES) -> LiteLLM_TeamTable:
         models=["gpt-4o", "gpt-4o-mini"],
         blocked=True,
         metadata={"tier": "gold"},
-        litellm_model_table=_alias_table(model_aliases),
+        hangarllm_model_table=_alias_table(model_aliases),
         object_permission_id="op-1",
-        object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="op-1", mcp_servers=["mcp-a"]),
+        object_permission=HangarLLM_ObjectPermissionTable(object_permission_id="op-1", mcp_servers=["mcp-a"]),
         members_with_roles=[
             Member(user_id="someone-else", role="user"),
             Member(user_id=USER_ID, role="admin"),
@@ -45,24 +45,24 @@ def _full_team(model_aliases=ALIASES) -> LiteLLM_TeamTable:
     )
 
 
-def _membership() -> LiteLLM_TeamMembership:
-    return LiteLLM_TeamMembership(
+def _membership() -> HangarLLM_TeamMembership:
+    return HangarLLM_TeamMembership(
         user_id=USER_ID,
         team_id=TEAM_ID,
         spend=3.25,
-        litellm_budget_table=LiteLLM_BudgetTable(tpm_limit=500, rpm_limit=5),
+        hangarllm_budget_table=HangarLLM_BudgetTable(tpm_limit=500, rpm_limit=5),
     )
 
 
 def test_team_grants_cover_every_team_field_the_key_path_gets():
     """Class guard for LIT-5858 and its siblings: every ``team_*`` column the combined-view SQL hands the
     virtual-key path must come out of the projection too, with the team's actual value, so adding a column
-    to ``LiteLLM_VerificationTokenView`` without teaching ``team_grants`` fails here instead of in prod."""
+    to ``HangarLLM_VerificationTokenView`` without teaching ``team_grants`` fails here instead of in prod."""
     team = _full_team()
     grants = team_grants(team_object=team, team_membership=_membership(), user_id=USER_ID)
     token = UserAPIKeyAuth(team_id=TEAM_ID, **grants)
 
-    view_team_fields = {name for name in LiteLLM_VerificationTokenView.model_fields if name.startswith("team_")}
+    view_team_fields = {name for name in HangarLLM_VerificationTokenView.model_fields if name.startswith("team_")}
     assert view_team_fields - {"team_id"} <= set(grants)
     assert all(grants[name] is not None for name in view_team_fields - {"team_id"})
 
@@ -112,7 +112,7 @@ def test_team_model_aliases_treat_unusable_column_as_no_aliases(stored_aliases):
 
 def test_team_model_aliases_none_without_relation_loaded():
     team = _full_team()
-    team.litellm_model_table = None
+    team.hangarllm_model_table = None
     assert team_model_aliases(team) is None
     assert team_model_aliases(None) is None
 

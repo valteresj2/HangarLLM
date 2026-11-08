@@ -7,11 +7,11 @@ from typing import Final, Literal
 
 import pytest
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
-from litellm.litellm_core_utils.llm_cost_calc.utils import get_service_tier_cost_key
-from litellm.proxy.common_utils.codex_model_catalog import (
+import hangarllm
+from hangarllm._logging import verbose_proxy_logger
+from hangarllm.hangarllm_core_utils.get_model_cost_map import GetModelCostMap
+from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import get_service_tier_cost_key
+from hangarllm.proxy.common_utils.codex_model_catalog import (
     CODEX_CATALOG_BYTE_LIMIT,
     CodexCatalogRow,
     CodexStockModel,
@@ -26,7 +26,7 @@ from litellm.proxy.common_utils.codex_model_catalog import (
     deployment_capabilities,
     merged_codex_catalog,
 )
-from litellm.proxy.common_utils.codex_model_translation import CodexDeploymentCapabilities, CodexServiceTier
+from hangarllm.proxy.common_utils.codex_model_translation import CodexDeploymentCapabilities, CodexServiceTier
 
 _PROMPT = "base prompt"
 _FAST = {"id": "priority", "name": "Fast", "description": "2x speed, increased usage"}
@@ -333,21 +333,21 @@ def test_a_deployment_without_a_limit_keeps_a_windowless_stock_entry_as_codex_sh
 
 
 def test_model_list_body_sizes_a_known_models_window_off_the_deployments_the_key_team_routes_to() -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra"},
                 "model_info": {"max_input_tokens": 922000},
             },
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra", "api_base": "https://team-2.example"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra", "api_base": "https://team-2.example"},
                 "model_info": {"team_id": "team-2", "max_input_tokens": 400000},
             },
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra", "api_base": "https://team-3.example"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra", "api_base": "https://team-3.example"},
                 "model_info": {"team_id": "team-3"},
             },
         ],
@@ -378,11 +378,11 @@ def test_model_list_body_skips_a_limit_a_saved_model_info_response_copied_from_t
     assert stock.context_window is not None and stock.context_window < 600000 < stock.max_context_window
 
     def window(model_info: Mapping[str, object]) -> int | None:
-        router: Final = litellm.Router(
+        router: Final = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-6-astra",
-                    "litellm_params": {"model": "openai/gpt-6-astra"},
+                    "hangarllm_params": {"model": "openai/gpt-6-astra"},
                     "model_info": dict(model_info),
                 }
             ]
@@ -764,7 +764,7 @@ def test_merged_catalog_warns_once_with_how_many_models_the_byte_limit_left_out(
         merged_codex_catalog(upstream, rows[:1], stock=_STOCK, instructions=_PROMPT, byte_limit=limit)
 
     assert [record.getMessage() for record in caplog.records] == [
-        f"Codex native model catalog left out 3 of 4 LiteLLM models to stay within Codex's {limit} byte limit"
+        f"Codex native model catalog left out 3 of 4 HangarLLM models to stay within Codex's {limit} byte limit"
     ]
 
 
@@ -801,18 +801,18 @@ def test_configured_service_tiers_without_known_tiers_names_strings_after_their_
 
 
 def test_catalog_rows_read_the_router_by_each_entry_lookup_id():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "model_name_team-1_c0ffee",
-                "litellm_params": {"model": "openai/gpt-5.5"},
+                "hangarllm_params": {"model": "openai/gpt-5.5"},
                 "model_info": {"display_name": "Team 5.5", "service_tiers": ["ultrafast"]},
             },
             {
                 "model_name": "model_name_team-1_c0ffee",
-                "litellm_params": {"model": "openai/gpt-5.5", "api_base": "https://second.example"},
+                "hangarllm_params": {"model": "openai/gpt-5.5", "api_base": "https://second.example"},
             },
-            {"model_name": "plain", "litellm_params": {"model": "openai/some-unmapped-model"}},
+            {"model_name": "plain", "hangarllm_params": {"model": "openai/some-unmapped-model"}},
         ]
     )
     listing = (
@@ -859,11 +859,11 @@ def test_catalog_rows_read_the_router_by_each_entry_lookup_id():
 
 
 def test_catalog_rows_read_an_alias_off_its_target_under_the_alias_name():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra"},
                 "model_info": {"display_name": "Astra", "service_tiers": ["ultrafast"]},
             }
         ],
@@ -897,16 +897,16 @@ def test_catalog_rows_read_an_alias_off_its_target_under_the_alias_name():
 
 
 def test_model_list_body_offers_a_tier_only_off_the_deployments_the_key_team_can_route_to():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra"},
                 "model_info": {"service_tiers": ["ultrafast"]},
             },
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra", "api_base": "https://team-2.example"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra", "api_base": "https://team-2.example"},
                 "model_info": {"team_id": "team-2"},
             },
         ]
@@ -926,16 +926,16 @@ def test_model_list_body_offers_a_tier_only_off_the_deployments_the_key_team_can
 def test_model_list_body_takes_stock_metadata_off_the_deployment_the_key_team_routes_to():
     """Two teams own a deployment of one name: Codex's stock gpt-5.5 entry goes only to the team whose
     requests reach gpt-5.5, under the name and under a `model_group_alias` of it."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "coding-model",
-                "litellm_params": {"model": "openai/gpt-5.5"},
+                "hangarllm_params": {"model": "openai/gpt-5.5"},
                 "model_info": {"team_id": "team-1"},
             },
             {
                 "model_name": "coding-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"team_id": "team-2", "service_tiers": ["flex"]},
             },
         ],
@@ -966,15 +966,15 @@ def test_model_list_body_offers_what_model_group_info_reports_for_each_listed_mo
     """Declared, unknown and non-reasoning groups through a real router, a hidden alias read like its
     target, and the requesting Codex's version deciding which declared levels it is offered."""
     vllm = {"model": "hosted_vllm/qa-local-coder", "api_base": "https://vllm.example/v1"}
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "declared",
-                "litellm_params": vllm,
+                "hangarllm_params": vllm,
                 "model_info": {"supports_reasoning": True, "reasoning_effort_levels": ["low", "high", "max"]},
             },
-            {"model_name": "unknown", "litellm_params": vllm},
-            {"model_name": "non-reasoning", "litellm_params": vllm, "model_info": {"supports_reasoning": False}},
+            {"model_name": "unknown", "hangarllm_params": vllm},
+            {"model_name": "non-reasoning", "hangarllm_params": vllm, "model_info": {"supports_reasoning": False}},
         ],
         model_group_alias={"hidden-declared": {"model": "declared", "hidden": True}},
     )
@@ -1012,16 +1012,16 @@ def test_catalog_rows_without_a_router_carry_only_the_listing():
 
 @pytest.mark.parametrize("client_version", [None, "0.165.0"])
 def test_entry_names_a_default_reasoning_level_exactly_when_the_native_entry_carries_one(client_version):
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "open-weights", "litellm_params": {"model": "fireworks_ai/open-weights"}},
-            {"model_name": "coding-model", "litellm_params": {"model": "openai/gpt-5.5"}},
-            {"model_name": "pinned-model", "litellm_params": {"model": "openai/gpt-5.5", "reasoning_effort": "high"}},
-            {"model_name": "split-pin", "litellm_params": {"model": "openai/gpt-5.5", "reasoning_effort": "high"}},
-            {"model_name": "split-pin", "litellm_params": {"model": "openai/gpt-5.5", "reasoning_effort": "low"}},
+            {"model_name": "open-weights", "hangarllm_params": {"model": "fireworks_ai/open-weights"}},
+            {"model_name": "coding-model", "hangarllm_params": {"model": "openai/gpt-5.5"}},
+            {"model_name": "pinned-model", "hangarllm_params": {"model": "openai/gpt-5.5", "reasoning_effort": "high"}},
+            {"model_name": "split-pin", "hangarllm_params": {"model": "openai/gpt-5.5", "reasoning_effort": "high"}},
+            {"model_name": "split-pin", "hangarllm_params": {"model": "openai/gpt-5.5", "reasoning_effort": "low"}},
             {
                 "model_name": "max-only",
-                "litellm_params": {"model": "hosted_vllm/qa-local-coder", "api_base": "https://vllm.example/v1"},
+                "hangarllm_params": {"model": "hosted_vllm/qa-local-coder", "api_base": "https://vllm.example/v1"},
                 "model_info": {"supports_reasoning": True, "reasoning_effort_levels": ["max"]},
             },
         ]
@@ -1045,28 +1045,28 @@ def test_entry_names_a_default_reasoning_level_exactly_when_the_native_entry_car
 def test_codex_tool_search_is_offered_off_the_route_and_model_info_and_only_when_every_deployment_answers_it():
     claude = "anthropic/claude-sonnet-5-5"
     converse = "bedrock/us.anthropic.claude-sonnet-5-5"
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "claude", "litellm_params": {"model": claude}},
+            {"model_name": "claude", "hangarllm_params": {"model": claude}},
             {
                 "model_name": "claude-off",
-                "litellm_params": {"model": claude},
+                "hangarllm_params": {"model": claude},
                 "model_info": {"supports_search_tool": False},
             },
-            {"model_name": "converse", "litellm_params": {"model": converse}},
+            {"model_name": "converse", "hangarllm_params": {"model": converse}},
             {
                 "model_name": "converse-on",
-                "litellm_params": {"model": converse},
+                "hangarllm_params": {"model": converse},
                 "model_info": {"supports_search_tool": True},
             },
-            {"model_name": "gpt-5.5", "litellm_params": {"model": "openai/gpt-5.5"}},
+            {"model_name": "gpt-5.5", "hangarllm_params": {"model": "openai/gpt-5.5"}},
             {
                 "model_name": "gpt-5.5-off",
-                "litellm_params": {"model": "openai/gpt-5.5"},
+                "hangarllm_params": {"model": "openai/gpt-5.5"},
                 "model_info": {"supports_search_tool": False},
             },
-            {"model_name": "mixed", "litellm_params": {"model": claude}},
-            {"model_name": "mixed", "litellm_params": {"model": converse}},
+            {"model_name": "mixed", "hangarllm_params": {"model": claude}},
+            {"model_name": "mixed", "hangarllm_params": {"model": converse}},
         ]
     )
     names = ("claude", "claude-off", "converse", "converse-on", "gpt-5.5", "gpt-5.5-off", "mixed")
@@ -1092,15 +1092,15 @@ def test_codex_tool_search_is_offered_off_the_route_and_model_info_and_only_when
 
 def test_native_merged_catalog_offers_codex_tool_search_as_the_proxy_listing_does():
     claude = "anthropic/claude-sonnet-5-5"
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "claude", "litellm_params": {"model": claude}},
+            {"model_name": "claude", "hangarllm_params": {"model": claude}},
             {
                 "model_name": "claude-off",
-                "litellm_params": {"model": claude},
+                "hangarllm_params": {"model": claude},
                 "model_info": {"supports_search_tool": False},
             },
-            {"model_name": "coding-model", "litellm_params": {"model": "openai/gpt-5.5"}},
+            {"model_name": "coding-model", "hangarllm_params": {"model": "openai/gpt-5.5"}},
         ]
     )
     names = ("claude", "claude-off", "coding-model")
@@ -1152,11 +1152,11 @@ def test_a_model_codex_knows_keeps_codexs_entry_under_any_provider_prefix(upstre
 
 @pytest.mark.parametrize("model", ["us.openai.{slug}", "converse/global.openai.{slug}"])
 def test_a_bedrock_deployment_naming_its_provider_apart_from_the_model_keeps_codexs_entry(model: str) -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "team-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": model.format(slug=_SOL_SLUG),
                     "custom_llm_provider": "bedrock",
                     "aws_region_name": "us-east-1",
@@ -1214,7 +1214,7 @@ def _listing(*names: str, max_input_tokens: int | None = None) -> tuple[dict[str
 
 
 def _served(
-    router: litellm.Router, *names: str, team_id: str | None = None, **listing: int
+    router: hangarllm.Router, *names: str, team_id: str | None = None, **listing: int
 ) -> dict[str, Mapping[str, object]]:
     body: Final = codex_model_list_body(
         _listing(*names, **listing), tuple((name, name) for name in names), router, team_id, client_version="0.166.0"
@@ -1225,13 +1225,13 @@ def _served(
 def _vllm(name: str, host: str, **model_info: object) -> dict[str, object]:
     return {
         "model_name": name,
-        "litellm_params": {"model": f"hosted_vllm/coder-{host}", "api_base": f"https://{host}.example/v1"},
+        "hangarllm_params": {"model": f"hosted_vllm/coder-{host}", "api_base": f"https://{host}.example/v1"},
         "model_info": model_info,
     }
 
 
 def test_a_text_only_deployment_takes_images_off_the_name_and_a_silent_one_does_not() -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _vllm("mixed", "h0", supports_vision=True),
             _vllm("mixed", "h1", supports_vision=False),
@@ -1247,7 +1247,7 @@ def test_a_text_only_deployment_takes_images_off_the_name_and_a_silent_one_does_
 
 
 def test_a_silent_deployment_does_not_vote_against_tool_calls_but_one_without_them_does() -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _vllm("tools-and-silent", "h4", supports_function_calling=True),
             _vllm("tools-and-silent", "h5"),
@@ -1263,7 +1263,7 @@ def test_a_silent_deployment_does_not_vote_against_tool_calls_but_one_without_th
 
 
 def test_a_mixed_group_takes_the_smallest_window_any_deployment_declares() -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _vllm("mixed", "h8", max_input_tokens=200_000),
             _vllm("mixed", "h9", max_input_tokens=128_000, supports_vision=True),
@@ -1279,7 +1279,7 @@ def test_a_mixed_group_takes_the_smallest_window_any_deployment_declares() -> No
 
 
 def test_a_claude_like_deployment_gets_codexs_coding_setup() -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _vllm(
                 "claude-like",
@@ -1307,7 +1307,7 @@ def test_a_claude_like_deployment_gets_codexs_coding_setup() -> None:
 
 
 def test_capabilities_are_read_only_off_the_deployments_the_key_team_routes_to() -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _vllm("coder", "h13", supports_vision=True),
             _vllm("coder", "h14", supports_vision=False, team_id="team-2"),
@@ -1331,17 +1331,17 @@ def test_codexs_own_tiers_stay_only_when_every_deployment_behind_the_name_prices
     def upstream(host: str) -> dict[str, str]:
         return {"model": f"hosted_vllm/{_SOL_SLUG}", "api_base": f"https://{host}.example/v1"}
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
-            {"model_name": "all-priced", "litellm_params": upstream("a"), "model_info": priority_price},
-            {"model_name": "all-priced", "litellm_params": upstream("b"), "model_info": priority_price},
-            {"model_name": "half-priced", "litellm_params": upstream("c"), "model_info": priority_price},
-            {"model_name": "half-priced", "litellm_params": upstream("d"), "model_info": token_price},
-            {"model_name": "priced-and-unknown", "litellm_params": upstream("f"), "model_info": priority_price},
-            {"model_name": "priced-and-unknown", "litellm_params": {"model": "azure/prod-sol-eastus"}},
+            {"model_name": "all-priced", "hangarllm_params": upstream("a"), "model_info": priority_price},
+            {"model_name": "all-priced", "hangarllm_params": upstream("b"), "model_info": priority_price},
+            {"model_name": "half-priced", "hangarllm_params": upstream("c"), "model_info": priority_price},
+            {"model_name": "half-priced", "hangarllm_params": upstream("d"), "model_info": token_price},
+            {"model_name": "priced-and-unknown", "hangarllm_params": upstream("f"), "model_info": priority_price},
+            {"model_name": "priced-and-unknown", "hangarllm_params": {"model": "azure/prod-sol-eastus"}},
             {
                 "model_name": "configured",
-                "litellm_params": upstream("e"),
+                "hangarllm_params": upstream("e"),
                 "model_info": {"service_tiers": ["priority"]},
             },
         ]
@@ -1408,10 +1408,10 @@ def test_model_info_that_does_not_validate_declares_no_capability_but_keeps_its_
 
 
 def test_model_list_body_takes_the_asking_releases_catalog_and_prompt() -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
-            {"model_name": "gpt-release-only", "litellm_params": {"model": "openai/gpt-release-only"}},
-            {"model_name": "in-house", "litellm_params": {"model": "openai/in-house-coder"}},
+            {"model_name": "gpt-release-only", "hangarllm_params": {"model": "openai/gpt-release-only"}},
+            {"model_name": "in-house", "hangarllm_params": {"model": "openai/in-house-coder"}},
         ]
     )
     release_entry: Final = bundled_codex_models()["gpt-5.5"].model_copy(

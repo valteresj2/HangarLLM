@@ -24,7 +24,7 @@ CALLS_WITHIN_BUDGET: Final = 4
 
 
 def _key_spend(digest: str) -> float:
-    rows: Final = read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,))
+    rows: Final = read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,))
     assert len(rows) == 1, rows
     return float(rows[0]["spend"])
 
@@ -86,7 +86,7 @@ def test_repeated_gemini_passthrough_calls_stay_served_while_key_spend_is_below_
             "/model/new",
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gemini/gemini-2.5-flash",
                     "api_key": "scripted",
                     "api_base": gateway.upstream_url,

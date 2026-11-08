@@ -873,7 +873,7 @@ def test_stream_generate_content_adapter_forwards_the_callers_stream_options(
         assert json.loads(received[0].body).get("stream_options") == forwarded, received[0].body
 
 
-_BILLED_SELECT: Final = 'SELECT prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE api_key=%s'
+_BILLED_SELECT: Final = 'SELECT prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE api_key=%s'
 
 
 def test_stream_generate_content_adapter_without_upstream_usage_reports_the_billed_tokens(gateway: Gateway) -> None:
@@ -970,9 +970,9 @@ def test_stream_generate_content_adapter_upstream_drop_after_finish_still_sends_
 
 _ATTRIBUTION_SELECT: Final = (
     "SELECT request_tags, team_id, metadata->>'user_api_key_alias' AS alias, model_group, prompt_tokens,"
-    ' completion_tokens FROM "LiteLLM_SpendLogs" WHERE api_key=%s'
+    ' completion_tokens FROM "HangarLLM_SpendLogs" WHERE api_key=%s'
 )
-_STATUS_SELECT: Final = 'SELECT status FROM "LiteLLM_SpendLogs" WHERE api_key=%s'
+_STATUS_SELECT: Final = 'SELECT status FROM "HangarLLM_SpendLogs" WHERE api_key=%s'
 
 
 @pytest.mark.parametrize("streamed", [False, True], ids=["generate", "stream"])
@@ -1044,7 +1044,7 @@ def test_generate_content_adapter_spend_row_keeps_key_team_and_tag_attribution(
         response: Final = gateway.client.post(
             f"/v1beta/models/{model}:{method}",
             json=_text_stream_request(marker),
-            headers={"Authorization": f"Bearer {key}", "x-litellm-tags": f"adapter-tag-{marker}"},
+            headers={"Authorization": f"Bearer {key}", "x-hangarllm-tags": f"adapter-tag-{marker}"},
         )
         assert response.status_code == 200, response.text
         digest: Final = sha256(key.encode()).hexdigest()

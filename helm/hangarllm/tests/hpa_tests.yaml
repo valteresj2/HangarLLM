@@ -81,7 +81,7 @@ tests:
           value:
             type: Pods
             pods:
-              metric: { name: litellm_requests_per_second }
+              metric: { name: hangarllm_requests_per_second }
               target: { type: AverageValue, averageValue: "90" }
 
   - it: "adds a tokens-per-second Pods metric on its own"
@@ -95,11 +95,11 @@ tests:
           value:
             type: Pods
             pods:
-              metric: { name: litellm_tokens_per_second }
+              metric: { name: hangarllm_tokens_per_second }
               target: { type: AverageValue, averageValue: "6M" }
       - notContains:
           path: spec.metrics
-          content: { type: Pods, pods: { metric: { name: litellm_requests_per_second } } }
+          content: { type: Pods, pods: { metric: { name: hangarllm_requests_per_second } } }
           any: true
 
   - it: "renders requests, tokens, cpu and memory metrics together"
@@ -112,9 +112,9 @@ tests:
       - lengthEqual: { path: spec.metrics, count: 4 }
       - equal: { path: "spec.metrics[0].resource.name", value: cpu }
       - equal: { path: "spec.metrics[1].resource.name", value: memory }
-      - equal: { path: "spec.metrics[2].pods.metric.name", value: litellm_requests_per_second }
+      - equal: { path: "spec.metrics[2].pods.metric.name", value: hangarllm_requests_per_second }
       - equal: { path: "spec.metrics[2].pods.target.averageValue", value: "90" }
-      - equal: { path: "spec.metrics[3].pods.metric.name", value: litellm_tokens_per_second }
+      - equal: { path: "spec.metrics[3].pods.metric.name", value: hangarllm_tokens_per_second }
       - equal: { path: "spec.metrics[3].pods.target.averageValue", value: "6000000" }
 
   - it: "scales on workload metrics alone when the cpu target is cleared"
@@ -126,8 +126,8 @@ tests:
     asserts:
       - lengthEqual: { path: spec.metrics, count: 2 }
       - notContains: { path: spec.metrics, content: { type: Resource }, any: true }
-      - equal: { path: "spec.metrics[0].pods.metric.name", value: litellm_requests_per_second }
-      - equal: { path: "spec.metrics[1].pods.metric.name", value: litellm_tokens_per_second }
+      - equal: { path: "spec.metrics[0].pods.metric.name", value: hangarllm_requests_per_second }
+      - equal: { path: "spec.metrics[1].pods.metric.name", value: hangarllm_tokens_per_second }
       - notMatchRegexRaw: { pattern: per_minute }
 
   - it: "ignores the per-minute keys, which the chart never shipped"

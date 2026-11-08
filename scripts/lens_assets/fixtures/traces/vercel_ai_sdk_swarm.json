@@ -51,7 +51,7 @@
                     "stringValue": "--env-file=.env"
                   },
                   {
-                    "stringValue": "/home/user/dev/litellm-lens-example/vercel-ai-sdk-js/swarm/main.ts"
+                    "stringValue": "/home/user/dev/hangarllm-lens-example/vercel-ai-sdk-js/swarm/main.ts"
                   }
                 ]
               }
@@ -78,7 +78,7 @@
           {
             "key": "process.command",
             "value": {
-              "stringValue": "/home/user/dev/litellm-lens-example/vercel-ai-sdk-js/swarm/main.ts"
+              "stringValue": "/home/user/dev/hangarllm-lens-example/vercel-ai-sdk-js/swarm/main.ts"
             }
           },
           {
@@ -116,7 +116,7 @@
       "scopeSpans": [
         {
           "scope": {
-            "name": "litellm.gateway.client"
+            "name": "hangarllm.gateway.client"
           },
           "spans": [
             {
@@ -129,7 +129,7 @@
               "endTimeUnixNano": "1791061368010971292",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -159,7 +159,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "9befeb83-aae3-4b94-8c0b-014e28018d61"
                   }
@@ -178,7 +178,7 @@
               "endTimeUnixNano": "1791061371110142833",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -208,7 +208,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "2efc4292-a2c7-4641-87e4-ffc75c1c95b8"
                   }
@@ -227,7 +227,7 @@
               "endTimeUnixNano": "1791061372728883541",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -257,7 +257,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "6d6412c0-64ed-4537-8bfd-6748a29a92c9"
                   }
@@ -291,7 +291,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {
@@ -394,7 +394,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {
@@ -510,7 +510,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {
@@ -669,7 +669,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {
@@ -809,7 +809,7 @@
                     "stringValue": "--env-file=.env"
                   },
                   {
-                    "stringValue": "/home/user/dev/litellm-lens-example/vercel-ai-sdk-js/swarm/main.ts"
+                    "stringValue": "/home/user/dev/hangarllm-lens-example/vercel-ai-sdk-js/swarm/main.ts"
                   }
                 ]
               }
@@ -836,7 +836,7 @@
           {
             "key": "process.command",
             "value": {
-              "stringValue": "/home/user/dev/litellm-lens-example/vercel-ai-sdk-js/swarm/main.ts"
+              "stringValue": "/home/user/dev/hangarllm-lens-example/vercel-ai-sdk-js/swarm/main.ts"
             }
           },
           {
@@ -874,7 +874,7 @@
       "scopeSpans": [
         {
           "scope": {
-            "name": "litellm.gateway.client"
+            "name": "hangarllm.gateway.client"
           },
           "spans": [
             {
@@ -887,7 +887,7 @@
               "endTimeUnixNano": "1791061374787308708",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -917,7 +917,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "bd7694ea-c90d-47ed-877c-8f7783737446"
                   }
@@ -936,7 +936,7 @@
               "endTimeUnixNano": "1791061376589021000",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -966,7 +966,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "1553ee74-685c-4cb4-b949-cd478abf5988"
                   }
@@ -1000,7 +1000,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {
@@ -1116,7 +1116,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {
@@ -1275,7 +1275,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {
@@ -1396,7 +1396,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {

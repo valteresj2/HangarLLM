@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "litellm.gateway.fullname" . }}
+  name: {{ include "hangarllm.gateway.fullname" . }}
   labels:
-    {{- include "litellm.commonLabels" . | nindent 4 }}
+    {{- include "hangarllm.commonLabels" . | nindent 4 }}
     app.kubernetes.io/component: gateway
 spec:
   type: {{ .Values.gateway.service.type }}
@@ -14,5 +14,5 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "litellm.gateway.selectorLabels" . | nindent 4 }}
+    {{- include "hangarllm.gateway.selectorLabels" . | nindent 4 }}
 {{- end }}

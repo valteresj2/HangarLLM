@@ -12,10 +12,10 @@ from pydantic import BaseModel, ConfigDict
 
 CIRCLECI: Final = Path(__file__).resolve().parents[2] / ".circleci"
 CONFIG: Final = CIRCLECI / "config.yml"
-PUBLIC_REPO: Final = "https://github.com/BerriAI/litellm.git"
+PUBLIC_REPO: Final = "https://github.com/valteresj2/HangarLLM.git"
 LINUX_SHELL: Final = ("bash", "-eo", "pipefail", "-c")
 WINDOWS_SHELL: Final = ("bash", "-c")
-PRODUCT_DIRS: Final = ("litellm", "enterprise", "litellm-proxy-extras")
+PRODUCT_DIRS: Final = ("hangarllm", "enterprise", "hangarllm-proxy-extras")
 
 
 class _Run(BaseModel):
@@ -149,10 +149,10 @@ def _publish_two_commits(tmp_path: Path) -> _Upstream:
 
 def _publish_docs_only_pr(tmp_path: Path) -> _Upstream:
     remote, work = _new_upstream(tmp_path)
-    main: Final = _commit(work, {"litellm_inference.py": "x\n"}, "base")
-    _git(work, "checkout", "-q", "-b", "litellm_feature")
+    main: Final = _commit(work, {"hangarllm_inference.py": "x\n"}, "base")
+    _git(work, "checkout", "-q", "-b", "hangarllm_feature")
     head: Final = _commit(work, {"README.md": "# docs\n"}, "docs")
-    _git(work, "push", "-q", str(remote), "main", "litellm_feature")
+    _git(work, "push", "-q", str(remote), "main", "hangarllm_feature")
     return _Upstream(url=remote.as_uri(), older=main, newer=head)
 
 
@@ -250,7 +250,7 @@ def test_a_docs_only_pr_job_still_skips_backend_work_after_the_checkout(tmp_path
     path_filter: Final = subprocess.run(
         ["bash", str(CIRCLECI / "scripts" / "path_filter.sh"), "backend"],
         cwd=tmp_path / "job",
-        env={**_job_env(tmp_path, upstream), "CIRCLE_PULL_REQUEST": "https://github.com/BerriAI/litellm/pull/1"},
+        env={**_job_env(tmp_path, upstream), "CIRCLE_PULL_REQUEST": "upstream issue 1"},
         capture_output=True,
         text=True,
     )
@@ -294,8 +294,8 @@ def test_routing_parity_downloads_the_base_files_in_one_fetch_instead_of_one_per
     checkout: Final = _run_checkout(tmp_path, upstream, {"CIRCLE_SHA1": upstream.newer})
     assert checkout.returncode == 0, checkout.stderr
     job: Final = tmp_path / "job"
-    (job / "litellm" / "rust_bridge").mkdir()
-    (job / "litellm" / "rust_bridge" / "_native.abi3.so").write_text("built for this job\n")
+    (job / "hangarllm" / "rust_bridge").mkdir()
+    (job / "hangarllm" / "rust_bridge" / "_native.abi3.so").write_text("built for this job\n")
     trace: Final = tmp_path / "trace.json"
     result: Final = subprocess.run(
         [*LINUX_SHELL, _routing_parity_step("Check out base product code")],

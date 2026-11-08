@@ -1,19 +1,19 @@
-# LiteLLM Architecture - LiteLLM SDK + AI Gateway
+# HangarLLM Architecture - HangarLLM SDK + AI Gateway
 
-This document helps contributors understand where to make changes in LiteLLM.
+This document helps contributors understand where to make changes in HangarLLM.
 
-For why a layer is shaped the way it is, read the architecture decision records in [`docs/adrs/`](docs/adrs/AGENTS.md) (Python SDK and proxy) and [`litellm-rust/docs/adrs/`](litellm-rust/docs/adrs/AGENTS.md) (Rust core)
+For why a layer is shaped the way it is, read the architecture decision records in [`docs/adrs/`](docs/adrs/AGENTS.md) (Python SDK and proxy) and [`hangarllm-rust/docs/adrs/`](hangarllm-rust/docs/adrs/AGENTS.md) (Rust core)
 
 ---
 
 ## How It Works
 
-The LiteLLM AI Gateway (Proxy) uses the LiteLLM SDK internally for all LLM calls:
+The HangarLLM AI Gateway (Proxy) uses the HangarLLM SDK internally for all LLM calls:
 
 ```
-OpenAI SDK (client)    ──▶  LiteLLM AI Gateway (proxy/)  ──▶  LiteLLM SDK (litellm/)  ──▶  LLM API
-Anthropic SDK (client) ──▶  LiteLLMAI Gateway (proxy/)  ──▶  LiteLLM SDK (litellm/)  ──▶  LLM API
-Any HTTP client        ──▶  LiteLLMAI Gateway (proxy/)  ──▶  LiteLLM SDK (litellm/)  ──▶  LLM API
+OpenAI SDK (client)    ──▶  HangarLLM AI Gateway (proxy/)  ──▶  HangarLLM SDK (hangarllm/)  ──▶  LLM API
+Anthropic SDK (client) ──▶  HangarLLMAI Gateway (proxy/)  ──▶  HangarLLM SDK (hangarllm/)  ──▶  LLM API
+Any HTTP client        ──▶  HangarLLMAI Gateway (proxy/)  ──▶  HangarLLM SDK (hangarllm/)  ──▶  LLM API
 ```
 
 The **AI Gateway** adds authentication, rate limiting, budgets, and routing on top of the SDK.
@@ -23,7 +23,7 @@ The **SDK** handles the actual LLM provider calls, request/response transformati
 
 ## 1. AI Gateway (Proxy) Request Flow
 
-The AI Gateway (`litellm/proxy/`) wraps the SDK with authentication, rate limiting, and management features.
+The AI Gateway (`hangarllm/proxy/`) wraps the SDK with authentication, rate limiting, and management features.
 
 ```mermaid
 sequenceDiagram
@@ -38,7 +38,7 @@ sequenceDiagram
     participant Transform as llms/{provider}/chat/transformation.py
     participant Provider as LLM Provider API
     participant CostCalc as cost_calculator.py
-    participant LoggingObj as litellm_logging.py
+    participant LoggingObj as hangarllm_logging.py
     participant DBWriter as db/db_spend_update_writer.py
     participant Postgres as PostgreSQL
 
@@ -50,7 +50,7 @@ sequenceDiagram
     ProxyServer->>Hooks: parallel_request_limiter, cache_control_check
     Hooks->>Redis: Check/increment rate limit counters
     ProxyServer->>Router: route_request()
-    Router->>Main: litellm.acompletion()
+    Router->>Main: hangarllm.acompletion()
     Main->>Handler: BaseLLMHTTPHandler.completion()
     Handler->>Transform: ProviderConfig.transform_request()
     Handler->>Provider: HTTP Request
@@ -74,7 +74,7 @@ sequenceDiagram
     Hooks->>DBWriter: update_database(response_cost)
     DBWriter->>Redis: Queue spend increment
     DBWriter->>Postgres: Batch write spend logs (async)
-    ProxyServer-->>Client: ModelResponse + x-litellm-response-cost header
+    ProxyServer-->>Client: ModelResponse + x-hangarllm-response-cost header
 ```
 
 ### Proxy Components
@@ -94,11 +94,11 @@ graph TD
     end
 
     subgraph "proxy/"
-        PreCall["litellm_pre_call_utils.py"]
+        PreCall["hangarllm_pre_call_utils.py"]
         RouteRequest["route_llm_request.py"]
     end
 
-    subgraph "litellm/"
+    subgraph "hangarllm/"
         Router["router.py"]
         Main["main.py"]
     end
@@ -150,7 +150,7 @@ graph TD
 | `parallel_request_limiter` | `proxy/hooks/parallel_request_limiter_v3.py` | Rate limiting per key/user |
 | `cache_control_check` | `proxy/hooks/cache_control_check.py` | Cache validation |
 | `responses_id_security` | `proxy/hooks/responses_id_security.py` | Response ID validation |
-| `litellm_skills` | `proxy/hooks/litellm_skills/main.py` | Skills injection |
+| `hangarllm_skills` | `proxy/hooks/hangarllm_skills/main.py` | Skills injection |
 
 To add a new proxy hook, implement `CustomLogger` and register in `PROXY_HOOKS`.
 
@@ -169,7 +169,7 @@ graph LR
         Scheduler["APScheduler<br/>ProxyStartupEvent"]
     end
 
-    subgraph "SDK (litellm/)"
+    subgraph "SDK (hangarllm/)"
         Router["router.py<br/>Router.cache (DualCache)"]
         LLMCache["caching/caching_handler.py<br/>LLMCachingHandler"]
         CacheClass["caching/caching.py<br/>Cache"]
@@ -185,10 +185,10 @@ graph LR
     end
 
     subgraph "PostgreSQL (proxy/schema.prisma)"
-        Keys["LiteLLM_VerificationToken"]
-        Teams["LiteLLM_TeamTable"]
-        SpendLogs["LiteLLM_SpendLogs"]
-        Users["LiteLLM_UserTable"]
+        Keys["HangarLLM_VerificationToken"]
+        Teams["HangarLLM_TeamTable"]
+        SpendLogs["HangarLLM_SpendLogs"]
+        Users["HangarLLM_UserTable"]
     end
 
     Auth --> InternalCache
@@ -224,19 +224,19 @@ graph LR
 | `reset_budget` | 10-12min | Reset budgets for keys/users/teams | `proxy/common_utils/reset_budget_job.py` |
 | `add_deployment` | 10s | Sync new model deployments from DB | `proxy/proxy_server.py` (`ProxyConfig`) |
 | `cleanup_old_spend_logs` | cron/interval | Delete old spend logs | `proxy/db/db_transaction_queue/spend_log_cleanup.py` |
-| `check_batch_cost` | 30min | Calculate costs for batch jobs | `enterprise/litellm_enterprise/proxy/common_utils/check_batch_cost.py` |
-| `check_responses_cost` | 30min | Calculate costs for responses API | `enterprise/litellm_enterprise/proxy/common_utils/check_responses_cost.py` |
+| `check_batch_cost` | 30min | Calculate costs for batch jobs | `enterprise/hangarllm_enterprise/proxy/common_utils/check_batch_cost.py` |
+| `check_responses_cost` | 30min | Calculate costs for responses API | `enterprise/hangarllm_enterprise/proxy/common_utils/check_responses_cost.py` |
 | `process_rotations` | 1hr | Auto-rotate API keys | `proxy/common_utils/key_rotation_manager.py` |
 | `_run_background_health_check` | continuous | Health check model deployments | `proxy/proxy_server.py` |
 | `send_weekly_spend_report` | weekly | Slack spend alerts | `proxy/utils.py` (`SlackAlerting`) |
 | `send_monthly_spend_report` | monthly | Slack spend alerts | `proxy/utils.py` (`SlackAlerting`) |
 
 **Cost Attribution Flow:**
-1. LLM response returns to `utils.py` wrapper after `litellm.acompletion()` completes
-2. `update_response_metadata()` (`litellm_core_utils/llm_response_utils/response_metadata.py`) is called
-3. `logging_obj._response_cost_calculator()` (`litellm_core_utils/litellm_logging.py`) calculates cost via `litellm.completion_cost()` (`cost_calculator.py`)
+1. LLM response returns to `utils.py` wrapper after `hangarllm.acompletion()` completes
+2. `update_response_metadata()` (`hangarllm_core_utils/llm_response_utils/response_metadata.py`) is called
+3. `logging_obj._response_cost_calculator()` (`hangarllm_core_utils/hangarllm_logging.py`) calculates cost via `hangarllm.completion_cost()` (`cost_calculator.py`)
 4. Cost is stored in `response._hidden_params["response_cost"]`
-5. `proxy/common_request_processing.py` extracts cost from `hidden_params` and adds to response headers (`x-litellm-response-cost`)
+5. `proxy/common_request_processing.py` extracts cost from `hidden_params` and adds to response headers (`x-hangarllm-response-cost`)
 6. `logging_obj.async_success_handler()` triggers callbacks including `_ProxyDBLogger.async_log_success_event()`
 7. `DBSpendUpdateWriter.update_database()` queues spend increments to Redis
 8. Background job `update_spend` flushes queued spend to PostgreSQL every 60s
@@ -245,33 +245,33 @@ Cost lookup falls back to the response model when the provider-reported name can
 
 ### Data Access Layer (Models & Repositories)
 
-Database entities and the operations on them live in two packages at the root of `litellm/` so both the gateway (`proxy/`) and the SDK can use them without importing proxy internals:
+Database entities and the operations on them live in two packages at the root of `hangarllm/` so both the gateway (`proxy/`) and the SDK can use them without importing proxy internals:
 
-- `litellm/models/` holds the canonical Pydantic definitions for every persisted entity (`LiteLLM_VerificationToken`, `LiteLLM_TeamTable`, `LiteLLM_UserTable`, etc.). `proxy/_types.py` re-exports these for backwards compatibility, so existing imports keep working.
-- `litellm/repositories/` holds the data-access layer. `BaseRepository[T]` provides the generic CRUD (`find_by_id`, `find_many`, `create`, `update`, `delete`, `count`, `exists`); entity repositories such as `VerificationTokenRepository`, `TeamRepository`, and `UserRepository` add domain-specific queries and writes on top of it.
+- `hangarllm/models/` holds the canonical Pydantic definitions for every persisted entity (`HangarLLM_VerificationToken`, `HangarLLM_TeamTable`, `HangarLLM_UserTable`, etc.). `proxy/_types.py` re-exports these for backwards compatibility, so existing imports keep working.
+- `hangarllm/repositories/` holds the data-access layer. `BaseRepository[T]` provides the generic CRUD (`find_by_id`, `find_many`, `create`, `update`, `delete`, `count`, `exists`); entity repositories such as `VerificationTokenRepository`, `TeamRepository`, and `UserRepository` add domain-specific queries and writes on top of it.
 
 Conventions to follow when touching this layer:
 
 | Concern | How it's handled |
 |---------|------------------|
 | JSON columns | Prisma `Json` columns are stored as JSON strings. Repositories `json.dumps()` on write and `json.loads()` on read (see `_to_model` and the `_build_*_data` helpers). |
-| Archive-then-delete | `delete_team` / `delete_token` copy the row into the `LiteLLM_Deleted*` table and delete the original inside a single `prisma_client.db.tx()` transaction. Archive payloads are built explicitly so only columns that exist on the archive table are written. |
+| Archive-then-delete | `delete_team` / `delete_token` copy the row into the `HangarLLM_Deleted*` table and delete the original inside a single `prisma_client.db.tx()` transaction. Archive payloads are built explicitly so only columns that exist on the archive table are written. |
 | Column vs. field names | Where a model field differs from its DB column (for example `org_id` maps to the `organization_id` column), the repository translates in both directions rather than relying on Pydantic to guess. |
 | Array mutations | Adds use Prisma's atomic `push` (`add_member`, `add_admin`, `add_models`) to avoid read-modify-write races. Removals fall back to read-modify-write because Prisma has no atomic array remove. |
 
-To add a new entity, define the model under `litellm/models/`, re-export it from `proxy/_types.py` if existing code imports it from there, and add a repository under `litellm/repositories/` (subclass `BaseRepository` for plain CRUD, or add bespoke methods when the entity needs encryption, archiving, or atomic array updates). Mirror the tests in `tests/unit/repositories/`.
+To add a new entity, define the model under `hangarllm/models/`, re-export it from `proxy/_types.py` if existing code imports it from there, and add a repository under `hangarllm/repositories/` (subclass `BaseRepository` for plain CRUD, or add bespoke methods when the entity needs encryption, archiving, or atomic array updates). Mirror the tests in `tests/unit/repositories/`.
 
 ---
 
 ## 2. SDK Request Flow
 
-The SDK (`litellm/`) provides the core LLM calling functionality used by both direct SDK users and the AI Gateway.
+The SDK (`hangarllm/`) provides the core LLM calling functionality used by both direct SDK users and the AI Gateway.
 
 ```mermaid
 graph TD
     subgraph "SDK Entry Points"
-        Completion["litellm.completion()"]
-        Messages["litellm.messages()"]
+        Completion["hangarllm.completion()"]
+        Messages["hangarllm.messages()"]
     end
 
     subgraph "main.py"
@@ -292,7 +292,7 @@ graph TD
         TransformResp["transform_response()"]
     end
 
-    subgraph "litellm_core_utils/"
+    subgraph "hangarllm_core_utils/"
         Streaming["streaming_handler.py"]
     end
 
@@ -320,7 +320,7 @@ graph TD
 - `llms/custom_httpx/llm_http_handler.py` - Central HTTP orchestrator
 - `llms/custom_httpx/http_handler.py` - Low-level HTTP client
 - `llms/{provider}/chat/transformation.py` - Provider-specific transformations
-- `litellm_core_utils/streaming_handler.py` - Streaming response handling
+- `hangarllm_core_utils/streaming_handler.py` - Streaming response handling
 - `integrations/` - Async callbacks (Langfuse, Datadog, etc.)
 
 ---
@@ -359,7 +359,7 @@ Each provider has a `Config` class that inherits from `BaseConfig` (`llms/base_l
 
 ```python
 class ProviderConfig(BaseConfig):
-    def transform_request(self, model, messages, optional_params, litellm_params, headers):
+    def transform_request(self, model, messages, optional_params, hangarllm_params, headers):
         # Convert OpenAI format → Provider format
         return {"messages": transformed_messages, ...}
     
@@ -404,7 +404,7 @@ When adding a feature, verify it works across all paths:
 Translations are designed to be unit testable without making API calls:
 
 ```python
-from litellm.llms.bedrock.chat.converse_transformation import BedrockConverseConfig
+from hangarllm.llms.bedrock.chat.converse_transformation import BedrockConverseConfig
 
 def test_prompt_caching_transform():
     config = BedrockConverseConfig()
@@ -412,7 +412,7 @@ def test_prompt_caching_transform():
         model="anthropic.claude-3-opus",
         messages=[{"role": "user", "content": "test", "cache_control": {"type": "ephemeral"}}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={}
     )
     assert "cachePoint" in str(result)  # Verify cache_control was translated

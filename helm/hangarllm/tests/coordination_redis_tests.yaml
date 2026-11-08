@@ -1,10 +1,10 @@
 suite: test coordination redis
 templates:
-  - configmap-litellm.yaml
+  - configmap-hangarllm.yaml
   - deployment.yaml
 tests:
   - it: should not render coordination_redis when redis is disabled
-    template: configmap-litellm.yaml
+    template: configmap-hangarllm.yaml
     set:
       redis.enabled: false
     asserts:
@@ -25,7 +25,7 @@ tests:
           any: true
 
   - it: should render coordination_redis pointing at the bundled redis when enabled
-    template: configmap-litellm.yaml
+    template: configmap-hangarllm.yaml
     set:
       redis.enabled: true
     asserts:
@@ -61,7 +61,7 @@ tests:
                 key: redis-password
 
   - it: should not render coordination_redis when coordination is opted out
-    template: configmap-litellm.yaml
+    template: configmap-hangarllm.yaml
     set:
       redis.enabled: true
       redis.coordination.enabled: false
@@ -83,7 +83,7 @@ tests:
             value: RELEASE-NAME-redis-master
 
   - it: should not clobber a user supplied coordination_redis block
-    template: configmap-litellm.yaml
+    template: configmap-hangarllm.yaml
     set:
       redis.enabled: true
       proxy_config.general_settings.coordination_redis:
@@ -97,7 +97,7 @@ tests:
           pattern: "host: os.environ/REDIS_HOST"
 
   - it: should render sentinel_nodes and service_name in sentinel mode
-    template: configmap-litellm.yaml
+    template: configmap-hangarllm.yaml
     set:
       redis.enabled: true
       redis.architecture: replication
@@ -113,16 +113,16 @@ tests:
           pattern: "host: os.environ/REDIS_HOST"
 
   - it: should carry a custom sentinel masterSet into service_name
-    template: configmap-litellm.yaml
+    template: configmap-hangarllm.yaml
     set:
       redis.enabled: true
       redis.architecture: replication
       redis.sentinel.enabled: true
-      redis.sentinel.masterSet: litellm-master
+      redis.sentinel.masterSet: hangarllm-master
     asserts:
       - matchRegex:
           path: data["config.yaml"]
-          pattern: "service_name: litellm-master"
+          pattern: "service_name: hangarllm-master"
 
   - it: should point REDIS_HOST at the sentinel service in sentinel mode
     template: deployment.yaml

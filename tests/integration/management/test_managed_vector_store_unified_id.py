@@ -37,7 +37,7 @@ _SEARCH_RESPONSE: Final[dict[str, JsonValue]] = {
     "next_page": None,
 }
 _MANAGED_STORE_ROW: Final = (
-    'SELECT created_by, team_id FROM "LiteLLM_ManagedVectorStoreTable" WHERE unified_resource_id = %s'
+    'SELECT created_by, team_id FROM "HangarLLM_ManagedVectorStoreTable" WHERE unified_resource_id = %s'
 )
 
 
@@ -64,7 +64,7 @@ class _SearchPage(BaseModel):
 
 def _deployment_id(model: str) -> str:
     rows: Final = read_rows(
-        'SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_name = %s '
+        'SELECT model_id FROM "HangarLLM_ProxyModelTable" WHERE model_name = %s '
         "OR model_info->>'team_public_model_name' = %s",
         (model, model),
     )
@@ -76,13 +76,13 @@ def _worker_has_deployment(gateway: Gateway, deployment_id: str, _: int) -> bool
     with httpx.Client(base_url=gateway.client.base_url, timeout=15, trust_env=False) as client:
         response: Final = client.get(
             "/model/info",
-            params={"litellm_model_id": deployment_id},
+            params={"hangarllm_model_id": deployment_id},
             headers={"Authorization": f"Bearer {gateway.key}"},
         )
     if response.status_code == 200:
         return True
     assert response.status_code == 400, response.text
-    assert "not found on litellm proxy" in response.text.lower(), response.text
+    assert "not found on hangarllm proxy" in response.text.lower(), response.text
     return False
 
 
@@ -158,7 +158,7 @@ def _assert_create_request(request: Request, name: str) -> None:
 
 def _delete_managed_store_row(unified_id: str) -> None:
     write_rows(
-        'DELETE FROM "LiteLLM_ManagedVectorStoreTable" WHERE unified_resource_id = %s',
+        'DELETE FROM "HangarLLM_ManagedVectorStoreTable" WHERE unified_resource_id = %s',
         (unified_id,),
     )
 
@@ -221,7 +221,7 @@ def test_managed_vector_store_id_routes_to_creator_deployment_and_enforces_owner
 
         unified_id: Final = created.id
         decoded_id: Final = base64.urlsafe_b64decode(unified_id + "=" * (-len(unified_id) % 4)).decode()
-        assert decoded_id.startswith("litellm_proxy:vector_store;"), decoded_id
+        assert decoded_id.startswith("hangarllm_proxy:vector_store;"), decoded_id
         assert f"target_model_names,{model_a},{model_b};" in decoded_id, decoded_id
         assert f"resource_id,{provider_id_a};" in decoded_id, decoded_id
         scenario.cleanups.callback(_delete_managed_store_row, unified_id)

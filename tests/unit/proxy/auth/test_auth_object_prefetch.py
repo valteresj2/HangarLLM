@@ -6,23 +6,23 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.proxy._types import (
-    LiteLLM_OrganizationTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_UserTable,
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.proxy._types import (
+    HangarLLM_OrganizationTable,
+    HangarLLM_TeamMembership,
+    HangarLLM_TeamTableCachedObj,
+    HangarLLM_UserTable,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import (
+from hangarllm.proxy.auth.auth_checks import (
     get_end_user_object,
     get_org_object,
     get_team_membership,
     get_team_object,
     get_user_object,
 )
-from litellm.proxy.auth.auth_object_prefetch import AuthObjectRefs, prefetch_auth_objects, prefetch_identity_keys
-from litellm.proxy.common_utils.user_api_key_cache import (
+from hangarllm.proxy.auth.auth_object_prefetch import AuthObjectRefs, prefetch_auth_objects, prefetch_identity_keys
+from hangarllm.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     end_user_cache_key,
     end_user_restricted_registry_cache_key,
@@ -54,7 +54,7 @@ MEMBERSHIP_ROW = {
     "team_id": TEAM_ID,
     "spend": 3.0,
     "budget_id": "b1",
-    "litellm_budget_table": {"budget_id": "b1", "max_budget": 20.0},
+    "hangarllm_budget_table": {"budget_id": "b1", "max_budget": 20.0},
 }
 ORG_ROW = {
     "organization_id": ORG_ID,
@@ -64,7 +64,7 @@ ORG_ROW = {
     "updated_by": "admin",
     "models": [],
     "spend": 4.0,
-    "litellm_budget_table": {"budget_id": "b2", "max_budget": 1000.0},
+    "hangarllm_budget_table": {"budget_id": "b2", "max_budget": 1000.0},
 }
 ALL_ROWS = {
     "user_row": USER_ROW,
@@ -109,10 +109,10 @@ def _refs() -> AuthObjectRefs:
 async def _read_all_through_getters(
     cache: UserApiKeyCache, prisma: MagicMock
 ) -> tuple[
-    LiteLLM_UserTable | None,
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_TeamMembership | None,
-    LiteLLM_OrganizationTable | None,
+    HangarLLM_UserTable | None,
+    HangarLLM_TeamTableCachedObj,
+    HangarLLM_TeamMembership | None,
+    HangarLLM_OrganizationTable | None,
 ]:
     return (
         await get_user_object(user_id=USER_ID, prisma_client=prisma, user_api_key_cache=cache, user_id_upsert=False),
@@ -167,13 +167,13 @@ async def test_cold_regime_is_one_mget_one_query_and_the_getters_never_touch_io_
     assert (_round_trips(redis), prisma.db.query_first.await_count) == before
     assert _non_prefetch_db_calls(prisma) == []
 
-    assert isinstance(user, LiteLLM_UserTable) and user.max_budget == 50.0
-    assert isinstance(team, LiteLLM_TeamTableCachedObj) and team.organization_id == ORG_ID
+    assert isinstance(user, HangarLLM_UserTable) and user.max_budget == 50.0
+    assert isinstance(team, HangarLLM_TeamTableCachedObj) and team.organization_id == ORG_ID
     assert team.last_refreshed_at is not None
-    assert isinstance(membership, LiteLLM_TeamMembership) and membership.litellm_budget_table is not None
-    assert membership.litellm_budget_table.max_budget == 20.0
-    assert isinstance(org, LiteLLM_OrganizationTable) and org.litellm_budget_table is not None
-    assert org.litellm_budget_table.max_budget == 1000.0
+    assert isinstance(membership, HangarLLM_TeamMembership) and membership.hangarllm_budget_table is not None
+    assert membership.hangarllm_budget_table.max_budget == 20.0
+    assert isinstance(org, HangarLLM_OrganizationTable) and org.hangarllm_budget_table is not None
+    assert org.hangarllm_budget_table.max_budget == 1000.0
 
 
 @pytest.mark.asyncio
@@ -250,7 +250,7 @@ async def test_deleted_team_cache_entry_is_refetched_and_the_update_is_visible()
 @pytest.mark.asyncio
 async def test_row_missing_a_required_column_is_not_cached_so_the_getter_still_fails_closed():
     prisma = _prisma({**ALL_ROWS, "team_row": {"max_budget": 1.0}})
-    prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
+    prisma.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=None)
     cache = _cache(FakeAuthCache())
 
     await prefetch_auth_objects(refs=_refs(), user_api_key_cache=cache, prisma_client=prisma)
@@ -258,7 +258,7 @@ async def test_row_missing_a_required_column_is_not_cached_so_the_getter_still_f
     with pytest.raises(HTTPException) as exc:
         await get_team_object(team_id=TEAM_ID, prisma_client=prisma, user_api_key_cache=cache)
     assert exc.value.status_code == 404
-    assert prisma.db.litellm_teamtable.find_unique.await_count == 1
+    assert prisma.db.hangarllm_teamtable.find_unique.await_count == 1
     assert cache.get_local(USER_ID) is not None
 
 

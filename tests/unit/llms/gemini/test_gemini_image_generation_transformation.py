@@ -4,9 +4,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-from litellm.llms.gemini.image_generation.transformation import GoogleImageGenConfig
-from litellm.types.utils import ImageResponse
+from hangarllm.hangarllm_core_utils.hangarllm_logging import StandardLoggingPayloadSetup
+from hangarllm.llms.gemini.image_generation.transformation import GoogleImageGenConfig
+from hangarllm.types.utils import ImageResponse
 
 
 def test_gemini_image_generation_request_uses_shared_generation_config():
@@ -19,7 +19,7 @@ def test_gemini_image_generation_request_uses_shared_generation_config():
             "sampleCount": 2,
             "imageConfig": {"aspectRatio": "16:9", "imageSize": "2K"},
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -73,7 +73,7 @@ def test_imagen_generation_with_provider_prefix_uses_imagen_params_and_response(
         model="gemini/imagen-4.0-generate-001",
         prompt="Generate a simple app icon",
         optional_params=mapped,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert request == {
@@ -101,7 +101,7 @@ def test_imagen_generation_with_provider_prefix_uses_imagen_params_and_response(
         logging_obj=None,
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
     assert result.data is not None
@@ -125,7 +125,7 @@ def test_imagen_generation_forwards_mapped_openai_size_image_size():
         model="gemini/imagen-4.0-generate-001",
         prompt="Generate a simple app icon",
         optional_params=mapped,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -177,7 +177,7 @@ def test_gemini_image_generation_usage_includes_chat_token_details():
         logging_obj=None,
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -217,7 +217,7 @@ def test_gemini_image_generation_web_search_options_maps_to_google_search_tool()
         model="gemini-3.1-flash-image-preview",
         prompt="Generate an image of the latest iPhone",
         optional_params=mapped,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -240,7 +240,7 @@ def test_gemini_image_generation_openai_web_search_tool_maps_to_google_search():
         model="gemini-3.1-flash-image-preview",
         prompt="Generate an image of the latest iPhone",
         optional_params=mapped,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -284,7 +284,7 @@ def test_gemini_image_generation_preserves_tool_config_side_effect():
         model="gemini-3.1-flash-image-preview",
         prompt="Generate an image of a coffee shop nearby",
         optional_params=mapped,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -329,7 +329,7 @@ def test_gemini_image_generation_usage_without_output_details_treats_output_as_i
         logging_obj=None,
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -376,7 +376,7 @@ def test_gemini_image_generation_response_tracks_web_search_requests():
         logging_obj=None,
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -418,7 +418,7 @@ def test_gemini_image_generation_response_without_grounding_has_no_web_search_re
         logging_obj=None,
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -433,7 +433,7 @@ def _transform_response(model: str, payload: object) -> ImageResponse:
         logging_obj=Mock(),
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

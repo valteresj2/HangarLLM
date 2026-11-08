@@ -28,13 +28,13 @@ def _member_ids(row) -> list:
 async def _seed_team_members(db, resources, actors, member_ids: list, org_id) -> None:
     """Leave behind what /team/member_add would: roster entry, `teams` array, and org membership."""
     await create_scratch_team(db, resources.prefix, organization_id=actors.org_a_id, member_user_ids=member_ids)
-    await db.db.litellm_usertable.update_many(
+    await db.db.hangarllm_usertable.update_many(
         where={"user_id": {"in": member_ids}}, data={"teams": {"set": [resources.prefix]}}
     )
     if org_id is None:
         return
     for uid in member_ids:
-        await db.db.litellm_organizationmembership.create(
+        await db.db.hangarllm_organizationmembership.create(
             data={"user_id": uid, "organization_id": org_id, "user_role": "internal_user"}
         )
 
@@ -65,12 +65,12 @@ async def test_users_bulk_delete_authz_matrix(
     )
     assert resp.status_code == expected_status, f"{actor.value}: {resp.status_code} {resp.text}"
 
-    team = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    team = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert team is not None and keep in _member_ids(team), "unrelated member removed"
-    remaining = {u.user_id for u in await db.db.litellm_usertable.find_many(where={"user_id": {"in": victims}})}
+    remaining = {u.user_id for u in await db.db.hangarllm_usertable.find_many(where={"user_id": {"in": victims}})}
     if expected_status == 403:
         assert resp.headers["content-type"] == "application/problem+json"
-        assert resp.json()["type"] == "urn:litellm:error:forbidden"
+        assert resp.json()["type"] == "urn:hangarllm:error:forbidden"
         assert remaining == set(victims), "denied but users deleted"
         assert set(victims) <= set(_member_ids(team)), "denied but members removed"
         return
@@ -104,7 +104,7 @@ async def test_users_bulk_delete_reports_each_row_in_order(gateway_client, db, r
         (victim, True),
         (victim, False),
     ]
-    assert await db.db.litellm_usertable.find_unique(where={"user_id": victim}) is None
+    assert await db.db.hangarllm_usertable.find_unique(where={"user_id": victim}) is None
 
 
 async def test_users_bulk_delete_unknown_query_param_is_400_problem(gateway_client, db, resources, actors):
@@ -117,9 +117,9 @@ async def test_users_bulk_delete_unknown_query_param_is_400_problem(gateway_clie
     )
     assert resp.status_code == 400, resp.text
     assert resp.headers["content-type"] == "application/problem+json"
-    assert resp.json()["type"] == "urn:litellm:error:unknown-query-parameter"
+    assert resp.json()["type"] == "urn:hangarllm:error:unknown-query-parameter"
     assert "dry_run" in resp.json()["detail"]
-    assert await db.db.litellm_usertable.find_unique(where={"user_id": victim}) is not None
+    assert await db.db.hangarllm_usertable.find_unique(where={"user_id": victim}) is not None
 
 
 async def test_users_bulk_delete_unknown_body_field_is_422_problem(gateway_client, db, resources, actors):
@@ -132,6 +132,6 @@ async def test_users_bulk_delete_unknown_body_field_is_422_problem(gateway_clien
     )
     assert resp.status_code == 422, resp.text
     assert resp.headers["content-type"] == "application/problem+json"
-    assert resp.json()["type"] == "urn:litellm:error:invalid-request-body"
+    assert resp.json()["type"] == "urn:hangarllm:error:invalid-request-body"
     assert "dry_run" in resp.json()["detail"]
-    assert await db.db.litellm_usertable.find_unique(where={"user_id": victim}) is not None
+    assert await db.db.hangarllm_usertable.find_unique(where={"user_id": victim}) is not None

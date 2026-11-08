@@ -110,7 +110,7 @@ def test_model_less_moderation_resolves_to_configured_moderation_model(gateway: 
             "model_list": [
                 {
                     "model_name": "default-moderation",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"openai/{_UPSTREAM_MODEL}",
                         "api_base": f"{wire.url}/v1",
                         "api_key": _OPENAI_KEY,

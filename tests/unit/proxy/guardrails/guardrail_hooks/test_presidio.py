@@ -22,18 +22,18 @@ from aiohttp.test_utils import TestServer
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm import mock_completion
-from litellm.caching.caching import DualCache
-from litellm.exceptions import BlockedPiiEntityError, GuardrailRaisedException
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.presidio import (
+import hangarllm
+from hangarllm import mock_completion
+from hangarllm.caching.caching import DualCache
+from hangarllm.exceptions import BlockedPiiEntityError, GuardrailRaisedException
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.presidio import (
     OPTIONAL_PresidioPIIMasking,
     PresidioPerRequestConfig,
 )
-from litellm.types.guardrails import LitellmParams, PiiAction, PiiEntityType
-from litellm.types.proxy.guardrails.guardrail_hooks.presidio import PresidioAnalyzeRequest, PresidioAnalyzeResponseItem
-from litellm.types.utils import Choices, Delta, Message, ModelResponse, StreamingChoices
+from hangarllm.types.guardrails import HangarllmParams, PiiAction, PiiEntityType
+from hangarllm.types.proxy.guardrails.guardrail_hooks.presidio import PresidioAnalyzeRequest, PresidioAnalyzeResponseItem
+from hangarllm.types.utils import Choices, Delta, Message, ModelResponse, StreamingChoices
 
 
 def _make_mock_session_iterator(json_response, status=200, content_type="application/json", text_response=""):
@@ -834,29 +834,29 @@ async def test_presidio_filter_scope_initializer(monkeypatch):
             self.event_hook = event_hook
             created.append(self)
 
-        def update_in_memory_litellm_params(self, litellm_params):
+        def update_in_memory_hangarllm_params(self, hangarllm_params):
             pass
 
     class DummyManager:
         def __init__(self):
             self.added = []
 
-        def add_litellm_callback(self, cb):
+        def add_hangarllm_callback(self, cb):
             self.added.append(cb)
 
     mgr = DummyManager()
-    monkeypatch.setattr(litellm, "logging_callback_manager", mgr, raising=False)
-    import litellm.proxy.guardrails.guardrail_hooks.presidio as presidio_mod
-    import litellm.proxy.guardrails.guardrail_initializers as gi
+    monkeypatch.setattr(hangarllm, "logging_callback_manager", mgr, raising=False)
+    import hangarllm.proxy.guardrails.guardrail_hooks.presidio as presidio_mod
+    import hangarllm.proxy.guardrails.guardrail_initializers as gi
 
     monkeypatch.setattr(presidio_mod, "OPTIONAL_PresidioPIIMasking", DummyGuardrail, raising=False)
     monkeypatch.setattr(gi, "OPTIONAL_PresidioPIIMasking", DummyGuardrail, raising=False)
 
     # input-only
     created.clear()
-    from litellm.proxy.guardrails.guardrail_initializers import initialize_presidio
+    from hangarllm.proxy.guardrails.guardrail_initializers import initialize_presidio
 
-    params_input = LitellmParams(guardrail="presidio", mode="pre_call", presidio_filter_scope="input")
+    params_input = HangarllmParams(guardrail="presidio", mode="pre_call", presidio_filter_scope="input")
     guardrail_dict = {"guardrail_name": "g1"}
     callbacks = initialize_presidio(params_input, guardrail_dict)
     assert callbacks == (created[0],)
@@ -864,7 +864,7 @@ async def test_presidio_filter_scope_initializer(monkeypatch):
 
     # output-only
     created.clear()
-    params_output = LitellmParams(guardrail="presidio", mode="pre_call", presidio_filter_scope="output")
+    params_output = HangarllmParams(guardrail="presidio", mode="pre_call", presidio_filter_scope="output")
     callbacks = initialize_presidio(params_output, guardrail_dict)
     assert len(created) == 1
     assert callbacks == (created[0],)
@@ -872,7 +872,7 @@ async def test_presidio_filter_scope_initializer(monkeypatch):
 
     # both -> expect two callbacks (input + output), both returned, input first
     created.clear()
-    params_both = LitellmParams(guardrail="presidio", mode="pre_call", presidio_filter_scope="both")
+    params_both = HangarllmParams(guardrail="presidio", mode="pre_call", presidio_filter_scope="both")
     callbacks = initialize_presidio(params_both, guardrail_dict)
     assert len(created) == 2
     assert callbacks == tuple(created)
@@ -881,7 +881,7 @@ async def test_presidio_filter_scope_initializer(monkeypatch):
 
     # both + output_parse_pii -> three callbacks, all returned, input first
     created.clear()
-    params_all = LitellmParams(
+    params_all = HangarllmParams(
         guardrail="presidio", mode="pre_call", presidio_filter_scope="both", output_parse_pii=True
     )
     callbacks = initialize_presidio(params_all, guardrail_dict)
@@ -1384,17 +1384,17 @@ def test_blocking_respects_threshold_filter():
 
 def test_update_in_memory_applies_score_thresholds():
     """
-    update_in_memory_litellm_params should refresh score thresholds.
+    update_in_memory_hangarllm_params should refresh score thresholds.
     """
     guardrail = OPTIONAL_PresidioPIIMasking(mock_testing=True)
     assert guardrail.presidio_score_thresholds == {}
 
-    params = LitellmParams(
+    params = HangarllmParams(
         guardrail="presidio",
         mode="pre_call",
         presidio_score_thresholds={PiiEntityType.CREDIT_CARD: 0.85},
     )
-    guardrail.update_in_memory_litellm_params(params)
+    guardrail.update_in_memory_hangarllm_params(params)
 
     assert guardrail.presidio_score_thresholds == {PiiEntityType.CREDIT_CARD: 0.85}
 
@@ -1455,7 +1455,7 @@ async def test_get_session_iterator_thread_safety(presidio_guardrail):
     print("✓ Session iterator thread safety test passed")
 
 
-from litellm.types.utils import ModelResponseStream
+from hangarllm.types.utils import ModelResponseStream
 
 
 @pytest.mark.asyncio
@@ -1907,7 +1907,7 @@ def test_unmask_exact_match_with_sequential_tokens():
     """
     Normal unmasking: LLM echoes numbered tokens verbatim → original PII restored.
     """
-    from litellm.proxy.guardrails.guardrail_hooks.presidio import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.presidio import (
         OPTIONAL_PresidioPIIMasking,
     )
 
@@ -1924,7 +1924,7 @@ def test_unmask_multiple_same_entity_type():
     """
     Two phone numbers get distinct numbered tokens and unmask correctly.
     """
-    from litellm.proxy.guardrails.guardrail_hooks.presidio import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.presidio import (
         OPTIONAL_PresidioPIIMasking,
     )
 
@@ -1942,7 +1942,7 @@ def test_unmask_graceful_degradation():
     If the LLM doesn't echo the token back, the numbered label stays
     in the output — clean and readable, not garbage hex.
     """
-    from litellm.proxy.guardrails.guardrail_hooks.presidio import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.presidio import (
         OPTIONAL_PresidioPIIMasking,
     )
 
@@ -2301,7 +2301,7 @@ async def test_apply_to_output_streaming_mixed_chunks_flushes_and_warns():
 
     mock_user_api_key = UserAPIKeyAuth(api_key="test-key")
     received = []
-    with patch("litellm.proxy.guardrails.guardrail_hooks.presidio.verbose_proxy_logger") as mock_logger:
+    with patch("hangarllm.proxy.guardrails.guardrail_hooks.presidio.verbose_proxy_logger") as mock_logger:
         async for chunk in guardrail.async_post_call_streaming_iterator_hook(
             user_api_key_dict=mock_user_api_key,
             response=mock_stream(),
@@ -3509,12 +3509,12 @@ async def test_output_parse_pii_streaming_responses_completed_event_unmasked(
     (a Pydantic ResponseCompletedEvent, as produced in production) must have its
     output text unmasked in-place before being forwarded to the client.
     """
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         ResponseCompletedEvent,
         ResponsesAPIResponse,
         ResponsesAPIStreamEvents,
     )
-    from litellm.types.responses.main import GenericResponseOutputItem, OutputText
+    from hangarllm.types.responses.main import GenericResponseOutputItem, OutputText
 
     guardrail = OPTIONAL_PresidioPIIMasking(
         mock_testing=True,
@@ -4460,7 +4460,7 @@ async def test_analyze_text_chunked_failure_stays_fail_closed():
 
 
 def test_presidio_analyze_chunk_size_default_and_validation():
-    from litellm.constants import DEFAULT_PRESIDIO_ANALYZE_CHUNK_SIZE_BYTES
+    from hangarllm.constants import DEFAULT_PRESIDIO_ANALYZE_CHUNK_SIZE_BYTES
 
     guardrail = OPTIONAL_PresidioPIIMasking(mock_testing=True)
     assert guardrail.presidio_analyze_chunk_size_bytes == DEFAULT_PRESIDIO_ANALYZE_CHUNK_SIZE_BYTES
@@ -4474,22 +4474,22 @@ def test_presidio_analyze_chunk_size_default_and_validation():
 
 def test_update_in_memory_applies_analyze_chunk_size():
     guardrail = OPTIONAL_PresidioPIIMasking(mock_testing=True)
-    params = LitellmParams(
+    params = HangarllmParams(
         guardrail="presidio",
         mode="pre_call",
         presidio_analyze_chunk_size_bytes=99_000,
     )
-    guardrail.update_in_memory_litellm_params(params)
+    guardrail.update_in_memory_hangarllm_params(params)
     assert guardrail.presidio_analyze_chunk_size_bytes == 99_000
 
 
 def test_update_in_memory_keeps_output_masker_from_unmasking():
     masker = OPTIONAL_PresidioPIIMasking(mock_testing=True, apply_to_output=True, output_parse_pii=False)
     unmasker = OPTIONAL_PresidioPIIMasking(mock_testing=True, output_parse_pii=True)
-    params = LitellmParams(guardrail="presidio", mode="pre_call", output_parse_pii=True)
+    params = HangarllmParams(guardrail="presidio", mode="pre_call", output_parse_pii=True)
 
-    masker.update_in_memory_litellm_params(params)
-    unmasker.update_in_memory_litellm_params(params)
+    masker.update_in_memory_hangarllm_params(params)
+    unmasker.update_in_memory_hangarllm_params(params)
 
     assert (masker.apply_to_output, masker.output_parse_pii) == (True, False)
     assert (unmasker.apply_to_output, unmasker.output_parse_pii) == (False, True)
@@ -4534,15 +4534,15 @@ def test_merge_preserves_cross_type_overlap():
 
 
 def test_update_in_memory_coerces_invalid_chunk_size():
-    from litellm.constants import DEFAULT_PRESIDIO_ANALYZE_CHUNK_SIZE_BYTES
+    from hangarllm.constants import DEFAULT_PRESIDIO_ANALYZE_CHUNK_SIZE_BYTES
 
     guardrail = OPTIONAL_PresidioPIIMasking(mock_testing=True, presidio_analyze_chunk_size_bytes=99_000)
-    params = LitellmParams(
+    params = HangarllmParams(
         guardrail="presidio",
         mode="pre_call",
         presidio_analyze_chunk_size_bytes=-1,
     )
-    guardrail.update_in_memory_litellm_params(params)
+    guardrail.update_in_memory_hangarllm_params(params)
     assert guardrail.presidio_analyze_chunk_size_bytes == DEFAULT_PRESIDIO_ANALYZE_CHUNK_SIZE_BYTES
 
 
@@ -4571,7 +4571,7 @@ async def test_tiny_chunk_size_with_multibyte_text_terminates():
 
 @pytest.mark.asyncio
 async def test_chunked_analyze_concurrency_is_bounded():
-    from litellm.constants import PRESIDIO_ANALYZE_CHUNK_CONCURRENCY
+    from hangarllm.constants import PRESIDIO_ANALYZE_CHUNK_CONCURRENCY
 
     guardrail = _chunking_guardrail(chunk_size_bytes=10)
     state = {"active": 0, "peak": 0}
@@ -4713,7 +4713,7 @@ async def test_chunked_analyze_applies_score_threshold_before_merge():
 async def test_chunk_fanout_bound_is_shared_across_concurrent_calls():
     """The chunk semaphore is per event loop and instance, so several oversized
     blocks analyzed concurrently share ONE bound instead of getting 8 each."""
-    from litellm.constants import PRESIDIO_ANALYZE_CHUNK_CONCURRENCY
+    from hangarllm.constants import PRESIDIO_ANALYZE_CHUNK_CONCURRENCY
 
     guardrail = _chunking_guardrail(chunk_size_bytes=10)
     state = {"active": 0, "peak": 0}
@@ -4844,11 +4844,11 @@ async def test_pii_masking_replays_a_byte_identical_prefix_across_turns(mock_use
 async def test_initialized_presidio_scans_selected_surface(surface: str, action: PiiAction, has_tokens: bool) -> None:
     from mcp.types import CallToolResult, TextContent
 
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
-    from litellm.proxy.guardrails.guardrail_initializers import initialize_presidio
-    from litellm.proxy.mcp_server.guardrail_translation.handler import MCPGuardrailTranslationHandler
+    from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
+    from hangarllm.proxy.guardrails.guardrail_initializers import initialize_presidio
+    from hangarllm.proxy.mcp_server.guardrail_translation.handler import MCPGuardrailTranslationHandler
 
-    params: Final = LitellmParams(
+    params: Final = HangarllmParams(
         guardrail="presidio",
         mode="post_mcp_call" if surface == "mcp_result" else "pre_mcp_call",
         default_on=True,
@@ -4911,9 +4911,9 @@ async def test_initialized_presidio_scans_selected_surface(surface: str, action:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("has_tokens", [False, True])
 async def test_restoration_never_contacts_presidio(has_tokens: bool) -> None:
-    from litellm.proxy.guardrails.guardrail_initializers import initialize_presidio
+    from hangarllm.proxy.guardrails.guardrail_initializers import initialize_presidio
 
-    params: Final = LitellmParams(
+    params: Final = HangarllmParams(
         guardrail="presidio",
         mode="pre_mcp_call",
         output_parse_pii=True,
@@ -4934,7 +4934,7 @@ async def test_restoration_never_contacts_presidio(has_tokens: bool) -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("event_hook", ["pre_call", ["pre_call"], ["pre_call", "post_call"]])
 async def test_standalone_restoration_preserves_post_call_selection(event_hook: str | list[str]) -> None:
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
+    from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
 
     callback: Final = OPTIONAL_PresidioPIIMasking(
         event_hook=event_hook,
@@ -4988,8 +4988,8 @@ async def test_output_parsing():
     - have presidio pii masking - output parse message
     - assert that no masked tokens are in the input message
     """
-    litellm.set_verbose = True
-    litellm.output_parse_pii = True
+    hangarllm.set_verbose = True
+    hangarllm.output_parse_pii = True
     pii_masking = OPTIONAL_PresidioPIIMasking(mock_testing=True)
 
     initial_message = [
@@ -5129,7 +5129,7 @@ async def test_presidio_pii_masking_input_b():
 
 @pytest.mark.asyncio
 async def test_presidio_pii_masking_logging_output_only_no_pre_api_hook():
-    from litellm.types.guardrails import GuardrailEventHooks
+    from hangarllm.types.guardrails import GuardrailEventHooks
 
     pii_masking = OPTIONAL_PresidioPIIMasking(
         logging_only=True,
@@ -5160,7 +5160,7 @@ async def test_presidio_pii_masking_logging_output_only_no_pre_api_hook():
 @pytest.mark.asyncio
 async def test_presidio_language_configuration():
     """Test that presidio_language parameter is properly set and used in analyze requests"""
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
 
     presidio_guardrail_de = OPTIONAL_PresidioPIIMasking(
         pii_entities_config={},
@@ -5209,7 +5209,7 @@ async def test_presidio_language_configuration():
 @pytest.mark.asyncio
 async def test_presidio_language_configuration_with_per_request_override():
     """Test that per-request language configuration overrides the default configured language"""
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
 
     presidio_guardrail = OPTIONAL_PresidioPIIMasking(
         pii_entities_config={}, presidio_language="de", mock_testing=True
@@ -5416,11 +5416,11 @@ async def test_pre_call_hook_raises_blocked_entity_for_card_message(
 async def test_legacy_pii_masking_config_registers_logging_only_guardrail(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PRESIDIO_ANALYZER_API_BASE", "http://localhost:5002")
     monkeypatch.setenv("PRESIDIO_ANONYMIZER_API_BASE", "http://localhost:5001")
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "guardrail_name_config_map", {})
+    monkeypatch.setattr(hangarllm, "callbacks", [])
 
-    from litellm.proxy.guardrails.init_guardrails import initialize_guardrails
-    from litellm.types.guardrails import GuardrailEventHooks
+    from hangarllm.proxy.guardrails.init_guardrails import initialize_guardrails
+    from hangarllm.types.guardrails import GuardrailEventHooks
 
     guardrails_config: Final = [
         {
@@ -5431,17 +5431,17 @@ async def test_legacy_pii_masking_config_registers_logging_only_guardrail(monkey
             }
         }
     ]
-    assert len(litellm.guardrail_name_config_map) == 0
+    assert len(hangarllm.guardrail_name_config_map) == 0
     initialize_guardrails(
         guardrails_config=guardrails_config,
         premium_user=True,
         config_file_path="",
-        litellm_settings={"guardrails": guardrails_config},
+        hangarllm_settings={"guardrails": guardrails_config},
     )
-    assert len(litellm.guardrail_name_config_map) == 1
+    assert len(hangarllm.guardrail_name_config_map) == 1
 
     pii_masking_obj: Final = next(
-        (c for c in litellm.callbacks if isinstance(c, OPTIONAL_PresidioPIIMasking)),
+        (c for c in hangarllm.callbacks if isinstance(c, OPTIONAL_PresidioPIIMasking)),
         None,
     )
     assert pii_masking_obj is not None

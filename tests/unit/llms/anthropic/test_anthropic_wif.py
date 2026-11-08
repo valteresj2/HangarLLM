@@ -10,22 +10,22 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
-import litellm
-from litellm.llms.anthropic.wif import (
+import hangarllm
+from hangarllm.llms.anthropic.wif import (
     AnthropicWifParams,
     _raise_anthropic_wif_error,
     build_anthropic_wif_spec,
     get_anthropic_wif_token,
     resolve_anthropic_wif_params,
 )
-from litellm.llms.base_llm.auth.identity_source import (
+from hangarllm.llms.base_llm.auth.identity_source import (
     InternalIssuerSource,
     KeycloakSource,
     identity_source_ref,
 )
-from litellm.llms.base_llm.auth.jwt_signing import build_jwks, rfc7638_thumbprint
-from litellm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
-from litellm.llms.base_llm.auth.types import (
+from hangarllm.llms.base_llm.auth.jwt_signing import build_jwks, rfc7638_thumbprint
+from hangarllm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
+from hangarllm.llms.base_llm.auth.types import (
     AssertionSourceError,
     ExchangeError,
     InsecureTokenUrl,
@@ -33,7 +33,7 @@ from litellm.llms.base_llm.auth.types import (
     TokenEndpointError,
     TokenTransportError,
 )
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.types.router import GenericHangarLLMParams
 
 WIF_ENV_VARS: Final = (
     "ANTHROPIC_FEDERATION_RULE_ID",
@@ -46,7 +46,7 @@ WIF_ENV_VARS: Final = (
     "ANTHROPIC_SCOPE",
     "ANTHROPIC_API_BASE",
     "ANTHROPIC_BASE_URL",
-    "LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS",
+    "HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS",
 )
 
 GRANT_TYPE: Final = "urn:ietf:params:oauth:grant-type:jwt-bearer"
@@ -128,7 +128,7 @@ def write_token_file(directory: Path, content: str, name: str = "identity-token"
 
 class TestWireProtocolExact:
     def test_minimal_body_and_headers(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+        monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
         monkeypatch.setenv("ANTHROPIC_SCOPE", "user:inference")
         token_file = write_token_file(tmp_path, "jwt-assertion-value\n")
         poster = ScriptedPoster([token_response()])
@@ -159,7 +159,7 @@ class TestWireProtocolExact:
         }
 
     def test_optional_fields_present_when_set(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+        monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
         token_file = write_token_file(tmp_path, "jwt-assertion-value")
         poster = ScriptedPoster([token_response()])
         engine = make_engine(poster)
@@ -233,15 +233,15 @@ class TestExchangeHostTrust:
         return poster.requests[0].url
 
     def test_anthropic_is_trusted_without_configuration(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.delenv("LITELLM_ANTHROPIC_WIF_ALLOWED_HOSTS", raising=False)
+        monkeypatch.delenv("HANGARLLM_ANTHROPIC_WIF_ALLOWED_HOSTS", raising=False)
         assert self._mint("https://api.anthropic.com", monkeypatch) == "https://api.anthropic.com/v1/oauth/token"
 
     def test_an_unlisted_host_never_receives_the_identity_token(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.delenv("LITELLM_ANTHROPIC_WIF_ALLOWED_HOSTS", raising=False)
+        monkeypatch.delenv("HANGARLLM_ANTHROPIC_WIF_ALLOWED_HOSTS", raising=False)
         monkeypatch.setenv("ANTHROPIC_IDENTITY_TOKEN", "inline-jwt")
         poster = ScriptedPoster([token_response()])
 
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             get_anthropic_wif_token(
                 {"anthropic_federation_rule_id": "fdrl_1", "anthropic_organization_id": "org-1"},
                 "https://attacker.example",
@@ -251,17 +251,17 @@ class TestExchangeHostTrust:
 
         assert poster.requests == [], "the exchange must be refused before anything is sent"
         assert "attacker.example" in str(exc_info.value)
-        assert "LITELLM_ANTHROPIC_WIF_ALLOWED_HOSTS" in str(exc_info.value), (
+        assert "HANGARLLM_ANTHROPIC_WIF_ALLOWED_HOSTS" in str(exc_info.value), (
             "an operator running a private gateway has to be told how to allow it"
         )
         assert not exc_info.value.message.endswith(".")
 
     def test_a_lookalike_host_does_not_pass_on_a_substring(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.delenv("LITELLM_ANTHROPIC_WIF_ALLOWED_HOSTS", raising=False)
+        monkeypatch.delenv("HANGARLLM_ANTHROPIC_WIF_ALLOWED_HOSTS", raising=False)
         monkeypatch.setenv("ANTHROPIC_IDENTITY_TOKEN", "inline-jwt")
         poster = ScriptedPoster([token_response()])
 
-        with pytest.raises(litellm.AuthenticationError):
+        with pytest.raises(hangarllm.AuthenticationError):
             get_anthropic_wif_token(
                 {"anthropic_federation_rule_id": "fdrl_1", "anthropic_organization_id": "org-1"},
                 "https://api.anthropic.com.evil.test",
@@ -272,17 +272,17 @@ class TestExchangeHostTrust:
         assert poster.requests == []
 
     def test_an_operator_can_allow_a_private_gateway(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_ANTHROPIC_WIF_ALLOWED_HOSTS", "gateway.internal")
+        monkeypatch.setenv("HANGARLLM_ANTHROPIC_WIF_ALLOWED_HOSTS", "gateway.internal")
         assert self._mint("https://gateway.internal", monkeypatch) == "https://gateway.internal/v1/oauth/token"
 
     def test_a_gateway_listed_with_its_port_is_trusted(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_ANTHROPIC_WIF_ALLOWED_HOSTS", "gateway.internal:8443")
+        monkeypatch.setenv("HANGARLLM_ANTHROPIC_WIF_ALLOWED_HOSTS", "gateway.internal:8443")
         assert (
             self._mint("https://gateway.internal:8443", monkeypatch) == "https://gateway.internal:8443/v1/oauth/token"
         )
 
     def test_allowlist_matching_ignores_hostname_case(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_ANTHROPIC_WIF_ALLOWED_HOSTS", "Gateway.Internal:8443")
+        monkeypatch.setenv("HANGARLLM_ANTHROPIC_WIF_ALLOWED_HOSTS", "Gateway.Internal:8443")
         assert (
             self._mint("https://gateway.internal:8443", monkeypatch) == "https://gateway.internal:8443/v1/oauth/token"
         )
@@ -291,11 +291,11 @@ class TestExchangeHostTrust:
         )
 
     def test_a_gateway_listed_with_a_port_is_not_trusted_on_another_port(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_ANTHROPIC_WIF_ALLOWED_HOSTS", "gateway.internal:8443")
+        monkeypatch.setenv("HANGARLLM_ANTHROPIC_WIF_ALLOWED_HOSTS", "gateway.internal:8443")
         monkeypatch.setenv("ANTHROPIC_IDENTITY_TOKEN", "inline-jwt")
         poster = ScriptedPoster([token_response()])
 
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             get_anthropic_wif_token(
                 {"anthropic_federation_rule_id": "fdrl_1", "anthropic_organization_id": "org-1"},
                 "https://gateway.internal:9443",
@@ -307,7 +307,7 @@ class TestExchangeHostTrust:
         assert "gateway.internal:9443" in str(exc_info.value)
 
     def test_a_gateway_listed_without_a_port_is_trusted_on_every_port(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_ANTHROPIC_WIF_ALLOWED_HOSTS", "gateway.internal")
+        monkeypatch.setenv("HANGARLLM_ANTHROPIC_WIF_ALLOWED_HOSTS", "gateway.internal")
         assert (
             self._mint("https://gateway.internal:9443", monkeypatch) == "https://gateway.internal:9443/v1/oauth/token"
         )
@@ -315,7 +315,7 @@ class TestExchangeHostTrust:
     def test_an_entry_spelling_the_scheme_default_port_matches_a_base_that_omits_it(
         self, monkeypatch: pytest.MonkeyPatch
     ):
-        monkeypatch.setenv("LITELLM_ANTHROPIC_WIF_ALLOWED_HOSTS", "gateway.internal:443")
+        monkeypatch.setenv("HANGARLLM_ANTHROPIC_WIF_ALLOWED_HOSTS", "gateway.internal:443")
         assert self._mint("https://gateway.internal", monkeypatch) == "https://gateway.internal/v1/oauth/token"
 
 
@@ -326,7 +326,7 @@ class TestBaseUrlDerivation:
         # operator trusts, so the private hosts they use are allowlisted explicitly. The trust
         # boundary itself is covered by TestExchangeHostTrust.
         monkeypatch.setenv(
-            "LITELLM_ANTHROPIC_WIF_ALLOWED_HOSTS",
+            "HANGARLLM_ANTHROPIC_WIF_ALLOWED_HOSTS",
             "gw.example.com,env.example.com,base.example.com,model.example.com",
         )
         poster = ScriptedPoster([token_response()])
@@ -388,7 +388,7 @@ class TestSecretManagerEnvResolution:
             "ANTHROPIC_IDENTITY_TOKEN": "sm-inline-jwt",
         }
         monkeypatch.setattr(
-            "litellm.secret_managers.main.get_secret_str",
+            "hangarllm.secret_managers.main.get_secret_str",
             lambda secret_name, default_value=None: secrets.get(secret_name, default_value),
         )
 
@@ -407,7 +407,7 @@ class TestSecretManagerEnvResolution:
             "ANTHROPIC_IDENTITY_TOKEN": "sm-inline-jwt",
         }
         monkeypatch.setattr(
-            "litellm.secret_managers.main.get_secret_str",
+            "hangarllm.secret_managers.main.get_secret_str",
             lambda secret_name, default_value=None: secrets.get(secret_name, default_value),
         )
 
@@ -514,7 +514,7 @@ class TestResolutionMatrix:
     def test_env_identity_source_beats_env_token_refs(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv("ANTHROPIC_IDENTITY_SOURCE", "internal_issuer")
         monkeypatch.setenv("ANTHROPIC_IDENTITY_TOKEN_FILE", "/var/run/secrets/env-tok")
-        with pytest.raises(litellm.AuthenticationError):
+        with pytest.raises(hangarllm.AuthenticationError):
             resolve_anthropic_wif_params(
                 {"anthropic_federation_rule_id": "fdrl_1", "anthropic_organization_id": "org-1"}
             )
@@ -549,7 +549,7 @@ class TestResolutionMatrix:
         assert "workspace_id" not in spec.static_body
 
     @pytest.mark.parametrize(
-        "litellm_params",
+        "hangarllm_params",
         [
             {},
             {"anthropic_federation_rule_id": "fdrl_1"},
@@ -557,8 +557,8 @@ class TestResolutionMatrix:
             {"anthropic_federation_rule_id": "fdrl_1", "anthropic_organization_id": "org-1"},
         ],
     )
-    def test_gate_unmet_returns_none(self, litellm_params: dict):
-        assert resolve_anthropic_wif_params(litellm_params) is None
+    def test_gate_unmet_returns_none(self, hangarllm_params: dict):
+        assert resolve_anthropic_wif_params(hangarllm_params) is None
 
     def test_gate_unmet_facade_returns_none_without_engine_call(self):
         poster = ScriptedPoster([token_response()])
@@ -574,21 +574,21 @@ class TestServiceAccountIdIsOptional:
     the key entirely rather than send it as null."""
 
     def test_activates_and_omits_service_account_id_when_unset(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+        monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
         token_file = write_token_file(tmp_path, "jwt-assertion-value")
-        litellm_params: Final = {
+        hangarllm_params: Final = {
             "anthropic_federation_rule_id": "fdrl_1",
             "anthropic_organization_id": "org-1",
             "anthropic_identity_token_file": str(token_file),
         }
 
-        params = resolve_anthropic_wif_params(litellm_params)
+        params = resolve_anthropic_wif_params(hangarllm_params)
         assert params is not None
         assert params.service_account_id is None
 
         poster = ScriptedPoster([token_response()])
         engine = make_engine(poster)
-        token = get_anthropic_wif_token(litellm_params, "https://api.anthropic.com", "claude-sonnet-4-5", engine)
+        token = get_anthropic_wif_token(hangarllm_params, "https://api.anthropic.com", "claude-sonnet-4-5", engine)
 
         assert token == "sk-ant-oat01-minted"
         assert "service_account_id" not in poster.requests[0].json_body()
@@ -602,7 +602,7 @@ class TestInlineRefRestrictions:
         poster = ScriptedPoster([token_response()])
         engine = make_engine(poster)
 
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             get_anthropic_wif_token(
                 {
                     "anthropic_federation_rule_id": "fdrl_1",
@@ -637,11 +637,11 @@ class TestFileAllowlistAndSymlink:
         )
 
     def test_file_outside_allowlist_rejected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path / "allowed"))
+        monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path / "allowed"))
         token_file = write_token_file(tmp_path / "outside", self.SECRET_CONTENT)
         poster = ScriptedPoster([token_response()])
 
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             self._call(token_file, poster)
 
         assert str(token_file) in exc_info.value.message
@@ -651,35 +651,35 @@ class TestFileAllowlistAndSymlink:
     def test_disallowed_path_message_names_allowlist_and_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         """The disallowed_path error must explain the allowlist and name the env var an
         operator would set, not surface as a bare '(disallowed_path)' code dump."""
-        monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path / "allowed"))
+        monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path / "allowed"))
         token_file = write_token_file(tmp_path / "outside", self.SECRET_CONTENT)
         poster = ScriptedPoster([token_response()])
 
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             self._call(token_file, poster)
 
         message = exc_info.value.message
         assert "(disallowed_path)" not in message
-        assert "LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS" in message
+        assert "HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS" in message
         assert "allowed credential director" in message
 
     def test_symlink_escape_rejected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         allowed = tmp_path / "allowed"
         allowed.mkdir()
-        monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(allowed))
+        monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(allowed))
         outside_file = write_token_file(tmp_path / "outside", self.SECRET_CONTENT)
         link = allowed / "identity-token"
         link.symlink_to(outside_file)
         poster = ScriptedPoster([token_response()])
 
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             self._call(link, poster)
 
         assert self.SECRET_CONTENT not in exc_info.value.message
         assert poster.requests == []
 
     def test_file_inside_allowlist_succeeds(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+        monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
         token_file = write_token_file(tmp_path, self.SECRET_CONTENT)
         poster = ScriptedPoster([token_response()])
 
@@ -700,7 +700,7 @@ class TestErrorMappingExhaustive:
         ],
     )
     def test_every_variant_maps_to_authentication_error(self, error: ExchangeError):
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             _raise_anthropic_wif_error(
                 error, model="claude-sonnet-4-5", workspace_id_set=False, service_account_id_set=False
             )
@@ -710,7 +710,7 @@ class TestErrorMappingExhaustive:
         assert not exc_info.value.message.endswith(".")
 
     def test_assertion_source_error_detail_is_rendered_when_present(self):
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             _raise_anthropic_wif_error(
                 AssertionSourceError(kind="unreadable", source_ref="oidc/keycloak/abc123", detail="invalid_client"),
                 model="claude-sonnet-4-5",
@@ -723,7 +723,7 @@ class TestErrorMappingExhaustive:
     def test_assertion_source_error_without_detail_is_unchanged(self):
         """Regression floor: the token_file/env path never populates detail, so nothing follows the
         source ref and the message ends without a period for the router's suffix."""
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             _raise_anthropic_wif_error(
                 AssertionSourceError(kind="unreadable", source_ref="oidc/env/ANTHROPIC_IDENTITY_TOKEN"),
                 model="claude-sonnet-4-5",
@@ -732,7 +732,7 @@ class TestErrorMappingExhaustive:
             )
 
         assert exc_info.value.message == (
-            "litellm.AuthenticationError: Anthropic workload identity federation failed. Could not obtain "
+            "hangarllm.AuthenticationError: Anthropic workload identity federation failed. Could not obtain "
             "the OIDC identity token (unreadable) from oidc/env/ANTHROPIC_IDENTITY_TOKEN"
         )
 
@@ -741,7 +741,7 @@ class TestErrorMappingExhaustive:
         poster = ScriptedPoster([httpx.Response(500, json={"error": "server_error"})])
         engine = make_engine(poster)
 
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             get_anthropic_wif_token(
                 {"anthropic_federation_rule_id": "fdrl_1", "anthropic_organization_id": "org-1"},
                 None,
@@ -754,7 +754,7 @@ class TestErrorMappingExhaustive:
         assert "server_error" in exc_info.value.message
 
     @pytest.mark.parametrize(
-        "litellm_params,status_code,body",
+        "hangarllm_params,status_code,body",
         [
             (
                 {"anthropic_federation_rule_id": "fdrl_1", "anthropic_organization_id": "org-1"},
@@ -773,14 +773,14 @@ class TestErrorMappingExhaustive:
         ],
     )
     def test_token_endpoint_error_message_has_no_doubled_period(
-        self, litellm_params: dict, status_code: int, body: dict, monkeypatch: pytest.MonkeyPatch
+        self, hangarllm_params: dict, status_code: int, body: dict, monkeypatch: pytest.MonkeyPatch
     ):
         monkeypatch.setenv("ANTHROPIC_IDENTITY_TOKEN", "inline-jwt")
         poster = ScriptedPoster([httpx.Response(status_code, json=body)])
         engine = make_engine(poster)
 
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
-            get_anthropic_wif_token(litellm_params, None, "claude-sonnet-4-5", engine)
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
+            get_anthropic_wif_token(hangarllm_params, None, "claude-sonnet-4-5", engine)
 
         assert ".." not in exc_info.value.message
 
@@ -792,12 +792,12 @@ class TestDenialHints:
 
     BASE_PARAMS: Final = {"anthropic_federation_rule_id": "fdrl_1", "anthropic_organization_id": "org-1"}
 
-    def _raise(self, litellm_params: dict, status_code: int, monkeypatch: pytest.MonkeyPatch) -> str:
+    def _raise(self, hangarllm_params: dict, status_code: int, monkeypatch: pytest.MonkeyPatch) -> str:
         monkeypatch.setenv("ANTHROPIC_IDENTITY_TOKEN", "inline-jwt")
         poster = ScriptedPoster([httpx.Response(status_code, json={"error": "invalid_grant"})])
         engine = make_engine(poster)
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
-            get_anthropic_wif_token(litellm_params, None, "claude-sonnet-4-5", engine)
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
+            get_anthropic_wif_token(hangarllm_params, None, "claude-sonnet-4-5", engine)
         return exc_info.value.message
 
     def test_401_points_at_console_authentication_history(self, monkeypatch: pytest.MonkeyPatch):
@@ -856,23 +856,23 @@ class TestDenialHints:
 
 class TestFileRereadOnRefresh:
     def test_mandatory_refresh_carries_rotated_assertion(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+        monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
         token_file = write_token_file(tmp_path, "first-assertion")
         clock = FakeClock(start=1_000.0)
         poster = ScriptedPoster(
             [token_response("sk-ant-oat01-first", 3600), token_response("sk-ant-oat01-second", 3600)]
         )
         engine = make_engine(poster, clock=clock)
-        litellm_params = {
+        hangarllm_params = {
             "anthropic_federation_rule_id": "fdrl_1",
             "anthropic_organization_id": "org-1",
             "anthropic_identity_token_file": str(token_file),
         }
 
-        first = get_anthropic_wif_token(litellm_params, "https://api.anthropic.com", "claude-sonnet-4-5", engine)
+        first = get_anthropic_wif_token(hangarllm_params, "https://api.anthropic.com", "claude-sonnet-4-5", engine)
         token_file.write_text("second-assertion", encoding="utf-8")
         clock.advance(3600 - 10)
-        second = get_anthropic_wif_token(litellm_params, "https://api.anthropic.com", "claude-sonnet-4-5", engine)
+        second = get_anthropic_wif_token(hangarllm_params, "https://api.anthropic.com", "claude-sonnet-4-5", engine)
 
         assert first == "sk-ant-oat01-first"
         assert second == "sk-ant-oat01-second"
@@ -882,7 +882,7 @@ class TestFileRereadOnRefresh:
 
 _ISSUER_PRIVATE_VALUE: Final = 55566677788899900011122233344455566677788899900011122233344455
 ISSUER_SIGNING_KEY_REF: Final = "oidc/env/ISSUER_SIGNING_KEY_PEM"
-KEYCLOAK_TOKEN_URL: Final = "https://keycloak.internal.example/realms/litellm/protocol/openid-connect/token"
+KEYCLOAK_TOKEN_URL: Final = "https://keycloak.internal.example/realms/hangarllm/protocol/openid-connect/token"
 
 
 def _issuer_signing_key() -> ec.EllipticCurvePrivateKey:
@@ -914,7 +914,7 @@ class TestIdentitySourceDiscriminatorAbsentIsByteIdenticalToLegacy:
     reader precisely as it always has."""
 
     def test_file_config_carries_no_assertion_source(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+        monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
         token_file = write_token_file(tmp_path, "jwt-assertion-value")
 
         params = resolve_anthropic_wif_params(
@@ -945,9 +945,9 @@ class TestIdentitySourceDiscriminatorAbsentIsByteIdenticalToLegacy:
 
 
 class TestInternalIssuerIdentitySourceDispatch:
-    """A config.yaml-shaped litellm_params block for the internal_issuer identity source."""
+    """A config.yaml-shaped hangarllm_params block for the internal_issuer identity source."""
 
-    LITELLM_PARAMS: Final = {
+    HANGARLLM_PARAMS: Final = {
         "anthropic_federation_rule_id": "fdrl_1",
         "anthropic_organization_id": "org-1",
         "anthropic_identity_source": "internal_issuer",
@@ -958,7 +958,7 @@ class TestInternalIssuerIdentitySourceDispatch:
     }
 
     def test_assertion_ref_matches_the_identity_source_hash(self):
-        params = resolve_anthropic_wif_params(self.LITELLM_PARAMS)
+        params = resolve_anthropic_wif_params(self.HANGARLLM_PARAMS)
 
         assert params is not None
         expected_config = InternalIssuerSource(
@@ -971,9 +971,9 @@ class TestInternalIssuerIdentitySourceDispatch:
         assert params.assertion_ref.startswith("oidc/internal_issuer/")
 
     def test_ref_is_stable_and_rolls_on_field_change(self):
-        first = resolve_anthropic_wif_params(self.LITELLM_PARAMS)
-        second = resolve_anthropic_wif_params(dict(self.LITELLM_PARAMS))
-        changed = resolve_anthropic_wif_params({**self.LITELLM_PARAMS, "anthropic_issuer_subject": "workload-b"})
+        first = resolve_anthropic_wif_params(self.HANGARLLM_PARAMS)
+        second = resolve_anthropic_wif_params(dict(self.HANGARLLM_PARAMS))
+        changed = resolve_anthropic_wif_params({**self.HANGARLLM_PARAMS, "anthropic_issuer_subject": "workload-b"})
 
         assert first is not None and second is not None and changed is not None
         assert first.assertion_ref == second.assertion_ref
@@ -982,11 +982,11 @@ class TestInternalIssuerIdentitySourceDispatch:
     def test_assertion_source_mints_a_verifiable_jwt(self, monkeypatch: pytest.MonkeyPatch):
         pem = _issuer_signing_key_pem()
         monkeypatch.setattr(
-            "litellm.secret_managers.main.get_secret_str",
+            "hangarllm.secret_managers.main.get_secret_str",
             _get_secret_str_returning(pem, ISSUER_SIGNING_KEY_REF),
         )
 
-        params = resolve_anthropic_wif_params(self.LITELLM_PARAMS)
+        params = resolve_anthropic_wif_params(self.HANGARLLM_PARAMS)
         assert params is not None
         assert params.assertion_source is not None
 
@@ -1004,13 +1004,13 @@ class TestInternalIssuerIdentitySourceDispatch:
     def test_full_exchange_sends_the_minted_assertion(self, monkeypatch: pytest.MonkeyPatch):
         pem = _issuer_signing_key_pem()
         monkeypatch.setattr(
-            "litellm.secret_managers.main.get_secret_str",
+            "hangarllm.secret_managers.main.get_secret_str",
             _get_secret_str_returning(pem, ISSUER_SIGNING_KEY_REF),
         )
         poster = ScriptedPoster([token_response()])
         engine = make_engine(poster)
 
-        token = get_anthropic_wif_token(self.LITELLM_PARAMS, "https://api.anthropic.com", "claude-sonnet-4-5", engine)
+        token = get_anthropic_wif_token(self.HANGARLLM_PARAMS, "https://api.anthropic.com", "claude-sonnet-4-5", engine)
 
         assert token == "sk-ant-oat01-minted"
         sent_assertion = poster.requests[0].json_body()["assertion"]
@@ -1020,42 +1020,42 @@ class TestInternalIssuerIdentitySourceDispatch:
 
 
 class TestKeycloakIdentitySourceDispatch:
-    """A config.yaml-shaped litellm_params block for the keycloak identity source. The minted
+    """A config.yaml-shaped hangarllm_params block for the keycloak identity source. The minted
     closure's own network behavior is covered by test_client_credentials.py's DI-poster tests;
     this only proves wif.py threads the fields into the right config and hash."""
 
-    LITELLM_PARAMS: Final = {
+    HANGARLLM_PARAMS: Final = {
         "anthropic_federation_rule_id": "fdrl_1",
         "anthropic_organization_id": "org-1",
         "anthropic_identity_source": "keycloak",
         "anthropic_keycloak_token_url": KEYCLOAK_TOKEN_URL,
-        "anthropic_keycloak_client_id": "litellm",
+        "anthropic_keycloak_client_id": "hangarllm",
         "anthropic_keycloak_client_secret_ref": "oidc/env/KEYCLOAK_CLIENT_SECRET",
     }
 
     def test_assertion_ref_matches_the_identity_source_hash(self):
-        params = resolve_anthropic_wif_params(self.LITELLM_PARAMS)
+        params = resolve_anthropic_wif_params(self.HANGARLLM_PARAMS)
 
         assert params is not None
         expected_config = KeycloakSource(
             token_url=KEYCLOAK_TOKEN_URL,
-            client_id="litellm",
+            client_id="hangarllm",
             client_secret_ref="oidc/env/KEYCLOAK_CLIENT_SECRET",
         )
         assert params.assertion_ref == identity_source_ref(expected_config)
         assert params.assertion_ref.startswith("oidc/keycloak/")
 
     def test_assertion_source_is_a_fresh_closure(self):
-        params = resolve_anthropic_wif_params(self.LITELLM_PARAMS)
+        params = resolve_anthropic_wif_params(self.HANGARLLM_PARAMS)
 
         assert params is not None
         assert params.assertion_source is not None
         assert callable(params.assertion_source)
 
     def test_auth_method_change_rolls_the_ref(self):
-        default_method = resolve_anthropic_wif_params(self.LITELLM_PARAMS)
+        default_method = resolve_anthropic_wif_params(self.HANGARLLM_PARAMS)
         post_method = resolve_anthropic_wif_params(
-            {**self.LITELLM_PARAMS, "anthropic_keycloak_auth_method": "client_secret_post"}
+            {**self.HANGARLLM_PARAMS, "anthropic_keycloak_auth_method": "client_secret_post"}
         )
 
         assert default_method is not None and post_method is not None
@@ -1064,9 +1064,9 @@ class TestKeycloakIdentitySourceDispatch:
     def test_client_secret_ref_pointer_name_change_rolls_the_ref_without_resolving_it(self):
         """The hash covers the pointer NAME, never a resolved secret (decision 7) -- true even
         though nothing in this test ever calls get_secret_str."""
-        first = resolve_anthropic_wif_params(self.LITELLM_PARAMS)
+        first = resolve_anthropic_wif_params(self.HANGARLLM_PARAMS)
         second = resolve_anthropic_wif_params(
-            {**self.LITELLM_PARAMS, "anthropic_keycloak_client_secret_ref": "oidc/env/OTHER_SECRET_NAME"}
+            {**self.HANGARLLM_PARAMS, "anthropic_keycloak_client_secret_ref": "oidc/env/OTHER_SECRET_NAME"}
         )
 
         assert first is not None and second is not None
@@ -1075,11 +1075,11 @@ class TestKeycloakIdentitySourceDispatch:
 
 @pytest.mark.parametrize(
     "sparse_params",
-    [TestInternalIssuerIdentitySourceDispatch.LITELLM_PARAMS, TestKeycloakIdentitySourceDispatch.LITELLM_PARAMS],
+    [TestInternalIssuerIdentitySourceDispatch.HANGARLLM_PARAMS, TestKeycloakIdentitySourceDispatch.HANGARLLM_PARAMS],
     ids=["internal_issuer", "keycloak"],
 )
 def test_dense_router_params_dump_resolves_like_the_sparse_config(sparse_params: Mapping[str, object]):
-    dense_params = dict(GenericLiteLLMParams(**sparse_params))
+    dense_params = dict(GenericHangarLLMParams(**sparse_params))
     assert any(value is None for value in dense_params.values())
 
     dense = resolve_anthropic_wif_params(dense_params)
@@ -1095,7 +1095,7 @@ class TestIdentitySourceValidationFailsClosed:
     token_file (decision 5)."""
 
     def test_unknown_discriminator_raises(self):
-        with pytest.raises(litellm.AuthenticationError, match="anthropic_identity_source"):
+        with pytest.raises(hangarllm.AuthenticationError, match="anthropic_identity_source"):
             resolve_anthropic_wif_params(
                 {
                     "anthropic_federation_rule_id": "fdrl_1",
@@ -1105,7 +1105,7 @@ class TestIdentitySourceValidationFailsClosed:
             )
 
     def test_internal_issuer_missing_required_fields_raises(self):
-        with pytest.raises(litellm.AuthenticationError):
+        with pytest.raises(hangarllm.AuthenticationError):
             resolve_anthropic_wif_params(
                 {
                     "anthropic_federation_rule_id": "fdrl_1",
@@ -1116,18 +1116,18 @@ class TestIdentitySourceValidationFailsClosed:
             )
 
     def test_keycloak_missing_required_fields_raises(self):
-        with pytest.raises(litellm.AuthenticationError):
+        with pytest.raises(hangarllm.AuthenticationError):
             resolve_anthropic_wif_params(
                 {
                     "anthropic_federation_rule_id": "fdrl_1",
                     "anthropic_organization_id": "org-1",
                     "anthropic_identity_source": "keycloak",
-                    "anthropic_keycloak_client_id": "litellm",
+                    "anthropic_keycloak_client_id": "hangarllm",
                 }
             )
 
     def test_mixed_variant_fields_raise(self):
-        with pytest.raises(litellm.AuthenticationError, match="belongs to a different identity source"):
+        with pytest.raises(hangarllm.AuthenticationError, match="belongs to a different identity source"):
             resolve_anthropic_wif_params(
                 {
                     "anthropic_federation_rule_id": "fdrl_1",
@@ -1164,7 +1164,7 @@ class TestIdentitySourceValidationFailsClosed:
 
     def test_secret_pasted_into_wrong_field_never_appears_in_the_error(self):
         secret_value = "super-secret-client-value-xyz"
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             resolve_anthropic_wif_params(
                 {
                     "anthropic_federation_rule_id": "fdrl_1",
@@ -1193,7 +1193,7 @@ class TestMissingIdsFailClosedWhenIdentitySourceConfigured:
     }
 
     def test_both_ids_missing_names_both(self):
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             resolve_anthropic_wif_params(self.INTERNAL_ISSUER_FIELDS)
 
         message = exc_info.value.message
@@ -1204,26 +1204,26 @@ class TestMissingIdsFailClosedWhenIdentitySourceConfigured:
         assert not message.endswith(".")
 
     def test_only_rule_id_missing_names_only_the_rule(self):
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             resolve_anthropic_wif_params({**self.INTERNAL_ISSUER_FIELDS, "anthropic_organization_id": "org-1"})
 
         assert "but anthropic_federation_rule_id is not set" in exc_info.value.message
 
     def test_only_organization_id_missing_names_only_the_org(self):
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             resolve_anthropic_wif_params({**self.INTERNAL_ISSUER_FIELDS, "anthropic_federation_rule_id": "fdrl_1"})
 
         assert "but anthropic_organization_id is not set" in exc_info.value.message
 
     def test_keycloak_source_fails_closed_too(self):
-        with pytest.raises(litellm.AuthenticationError, match="'keycloak', but anthropic_federation_rule_id"):
+        with pytest.raises(hangarllm.AuthenticationError, match="'keycloak', but anthropic_federation_rule_id"):
             resolve_anthropic_wif_params(
                 {"anthropic_identity_source": "keycloak", "anthropic_organization_id": "org-1"}
             )
 
     def test_env_configured_source_fails_closed(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv("ANTHROPIC_IDENTITY_SOURCE", "internal_issuer")
-        with pytest.raises(litellm.AuthenticationError, match="anthropic_organization_id is not set"):
+        with pytest.raises(hangarllm.AuthenticationError, match="anthropic_organization_id is not set"):
             resolve_anthropic_wif_params({"anthropic_federation_rule_id": "fdrl_1"})
 
     def test_env_ids_satisfy_the_gate(self, monkeypatch: pytest.MonkeyPatch):
@@ -1234,7 +1234,7 @@ class TestMissingIdsFailClosedWhenIdentitySourceConfigured:
         assert params.federation_rule_id == "fdrl_env"
 
     def test_unknown_source_with_missing_ids_reports_the_unknown_source(self):
-        with pytest.raises(litellm.AuthenticationError, match="must be one of internal_issuer, keycloak"):
+        with pytest.raises(hangarllm.AuthenticationError, match="must be one of internal_issuer, keycloak"):
             resolve_anthropic_wif_params({"anthropic_identity_source": "bogus"})
 
 
@@ -1244,7 +1244,7 @@ class TestLegacyRefsFailClosedWithoutIds:
     letting the request die later as a missing API key."""
 
     def test_token_file_without_organization_id_names_the_file_param(self, tmp_path: Path):
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             resolve_anthropic_wif_params(
                 {"anthropic_federation_rule_id": "fdrl_1", "anthropic_identity_token_file": str(tmp_path / "token")}
             )
@@ -1256,7 +1256,7 @@ class TestLegacyRefsFailClosedWithoutIds:
         assert not message.endswith(".")
 
     def test_inline_token_without_rule_id_names_the_token_param(self):
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             resolve_anthropic_wif_params(
                 {"anthropic_organization_id": "org-1", "anthropic_identity_token": "oidc/env/TOK"}
             )
@@ -1268,13 +1268,13 @@ class TestLegacyRefsFailClosedWithoutIds:
 
     def test_token_file_with_both_ids_missing_names_both(self, tmp_path: Path):
         with pytest.raises(
-            litellm.AuthenticationError, match="anthropic_federation_rule_id and anthropic_organization_id are not set"
+            hangarllm.AuthenticationError, match="anthropic_federation_rule_id and anthropic_organization_id are not set"
         ):
             resolve_anthropic_wif_params({"anthropic_identity_token_file": str(tmp_path / "token")})
 
     def test_fleet_wide_env_source_does_not_relabel_a_legacy_param(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv("ANTHROPIC_IDENTITY_SOURCE", "internal_issuer")
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             resolve_anthropic_wif_params({"anthropic_identity_token": "oidc/env/TOK"})
 
         assert "anthropic_identity_token is set, but" in exc_info.value.message
@@ -1296,16 +1296,16 @@ class TestLegacyRefsFailClosedWithoutIds:
         assert params.assertion_ref == f"oidc/file/{token_file}"
 
     def test_disabling_federation_wins_over_the_gate(self, tmp_path: Path):
-        litellm_params: Final = {
+        hangarllm_params: Final = {
             "anthropic_disable_workload_identity_federation": True,
             "anthropic_identity_token_file": str(tmp_path / "token"),
         }
-        assert resolve_anthropic_wif_params(litellm_params) is None
+        assert resolve_anthropic_wif_params(hangarllm_params) is None
 
     def test_facade_raises_without_an_engine_call(self):
         poster: Final = ScriptedPoster([token_response()])
         engine: Final = make_engine(poster)
-        with pytest.raises(litellm.AuthenticationError, match="anthropic_identity_token is set, but"):
+        with pytest.raises(hangarllm.AuthenticationError, match="anthropic_identity_token is set, but"):
             get_anthropic_wif_token(
                 {"anthropic_organization_id": "org-1", "anthropic_identity_token": "oidc/env/TOK"},
                 None,
@@ -1316,58 +1316,58 @@ class TestLegacyRefsFailClosedWithoutIds:
 
 
 class TestConfigYamlShapedIdentitySources:
-    """One litellm_params dict per identity source, shaped exactly like the
-    model_list[].litellm_params block a proxy config.yaml carries -- proving an operator can
+    """One hangarllm_params dict per identity source, shaped exactly like the
+    model_list[].hangarllm_params block a proxy config.yaml carries -- proving an operator can
     configure each of Phase 1's supported sources."""
 
     def test_legacy_token_file_source(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+        monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
         token_file = write_token_file(tmp_path, "jwt-assertion-value")
-        litellm_params = {
+        hangarllm_params = {
             "model": "anthropic/claude-sonnet-4-5",
             "anthropic_federation_rule_id": "fdrl_prod",
             "anthropic_organization_id": "org_prod",
             "anthropic_identity_token_file": str(token_file),
         }
 
-        params = resolve_anthropic_wif_params(litellm_params)
+        params = resolve_anthropic_wif_params(hangarllm_params)
 
         assert params is not None
         assert params.assertion_ref == f"oidc/file/{token_file}"
         assert params.assertion_source is None
 
     def test_internal_issuer_source(self):
-        litellm_params = {
+        hangarllm_params = {
             "model": "anthropic/claude-sonnet-4-5",
             "anthropic_federation_rule_id": "fdrl_prod",
             "anthropic_organization_id": "org_prod",
             "anthropic_identity_source": "internal_issuer",
-            "anthropic_issuer_url": "https://litellm.internal.example",
-            "anthropic_issuer_subject": "litellm-proxy",
+            "anthropic_issuer_url": "https://hangarllm.internal.example",
+            "anthropic_issuer_subject": "hangarllm-proxy",
             "anthropic_issuer_ttl_seconds": 300,
             "anthropic_issuer_signing_key_ref": "os.environ/ISSUER_SIGNING_KEY_PEM",
         }
 
-        params = resolve_anthropic_wif_params(litellm_params)
+        params = resolve_anthropic_wif_params(hangarllm_params)
 
         assert params is not None
         assert params.assertion_ref.startswith("oidc/internal_issuer/")
         assert params.assertion_source is not None
 
     def test_keycloak_source(self):
-        litellm_params = {
+        hangarllm_params = {
             "model": "anthropic/claude-sonnet-4-5",
             "anthropic_federation_rule_id": "fdrl_prod",
             "anthropic_organization_id": "org_prod",
             "anthropic_identity_source": "keycloak",
             "anthropic_keycloak_token_url": KEYCLOAK_TOKEN_URL,
-            "anthropic_keycloak_client_id": "litellm",
+            "anthropic_keycloak_client_id": "hangarllm",
             "anthropic_keycloak_auth_method": "client_secret_post",
             "anthropic_keycloak_client_secret_ref": "os.environ/KEYCLOAK_CLIENT_SECRET",
             "anthropic_keycloak_scope": "anthropic-wif",
         }
 
-        params = resolve_anthropic_wif_params(litellm_params)
+        params = resolve_anthropic_wif_params(hangarllm_params)
 
         assert params is not None
         assert params.assertion_ref.startswith("oidc/keycloak/")

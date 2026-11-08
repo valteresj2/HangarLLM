@@ -17,14 +17,14 @@ import pytest
 import respx
 from openai import AsyncOpenAI, OpenAI
 
-import litellm
-from litellm.constants import (
+import hangarllm
+from hangarllm.constants import (
     CALLER_SESSION_ID_METADATA_KEY,
     KUBERNETES_POD_ROUTING_KEY,
     SESSION_ID_GENERATED_METADATA_KEY,
 )
-from litellm.router import CustomRoutingStrategyBase, Router
-from litellm.router_utils.kubernetes_pod_discovery import (
+from hangarllm.router import CustomRoutingStrategyBase, Router
+from hangarllm.router_utils.kubernetes_pod_discovery import (
     KubernetesPodDiscovery,
     async_resolve_pods_after,
     async_resolve_pods_after_bound,
@@ -62,7 +62,7 @@ def _deployment(api_base: str = _SERVICE_URL, kubernetes_pod_discovery: bool | N
     }
     return {
         "model_name": "gpu-model",
-        "litellm_params": params,
+        "hangarllm_params": params,
         "model_info": {"id": "registered-id"},
     }
 
@@ -299,7 +299,7 @@ def _stub_sync_dns(monkeypatch: pytest.MonkeyPatch, *ips: str) -> None:
 
 
 def _api_base(deployment: Mapping[str, object]) -> str:
-    params: Final = deployment["litellm_params"]
+    params: Final = deployment["hangarllm_params"]
     assert isinstance(params, Mapping)
     api_base: Final = params["api_base"]
     assert isinstance(api_base, str)
@@ -1317,7 +1317,7 @@ async def test_router_sends_pod_hosts_without_forwarding_discovery_flag(
 
     monkeypatch.setattr(loop, "getaddrinfo", async_getaddrinfo)
     monkeypatch.setattr(socket, "getaddrinfo", sync_getaddrinfo)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(
             url__regex=re.compile(
@@ -1396,7 +1396,7 @@ async def test_router_session_requests_stick_to_one_pod_for_sync_and_async(
 
     monkeypatch.setattr(loop, "getaddrinfo", async_getaddrinfo)
     monkeypatch.setattr(socket, "getaddrinfo", sync_getaddrinfo)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(url__regex=_THREE_POD_CHAT_PATTERN).mock(
             return_value=httpx.Response(200, json=_CHAT_RESPONSE)
@@ -1439,7 +1439,7 @@ async def test_router_session_mapping_repeats_across_pods(
         return _records("10.0.0.1", "10.0.0.2", "10.0.0.3", port=int(port or 0))
 
     monkeypatch.setattr(loop, "getaddrinfo", getaddrinfo)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     session_ids: Final = tuple(f"session-{index}" for index in range(30))
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(url__regex=_THREE_POD_CHAT_PATTERN).mock(
@@ -1481,7 +1481,7 @@ async def test_generated_session_id_uses_round_robin_pod_selection(
         return _records("10.0.0.1", "10.0.0.2", "10.0.0.3", port=int(port or 0))
 
     monkeypatch.setattr(loop, "getaddrinfo", getaddrinfo)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(url__regex=_THREE_POD_CHAT_PATTERN).mock(
             return_value=httpx.Response(200, json=_CHAT_RESPONSE)
@@ -1520,7 +1520,7 @@ async def test_empty_session_id_uses_round_robin_pod_selection(
         return _records("10.0.0.1", "10.0.0.2", "10.0.0.3", port=int(port or 0))
 
     monkeypatch.setattr(loop, "getaddrinfo", getaddrinfo)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(url__regex=_THREE_POD_CHAT_PATTERN).mock(
             return_value=httpx.Response(200, json=_CHAT_RESPONSE)
@@ -1553,7 +1553,7 @@ async def test_session_requests_do_not_advance_round_robin_cursor(
         return _records("10.0.0.1", "10.0.0.2", "10.0.0.3", port=int(port or 0))
 
     monkeypatch.setattr(loop, "getaddrinfo", getaddrinfo)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(url__regex=_THREE_POD_CHAT_PATTERN).mock(
             return_value=httpx.Response(200, json=_CHAT_RESPONSE)
@@ -1658,7 +1658,7 @@ async def test_custom_routing_strategy_keeps_sync_and_async_sessions_on_one_pod(
 
     monkeypatch.setattr(loop, "getaddrinfo", async_getaddrinfo)
     monkeypatch.setattr(socket, "getaddrinfo", sync_getaddrinfo)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(url__regex=_THREE_POD_CHAT_PATTERN).mock(
             return_value=httpx.Response(200, json=_CHAT_RESPONSE)
@@ -1685,7 +1685,7 @@ async def test_custom_routing_strategy_keeps_sync_and_async_sessions_on_one_pod(
 
 
 @pytest.mark.asyncio
-async def test_top_level_litellm_session_id_keeps_requests_on_one_pod(
+async def test_top_level_hangarllm_session_id_keeps_requests_on_one_pod(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     loop: Final = asyncio.get_running_loop()
@@ -1701,7 +1701,7 @@ async def test_top_level_litellm_session_id_keeps_requests_on_one_pod(
         return _records("10.0.0.1", "10.0.0.2", "10.0.0.3", port=int(port or 0))
 
     monkeypatch.setattr(loop, "getaddrinfo", getaddrinfo)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(url__regex=_THREE_POD_CHAT_PATTERN).mock(
             return_value=httpx.Response(200, json=_CHAT_RESPONSE)
@@ -1710,7 +1710,7 @@ async def test_top_level_litellm_session_id_keeps_requests_on_one_pod(
         router: Final = Router(model_list=[_deployment()])
         client: Final = _cache_async_client(router)
         for _ in range(6):
-            await _router_acompletion(router, litellm_session_id="s1")
+            await _router_acompletion(router, hangarllm_session_id="s1")
         hosts: Final = tuple(call.request.url.host for call in route.calls)
         await client.close()
 
@@ -1735,7 +1735,7 @@ def test_caller_session_beside_trace_header_keeps_the_pod_across_trace_ids(monke
                 discovery.resolve_deployment(
                     _deployment(),
                     {
-                        "litellm_session_id": trace_id,
+                        "hangarllm_session_id": trace_id,
                         "metadata": {CALLER_SESSION_ID_METADATA_KEY: caller_session_id},
                     },
                 )
@@ -1750,9 +1750,9 @@ def test_caller_session_beside_trace_header_keeps_the_pod_across_trace_ids(monke
 def test_proxy_headers_with_trace_and_session_id_pin_the_pod_without_log_correlation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+    from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
 
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", False)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", False)
     _stub_sync_dns(monkeypatch, "10.0.0.1", "10.0.0.2", "10.0.0.3")
     discovery: Final = KubernetesPodDiscovery(proxy_environment=_empty_proxy_environment)
     caller_session_id: Final = "chat-session-a"
@@ -1765,8 +1765,8 @@ def test_proxy_headers_with_trace_and_session_id_pin_the_pod_without_log_correla
     assert len(trace_ids) == 3
 
     def resolve_turn(trace_id: str) -> str:
-        data: Final = LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
-            {"x-litellm-trace-id": trace_id, "x-litellm-session-id": caller_session_id},
+        data: Final = HangarLLMProxyRequestSetup.add_hangarllm_metadata_from_request_headers(
+            {"x-hangarllm-trace-id": trace_id, "x-hangarllm-session-id": caller_session_id},
             {"model": "gpu-model", "metadata": {}},
             "metadata",
         )
@@ -1775,15 +1775,15 @@ def test_proxy_headers_with_trace_and_session_id_pin_the_pod_without_log_correla
     assert tuple(resolve_turn(trace_id) for trace_id in trace_ids) == (caller_pod, caller_pod, caller_pod)
 
 
-def test_top_level_litellm_session_id_precedes_metadata_session_id(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_top_level_hangarllm_session_id_precedes_metadata_session_id(monkeypatch: pytest.MonkeyPatch) -> None:
     _stub_sync_dns(monkeypatch, "10.0.0.1", "10.0.0.2", "10.0.0.3")
     discovery: Final = KubernetesPodDiscovery(proxy_environment=_empty_proxy_environment)
     top_level_session_id: Final = "s1"
     metadata_session_id: Final = "metadata-session"
-    top_level_kwargs: Final = {"litellm_session_id": top_level_session_id}
+    top_level_kwargs: Final = {"hangarllm_session_id": top_level_session_id}
     metadata_kwargs: Final = {"metadata": {"session_id": metadata_session_id}}
     combined_kwargs: Final = {
-        "litellm_session_id": top_level_session_id,
+        "hangarllm_session_id": top_level_session_id,
         "metadata": {"session_id": metadata_session_id},
     }
 
@@ -1798,7 +1798,7 @@ def test_top_level_litellm_session_id_precedes_metadata_session_id(monkeypatch: 
 
 
 @pytest.mark.asyncio
-async def test_generated_metadata_ignores_top_level_litellm_session_id(
+async def test_generated_metadata_ignores_top_level_hangarllm_session_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     loop: Final = asyncio.get_running_loop()
@@ -1814,7 +1814,7 @@ async def test_generated_metadata_ignores_top_level_litellm_session_id(
         return _records("10.0.0.1", "10.0.0.2", "10.0.0.3", port=int(port or 0))
 
     monkeypatch.setattr(loop, "getaddrinfo", getaddrinfo)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(url__regex=_THREE_POD_CHAT_PATTERN).mock(
             return_value=httpx.Response(200, json=_CHAT_RESPONSE)
@@ -1825,7 +1825,7 @@ async def test_generated_metadata_ignores_top_level_litellm_session_id(
         for _ in range(6):
             await _router_acompletion(
                 router,
-                litellm_session_id="s1",
+                hangarllm_session_id="s1",
                 metadata={
                     "session_id": "s1",
                     SESSION_ID_GENERATED_METADATA_KEY: True,
@@ -1869,7 +1869,7 @@ async def test_custom_routing_strategy_resolves_pod_hosts_for_sync_and_async_req
 
     monkeypatch.setattr(loop, "getaddrinfo", async_getaddrinfo)
     monkeypatch.setattr(socket, "getaddrinfo", sync_getaddrinfo)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(
             url__regex=re.compile(
@@ -1914,7 +1914,7 @@ async def test_router_async_retry_uses_next_discovered_pod(monkeypatch: pytest.M
         return httpx.Response(status_code, json=body, request=request)
 
     monkeypatch.setattr(loop, "getaddrinfo", getaddrinfo)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(
             url__regex=re.compile(r"http://(?:10\.0\.0\.1|10\.0\.0\.2):8000/v1/chat/completions")
@@ -1952,7 +1952,7 @@ def test_router_sync_retry_uses_next_discovered_pod(monkeypatch: pytest.MonkeyPa
         return httpx.Response(status_code, json=body, request=request)
 
     monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(
             url__regex=re.compile(r"http://(?:10\.0\.0\.1|10\.0\.0\.2):8000/v1/chat/completions")
@@ -1971,7 +1971,7 @@ def test_router_sync_retry_uses_next_discovered_pod(monkeypatch: pytest.MonkeyPa
 
 
 @pytest.mark.parametrize(
-    ("litellm_retry_count", "metadata_retry_count", "expected_rank"),
+    ("hangarllm_retry_count", "metadata_retry_count", "expected_rank"),
     [
         (0, None, 0),
         (None, None, 0),
@@ -1985,16 +1985,16 @@ def test_router_sync_retry_uses_next_discovered_pod(monkeypatch: pytest.MonkeyPa
 )
 def test_session_retry_count_selects_ranked_pod(
     monkeypatch: pytest.MonkeyPatch,
-    litellm_retry_count: object,
+    hangarllm_retry_count: object,
     metadata_retry_count: object,
     expected_rank: int,
 ) -> None:
     _stub_sync_dns(monkeypatch, "10.0.0.1", "10.0.0.2", "10.0.0.3")
     discovery: Final = KubernetesPodDiscovery(proxy_environment=_empty_proxy_environment)
     request_kwargs: Final = {
-        "litellm_metadata": {
+        "hangarllm_metadata": {
             "session_id": "s1",
-            **({"request_retry_count": litellm_retry_count} if litellm_retry_count is not None else {}),
+            **({"request_retry_count": hangarllm_retry_count} if hangarllm_retry_count is not None else {}),
         },
         "metadata": ({"request_retry_count": metadata_retry_count} if metadata_retry_count is not None else {}),
     }
@@ -2026,7 +2026,7 @@ async def test_router_session_retry_uses_next_rendezvous_pod(monkeypatch: pytest
         return httpx.Response(status_code, json=body, request=request)
 
     monkeypatch.setattr(loop, "getaddrinfo", getaddrinfo)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     session_id: Final = "retry-session"
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(url__regex=_THREE_POD_CHAT_PATTERN).mock(side_effect=response_for)

@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.proxy._types import CostEstimateRequest, CostEstimateResponse
-from litellm.proxy.management_endpoints.cost_tracking_settings import estimate_cost
+from hangarllm.proxy._types import CostEstimateRequest, CostEstimateResponse
+from hangarllm.proxy.management_endpoints.cost_tracking_settings import estimate_cost
 
 
 class TestCostEstimateEndpoint:
@@ -27,15 +27,15 @@ class TestCostEstimateEndpoint:
         )
 
         with patch(
-            "litellm.proxy.management_endpoints.cost_tracking_settings.completion_cost"
+            "hangarllm.proxy.management_endpoints.cost_tracking_settings.completion_cost"
         ) as mock_completion_cost:
             mock_completion_cost.return_value = 0.06
 
-            with patch("litellm.get_model_info") as mock_get_model_info:
+            with patch("hangarllm.get_model_info") as mock_get_model_info:
                 mock_get_model_info.return_value = {
                     "input_cost_per_token": 0.00003,
                     "output_cost_per_token": 0.00006,
-                    "litellm_provider": "openai",
+                    "hangarllm_provider": "openai",
                 }
 
                 response = await estimate_cost(
@@ -60,7 +60,7 @@ class TestCostEstimateEndpoint:
         )
 
         with patch(
-            "litellm.proxy.management_endpoints.cost_tracking_settings.completion_cost"
+            "hangarllm.proxy.management_endpoints.cost_tracking_settings.completion_cost"
         ) as mock_completion_cost:
             mock_completion_cost.side_effect = Exception("Model not found in cost map")
 
@@ -97,7 +97,7 @@ class TestCostEstimateEndpoint:
         mock_router.registry.return_value.deployments.return_value = [
             {
                 "model_name": "my-gpt4-alias",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4",  # Actual model for pricing
                     "custom_llm_provider": "azure",
                 },
@@ -105,19 +105,19 @@ class TestCostEstimateEndpoint:
         ]
 
         with patch(
-            "litellm.proxy.proxy_server.llm_router",
+            "hangarllm.proxy.proxy_server.llm_router",
             mock_router,
         ):
             with patch(
-                "litellm.proxy.management_endpoints.cost_tracking_settings.completion_cost"
+                "hangarllm.proxy.management_endpoints.cost_tracking_settings.completion_cost"
             ) as mock_completion_cost:
                 mock_completion_cost.return_value = 0.05
 
-                with patch("litellm.get_model_info") as mock_get_model_info:
+                with patch("hangarllm.get_model_info") as mock_get_model_info:
                     mock_get_model_info.return_value = {
                         "input_cost_per_token": 0.00003,
                         "output_cost_per_token": 0.00006,
-                        "litellm_provider": "azure",
+                        "hangarllm_provider": "azure",
                     }
 
                     response = await estimate_cost(

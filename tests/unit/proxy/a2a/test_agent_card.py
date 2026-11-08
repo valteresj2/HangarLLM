@@ -1,11 +1,11 @@
-"""Unit tests for the pure merge logic in litellm/proxy/a2a/agent_card.py."""
+"""Unit tests for the pure merge logic in hangarllm/proxy/a2a/agent_card.py."""
 
 import pytest
 
-from litellm.proxy.a2a.agent_card import (
-    LITELLM_A2A_PROTOCOL_VERSION,
-    LITELLM_SECURITY_REQUIREMENTS,
-    LITELLM_SECURITY_SCHEMES,
+from hangarllm.proxy.a2a.agent_card import (
+    HANGARLLM_A2A_PROTOCOL_VERSION,
+    HANGARLLM_SECURITY_REQUIREMENTS,
+    HANGARLLM_SECURITY_SCHEMES,
     merge_agent_card,
     normalize_protocol_version,
     point_agent_card_at_proxy,
@@ -81,12 +81,12 @@ def test_preserves_top_level_url_for_runtime_invocation():
 
 
 def test_unsupported_protocol_version_defaults_to_1_0():
-    # The fixture card pins "0.9", which LiteLLM does not serve; it falls back to
+    # The fixture card pins "0.9", which HangarLLM does not serve; it falls back to
     # the default rather than advertising a version the proxy can't honor.
     merged = merge_agent_card(
         _full_upstream_card(), proxy_url=PROXY_URL, proxy_base_url=PROXY_BASE
     )
-    assert merged["protocolVersion"] == LITELLM_A2A_PROTOCOL_VERSION
+    assert merged["protocolVersion"] == HANGARLLM_A2A_PROTOCOL_VERSION
 
 
 def test_serves_pinned_protocol_version():
@@ -144,8 +144,8 @@ def test_replaces_security_schemes_and_requirements():
     merged = merge_agent_card(
         _full_upstream_card(), proxy_url=PROXY_URL, proxy_base_url=PROXY_BASE
     )
-    assert merged["securitySchemes"] == LITELLM_SECURITY_SCHEMES
-    assert merged["security"] == LITELLM_SECURITY_REQUIREMENTS
+    assert merged["securitySchemes"] == HANGARLLM_SECURITY_SCHEMES
+    assert merged["security"] == HANGARLLM_SECURITY_REQUIREMENTS
     assert "securityRequirements" not in merged
 
 
@@ -157,7 +157,7 @@ def test_emits_supported_interfaces_pointing_at_proxy():
         {
             "url": PROXY_URL,
             "protocolBinding": "JSONRPC",
-            "protocolVersion": LITELLM_A2A_PROTOCOL_VERSION,
+            "protocolVersion": HANGARLLM_A2A_PROTOCOL_VERSION,
         }
     ]
 
@@ -205,20 +205,20 @@ def test_preserves_upstream_version_when_present():
     assert merged["version"] == "1.2.3"
 
 
-def test_falls_back_to_litellm_provider_when_upstream_lacks_one():
+def test_falls_back_to_hangarllm_provider_when_upstream_lacks_one():
     sparse = {"name": "x", "description": "y", "version": "1"}
     merged = merge_agent_card(sparse, proxy_url=PROXY_URL, proxy_base_url=PROXY_BASE)
     assert merged["provider"] == {
-        "organization": "LiteLLM Proxy",
+        "organization": "HangarLLM Proxy",
         "url": PROXY_BASE,
     }
 
 
 def test_handles_none_upstream_card():
     merged = merge_agent_card(None, proxy_url=PROXY_URL, proxy_base_url=PROXY_BASE)
-    assert merged["protocolVersion"] == LITELLM_A2A_PROTOCOL_VERSION
+    assert merged["protocolVersion"] == HANGARLLM_A2A_PROTOCOL_VERSION
     assert merged["supportedInterfaces"][0]["url"] == PROXY_URL
-    assert merged["securitySchemes"] == LITELLM_SECURITY_SCHEMES
+    assert merged["securitySchemes"] == HANGARLLM_SECURITY_SCHEMES
 
 
 def test_does_not_mutate_input():
@@ -276,9 +276,9 @@ def test_resolve_served_protocol_version_canonicalizes_semver_pins():
 def test_resolve_served_protocol_version_falls_back_for_unsupported():
     assert (
         resolve_served_protocol_version({"protocolVersion": "0.2.6"})
-        == LITELLM_A2A_PROTOCOL_VERSION
+        == HANGARLLM_A2A_PROTOCOL_VERSION
     )
-    assert resolve_served_protocol_version(None) == LITELLM_A2A_PROTOCOL_VERSION
+    assert resolve_served_protocol_version(None) == HANGARLLM_A2A_PROTOCOL_VERSION
 
 
 def test_serves_semver_pinned_protocol_version_as_major_minor():

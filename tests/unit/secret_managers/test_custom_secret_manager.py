@@ -8,9 +8,9 @@ import httpx
 import pytest
 
 
-import litellm
-from litellm.integrations.custom_secret_manager import CustomSecretManager
-from litellm.types.secret_managers.main import KeyManagementSystem
+import hangarllm
+from hangarllm.integrations.custom_secret_manager import CustomSecretManager
+from hangarllm.types.secret_managers.main import KeyManagementSystem
 
 
 class TestCustomSecretManager(CustomSecretManager):
@@ -165,23 +165,23 @@ async def test_custom_secret_manager_async_delete():
     assert secret_manager.sync_read_secret("TEST_API_KEY") is None
 
 
-def test_custom_secret_manager_integration_with_litellm():
+def test_custom_secret_manager_integration_with_hangarllm():
     """
-    Test that the custom secret manager integrates with LiteLLM's secret management system.
+    Test that the custom secret manager integrates with HangarLLM's secret management system.
     """
     # Create and set the custom secret manager
     secret_manager = TestCustomSecretManager()
-    litellm.secret_manager_client = secret_manager
-    litellm._key_management_system = KeyManagementSystem.CUSTOM
+    hangarllm.secret_manager_client = secret_manager
+    hangarllm._key_management_system = KeyManagementSystem.CUSTOM
 
     # Set access mode to enable secret reading
-    from litellm.types.secret_managers.main import KeyManagementSettings
+    from hangarllm.types.secret_managers.main import KeyManagementSettings
 
-    litellm._key_management_settings = KeyManagementSettings(access_mode="read_only")
+    hangarllm._key_management_settings = KeyManagementSettings(access_mode="read_only")
 
     try:
-        # Test getting a secret through LiteLLM's get_secret function
-        from litellm.secret_managers.main import get_secret
+        # Test getting a secret through HangarLLM's get_secret function
+        from hangarllm.secret_managers.main import get_secret
 
         api_key = get_secret("TEST_API_KEY")
         assert api_key == "test-api-key-12345"
@@ -191,9 +191,9 @@ def test_custom_secret_manager_integration_with_litellm():
 
     finally:
         # Clean up
-        litellm.secret_manager_client = None
-        litellm._key_management_system = None
-        litellm._key_management_settings = None
+        hangarllm.secret_manager_client = None
+        hangarllm._key_management_system = None
+        hangarllm._key_management_settings = None
 
 
 class MinimalCustomSecretManager(CustomSecretManager):

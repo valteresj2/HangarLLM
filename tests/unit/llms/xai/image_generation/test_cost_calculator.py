@@ -5,11 +5,11 @@ import httpx
 import pytest
 from openai import AsyncOpenAI, OpenAI
 
-import litellm
-from litellm.litellm_core_utils.llm_cost_calc.utils import CostCalculatorUtils
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import convert_to_model_response_object
-from litellm.types.utils import ImageResponse
+import hangarllm
+from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import CostCalculatorUtils
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.hangarllm_core_utils.llm_response_utils.convert_dict_to_response import convert_to_model_response_object
+from hangarllm.types.utils import ImageResponse
 
 
 def _response(ticks: object = None) -> ImageResponse:
@@ -191,11 +191,11 @@ async def test_router_preserves_deployment_pixel_price_through_image_normalizati
             },
         )
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "pixel-fixture",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "xai/grok-imagine-image-2.0",
                     "api_key": "test",
                     "api_base": "https://image.test/v1",
@@ -210,7 +210,7 @@ async def test_router_preserves_deployment_pixel_price_through_image_normalizati
         stream=False,
         call_type="aimage_generation",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="pixel-override",
+        hangarllm_call_id="pixel-override",
         function_id="pixel-override",
     )
     async with AsyncOpenAI(
@@ -223,14 +223,14 @@ async def test_router_preserves_deployment_pixel_price_through_image_normalizati
             n=1,
             extra_body={"resolution": "2k"},
             client=client,
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
         )
         assert getattr(response.usage, "cost_in_usd_ticks") == ticks
         assert logging_obj.response_cost_calculator(result=response) == pytest.approx(1024 * 1024 * 0.000001)
 
 
 def test_shared_resolution_prices_are_used_when_ticks_are_absent() -> None:
-    pricing: Final = litellm.get_model_info("xai/grok-imagine-image-2.0")
+    pricing: Final = hangarllm.get_model_info("xai/grok-imagine-image-2.0")
     assert CostCalculatorUtils.route_image_generation_cost_calculator(
         model="grok-imagine-image-2.0",
         custom_llm_provider="xai",
@@ -277,7 +277,7 @@ async def test_generation_sdk_preserves_billed_ticks_through_normalization(is_as
         async with AsyncOpenAI(
             api_key="test", base_url="https://image.test/v1", http_client=httpx.AsyncClient(transport=transport)
         ) as client:
-            response: Final = await litellm.aimage_generation(
+            response: Final = await hangarllm.aimage_generation(
                 model="xai/grok-imagine-image-2.0",
                 prompt="circle",
                 api_key="test",
@@ -286,14 +286,14 @@ async def test_generation_sdk_preserves_billed_ticks_through_normalization(is_as
             )
             assert getattr(response.usage, "cost_in_usd_ticks") == ticks
             assert (
-                litellm.completion_cost(completion_response=response, model="xai/grok-imagine-image-2.0", n=4)
+                hangarllm.completion_cost(completion_response=response, model="xai/grok-imagine-image-2.0", n=4)
                 == ticks / 10_000_000_000
             )
     else:
         with OpenAI(
             api_key="test", base_url="https://image.test/v1", http_client=httpx.Client(transport=transport)
         ) as client:
-            sync_response: Final = litellm.image_generation(
+            sync_response: Final = hangarllm.image_generation(
                 model="xai/grok-imagine-image-2.0",
                 prompt="circle",
                 api_key="test",
@@ -302,6 +302,6 @@ async def test_generation_sdk_preserves_billed_ticks_through_normalization(is_as
             )
             assert getattr(sync_response.usage, "cost_in_usd_ticks") == ticks
             assert (
-                litellm.completion_cost(completion_response=sync_response, model="xai/grok-imagine-image-2.0", n=4)
+                hangarllm.completion_cost(completion_response=sync_response, model="xai/grok-imagine-image-2.0", n=4)
                 == ticks / 10_000_000_000
             )

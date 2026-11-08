@@ -19,23 +19,23 @@ import pytest
 from fastapi import HTTPException
 from pydantic import TypeAdapter
 
-import litellm
-from litellm import Router
-from litellm.caching.caching import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY, RESPONSES_WEBSOCKET_CALL_ID_METADATA_KEY
-from litellm.exceptions import ServiceUnavailableError
-from litellm.integrations.custom_secret_manager import CustomSecretManager
-from litellm.litellm_core_utils import ptu_pricing
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.model_latest_aliases import get_model_latest_aliases
-from litellm.litellm_core_utils.routing_common_utils import resolve_model_group_alias
-from litellm.litellm_core_utils.ptu_shares import PTUTeamCeiling
-from litellm.llms.azure.ptu_capacity import AZURE_PTU_CAPACITY
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.caching.caching import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY, RESPONSES_WEBSOCKET_CALL_ID_METADATA_KEY
+from hangarllm.exceptions import ServiceUnavailableError
+from hangarllm.integrations.custom_secret_manager import CustomSecretManager
+from hangarllm.hangarllm_core_utils import ptu_pricing
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.hangarllm_core_utils.model_latest_aliases import get_model_latest_aliases
+from hangarllm.hangarllm_core_utils.routing_common_utils import resolve_model_group_alias
+from hangarllm.hangarllm_core_utils.ptu_shares import PTUTeamCeiling
+from hangarllm.llms.azure.ptu_capacity import AZURE_PTU_CAPACITY
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
     PARALLEL_REQUEST_SLOT_TTL_SECONDS,
     ParallelSlotAcquisition,
     PROXY_MaxParallelRequestsHandler_v3,
@@ -49,13 +49,13 @@ from litellm.proxy.hooks.parallel_request_limiter_v3 import (
     get_or_create_request_stash,
     get_request_stash,
 )
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
     PROXY_MaxParallelRequestsHandler_v3 as _PROXY_MaxParallelRequestsHandler,
 )
-from litellm.proxy.spend_tracking.input_tokens import models_counted_for
-from litellm.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
-from litellm.proxy.utils import InternalUsageCache, ProxyLogging, hash_token
-from litellm.redis.stores.rate_limits import (
+from hangarllm.proxy.spend_tracking.input_tokens import models_counted_for
+from hangarllm.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
+from hangarllm.proxy.utils import InternalUsageCache, ProxyLogging, hash_token
+from hangarllm.redis.stores.rate_limits import (
     CounterIncrement,
     CounterKind,
     LocalValue,
@@ -65,15 +65,15 @@ from litellm.redis.stores.rate_limits import (
     RateLimitScope,
     RateLimitStore,
 )
-from litellm.responses.streaming_iterator import _record_usage_for_failure
+from hangarllm.responses.streaming_iterator import _record_usage_for_failure
 from tests.unit.redis.stores.fake_rate_limits import FakeRateLimits, scope_key
-from litellm.responses.utils import ResponseAPILoggingUtils
-from litellm.types.extraction import ExtractionResponse
-from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
-from litellm.types.mcp import MCPPreCallRequestObject, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
-from litellm.types.utils import (
+from hangarllm.responses.utils import ResponseAPILoggingUtils
+from hangarllm.types.extraction import ExtractionResponse
+from hangarllm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+from hangarllm.types.mcp import MCPPreCallRequestObject, MCPTransport
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+from hangarllm.types.utils import (
     CallTypes,
     EmbeddingResponse,
     ModelResponse,
@@ -144,11 +144,11 @@ def reservation() -> bool:
 def collision_limiter(
     reservation: bool, monkeypatch: pytest.MonkeyPatch,
 ) -> tuple[DualCache, PROXY_MaxParallelRequestsHandler_v3, str, str]:
-    monkeypatch.setenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", str(reservation).lower())
+    monkeypatch.setenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", str(reservation).lower())
     alias: Final = "anthropic/claude-opus-latest"
     target: Final = f"anthropic/{get_model_latest_aliases()['anthropic']['claude-opus-latest']}"
     router: Final = Router(
-        model_list=[{"model_name": "anthropic/*", "litellm_params": {"model": "anthropic/*"}}],
+        model_list=[{"model_name": "anthropic/*", "hangarllm_params": {"model": "anthropic/*"}}],
         model_group_alias={alias: target},
     )
     cache: Final = DualCache()
@@ -223,7 +223,7 @@ async def test_latest_alias_collision_charges_and_settles_one_counter_per_metric
                 "user_api_key_project_id": auth.project_id, "user_api_key_org_id": auth.org_id,
             },
         },
-        "litellm_params": {"metadata": {"model_group": alias, "user_api_key_metadata": auth.metadata}},
+        "hangarllm_params": {"metadata": {"model_group": alias, "user_api_key_metadata": auth.metadata}},
         **({"combined_usage_object": usage} if event == "partial" else {}),
     }
     if event == "success":
@@ -269,7 +269,7 @@ async def test_latest_alias_collision_project_io_reservations_settle_once(
             "model_group": alias,
             "metadata": {"user_api_key_hash": auth.api_key, "user_api_key_project_id": auth.project_id},
         },
-        "litellm_params": {"metadata": {"model_group": alias}},
+        "hangarllm_params": {"metadata": {"model_group": alias}},
         **({"combined_usage_object": usage} if event == "partial" else {}),
     }
     if event == "success":
@@ -302,7 +302,7 @@ async def test_latest_alias_collision_settles_the_target_team_limit_beside_the_k
             "model_group": alias,
             "metadata": {"user_api_key_hash": auth.api_key, "user_api_key_team_id": auth.team_id},
         },
-        "litellm_params": {"metadata": {"model_group": alias, "user_api_key_metadata": auth.metadata}},
+        "hangarllm_params": {"metadata": {"model_group": alias, "user_api_key_metadata": auth.metadata}},
         **({"combined_usage_object": usage} if event == "partial" else {}),
     }
     if event == "success":
@@ -426,7 +426,7 @@ async def test_latest_alias_rpm_draws_from_both_model_counters(scope: str) -> No
 async def test_latest_alias_tpm_settles_both_counters(
     scope: str, event: str, reservation: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", str(reservation).lower())
+    monkeypatch.setenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", str(reservation).lower())
     cache: Final = DualCache()
     handler: Final = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(cache),
@@ -470,7 +470,7 @@ async def test_latest_alias_tpm_settles_both_counters(
                 "user_api_key_org_id": auth.org_id,
             },
         },
-        "litellm_params": {"metadata": {"model_group": alias, "user_api_key_metadata": auth.metadata}},
+        "hangarllm_params": {"metadata": {"model_group": alias, "user_api_key_metadata": auth.metadata}},
         **(
             {"combined_usage_object": Usage(prompt_tokens=3, completion_tokens=2, total_tokens=5)}
             if event == "partial"
@@ -501,7 +501,7 @@ async def test_failed_latest_alias_without_open_reservation_matches_direct_model
     reservation_released: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", str(reservation_released).lower())
+    monkeypatch.setenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", str(reservation_released).lower())
     cache: Final = DualCache()
     handler: Final = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(cache),
@@ -552,7 +552,7 @@ async def test_failed_latest_alias_without_open_reservation_matches_direct_model
                     "user_api_key_org_id": auth.org_id,
                 },
             },
-            "litellm_params": {"metadata": {"model_group": model, "user_api_key_metadata": auth.metadata}},
+            "hangarllm_params": {"metadata": {"model_group": model, "user_api_key_metadata": auth.metadata}},
             "combined_usage_object": Usage(prompt_tokens=3, completion_tokens=2, total_tokens=5),
         },
         None,
@@ -631,7 +631,7 @@ async def test_latest_alias_project_io_reservations_settle_both_counters(event: 
             "model_group": alias,
             "metadata": {"user_api_key_hash": auth.api_key, "user_api_key_project_id": auth.project_id},
         },
-        "litellm_params": {"metadata": {"model_group": alias}},
+        "hangarllm_params": {"metadata": {"model_group": alias}},
         **({"combined_usage_object": usage} if event == "partial" else {}),
     }
     if event == "success":
@@ -715,7 +715,7 @@ async def test_mcp_description_does_not_change_admission_or_reserved_tokens(
 
     if arguments_rewritten:
         data["mcp_arguments"] = {"q": "Transformed arguments " * 100}
-    monkeypatch.setattr(litellm, "callbacks", [handler])
+    monkeypatch.setattr(hangarllm, "callbacks", [handler])
     await logger.pre_call_hook(user_api_key_dict=caller, data=data, call_type="call_mcp_tool")
 
     stash: Final = get_request_stash()
@@ -775,7 +775,7 @@ async def test_mcp_description_preserves_project_input_and_output_reservations(
 
     if arguments_rewritten:
         data["mcp_arguments"] = {"q": "Transformed arguments " * 100}
-    monkeypatch.setattr(litellm, "callbacks", [handler])
+    monkeypatch.setattr(hangarllm, "callbacks", [handler])
     await logger.pre_call_hook(user_api_key_dict=caller, data=data, call_type="call_mcp_tool")
 
     stash: Final = get_request_stash()
@@ -830,7 +830,7 @@ async def test_sliding_window_rate_limit_v3(monkeypatch, time_controller):
     """
     Test the sliding window rate limiting functionality
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "2")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "2")
     _api_key = "sk-98765"
     _api_key = hash_token(_api_key)
     user_api_key_dict = UserAPIKeyAuth(api_key=_api_key, rpm_limit=3)
@@ -914,7 +914,7 @@ async def test_rate_limiter_script_return_values_v3(monkeypatch, time_controller
     """
     Test that the rate limiter script returns both counter and window values correctly
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "2")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "2")
     _api_key = "sk-98765"
     _api_key = hash_token(_api_key)
     user_api_key_dict = UserAPIKeyAuth(api_key=_api_key, rpm_limit=3)
@@ -1016,11 +1016,11 @@ async def test_normal_router_call_tpm_v3(monkeypatch, rate_limit_object, time_co
     """
     Test normal router call with parallel request limiter v3 for TPM rate limiting
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "2")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "2")
     model_list = [
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-turbo",
                 "api_key": "os.environ/AZURE_FRANCE_API_KEY",
                 "api_base": "https://openai-france-1234.openai.azure.com",
@@ -1030,7 +1030,7 @@ async def test_normal_router_call_tpm_v3(monkeypatch, rate_limit_object, time_co
         },
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-35-turbo",
                 "api_key": "os.environ/AZURE_EUROPE_API_KEY",
                 "api_base": "https://my-endpoint-europe-berri-992.openai.azure.com",
@@ -1098,7 +1098,7 @@ async def test_normal_router_call_tpm_v3(monkeypatch, rate_limit_object, time_co
         return results
 
     fakes.batch_rate_limiter_script = mock_batch_rate_limiter
-    monkeypatch.setattr(litellm, "callbacks", [parallel_request_handler])
+    monkeypatch.setattr(hangarllm, "callbacks", [parallel_request_handler])
 
     # Helper to get the correct value for key construction
     def get_value_for_key(rate_limit_object, user_api_key_dict, model_name):
@@ -1204,7 +1204,7 @@ async def test_token_rate_limit_type_respected_v3(monkeypatch, token_rate_limit_
     Test that the token_rate_limit_type setting is respected when incrementing usage
     """
     # Set up environment and mock general_settings
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
 
     _api_key = "sk-98765"
     _api_key = hash_token(_api_key)
@@ -1302,7 +1302,7 @@ async def test_async_log_success_event_counts_non_chat_response_tokens(monkeypat
     Embedding and text completion responses must increment the TPM counter,
     not just chat completion ModelResponse objects.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
 
     _api_key = hash_token("sk-98765")
     fakes = FakeRateLimits()
@@ -1698,7 +1698,7 @@ async def test_model_specific_rate_limits_only_called_when_configured_v3():
     """
     Test that model-specific rate limits only trigger should_rate_limit when actually configured for the requested model.
     """
-    from litellm.proxy.auth.auth_utils import (
+    from hangarllm.proxy.auth.auth_utils import (
         get_key_model_rpm_limit,
         get_key_model_tpm_limit,
     )
@@ -2367,7 +2367,7 @@ async def test_get_rate_limit_type_default_is_total(monkeypatch):
     parallel_request_handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
 
     # Mock general_settings to return empty dict (no token_rate_limit_type set)
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     original_settings = getattr(proxy_server, "general_settings", {})
     monkeypatch.setattr(proxy_server, "general_settings", {})
@@ -2388,7 +2388,7 @@ async def test_get_rate_limit_type_invalid_falls_back_to_total(monkeypatch):
     parallel_request_handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
 
     # Mock general_settings to return an invalid token_rate_limit_type
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     original_settings = getattr(proxy_server, "general_settings", {})
     monkeypatch.setattr(proxy_server, "general_settings", {"token_rate_limit_type": "invalid_type"})
@@ -2434,10 +2434,10 @@ async def test_async_log_success_event_with_dict_usage(monkeypatch, token_rate_l
     monkeypatch.setattr(parallel_request_handler, "get_rate_limit_type", mock_get_rate_limit_type)
 
     # Create a mock response object with usage as a dict (Responses API format)
-    from litellm.types.utils import BaseLiteLLMOpenAIResponseObject
+    from hangarllm.types.utils import BaseHangarLLMOpenAIResponseObject
 
     # Use spec to make isinstance checks work correctly with MagicMock
-    mock_response = MagicMock(spec=BaseLiteLLMOpenAIResponseObject)
+    mock_response = MagicMock(spec=BaseHangarLLMOpenAIResponseObject)
     mock_response.usage = {
         "prompt_tokens": 25,
         "completion_tokens": 35,
@@ -2520,9 +2520,9 @@ async def test_async_log_success_event_with_dict_usage_missing_fields(monkeypatc
         # completion_tokens is missing
         # total_tokens is missing
     }
-    from litellm.types.utils import BaseLiteLLMOpenAIResponseObject
+    from hangarllm.types.utils import BaseHangarLLMOpenAIResponseObject
 
-    mock_response.__class__ = type("MockResponse", (BaseLiteLLMOpenAIResponseObject,), {})
+    mock_response.__class__ = type("MockResponse", (BaseHangarLLMOpenAIResponseObject,), {})
 
     # Create mock kwargs for the success event
     mock_kwargs = {
@@ -2591,7 +2591,7 @@ async def test_agent_level_rate_limit_descriptors():
     """
     from unittest.mock import patch
 
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
     _api_key = "sk-98765"
     _api_key = hash_token(_api_key)
@@ -2623,7 +2623,7 @@ async def test_agent_level_rate_limit_descriptors():
     parallel_request_handler.should_rate_limit = mock_should_rate_limit
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
         return_value=mock_agent,
     ):
         await parallel_request_handler.async_pre_call_hook(
@@ -2655,7 +2655,7 @@ async def test_agent_session_rate_limit_descriptors():
     """
     from unittest.mock import patch
 
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
     _api_key = "sk-98765"
     _api_key = hash_token(_api_key)
@@ -2688,7 +2688,7 @@ async def test_agent_session_rate_limit_descriptors():
     parallel_request_handler.should_rate_limit = mock_should_rate_limit
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
         return_value=mock_agent,
     ):
         await parallel_request_handler.async_pre_call_hook(
@@ -2723,7 +2723,7 @@ async def test_agent_session_rate_limit_skipped_without_session_id():
     """
     from unittest.mock import patch
 
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
     _api_key = "sk-98765"
     _api_key = hash_token(_api_key)
@@ -2755,7 +2755,7 @@ async def test_agent_session_rate_limit_skipped_without_session_id():
     parallel_request_handler.should_rate_limit = mock_should_rate_limit
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
         return_value=mock_agent,
     ):
         await parallel_request_handler.async_pre_call_hook(
@@ -2773,7 +2773,7 @@ async def test_agent_session_rate_limit_skipped_without_session_id():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("metadata_field", ("metadata", "litellm_metadata"))
+@pytest.mark.parametrize("metadata_field", ("metadata", "hangarllm_metadata"))
 async def test_agent_rate_limit_from_metadata_agent_id(metadata_field):
     """
     Test that agent rate limits work when agent_id comes from
@@ -2781,7 +2781,7 @@ async def test_agent_rate_limit_from_metadata_agent_id(metadata_field):
     """
     from unittest.mock import patch
 
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
     _api_key = "sk-98765"
     _api_key = hash_token(_api_key)
@@ -2812,7 +2812,7 @@ async def test_agent_rate_limit_from_metadata_agent_id(metadata_field):
     parallel_request_handler.should_rate_limit = mock_should_rate_limit
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
         return_value=mock_agent,
     ):
         await parallel_request_handler.async_pre_call_hook(
@@ -2846,7 +2846,7 @@ async def test_agent_both_agent_and_session_rate_limits():
     """
     from unittest.mock import patch
 
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
     _api_key = "sk-98765"
     _api_key = hash_token(_api_key)
@@ -2881,7 +2881,7 @@ async def test_agent_both_agent_and_session_rate_limits():
     parallel_request_handler.should_rate_limit = mock_should_rate_limit
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
         return_value=mock_agent,
     ):
         await parallel_request_handler.async_pre_call_hook(
@@ -2993,9 +2993,9 @@ async def test_agent_rate_limit_429_on_over_limit(monkeypatch, time_controller):
     """
     from unittest.mock import patch
 
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "2")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "2")
     _api_key = "sk-98765"
     _api_key = hash_token(_api_key)
     _agent_id = "agent_429_test"
@@ -3048,7 +3048,7 @@ async def test_agent_rate_limit_429_on_over_limit(monkeypatch, time_controller):
     fakes.batch_rate_limiter_script = mock_batch_rate_limiter
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
         return_value=mock_agent,
     ):
         await parallel_request_handler.async_pre_call_hook(
@@ -3082,7 +3082,7 @@ class TestGetTotalTokensFromUsageCacheExclusion:
     Tests for _get_total_tokens_from_usage cache token exclusion.
 
     Issue: AWS Bedrock and similar providers exclude cache tokens from TPM calculation,
-    but LiteLLM was including them, causing up to 10x difference in rate limiting.
+    but HangarLLM was including them, causing up to 10x difference in rate limiting.
     """
 
     @pytest.fixture
@@ -3095,7 +3095,7 @@ class TestGetTotalTokensFromUsageCacheExclusion:
 
     def test_excludes_cached_tokens_from_total(self, handler):
         """Cached tokens should be excluded from total token count."""
-        from litellm.types.utils import PromptTokensDetailsWrapper
+        from hangarllm.types.utils import PromptTokensDetailsWrapper
 
         usage = Usage(
             prompt_tokens=1000,
@@ -3110,7 +3110,7 @@ class TestGetTotalTokensFromUsageCacheExclusion:
 
     def test_excludes_cached_tokens_from_input(self, handler):
         """Cached tokens should be excluded from input token count."""
-        from litellm.types.utils import PromptTokensDetailsWrapper
+        from hangarllm.types.utils import PromptTokensDetailsWrapper
 
         usage = Usage(
             prompt_tokens=1000,
@@ -3125,7 +3125,7 @@ class TestGetTotalTokensFromUsageCacheExclusion:
 
     def test_does_not_exclude_cached_tokens_from_output(self, handler):
         """Cached tokens should NOT affect output token count."""
-        from litellm.types.utils import PromptTokensDetailsWrapper
+        from hangarllm.types.utils import PromptTokensDetailsWrapper
 
         usage = Usage(
             prompt_tokens=1000,
@@ -3427,7 +3427,7 @@ async def test_enforce_project_io_token_quota_for_frame_noop_without_project_lim
 async def test_pre_call_hook_keeps_internal_stash_out_of_request_body():
     """Regression for #27001 / #35197: the limiter's per-request bookkeeping
     must never touch the outgoing request body — no top-level keys and no
-    created or mutated ``metadata`` / ``litellm_metadata`` buckets. The
+    created or mutated ``metadata`` / ``hangarllm_metadata`` buckets. The
     reservation must land on the ContextVar stash instead."""
     import copy
 
@@ -3493,7 +3493,7 @@ async def test_responses_route_body_untouched_by_pre_call_hook(caller_metadata):
     """Regression for #35197: on routes where ``metadata`` is a provider
     request parameter (Responses API), the pre-call hook must forward the
     body byte-identical — creating or adding to ``metadata`` /
-    ``litellm_metadata`` produced upstream HTTP 400s."""
+    ``hangarllm_metadata`` produced upstream HTTP 400s."""
     import copy
 
     _api_key = hash_token("sk-responses-regression")
@@ -3527,7 +3527,7 @@ async def test_responses_route_body_untouched_by_pre_call_hook(caller_metadata):
         assert "metadata" not in data
     else:
         assert data["metadata"] == caller_metadata
-    assert "litellm_metadata" not in data
+    assert "hangarllm_metadata" not in data
 
     stash = get_request_stash()
     assert stash is not None
@@ -3544,7 +3544,7 @@ async def test_chat_tpm_refund_and_slot_release_via_context_stash(monkeypatch):
     second failure callback for the same request must not double-refund the
     :tokens counter or double-release the gauge.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     _api_key = hash_token("sk-refund-lifecycle")
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
@@ -3603,14 +3603,14 @@ async def test_pre_call_hook_ignores_caller_supplied_stash_values():
         }
     ]
     injected = {
-        "_litellm_tpm_reserved_tokens": 9999,
-        "_litellm_rate_limit_descriptors": victim_descriptors,
+        "_hangarllm_tpm_reserved_tokens": 9999,
+        "_hangarllm_rate_limit_descriptors": victim_descriptors,
     }
     data: Dict[str, Any] = {
         "model": "gpt-4o-mini",
         "messages": [{"role": "user", "content": "hi"}],
         "metadata": dict(injected),
-        "litellm_metadata": dict(injected),
+        "hangarllm_metadata": dict(injected),
     }
 
     await handler.async_pre_call_hook(
@@ -3635,13 +3635,13 @@ async def test_pre_call_hook_ignores_caller_supplied_stash_values():
 @pytest.mark.asyncio
 async def test_log_events_from_nested_calls_leave_owner_stash_alone(monkeypatch):
     """
-    A nested LiteLLM call made inside the request (LLM-judge guardrail,
+    A nested HangarLLM call made inside the request (LLM-judge guardrail,
     silent experiment) inherits the request context and fires the same global
-    logging callbacks with a fresh ``litellm_call_id``. Those callbacks must
+    logging callbacks with a fresh ``hangarllm_call_id``. Those callbacks must
     not release the owning request's parallel slot or refund its TPM
     reservation; only events carrying the owner's call id may.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     _api_key = hash_token("sk-nested-guard")
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
@@ -3660,19 +3660,19 @@ async def test_log_events_from_nested_calls_leave_owner_stash_alone(monkeypatch)
             "model": "gpt-4o-mini",
             "messages": [{"role": "user", "content": "hello"}],
             "max_tokens": 50,
-            "litellm_call_id": "owner-call-id",
+            "hangarllm_call_id": "owner-call-id",
         },
         call_type="completion",
     )
 
     stash = get_request_stash()
     assert stash is not None
-    assert stash.owner_litellm_call_id == "owner-call-id"
+    assert stash.owner_hangarllm_call_id == "owner-call-id"
     reserved = stash.reserved_tokens
     assert reserved > 0
 
     nested_kwargs = {
-        "litellm_call_id": "nested-guardrail-call",
+        "hangarllm_call_id": "nested-guardrail-call",
         "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
     }
     await handler.async_log_success_event(kwargs=nested_kwargs, response_obj=None, start_time=None, end_time=None)
@@ -3684,7 +3684,7 @@ async def test_log_events_from_nested_calls_leave_owner_stash_alone(monkeypatch)
     assert int(_local(handler, tokens_key) or 0) == reserved
 
     owner_kwargs = {
-        "litellm_call_id": "owner-call-id",
+        "hangarllm_call_id": "owner-call-id",
         "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
     }
     await handler.async_log_failure_event(kwargs=owner_kwargs, response_obj=None, start_time=None, end_time=None)
@@ -3702,7 +3702,7 @@ async def test_stash_applies_when_owner_or_callback_call_id_missing():
     by a pre-call hook (no owner id) must stay visible to any callback, and a
     claimed stash must stay visible to callbacks whose kwargs carry no call
     id — otherwise reservations and slots would strand on request paths that
-    do not thread ``litellm_call_id`` into their logging kwargs.
+    do not thread ``hangarllm_call_id`` into their logging kwargs.
     """
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
@@ -3710,14 +3710,14 @@ async def test_stash_applies_when_owner_or_callback_call_id_missing():
     unclaimed = get_or_create_request_stash()
     unclaimed.reserved_tokens = 42
     await handler.async_log_failure_event(
-        kwargs={"litellm_call_id": "any-id", "standard_logging_object": {}},
+        kwargs={"hangarllm_call_id": "any-id", "standard_logging_object": {}},
         response_obj=None,
         start_time=None,
         end_time=None,
     )
     assert unclaimed.reservation_released is True
 
-    claimed = RequestRateLimiterStash(owner_litellm_call_id="owner-1", reserved_tokens=42)
+    claimed = RequestRateLimiterStash(owner_hangarllm_call_id="owner-1", reserved_tokens=42)
     _request_stash.set(claimed)
     await handler.async_log_failure_event(
         kwargs={"standard_logging_object": {}},
@@ -3736,7 +3736,7 @@ async def _reserve_tpm_for_owner_call(handler, local_cache, api_key: str, call_i
             "model": "gpt-4o-mini",
             "messages": [{"role": "user", "content": "hello"}],
             "max_tokens": 50,
-            "litellm_call_id": call_id,
+            "hangarllm_call_id": call_id,
         },
         call_type="completion",
     )
@@ -3762,7 +3762,7 @@ async def test_failure_event_settles_tpm_reservation_at_recovered_partial_usage_
 
     await handler.async_log_failure_event(
         kwargs={
-            "litellm_call_id": "partial-call",
+            "hangarllm_call_id": "partial-call",
             "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
             "combined_usage_object": Usage(prompt_tokens=20, completion_tokens=7, total_tokens=27),
         },
@@ -3791,7 +3791,7 @@ async def test_failure_event_refunds_reservation_for_input_only_estimate_v3():
 
     await handler.async_log_failure_event(
         kwargs={
-            "litellm_call_id": "estimate-call",
+            "hangarllm_call_id": "estimate-call",
             "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
             "combined_usage_object": Usage(prompt_tokens=20, completion_tokens=0, total_tokens=20),
         },
@@ -3821,7 +3821,7 @@ async def test_a_request_logging_a_failure_and_a_success_settles_its_reservation
     tokens_key: Final = _counter("api_key", api_key)
     await _reserve_tpm_for_owner_call(handler, local_cache, api_key, "dropped-call")
     kwargs: Final = {
-        "litellm_call_id": "dropped-call",
+        "hangarllm_call_id": "dropped-call",
         "standard_logging_object": {"metadata": {"user_api_key_hash": api_key}},
     }
     now: Final = datetime.now()
@@ -3873,12 +3873,12 @@ async def test_concurrent_failure_and_success_callbacks_settle_a_reservation_onc
             "model": model,
             "messages": [{"role": "user", "content": "hello"}],
             "max_tokens": 50,
-            "litellm_call_id": "concurrent-call",
+            "hangarllm_call_id": "concurrent-call",
         },
         call_type="completion",
     )
     kwargs: Final = {
-        "litellm_call_id": "concurrent-call",
+        "hangarllm_call_id": "concurrent-call",
         "model": model,
         "standard_logging_object": {"metadata": {"user_api_key_hash": api_key}},
     }
@@ -3929,10 +3929,10 @@ async def test_a_pre_call_after_a_failure_leaves_the_success_charging_project_io
         "model": model,
         "messages": [{"role": "user", "content": "hello"}],
         "max_tokens": 50,
-        "litellm_call_id": "retried-call-with-mcp-tool",
+        "hangarllm_call_id": "retried-call-with-mcp-tool",
     }
     kwargs: Final = {
-        "litellm_call_id": "retried-call-with-mcp-tool",
+        "hangarllm_call_id": "retried-call-with-mcp-tool",
         "model": model,
         "standard_logging_object": {"metadata": {"user_api_key_hash": api_key}},
     }
@@ -3993,10 +3993,10 @@ async def test_a_nested_mcp_pre_call_settles_each_project_io_hold_once_v3(
         "model": model,
         "messages": [{"role": "user", "content": "hello"}],
         "max_tokens": 50,
-        "litellm_call_id": "nested-mcp-hold-flags",
+        "hangarllm_call_id": "nested-mcp-hold-flags",
     }
     kwargs: Final = {
-        "litellm_call_id": "nested-mcp-hold-flags",
+        "hangarllm_call_id": "nested-mcp-hold-flags",
         "model": model,
         "standard_logging_object": {"metadata": {"user_api_key_hash": api_key}},
     }
@@ -4058,7 +4058,7 @@ async def test_post_call_failure_hook_settles_reservation_at_recovered_partial_u
     await handler.async_post_call_failure_hook(
         request_data={
             "model": "gpt-4o-mini",
-            "litellm_call_id": "post-call",
+            "hangarllm_call_id": "post-call",
             "combined_usage_object": Usage(prompt_tokens=20, completion_tokens=7, total_tokens=27),
         },
         original_exception=Exception("upstream dropped the stream"),
@@ -4068,7 +4068,7 @@ async def test_post_call_failure_hook_settles_reservation_at_recovered_partial_u
 
     await handler.async_log_failure_event(
         kwargs={
-            "litellm_call_id": "post-call",
+            "hangarllm_call_id": "post-call",
             "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
             "combined_usage_object": Usage(prompt_tokens=20, completion_tokens=7, total_tokens=27),
         },
@@ -4105,13 +4105,13 @@ async def test_responses_websocket_turns_charge_their_usage_to_the_key_and_the_s
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
     _request_stash.set(
-        RequestRateLimiterStash(owner_litellm_call_id="socket-open", tpm_limited_tags=frozenset({"ws-tag"}))
+        RequestRateLimiterStash(owner_hangarllm_call_id="socket-open", tpm_limited_tags=frozenset({"ws-tag"}))
     )
 
     for turn_call_id in ("turn-1", "turn-2"):
         await handler.async_log_success_event(
             kwargs={
-                "litellm_call_id": turn_call_id,
+                "hangarllm_call_id": turn_call_id,
                 "call_type": CallTypes.aresponses_websocket.value,
                 "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
             },
@@ -4130,12 +4130,12 @@ async def test_a_nested_call_charges_its_own_usage_but_not_the_tags_of_the_reque
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
     _request_stash.set(
-        RequestRateLimiterStash(owner_litellm_call_id="outer-call", tpm_limited_tags=frozenset({"outer-tag"}))
+        RequestRateLimiterStash(owner_hangarllm_call_id="outer-call", tpm_limited_tags=frozenset({"outer-tag"}))
     )
 
     await handler.async_log_success_event(
         kwargs={
-            "litellm_call_id": "nested-call",
+            "hangarllm_call_id": "nested-call",
             "call_type": CallTypes.acompletion.value,
             "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
         },
@@ -4152,7 +4152,7 @@ def _socket_turn_kwargs(
     call_id: str, metadata: dict[str, object], call_type: str = CallTypes.aresponses_websocket.value
 ) -> dict[str, object]:
     return {
-        "litellm_call_id": call_id,
+        "hangarllm_call_id": call_id,
         "call_type": call_type,
         "standard_logging_object": {"metadata": metadata},
     }
@@ -4179,7 +4179,7 @@ _SOCKET_TURN_TPM_LIMIT: Final = 1000
 
 def _socket_with_tpm_limited_tag() -> None:
     _request_stash.set(
-        RequestRateLimiterStash(owner_litellm_call_id="socket-open", tpm_limited_tags=frozenset({_SOCKET_TURN_TAG}))
+        RequestRateLimiterStash(owner_hangarllm_call_id="socket-open", tpm_limited_tags=frozenset({_SOCKET_TURN_TAG}))
     )
 
 
@@ -4253,7 +4253,7 @@ async def test_a_later_socket_turn_is_refused_once_a_tpm_window_it_counts_toward
 async def test_a_later_socket_turn_is_refused_once_the_sockets_agent_tpm_window_has_no_tokens_left_v3(
     agent_limits: dict[str, int],
 ) -> None:
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
     api_key: Final = hash_token("sk-socket-agent-turn")
     local_cache: Final = DualCache()
@@ -4273,7 +4273,7 @@ async def test_a_later_socket_turn_is_refused_once_the_sockets_agent_tpm_window_
         )
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
         side_effect=lambda agent_id: agent if agent_id == "agent-ws" else None,
     ):
         await handler.async_pre_call_hook(
@@ -4281,7 +4281,7 @@ async def test_a_later_socket_turn_is_refused_once_the_sockets_agent_tpm_window_
             cache=local_cache,
             data={
                 "model": "gpt-5.4",
-                "litellm_call_id": "socket-open",
+                "hangarllm_call_id": "socket-open",
                 "metadata": {"agent_id": "agent-ws", "session_id": "sess-ws"},
             },
             call_type=CallTypes.aresponses_websocket.value,
@@ -4298,7 +4298,7 @@ async def test_a_later_socket_turn_is_refused_once_the_sockets_agent_tpm_window_
 
 @pytest.mark.asyncio
 async def test_the_socket_turn_check_ignores_request_limits_and_charges_nothing_v3(monkeypatch) -> None:
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
     api_key: Final = hash_token("sk-socket-turn-rpm")
     local_cache: Final = DualCache()
     handler: Final = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
@@ -4306,7 +4306,7 @@ async def test_the_socket_turn_check_ignores_request_limits_and_charges_nothing_
     await handler.async_pre_call_hook(
         user_api_key_dict=user_api_key_dict,
         cache=local_cache,
-        data={"model": "gpt-5.4", "litellm_call_id": "socket-open"},
+        data={"model": "gpt-5.4", "hangarllm_call_id": "socket-open"},
         call_type=CallTypes.aresponses_websocket.value,
     )
     tokens_after_open: Final = _tokens_counted(handler, "api_key", api_key)
@@ -4335,7 +4335,7 @@ async def test_a_managed_socket_turn_charges_the_sockets_tpm_limited_tags_v3(
     await handler.async_log_success_event(
         kwargs={
             **_socket_turn_kwargs("managed-turn", {"user_api_key_hash": api_key}, CallTypes.aresponses.value),
-            "litellm_params": {"litellm_metadata": turn_metadata},
+            "hangarllm_params": {"hangarllm_metadata": turn_metadata},
         },
         response_obj=_logged_http_responses_call("claude-opus-4-7", total_tokens=600),
         start_time=None,
@@ -4349,8 +4349,8 @@ async def test_a_managed_socket_turn_charges_the_sockets_tpm_limited_tags_v3(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("transport", ["socket", "http"])
 async def test_a_socket_turn_reaches_the_team_tpm_window_as_an_http_call_does_v3(transport: str, monkeypatch) -> None:
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
-    monkeypatch.setenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", "false")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", "false")
     api_key: Final = hash_token("sk-team-window")
     local_cache: Final = DualCache()
     handler: Final = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
@@ -4433,13 +4433,13 @@ async def test_a_native_socket_turn_that_fails_counts_the_usage_its_failed_respo
     local_cache: Final = DualCache()
     handler: Final = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
     _socket_with_tpm_limited_tag()
-    turn_logging: Final = LiteLLMLoggingObj(
+    turn_logging: Final = HangarLLMLoggingObj(
         model="gpt-5.6",
         messages=[],
         stream=True,
         call_type=CallTypes.aresponses_websocket.value,
         start_time=datetime.now(),
-        litellm_call_id="native-failed-turn",
+        hangarllm_call_id="native-failed-turn",
         function_id="native-failed-turn",
     )
     _record_usage_for_failure(
@@ -4497,7 +4497,7 @@ async def test_failure_event_settles_project_itpm_otpm_at_recovered_partial_usag
             "model": "gpt-4o-mini",
             "messages": [{"role": "user", "content": "hello"}],
             "max_tokens": 50,
-            "litellm_call_id": "project-call",
+            "hangarllm_call_id": "project-call",
         },
         call_type="completion",
     )
@@ -4508,7 +4508,7 @@ async def test_failure_event_settles_project_itpm_otpm_at_recovered_partial_usag
 
     await handler.async_log_failure_event(
         kwargs={
-            "litellm_call_id": "project-call",
+            "hangarllm_call_id": "project-call",
             "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
             "combined_usage_object": Usage(prompt_tokens=20, completion_tokens=7, total_tokens=27),
         },
@@ -4543,14 +4543,14 @@ async def test_a_request_logging_a_failure_and_a_success_settles_its_project_itp
             "model": "gpt-4o-mini",
             "messages": [{"role": "user", "content": "hello"}],
             "max_tokens": 50,
-            "litellm_call_id": "dropped-project-call",
+            "hangarllm_call_id": "dropped-project-call",
         },
         call_type="completion",
     )
     itpm_key: Final = _counter("model_per_project_itpm", "proj-dropped:gpt-4o-mini")
     otpm_key: Final = _counter("model_per_project_otpm", "proj-dropped:gpt-4o-mini")
     kwargs: Final = {
-        "litellm_call_id": "dropped-project-call",
+        "hangarllm_call_id": "dropped-project-call",
         "model": "gpt-4o-mini",
         "standard_logging_object": {"metadata": {"user_api_key_hash": api_key}},
     }
@@ -4597,14 +4597,14 @@ async def test_a_reservation_made_after_a_released_one_in_the_same_context_settl
                 "model": "gpt-4o-mini",
                 "messages": [{"role": "user", "content": "hello"}],
                 "max_tokens": 50,
-                "litellm_call_id": call_id,
+                "hangarllm_call_id": call_id,
             },
             call_type="completion",
         )
 
     def logged(call_id: str) -> dict[str, object]:
         return {
-            "litellm_call_id": call_id,
+            "hangarllm_call_id": call_id,
             "model": "gpt-4o-mini",
             "standard_logging_object": {"metadata": {"user_api_key_hash": api_key}},
         }
@@ -4827,13 +4827,13 @@ def test_inherited_mcp_team_rate_limit_uses_source_limit_when_primary_metadata_i
 async def test_billed_personal_key_auth_produces_team_rpm_descriptors(monkeypatch: pytest.MonkeyPatch) -> None:
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.models.budget import LiteLLM_BudgetTable
-    from litellm.models.team_membership import LiteLLM_TeamMembership
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_ObjectPermissionTable, LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
-    from litellm.proxy.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
-    from litellm.proxy.mcp_server.mcp_server_manager import global_mcp_server_manager
+    from hangarllm.models.budget import HangarLLM_BudgetTable
+    from hangarllm.models.team_membership import HangarLLM_TeamMembership
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable, HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
+    from hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
+    from hangarllm.proxy.mcp_server.mcp_server_manager import global_mcp_server_manager
 
     server: Final = MCPServer(
         server_id="math_a",
@@ -4841,28 +4841,28 @@ async def test_billed_personal_key_auth_produces_team_rpm_descriptors(monkeypatc
         server_name="math_a",
         transport=MCPTransport.http,
     )
-    team: Final = LiteLLM_TeamTable(
+    team: Final = HangarLLM_TeamTable(
         team_id="team-a",
         organization_id="org-team-a",
         rpm_limit=7,
         object_permission_id="perm-team-a",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=HangarLLM_ObjectPermissionTable(
             object_permission_id="perm-team-a",
             mcp_servers=["math_a"],
             mcp_tool_permissions={"math_a": ["add"]},
         ),
     )
-    membership: Final = LiteLLM_TeamMembership(
+    membership: Final = HangarLLM_TeamMembership(
         user_id="owner",
         team_id="team-a",
-        litellm_budget_table=LiteLLM_BudgetTable(rpm_limit=3),
+        hangarllm_budget_table=HangarLLM_BudgetTable(rpm_limit=3),
     )
     user_api_key_auth: Final = UserAPIKeyAuth(
         api_key=hash_token("sk-billed-personal"),
         user_id="owner",
     )
 
-    monkeypatch.setattr(litellm, "personal_key_model_access_from_teams", True)
+    monkeypatch.setattr(hangarllm, "personal_key_model_access_from_teams", True)
     monkeypatch.setattr(proxy_server, "prisma_client", MagicMock())
     monkeypatch.setattr(proxy_server, "should_load_db_object", lambda _: False)
     monkeypatch.setattr(proxy_server, "user_api_key_cache", DualCache())
@@ -4946,7 +4946,7 @@ async def test_mcp_server_without_any_rate_limits_skips_cache_v3() -> None:
 
 
 def test_get_key_mcp_rpm_limit_precedence():
-    from litellm.proxy.auth.auth_utils import (
+    from hangarllm.proxy.auth.auth_utils import (
         get_key_mcp_rpm_limit,
         get_team_mcp_rpm_limit,
     )
@@ -4993,7 +4993,7 @@ async def test_completed_responses_post_call_releases_parallel_slot() -> None:
     data = {
         "model": "gpt-4o-mini",
         "input": "hello",
-        "litellm_call_id": "responses-owner",
+        "hangarllm_call_id": "responses-owner",
     }
     parallel_key = RateLimitScope("api_key", api_key).gauge
 
@@ -5020,7 +5020,7 @@ async def test_completed_responses_post_call_releases_parallel_slot() -> None:
     assert handler._gauge_in_flight_from_cache_value(_local(handler, parallel_key)) == 0
 
     await handler.async_log_success_event(
-        kwargs={"litellm_call_id": data["litellm_call_id"]},
+        kwargs={"hangarllm_call_id": data["hangarllm_call_id"]},
         response_obj=None,
         start_time=None,
         end_time=None,
@@ -5059,7 +5059,7 @@ async def test_mcp_tool_call_inside_admitted_request_reuses_its_parallel_slot() 
         await contextvars.Context().run(asyncio.create_task, pre_call(data, call_type))
 
     await pre_call(
-        {"model": "gpt-4o-mini", "input": "add 2 and 3", "litellm_call_id": owner_call_id},
+        {"model": "gpt-4o-mini", "input": "add 2 and 3", "hangarllm_call_id": owner_call_id},
         CallTypes.aresponses.value,
     )
     await pre_call(mcp_tool_call(), CallTypes.call_mcp_tool.value)
@@ -5070,7 +5070,7 @@ async def test_mcp_tool_call_inside_admitted_request_reuses_its_parallel_slot() 
         await pre_call_from_another_request(mcp_tool_call(), CallTypes.call_mcp_tool.value)
 
     await handler.async_log_success_event(
-        kwargs={"litellm_call_id": owner_call_id},
+        kwargs={"hangarllm_call_id": owner_call_id},
         response_obj=None,
         start_time=None,
         end_time=None,
@@ -5116,7 +5116,7 @@ async def test_first_round_logged_after_tool_call_reuse_releases_only_at_request
 
     async def round_logged(ended_at: datetime) -> None:
         await handler.async_log_success_event(
-            kwargs={"litellm_call_id": owner_call_id, "stream": stream},
+            kwargs={"hangarllm_call_id": owner_call_id, "stream": stream},
             response_obj=None,
             start_time=None,
             end_time=ended_at,
@@ -5126,7 +5126,7 @@ async def test_first_round_logged_after_tool_call_reuse_releases_only_at_request
         {
             "model": "claude-haiku-5-5",
             "messages": [{"role": "user", "content": "add 2 and 3"}],
-            "litellm_call_id": owner_call_id,
+            "hangarllm_call_id": owner_call_id,
         },
         CallTypes.anthropic_messages.value,
     )
@@ -5144,11 +5144,11 @@ async def test_first_round_logged_after_tool_call_reuse_releases_only_at_request
 
 @pytest.mark.asyncio
 async def test_completed_mcp_replay_stream_frees_slot_its_logged_first_round_kept() -> None:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.anthropic.messages.native.fake_stream_iterator import (
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+    from hangarllm.llms.anthropic.messages.native.fake_stream_iterator import (
         FakeAnthropicMessagesStreamIterator,
     )
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     reused_at: Final = datetime(2026, 1, 5, 12, 0, 0)
     api_key: Final = hash_token("sk-mcp-replayed-stream")
@@ -5176,25 +5176,25 @@ async def test_completed_mcp_replay_stream_frees_slot_its_logged_first_round_kep
         )
 
     await pre_call(
-        {"model": "claude-haiku-5-5", "messages": messages, "stream": True, "litellm_call_id": owner_call_id},
+        {"model": "claude-haiku-5-5", "messages": messages, "stream": True, "hangarllm_call_id": owner_call_id},
         CallTypes.anthropic_messages.value,
     )
     await pre_call(
         {"model": "MCP: add", "messages": [{"role": "user", "content": "Tool: add"}], "mcp_server_name": "math"},
         CallTypes.call_mcp_tool.value,
     )
-    logging_obj: Final = LiteLLMLoggingObj(
+    logging_obj: Final = HangarLLMLoggingObj(
         model="claude-haiku-5-5",
         messages=messages,
         stream=True,
         call_type=CallTypes.anthropic_messages.value,
         start_time=None,
-        litellm_call_id=owner_call_id,
+        hangarllm_call_id=owner_call_id,
         function_id="mcp-replayed-stream",
     )
     assert logging_obj.claim_async_success_log()
     await handler.async_log_success_event(
-        kwargs={"litellm_call_id": owner_call_id, "stream": False},
+        kwargs={"hangarllm_call_id": owner_call_id, "stream": False},
         response_obj=None,
         start_time=None,
         end_time=reused_at - timedelta(seconds=1),
@@ -5212,7 +5212,7 @@ async def test_completed_mcp_replay_stream_frees_slot_its_logged_first_round_kep
             "usage": {"input_tokens": 20, "output_tokens": 8},
         }
     )
-    with _override_litellm_callbacks([]):
+    with _override_hangarllm_callbacks([]):
         streamed: Final = [
             chunk
             async for chunk in ProxyBaseLLMRequestProcessing.async_sse_data_generator(
@@ -5220,8 +5220,8 @@ async def test_completed_mcp_replay_stream_frees_slot_its_logged_first_round_kep
                 user_api_key_dict=user_api_key_dict,
                 request_data={
                     "model": "claude-haiku-5-5",
-                    "litellm_call_id": owner_call_id,
-                    "litellm_logging_obj": logging_obj,
+                    "hangarllm_call_id": owner_call_id,
+                    "hangarllm_logging_obj": logging_obj,
                 },
                 proxy_logging_obj=proxy_logging_obj,
             )
@@ -5240,7 +5240,7 @@ async def test_mcp_tool_call_reusing_request_slot_keeps_request_max_parallel_hea
     data: Final[dict[str, object]] = {
         "model": "gpt-4o-mini",
         "input": "add 2 and 3",
-        "litellm_call_id": "mcp-reuse-headers-owner",
+        "hangarllm_call_id": "mcp-reuse-headers-owner",
     }
     for request_data, call_type in (
         (data, CallTypes.aresponses.value),
@@ -5277,7 +5277,7 @@ async def test_mcp_tool_call_reusing_request_slot_keeps_request_max_parallel_hea
 async def test_concurrent_success_callbacks_release_parallel_slot_once_when_redis_fails(release_from: str) -> None:
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     api_key = hash_token("sk-concurrent-release")
     local_cache = DualCache()
@@ -5301,12 +5301,12 @@ async def test_concurrent_success_callbacks_release_parallel_slot_once_when_redi
     fakes.parallel_release_script = release_script
     handler.rate_limits.set_local(parallel_key, 2, None)
     stash = get_or_create_request_stash()
-    stash.owner_litellm_call_id = call_id
+    stash.owner_hangarllm_call_id = call_id
     stash.parallel_slot = ParallelSlotAcquisition(
         slot_id="slot-concurrent-release",
         gauges=(parallel_key.scope,),
     )
-    data = {"litellm_call_id": call_id}
+    data = {"hangarllm_call_id": call_id}
     logger: Final = ProxyLogging(user_api_key_cache=local_cache)
     logger.proxy_hook_mapping["parallel_request_limiter"] = handler
 
@@ -5365,14 +5365,14 @@ async def _build_seeded_limiter():
 
 
 @contextmanager
-def _override_litellm_callbacks(new_callbacks):
-    """Swap litellm.callbacks so _callback_capabilities recomputes deterministically."""
-    saved = litellm.callbacks
-    litellm.callbacks = new_callbacks
+def _override_hangarllm_callbacks(new_callbacks):
+    """Swap hangarllm.callbacks so _callback_capabilities recomputes deterministically."""
+    saved = hangarllm.callbacks
+    hangarllm.callbacks = new_callbacks
     try:
         yield
     finally:
-        litellm.callbacks = saved
+        hangarllm.callbacks = saved
 
 
 async def _drain_release_task():
@@ -5535,8 +5535,8 @@ _SSE_KEEPALIVE_CALLBACK_TIME: Final = datetime(2026, 1, 1)
 async def test_sse_keepalive_releases_parallel_capacity(after_ping: bool, fails: bool, preadmitted: bool) -> None:
     from fastapi.responses import StreamingResponse
 
-    from litellm.proxy.common_request_processing import open_sse_before_first_byte
-    from litellm.proxy.common_utils.sse_keepalive import SSE_COMMENT_PING_BYTES
+    from hangarllm.proxy.common_request_processing import open_sse_before_first_byte
+    from hangarllm.proxy.common_utils.sse_keepalive import SSE_COMMENT_PING_BYTES
 
     cache: Final = DualCache()
     handler: Final = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(cache))
@@ -5545,7 +5545,7 @@ async def test_sse_keepalive_releases_parallel_capacity(after_ping: bool, fails:
     counter: Final = RateLimitScope("api_key", api_key).gauge
 
     async def request(call_id: str) -> None:
-        data: Final = {"model": "test-model", "litellm_call_id": call_id}
+        data: Final = {"model": "test-model", "hangarllm_call_id": call_id}
         upstream_answers: Final = asyncio.Event()
         if not after_ping:
             upstream_answers.set()
@@ -5562,7 +5562,7 @@ async def test_sse_keepalive_releases_parallel_capacity(after_ping: bool, fails:
             yield b"data: [DONE]\n\n"
             await handler.async_log_success_event(
                 kwargs={
-                    "litellm_call_id": call_id,
+                    "hangarllm_call_id": call_id,
                     "standard_logging_object": {"metadata": {"user_api_key_hash": api_key}},
                 },
                 response_obj=ModelResponse(usage=Usage(prompt_tokens=1, completion_tokens=1, total_tokens=2)),
@@ -5613,7 +5613,7 @@ async def test_sse_keepalive_releases_parallel_capacity(after_ping: bool, fails:
 async def test_sse_keepalive_rejects_overlap_and_reuses_completed_capacity() -> None:
     from fastapi.responses import StreamingResponse
 
-    from litellm.proxy.common_request_processing import open_sse_before_first_byte
+    from hangarllm.proxy.common_request_processing import open_sse_before_first_byte
 
     cache: Final = DualCache()
     handler: Final = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(cache))
@@ -5627,14 +5627,14 @@ async def test_sse_keepalive_rejects_overlap_and_reuses_completed_capacity() -> 
             await finish.wait()
             yield b"data: [DONE]\n\n"
             await handler.async_post_call_success_hook(
-                data={"litellm_call_id": call_id}, user_api_key_dict=auth, response=ModelResponse()
+                data={"hangarllm_call_id": call_id}, user_api_key_dict=auth, response=ModelResponse()
             )
 
         async def produce() -> StreamingResponse:
             await handler.async_pre_call_hook(
                 user_api_key_dict=auth,
                 cache=cache,
-                data={"model": "test-model", "litellm_call_id": call_id},
+                data={"model": "test-model", "hangarllm_call_id": call_id},
                 call_type="acompletion",
             )
             admitted.set()
@@ -5759,7 +5759,7 @@ async def test_tpm_over_limit_rejection_releases_parallel_slot_v3(monkeypatch):
     before the 429 is raised; otherwise every TPM rejection would leak a
     slot until TTL pruning.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     _api_key = hash_token("sk-98765")
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
@@ -5887,7 +5887,7 @@ async def test_async_streaming_data_generator_releases_counter_on_disconnect_v3(
     Releasing inside the nested iterator hook does not work because that
     generator is only closed on garbage collection, which is non-deterministic.
     """
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     limiter, cache, counter_key, user_api_key_dict = await _build_seeded_limiter()
     assert limiter._gauge_in_flight_from_cache_value(_local(limiter, counter_key)) == 1
@@ -5906,7 +5906,7 @@ async def test_async_streaming_data_generator_releases_counter_on_disconnect_v3(
         slot_id=_TEST_SLOT_ID,
         gauges=(counter_key.scope,),
     )
-    with _override_litellm_callbacks([]):
+    with _override_hangarllm_callbacks([]):
         gen = ProxyBaseLLMRequestProcessing.async_sse_data_generator(
             response=upstream(),
             user_api_key_dict=user_api_key_dict,
@@ -5935,7 +5935,7 @@ async def test_async_data_generator_releases_counter_on_disconnect_v3(disconnect
     gap that let a disconnect leak the slot in the default limiter-only config.
     A mid-stream disconnect must still refund the pre-call +1.
     """
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     limiter, cache, counter_key, user_api_key_dict = await _build_seeded_limiter()
     proxy_logging_obj = proxy_server.proxy_logging_obj
@@ -5954,7 +5954,7 @@ async def test_async_data_generator_releases_counter_on_disconnect_v3(disconnect
         gauges=(counter_key.scope,),
     )
     try:
-        with _override_litellm_callbacks([]):
+        with _override_hangarllm_callbacks([]):
             assert proxy_logging_obj.needs_iterator_wrap() is False
             gen = proxy_server.async_data_generator(
                 response=upstream(),
@@ -5985,8 +5985,8 @@ async def test_async_data_generator_releases_counter_when_wrapped_v3():
     from the outer generator: the counter returns to 0 (not -1), proving the
     nested hook does not also refund and there is no double decrement.
     """
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.integrations.custom_logger import CustomLogger
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.integrations.custom_logger import CustomLogger
 
     class _PassthroughIteratorOverride(CustomLogger):
         async def async_post_call_streaming_iterator_hook(self, user_api_key_dict, response, request_data):
@@ -6007,7 +6007,7 @@ async def test_async_data_generator_releases_counter_when_wrapped_v3():
         gauges=(counter_key.scope,),
     )
     try:
-        with _override_litellm_callbacks([_PassthroughIteratorOverride()]):
+        with _override_hangarllm_callbacks([_PassthroughIteratorOverride()]):
             assert proxy_logging_obj.needs_iterator_wrap() is True
             gen = proxy_server.async_data_generator(
                 response=upstream(),
@@ -6027,14 +6027,14 @@ async def test_async_data_generator_releases_counter_when_wrapped_v3():
 
 def test_tpm_reservation_enabled_by_default(monkeypatch):
     """Upfront TPM reservation is on unless explicitly disabled via env."""
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(DualCache()))
     assert handler.tpm_reservation_enabled is True
 
 
 @pytest.mark.parametrize("value", ["false", "False", "FALSE"])
 def test_tpm_reservation_disabled_via_env(monkeypatch, value):
-    monkeypatch.setenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", value)
+    monkeypatch.setenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", value)
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(DualCache()))
     assert handler.tpm_reservation_enabled is False
 
@@ -6046,7 +6046,7 @@ async def test_pre_call_hook_reserves_tpm_when_enabled(monkeypatch):
     budget upfront and tells should_rate_limit to skip the :tokens counter so
     only the reservation path owns it.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(DualCache()))
 
     user_api_key_dict = UserAPIKeyAuth(api_key=hash_token("sk-tpm"), tpm_limit=10_000)
@@ -6086,7 +6086,7 @@ async def test_pre_call_hook_skips_reservation_when_disabled(monkeypatch):
     and enforces TPM directly in should_rate_limit (skip_tpm_check=False), the
     pre-v1.82 post-call accounting behavior.
     """
-    monkeypatch.setenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", "false")
+    monkeypatch.setenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", "false")
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(DualCache()))
 
     user_api_key_dict = UserAPIKeyAuth(api_key=hash_token("sk-tpm"), tpm_limit=10_000)
@@ -6127,7 +6127,7 @@ async def test_per_tag_rate_limit_independent_counters_v3(monkeypatch):
     at its limit returns 429 while a different (unlimited) tag keeps flowing,
     governed only by the generous key-level limit.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
     _api_key = hash_token("sk-per-tag-rpm")
     user_api_key_dict = UserAPIKeyAuth(
         api_key=_api_key,
@@ -6216,7 +6216,7 @@ async def test_per_tag_untagged_request_governed_by_key_limit_v3(monkeypatch):
     untagged-fallback behavior so a future "fail closed on missing tag" change
     would fail here instead of silently breaking it.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
     _api_key = hash_token("sk-untagged-fallback")
     user_api_key_dict = UserAPIKeyAuth(
         api_key=_api_key,
@@ -6257,7 +6257,7 @@ def _static_tag_limits(limits: dict[str, TagRateLimit]):
 
 @pytest.mark.asyncio
 async def test_tag_object_rpm_limit_enforced_v3(monkeypatch):
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
     _request_stash.set(None)
     resolver, calls = _static_tag_limits({"cell-1": TagRateLimit(rpm_limit=2, tpm_limit=None)})
     local_cache = DualCache()
@@ -6289,7 +6289,7 @@ async def test_tag_object_rpm_limit_enforced_v3(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_tag_429_names_the_tag_that_is_over_its_limit(monkeypatch):
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
     _request_stash.set(None)
     resolver, _ = _static_tag_limits(
         {
@@ -6321,8 +6321,8 @@ async def test_tag_429_names_the_tag_that_is_over_its_limit(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_tag_object_tpm_limit_enforced_v3(monkeypatch):
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
-    monkeypatch.setenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", "false")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", "false")
     _request_stash.set(None)
     resolver, _ = _static_tag_limits({"cell-1": TagRateLimit(rpm_limit=None, tpm_limit=100)})
     local_cache = DualCache()
@@ -6362,28 +6362,28 @@ async def test_tag_object_tpm_limit_enforced_v3(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_resolve_tag_rate_limits_from_db_reads_budget_row(monkeypatch):
-    from litellm.models.budget import LiteLLM_BudgetTable
-    from litellm.models.tag import LiteLLM_TagTable
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth import auth_checks
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import resolve_tag_rate_limits_from_db
-    from litellm.proxy.utils import PrismaClient
+    from hangarllm.models.budget import HangarLLM_BudgetTable
+    from hangarllm.models.tag import HangarLLM_TagTable
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth import auth_checks
+    from hangarllm.proxy.hooks.parallel_request_limiter_v3 import resolve_tag_rate_limits_from_db
+    from hangarllm.proxy.utils import PrismaClient
 
     async def fake_batch(
         tag_names: Sequence[str],
         prisma_client: PrismaClient | None,
         user_api_key_cache: DualCache,
-    ) -> dict[str, LiteLLM_TagTable]:
+    ) -> dict[str, HangarLLM_TagTable]:
         return {
-            "limited": LiteLLM_TagTable(
+            "limited": HangarLLM_TagTable(
                 tag_name="limited",
-                litellm_budget_table=LiteLLM_BudgetTable(rpm_limit=3, tpm_limit=None),
+                hangarllm_budget_table=HangarLLM_BudgetTable(rpm_limit=3, tpm_limit=None),
             ),
-            "spend-only": LiteLLM_TagTable(
+            "spend-only": HangarLLM_TagTable(
                 tag_name="spend-only",
-                litellm_budget_table=LiteLLM_BudgetTable(max_budget=5.0),
+                hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=5.0),
             ),
-            "bare": LiteLLM_TagTable(tag_name="bare"),
+            "bare": HangarLLM_TagTable(tag_name="bare"),
         }
 
     monkeypatch.setattr(proxy_server, "prisma_client", object())
@@ -6413,7 +6413,7 @@ async def test_streaming_end_to_end_populates_slp_ratelimit_headers(monkeypatch)
     remaining/limit values in
     ``kwargs["standard_logging_object"]["hidden_params"]["additional_headers"]``.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
     _api_key = hash_token("sk-stream-e2e")
     user_api_key_dict = UserAPIKeyAuth(
         api_key=_api_key,
@@ -6424,7 +6424,7 @@ async def test_streaming_end_to_end_populates_slp_ratelimit_headers(monkeypatch)
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
 
     # Real pre-call: populates data and stashes the response into metadata
-    # so the success callback can find it via litellm_params.metadata.
+    # so the success callback can find it via hangarllm_params.metadata.
     data: Dict[str, Any] = {
         "model": "gpt-4o-mini",
         "metadata": {},
@@ -6438,7 +6438,7 @@ async def test_streaming_end_to_end_populates_slp_ratelimit_headers(monkeypatch)
     )
 
     # Simulate the wrapper handing the pre-call metadata dict to the
-    # completion() call: it becomes kwargs["litellm_params"]["metadata"] by
+    # completion() call: it becomes kwargs["hangarllm_params"]["metadata"] by
     # the time the success callback fires.
     mock_response = ModelResponse(
         id="mock-stream-e2e",
@@ -6457,7 +6457,7 @@ async def test_streaming_end_to_end_populates_slp_ratelimit_headers(monkeypatch)
                 "user_api_key_end_user_id": None,
             }
         },
-        "litellm_params": {"metadata": data["metadata"]},
+        "hangarllm_params": {"metadata": data["metadata"]},
         "model": "gpt-4o-mini",
     }
 
@@ -6488,7 +6488,7 @@ async def test_streaming_populates_model_per_key_ratelimit_headers(monkeypatch):
     Streaming must land the per-(key, model) remaining/limit values in the
     SLP under ``x-ratelimit-model_per_key-{remaining|limit}-{requests,tokens}``.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
     _api_key = hash_token("sk-stream-mirror")
     user_api_key_dict = UserAPIKeyAuth(
         api_key=_api_key,
@@ -6526,7 +6526,7 @@ async def test_streaming_populates_model_per_key_ratelimit_headers(monkeypatch):
                 "user_api_key_end_user_id": None,
             }
         },
-        "litellm_params": {"metadata": data["metadata"]},
+        "hangarllm_params": {"metadata": data["metadata"]},
         "model": "gpt-4o-mini",
     }
 
@@ -6554,7 +6554,7 @@ async def test_async_log_success_event_no_mirror_when_no_snapshot(monkeypatch):
     No pre-call snapshot (no descriptors matched) -> no fabricated
     ``x-ratelimit-*`` headers.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
     _api_key = hash_token("sk-stream-no-mirror")
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(DualCache()))
 
@@ -6576,7 +6576,7 @@ async def test_async_log_success_event_no_mirror_when_no_snapshot(monkeypatch):
                 "user_api_key_end_user_id": None,
             }
         },
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
         "model": "gpt-4o-mini",
     }
 
@@ -6599,7 +6599,7 @@ async def test_streaming_mirror_matches_non_streaming_header_shape(monkeypatch):
     the identical ``x-ratelimit-*`` key/value shape to their respective
     ``additional_headers`` slots.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
     _api_key = hash_token("sk-shape")
     user_api_key_dict = UserAPIKeyAuth(
         api_key=_api_key,
@@ -6640,7 +6640,7 @@ async def test_streaming_mirror_matches_non_streaming_header_shape(monkeypatch):
     # Streaming path: async_logging_hook mirrors into standard_logging_object.
     stream_kwargs: Dict[str, Any] = {
         "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
-        "litellm_params": {"metadata": data["metadata"]},
+        "hangarllm_params": {"metadata": data["metadata"]},
         "model": "gpt-4o-mini",
     }
     stream_response = ModelResponse(
@@ -6675,7 +6675,7 @@ async def test_async_log_success_event_counts_passthrough_reported_tokens(monkey
     pass-through request never charged the TPM window and a team could exceed
     its shared token limit purely through pass-through traffic.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
 
     _api_key = hash_token("sk-passthrough")
     fakes = FakeRateLimits()
@@ -6716,7 +6716,7 @@ async def test_aggregate_only_usage_charges_tpm_under_every_limit_type(monkeypat
     left the TPM window uncharged under input- or output-token limiting and let
     pass-through traffic run past a limit it is supposed to share.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
 
     _api_key = hash_token("sk-aggregate-only")
     fakes = FakeRateLimits()
@@ -6746,7 +6746,7 @@ async def test_aggregate_only_usage_charges_tpm_under_every_limit_type(monkeypat
 @pytest.mark.asyncio
 async def test_split_usage_still_respects_the_configured_limit_type(monkeypatch):
     """The aggregate fallback must not hijack usage that does carry a split."""
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("HANGARLLM_RATE_LIMIT_WINDOW_SIZE", "60")
 
     _api_key = hash_token("sk-split-usage")
     fakes = FakeRateLimits()
@@ -6783,7 +6783,7 @@ async def test_atomic_check_with_zero_increment_still_enforces_token_limit():
     TPM-only descriptor produced zero counters to evaluate and the call
     returned OK with empty statuses; TPM limits were never enforced at all.
     """
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import RateLimitDescriptor
+    from hangarllm.proxy.hooks.parallel_request_limiter_v3 import RateLimitDescriptor
 
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(DualCache()))
     descriptor = RateLimitDescriptor(
@@ -6835,7 +6835,7 @@ async def test_reserve_tpm_tokens_never_evaluates_the_requests_dimension():
     should_rate_limit pass. Now that zero-increment counters are checked
     instead of skipped, reserve_tpm_tokens must strip requests_per_unit from
     its descriptors or an exhausted RPM budget would double-enforce here."""
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import RateLimitDescriptor
+    from hangarllm.proxy.hooks.parallel_request_limiter_v3 import RateLimitDescriptor
 
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(DualCache()))
     descriptor = RateLimitDescriptor(
@@ -6879,7 +6879,7 @@ async def _reserved_tokens_for(
 
 @pytest.mark.asyncio
 async def test_tpm_reservation_resets_sibling_tokens_with_request_window(monkeypatch):
-    monkeypatch.setenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", "true")
+    monkeypatch.setenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", "true")
     time_controller = TimeController()
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
@@ -6897,7 +6897,7 @@ async def test_tpm_reservation_resets_sibling_tokens_with_request_window(monkeyp
             "model": "gpt-4o",
             "messages": [{"role": "user", "content": "hi"}],
             "max_tokens": 200,
-            "litellm_call_id": call_id,
+            "hangarllm_call_id": call_id,
             "metadata": {
                 "user_api_key": user_api_key_dict.api_key,
                 "user_api_key_user_id": user_api_key_dict.user_id,
@@ -6911,8 +6911,8 @@ async def test_tpm_reservation_resets_sibling_tokens_with_request_window(monkeyp
         )
         await handler.async_log_success_event(
             kwargs={
-                "litellm_call_id": call_id,
-                "litellm_params": {
+                "hangarllm_call_id": call_id,
+                "hangarllm_params": {
                     "metadata": {
                         "user_api_key": user_api_key_dict.api_key,
                         "user_api_key_user_id": user_api_key_dict.user_id,
@@ -7085,7 +7085,7 @@ async def test_estimated_output_tokens_resolution_precedence(
     from the input estimate, so the reserved amount identifies which tier the
     resolver picked.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
     user_api_key_dict = UserAPIKeyAuth(
@@ -7108,7 +7108,7 @@ async def test_estimated_output_tokens_resolution_precedence(
 @pytest.mark.asyncio
 async def test_request_max_tokens_outranks_configured_estimate(monkeypatch):
     """An explicit request-level max_tokens stays the top of the precedence order."""
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
     user_api_key_dict = UserAPIKeyAuth(
@@ -7130,7 +7130,7 @@ async def test_request_max_tokens_outranks_configured_estimate(monkeypatch):
 @pytest.mark.asyncio
 async def test_configured_estimate_does_not_apply_to_embeddings(monkeypatch):
     """Embeddings generate no output, so a declared output estimate must not be reserved."""
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
     user_api_key_dict = UserAPIKeyAuth(
@@ -7157,7 +7157,7 @@ async def test_configured_estimate_applies_to_contentless_requests(monkeypatch):
     Without config such a request reserves the 1-token floor only; the
     declaration is what makes concurrent tool-call continuations countable.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
     configured = UserAPIKeyAuth(
@@ -7188,7 +7188,7 @@ async def test_declared_estimate_never_tightens_the_small_tpm_clamp(monkeypatch)
     truncates the tail. The reservation tracks whatever the clamp settles on,
     so a small tenant can never generate more than was reserved.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
     raised_data: Dict[str, Any] = {"model": "gpt-4o-mini", "messages": ONE_TOKEN_PROMPT}
@@ -7240,7 +7240,7 @@ async def test_one_malformed_estimate_field_does_not_discard_the_other(monkeypat
     A per-model map with a bad entry must not take a valid global estimate
     down with it, and a bad global must not hide a valid per-model entry.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
 
@@ -7289,7 +7289,7 @@ async def test_declared_estimate_over_the_tpm_budget_is_honored_and_explained(mo
     over. Comparing the declaration against the limit rather than the
     reservation would refuse this request while saying nothing.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
     user_api_key_dict = UserAPIKeyAuth(
@@ -7298,7 +7298,7 @@ async def test_declared_estimate_over_the_tpm_budget_is_honored_and_explained(mo
         metadata={"default_estimated_output_tokens": declared},
     )
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
         with pytest.raises(HTTPException) as exc_info:
             await handler.async_pre_call_hook(
                 user_api_key_dict=user_api_key_dict,
@@ -7328,11 +7328,11 @@ async def test_a_key_that_declared_nothing_is_never_blamed_for_a_declaration(mon
     anything. Blaming the declared field there would point an operator at a
     setting they never set, to fix a 429 whose real cause is prompt size.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
         with pytest.raises(HTTPException) as exc_info:
             await handler.async_pre_call_hook(
                 user_api_key_dict=UserAPIKeyAuth(
@@ -7356,11 +7356,11 @@ async def test_declared_estimate_inside_the_tpm_budget_is_not_explained(monkeypa
 
     Without this, a correctly configured key would emit one line per call.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(local_cache))
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
         await handler.async_pre_call_hook(
             user_api_key_dict=UserAPIKeyAuth(
                 api_key=hash_token("sk-estimate-within-budget"),
@@ -7387,7 +7387,7 @@ async def test_configured_estimate_blocks_the_overrun_the_static_floor_admits(mo
     against an 8000 limit. Declaring the real output size admits only the two
     requests the budget actually covers.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
 
     async def admitted(metadata):
         local_cache = DualCache()
@@ -7438,7 +7438,7 @@ def test_internal_call_origin_success_ops_are_skipped(origin, rate_limit_type):
                     "user_api_key_project_id": "compaction-project",
                 }
             },
-            "litellm_params": {"metadata": metadata},
+            "hangarllm_params": {"metadata": metadata},
             "model": "gpt-4o-mini",
         }
 
@@ -7482,7 +7482,7 @@ def test_conflicting_token_limits_reserve_the_larger_declared_budget():
 
 @pytest.mark.parametrize("declared", [10000, 10000.0, "10000"])
 def test_non_integer_output_budgets_still_reserve_their_declared_size(declared):
-    """A budget litellm cannot read is a budget it cannot reserve against.
+    """A budget hangarllm cannot read is a budget it cannot reserve against.
 
     A float or numeric-string max_tokens is explicit enough to suppress the capped
     output floor, so dropping it from the estimate under-reserves and reopens the
@@ -7542,7 +7542,7 @@ def _batch_response(batch_id: str, status: str):
 
 @pytest.mark.asyncio
 async def test_success_hook_persists_batch_enqueued_reservation_and_refunds_on_completion():
-    from litellm.proxy.hooks.batch_enqueued_tokens import (
+    from hangarllm.proxy.hooks.batch_enqueued_tokens import (
         BatchEnqueuedTokenOverLimit,
         BatchEnqueuedTokenReservation,
         BatchEnqueuedTokenScope,
@@ -7577,7 +7577,7 @@ async def test_success_hook_persists_batch_enqueued_reservation_and_refunds_on_c
 
 @pytest.mark.asyncio
 async def test_success_hook_refunds_batch_enqueued_reservation_on_cancellation():
-    from litellm.proxy.hooks.batch_enqueued_tokens import (
+    from hangarllm.proxy.hooks.batch_enqueued_tokens import (
         BatchEnqueuedTokenReservation,
         BatchEnqueuedTokenScope,
     )
@@ -7602,7 +7602,7 @@ async def test_success_hook_refunds_batch_enqueued_reservation_on_cancellation()
 
 @pytest.mark.asyncio
 async def test_success_hook_refunds_on_provider_cased_terminal_status():
-    from litellm.proxy.hooks.batch_enqueued_tokens import (
+    from hangarllm.proxy.hooks.batch_enqueued_tokens import (
         BatchEnqueuedTokenOverLimit,
         BatchEnqueuedTokenReservation,
         BatchEnqueuedTokenScope,
@@ -7629,7 +7629,7 @@ async def test_success_hook_refunds_on_provider_cased_terminal_status():
 
 @pytest.mark.asyncio
 async def test_failure_hook_refunds_stashed_batch_enqueued_reservation():
-    from litellm.proxy.hooks.batch_enqueued_tokens import (
+    from hangarllm.proxy.hooks.batch_enqueued_tokens import (
         BatchEnqueuedTokenReservation,
         BatchEnqueuedTokenScope,
     )
@@ -7652,7 +7652,7 @@ async def test_failure_hook_refunds_stashed_batch_enqueued_reservation():
 
 @pytest.mark.asyncio
 async def test_success_hook_leaves_stash_untouched_for_non_batch_responses():
-    from litellm.proxy.hooks.batch_enqueued_tokens import (
+    from hangarllm.proxy.hooks.batch_enqueued_tokens import (
         BatchEnqueuedTokenReservation,
         BatchEnqueuedTokenScope,
     )
@@ -7674,7 +7674,7 @@ async def test_success_hook_leaves_stash_untouched_for_non_batch_responses():
 
 @pytest.mark.asyncio
 async def test_post_call_success_hook_attaches_ratelimit_headers_to_dict_response():
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import RateLimitResponse, RateLimitStatus
+    from hangarllm.proxy.hooks.parallel_request_limiter_v3 import RateLimitResponse, RateLimitStatus
 
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(DualCache()))
     get_or_create_request_stash().rate_limit_response = RateLimitResponse(
@@ -7694,7 +7694,7 @@ async def test_post_call_success_hook_attaches_ratelimit_headers_to_dict_respons
         "type": "message",
         "role": "assistant",
         "content": [],
-        "_hidden_params": {"additional_headers": {"x-litellm-attempted-retries": 0}},
+        "_hidden_params": {"additional_headers": {"x-hangarllm-attempted-retries": 0}},
     }
 
     await handler.async_post_call_success_hook(
@@ -7704,14 +7704,14 @@ async def test_post_call_success_hook_attaches_ratelimit_headers_to_dict_respons
     )
 
     additional_headers = response["_hidden_params"]["additional_headers"]
-    assert additional_headers["x-litellm-attempted-retries"] == 0
+    assert additional_headers["x-hangarllm-attempted-retries"] == 0
     assert additional_headers["x-ratelimit-model_saturation_check-limit-requests"] == 100
     assert additional_headers["x-ratelimit-model_saturation_check-remaining-requests"] == 99
 
 
 @pytest.mark.asyncio
 async def test_post_call_success_hook_leaves_raw_provider_dict_untouched():
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import RateLimitResponse, RateLimitStatus
+    from hangarllm.proxy.hooks.parallel_request_limiter_v3 import RateLimitResponse, RateLimitStatus
 
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(DualCache()))
     get_or_create_request_stash().rate_limit_response = RateLimitResponse(
@@ -7758,7 +7758,7 @@ def _raising_redis(error: Exception) -> FakeRateLimits:
 
 
 def _open_breaker_redis() -> FakeRateLimits:
-    from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
+    from hangarllm.caching.redis_cache import RedisCircuitBreakerOpenError
 
     return _raising_redis(RedisCircuitBreakerOpenError("Redis circuit breaker is open"))
 
@@ -7774,7 +7774,7 @@ async def test_an_open_circuit_breaker_falls_back_to_the_pipeline_without_a_warn
     )
     counter: Final = _counter("quiet", "key")
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
         await handler.async_increment_tokens_with_ttl_preservation(
             pipeline_operations=[CounterIncrement(counter, 10.0, 60)]
         )
@@ -7790,7 +7790,7 @@ async def test_an_open_circuit_breaker_reads_the_sliding_window_locally_without_
     )
     now: Final = int(time.time())
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
         values = await handler._execute_redis_batch_rate_limiter_script(
             [_counter("quiet", "window", "requests")], now_int=now
         )
@@ -7931,14 +7931,14 @@ async def test_redis_batch_rate_limiter_returns_values_in_caller_order():
     assert results == [(str(now), 1), (str(now), 2), (str(now), 1)]
 
 
-def test_default_hash_tag_grouping_resolver_uses_litellm_setting(monkeypatch: pytest.MonkeyPatch):
+def test_default_hash_tag_grouping_resolver_uses_hangarllm_setting(monkeypatch: pytest.MonkeyPatch):
     redis: Final = _ScriptedRedis()
     handler: Final = _handler_with_redis(redis)
 
-    monkeypatch.setattr(litellm, "force_redis_hash_tag_grouping", True)
+    monkeypatch.setattr(hangarllm, "force_redis_hash_tag_grouping", True)
     assert handler._slot_groups(_GROUPING_COUNTERS) == ((0, 2), (1,))
 
-    monkeypatch.setattr(litellm, "force_redis_hash_tag_grouping", False)
+    monkeypatch.setattr(hangarllm, "force_redis_hash_tag_grouping", False)
     assert handler._slot_groups(_GROUPING_COUNTERS) == ((0, 1, 2),)
 
 
@@ -8035,7 +8035,7 @@ async def test_fail_closed_tpm_rejection_releases_the_parallel_slot_it_acquired(
 
 @pytest.mark.asyncio
 async def test_fail_closed_rate_limit_enforcement_is_read_from_general_settings(monkeypatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     auth = UserAPIKeyAuth(api_key=hash_token("sk-fail-closed-settings"), rpm_limit=2)
 
@@ -8057,7 +8057,7 @@ async def test_fail_closed_rate_limit_enforcement_is_read_from_general_settings(
 async def test_fail_closed_rate_limit_enforcement_coerces_the_general_settings_value(
     monkeypatch, configured_value, rejects
 ):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     auth = UserAPIKeyAuth(api_key=hash_token("sk-fail-closed-coerced"), rpm_limit=2)
     monkeypatch.setitem(proxy_server.general_settings, "fail_closed_rate_limit_enforcement", configured_value)
@@ -8149,7 +8149,7 @@ async def test_batch_increment_refunds_counters_already_applied_when_a_later_clu
 @pytest.mark.parametrize("fail_closed", [True, False], ids=["fail_closed", "fail_open"])
 @pytest.mark.asyncio
 async def test_batch_increment_refunds_pipelined_groups_declared_after_the_one_that_failed(fail_closed):
-    from litellm.caching.redis_batch import request_redis_batch_scope
+    from hangarllm.caching.redis_batch import request_redis_batch_scope
 
     redis = _ScriptedRedis()
     handler = _handler_with_redis(redis, fail_closed=fail_closed, force_hash_tag_grouping=True)
@@ -8247,13 +8247,13 @@ async def test_request_capacity_enforces_shared_rpm_scopes(limits, request_data,
 
 @pytest.mark.asyncio
 async def test_request_capacity_keeps_dynamic_rpm_policy(monkeypatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     router = Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "openai/gpt-test", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/gpt-test", "api_key": "test-key"},
                 "model_info": {"id": "test-deployment"},
             }
         ]
@@ -8511,7 +8511,7 @@ def test_success_tpm_accounting_skips_team_model_pool_when_key_owns_model_tpm_li
         "standard_logging_object": {
             "metadata": {"user_api_key_hash": hash_token("sk-pool"), "user_api_key_team_id": "t"}
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "test-model",
                 "user_api_key_metadata": key_metadata,
@@ -8622,13 +8622,13 @@ async def _rpm_request(
 async def test_model_group_alias_shares_deployment_default_rpm_bucket_with_its_target(
     monkeypatch: pytest.MonkeyPatch, first_name: str, second_name: str
 ) -> None:
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     router: Final = Router(
         model_list=[
             {
                 "model_name": "target",
-                "litellm_params": {"model": "openai/gpt-test", "api_key": "test-key", "default_api_key_rpm_limit": 2},
+                "hangarllm_params": {"model": "openai/gpt-test", "api_key": "test-key", "default_api_key_rpm_limit": 2},
                 "model_info": {"id": "target-deployment"},
             }
         ],
@@ -8726,7 +8726,7 @@ def test_success_tpm_accounting_charges_the_alias_target_bucket(
         "standard_logging_object": {
             "metadata": {"user_api_key_hash": hash_token("sk-alias-tpm"), "user_api_key_team_id": "t"}
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "alias",
                 "user_api_key_metadata": key_metadata,
@@ -8779,7 +8779,7 @@ async def test_success_tpm_accounting_keeps_the_admission_target_after_an_alias_
     )
     kwargs: Final = {
         "standard_logging_object": {"metadata": {"user_api_key_hash": auth.api_key}},
-        "litellm_params": {"metadata": {"model_group": "alias", "user_api_key_metadata": key_metadata}},
+        "hangarllm_params": {"metadata": {"model_group": "alias", "user_api_key_metadata": key_metadata}},
         "model": "alias",
     }
 
@@ -8875,7 +8875,7 @@ def _shared_ptu_router(model_group: str) -> Router:
         model_list=[
             {
                 "model_name": model_group,
-                "litellm_params": {"model": "azure/gpt-4.1", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
+                "hangarllm_params": {"model": "azure/gpt-4.1", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
                 "model_info": {
                     "id": "shared-ptu",
                     "base_model": "azure/gpt-4.1",
@@ -9023,7 +9023,7 @@ async def test_the_proxy_router_turns_a_teams_share_into_its_ceiling_when_attrib
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(cache))
     key = UserAPIKeyAuth(api_key=hash_token("sk-ptu"), team_id="t")
 
-    with patch("litellm.proxy.proxy_server.llm_router", _shared_ptu_router("test-model")):
+    with patch("hangarllm.proxy.proxy_server.llm_router", _shared_ptu_router("test-model")):
         await handler.async_pre_call_hook(
             user_api_key_dict=key, cache=cache, data=_two_thirds_of_a_ptu_minute(), call_type="acompletion"
         )
@@ -9065,9 +9065,9 @@ class _SecretManagerHoldingThePTUFlag(CustomSecretManager):
 def ptu_flag_in_secret_manager(monkeypatch: pytest.MonkeyPatch) -> Iterator[_SecretManagerHoldingThePTUFlag]:
     manager = _SecretManagerHoldingThePTUFlag()
     monkeypatch.delenv(PTU_COST_ATTRIBUTION_ENV_VAR, raising=False)
-    monkeypatch.setattr(litellm, "secret_manager_client", manager)
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-    monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
+    monkeypatch.setattr(hangarllm, "secret_manager_client", manager)
+    monkeypatch.setattr(hangarllm, "_key_management_system", KeyManagementSystem.CUSTOM)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
     ptu_pricing._enabled_in_secret_manager.cache_clear()
     yield manager
     ptu_pricing._enabled_in_secret_manager.cache_clear()
@@ -9087,7 +9087,7 @@ async def test_only_a_share_holders_request_asks_the_secret_manager_for_the_ptu_
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(cache))
     key = UserAPIKeyAuth(api_key=hash_token("sk-ptu"), team_id=team_id)
 
-    with patch("litellm.proxy.proxy_server.llm_router", router):
+    with patch("hangarllm.proxy.proxy_server.llm_router", router):
         await handler.async_pre_call_hook(
             user_api_key_dict=key, cache=cache, data=_ptu_request(), call_type="acompletion"
         )
@@ -9108,7 +9108,7 @@ async def test_naming_the_shared_deployment_directly_draws_on_the_same_ceiling_a
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(cache))
     key = UserAPIKeyAuth(api_key=hash_token("sk-ptu"), team_id="t")
 
-    with patch("litellm.proxy.proxy_server.llm_router", _shared_ptu_router("test-model")):
+    with patch("hangarllm.proxy.proxy_server.llm_router", _shared_ptu_router("test-model")):
         await handler.async_pre_call_hook(
             user_api_key_dict=key, cache=cache, data=_two_thirds_of_a_ptu_minute(), call_type="acompletion"
         )
@@ -9136,12 +9136,12 @@ async def test_naming_the_shared_deployment_by_id_draws_on_its_ceiling_beside_a_
     key = UserAPIKeyAuth(api_key=hash_token("sk-ptu"), team_id="t")
     catch_all = {
         "model_name": "*",
-        "litellm_params": {"model": "azure/*", "api_key": "sk-open", "api_base": "https://open.example"},
+        "hangarllm_params": {"model": "azure/*", "api_key": "sk-open", "api_base": "https://open.example"},
         "model_info": {"id": "open-catch-all"},
     }
     router = Router(model_list=[*_shared_ptu_router("test-model").model_list, catch_all])
 
-    with patch("litellm.proxy.proxy_server.llm_router", router):
+    with patch("hangarllm.proxy.proxy_server.llm_router", router):
         await handler.async_pre_call_hook(
             user_api_key_dict=key, cache=cache, data=_two_thirds_of_a_ptu_minute(), call_type="acompletion"
         )
@@ -9166,7 +9166,7 @@ async def test_every_name_a_wildcard_route_serves_draws_on_its_shared_deployment
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(cache))
     key = UserAPIKeyAuth(api_key=hash_token("sk-ptu"), team_id="t")
 
-    with patch("litellm.proxy.proxy_server.llm_router", _shared_ptu_router("ptu-*")):
+    with patch("hangarllm.proxy.proxy_server.llm_router", _shared_ptu_router("ptu-*")):
         await handler.async_pre_call_hook(
             user_api_key_dict=key,
             cache=cache,
@@ -9192,7 +9192,7 @@ async def test_the_proxy_router_sets_no_ceiling_while_attribution_is_off(monkeyp
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(cache))
     key = UserAPIKeyAuth(api_key=hash_token("sk-ptu"), team_id="t")
 
-    with patch("litellm.proxy.proxy_server.llm_router", _shared_ptu_router("test-model")):
+    with patch("hangarllm.proxy.proxy_server.llm_router", _shared_ptu_router("test-model")):
         for _ in range(3):
             await handler.async_pre_call_hook(
                 user_api_key_dict=key, cache=cache, data=_two_thirds_of_a_ptu_minute(), call_type="acompletion"
@@ -9206,7 +9206,7 @@ def _ptu_success_kwargs() -> dict:
         "standard_logging_object": {
             "metadata": {"user_api_key_hash": hash_token("sk-ptu"), "user_api_key_team_id": "t"}
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {"model_group": "test-model", "user_api_key_metadata": {}, "user_api_key_team_metadata": {}}
         },
         "model": "test-model",
@@ -9395,7 +9395,7 @@ async def test_success_settles_the_scope_the_reservation_was_taken_on():
     ceiling["current"] = None
     stash.ptu_ceiling = None
     kwargs = _ptu_success_kwargs()
-    kwargs["litellm_params"]["metadata"]["model_group"] = "shared-ptu"
+    kwargs["hangarllm_params"]["metadata"]["model_group"] = "shared-ptu"
     ops = handler._build_success_event_pipeline_operations(
         kwargs=kwargs,
         response_obj=_ptu_response(Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150)),
@@ -9418,7 +9418,7 @@ async def _reserve_a_ptu_minute(
     await handler.async_pre_call_hook(
         user_api_key_dict=key,
         cache=cache,
-        data={**_ptu_request(), "litellm_call_id": call_id},
+        data={**_ptu_request(), "hangarllm_call_id": call_id},
         call_type="acompletion",
     )
     stash = get_request_stash()
@@ -9435,7 +9435,7 @@ async def test_a_failed_stream_settles_the_ptu_counter_in_normalized_tokens():
 
     await handler.async_log_failure_event(
         kwargs={
-            "litellm_call_id": "ptu-partial",
+            "hangarllm_call_id": "ptu-partial",
             "standard_logging_object": {
                 "metadata": {"user_api_key_hash": hash_token("sk-ptu"), "user_api_key_team_id": "t"}
             },
@@ -9455,7 +9455,7 @@ async def test_a_proxy_side_rejection_refunds_the_whole_normalized_ptu_reservati
     handler, ptu_key = await _reserve_a_ptu_minute(cache, "ptu-rejected")
 
     await handler.async_post_call_failure_hook(
-        request_data={**_ptu_request(), "litellm_call_id": "ptu-rejected"},
+        request_data={**_ptu_request(), "hangarllm_call_id": "ptu-rejected"},
         original_exception=Exception("guardrail rejected the request"),
         user_api_key_dict=UserAPIKeyAuth(api_key=hash_token("sk-ptu"), team_id="t"),
     )
@@ -9467,21 +9467,21 @@ async def _settle_a_ptu_request(handler: _PROXY_MaxParallelRequestsHandler, call
     team_metadata = {"metadata": {"user_api_key_hash": hash_token("sk-ptu"), "user_api_key_team_id": "t"}}
     if outcome == "success":
         await handler.async_log_success_event(
-            kwargs={**_ptu_success_kwargs(), "litellm_call_id": call_id},
+            kwargs={**_ptu_success_kwargs(), "hangarllm_call_id": call_id},
             response_obj=_ptu_response(Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150)),
             start_time=None,
             end_time=None,
         )
     elif outcome == "upstream_failure":
         await handler.async_log_failure_event(
-            kwargs={"litellm_call_id": call_id, "standard_logging_object": team_metadata},
+            kwargs={"hangarllm_call_id": call_id, "standard_logging_object": team_metadata},
             response_obj=None,
             start_time=None,
             end_time=None,
         )
     else:
         await handler.async_post_call_failure_hook(
-            request_data={**_ptu_request(), "litellm_call_id": call_id},
+            request_data={**_ptu_request(), "hangarllm_call_id": call_id},
             original_exception=Exception("guardrail rejected the request"),
             user_api_key_dict=UserAPIKeyAuth(api_key=hash_token("sk-ptu"), team_id="t"),
         )
@@ -9577,7 +9577,7 @@ def test_success_accounting_charges_no_ptu_counter_without_a_ceiling():
 async def test_managed_invocations_enforce_actor_and_target_rate_policies(
     monkeypatch: pytest.MonkeyPatch, self_call: bool
 ) -> None:
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
     actor: Final = AgentResponse(
         agent_id="actor", agent_name="Actor", agent_card_params={}, rpm_limit=10, tpm_limit=1000
@@ -9600,7 +9600,7 @@ async def test_managed_invocations_enforce_actor_and_target_rate_policies(
     monkeypatch.setattr(handler, "_get_agent_from_registry", lambda _: None)
     descriptors: Final = handler.create_rate_limit_descriptors(
         user_api_key_dict=auth,
-        data={"model": "a2a/target", "litellm_session_id": "session"},
+        data={"model": "a2a/target", "hangarllm_session_id": "session"},
         rpm_limit_type=None,
         tpm_limit_type=None,
         model_has_failures=False,
@@ -9619,7 +9619,7 @@ async def test_managed_invocations_enforce_actor_and_target_rate_policies(
             "model": "gpt-4o-mini",
             "messages": [{"role": "user", "content": "hello"}],
             "max_tokens": 20,
-            "litellm_session_id": "session",
+            "hangarllm_session_id": "session",
         },
         call_type="acompletion",
     )
@@ -9643,32 +9643,32 @@ async def test_a2a_url_target_owns_invocation_fee_and_request_limit(
 ) -> None:
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import invocation_target, prepare_agent_invocation
-    from litellm.proxy.agent_endpoints.identity_store import AgentIdentityStore
-    from litellm.types.agents import AgentResponse
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.agent_endpoints import agent_registry
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import invocation_target, prepare_agent_invocation
+    from hangarllm.proxy.agent_endpoints.identity_store import AgentIdentityStore
+    from hangarllm.types.agents import AgentResponse
 
     expensive: Final = AgentResponse(
         agent_id="expensive",
         agent_name="Expensive",
         agent_card_params={},
         rpm_limit=1,
-        litellm_params={"cost_per_query": 0.25},
+        hangarllm_params={"cost_per_query": 0.25},
     )
     cheap: Final = AgentResponse(
         agent_id="cheap",
         agent_name="Cheap",
         agent_card_params={},
         rpm_limit=100,
-        litellm_params={"cost_per_query": 0.01},
+        hangarllm_params={"cost_per_query": 0.01},
     )
     registry: Final = agent_registry.AgentRegistry()
     registry.register_agent(expensive)
     registry.register_agent(cheap)
     monkeypatch.setattr(agent_registry, "global_agent_registry", registry)
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(
         side_effect=lambda where, include: {"expensive": expensive, "cheap": cheap}[where["agent_id"]]
     )
     monkeypatch.setattr(proxy_server, "prisma_client", database)
@@ -9729,12 +9729,12 @@ async def test_project_itpm_reserves_a_pdf_at_the_largest_count_of_the_group_dep
 
 
 def test_project_itpm_adds_what_openai_chat_bills_on_top_of_a_pdf_files_pages_on_chat_completions_only() -> None:
-    from litellm.constants import OPENAI_CHAT_PDF_FILE_TOKENS
+    from hangarllm.constants import OPENAI_CHAT_PDF_FILE_TOKENS
     from tests.unit.proxy.spend_tracking.test_input_tokens import _one_page_pdf_message
 
     router: Final = Router(
         model_list=[
-            {"model_name": name, "litellm_params": {"model": model, "api_key": "sk-test"}}
+            {"model_name": name, "hangarllm_params": {"model": model, "api_key": "sk-test"}}
             for name, model in (("on-openai", "openai/gpt-5.6-sol"), ("on-azure", "azure/gpt-5.6-sol"))
         ]
     )
@@ -9757,7 +9757,7 @@ def _extraction_request(state: str, call_id: str) -> dict[str, object]:
         "model": "invoice-reader",
         "state": state,
         "fields": {"vendor": {"type": "text", "instructions": "Who sent the invoice"}},
-        "litellm_call_id": call_id,
+        "hangarllm_call_id": call_id,
     }
 
 
@@ -9776,7 +9776,7 @@ async def test_an_extraction_request_passes_a_tpm_limited_key_without_an_injecte
 
 @pytest.mark.asyncio
 async def test_an_extraction_request_reserves_its_state_and_no_output_budget(monkeypatch):
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("HANGARLLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     cache: Final = DualCache()
     handler: Final = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(cache))
     key: Final = UserAPIKeyAuth(api_key=hash_token("sk-extraction-estimate"), tpm_limit=1_000_000)
@@ -9802,7 +9802,7 @@ async def test_a_successful_extraction_counts_its_input_tokens_toward_the_key_tp
 
     await handler.async_log_success_event(
         kwargs={
-            "litellm_call_id": "extraction-1",
+            "hangarllm_call_id": "extraction-1",
             "standard_logging_object": {"metadata": {"user_api_key_hash": api_key}},
         },
         response_obj=ExtractionResponse.model_validate(
@@ -9843,22 +9843,22 @@ def _project_itpm_estimate(router: Router, model: str) -> int:
 def test_project_itpm_counts_a_group_mixing_in_a_non_openai_model_by_its_name_as_written_and_its_openai_models():
     router: Final = Router(
         model_list=[
-            {"model_name": "gpt-6.1-sol", "litellm_params": {"model": model, "api_key": "sk-test"}}
+            {"model_name": "gpt-6.1-sol", "hangarllm_params": {"model": model, "api_key": "sk-test"}}
             for model in ("openai/gpt-6.1-sol", "cohere/command-r-plus")
         ]
     )
     messages: Final = _MULTILINGUAL_REQUEST["messages"]
 
     assert _project_itpm_estimate(router, "gpt-6.1-sol") == max(
-        litellm.token_counter(model="my-model", messages=messages),
-        litellm.token_counter(model="openai/gpt-6.1-sol", messages=messages),
+        hangarllm.token_counter(model="my-model", messages=messages),
+        hangarllm.token_counter(model="openai/gpt-6.1-sol", messages=messages),
     )
 
 
 def test_project_itpm_counts_a_model_group_alias_as_its_target_group():
     router: Final = Router(
         model_list=[
-            {"model_name": "gpt-6.1-sol", "litellm_params": {"model": "openai/gpt-6.1-sol", "api_key": "sk-test"}}
+            {"model_name": "gpt-6.1-sol", "hangarllm_params": {"model": "openai/gpt-6.1-sol", "api_key": "sk-test"}}
         ],
         model_group_alias={"prod": "gpt-6.1-sol"},
     )
@@ -9867,13 +9867,13 @@ def test_project_itpm_counts_a_model_group_alias_as_its_target_group():
 
 
 def test_media_models_resolve_to_each_deployment_base_model():
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import _resolve_media_models
+    from hangarllm.proxy.hooks.parallel_request_limiter_v3 import _resolve_media_models
 
     router: Final = Router(
         model_list=[
             {
                 "model_name": "whisper",
-                "litellm_params": {"model": "azure/my-whisper", "api_key": "k", "api_base": "https://x.invalid"},
+                "hangarllm_params": {"model": "azure/my-whisper", "api_key": "k", "api_base": "https://x.invalid"},
                 "model_info": {"id": "w1", "base_model": "azure/whisper-1"},
             }
         ]

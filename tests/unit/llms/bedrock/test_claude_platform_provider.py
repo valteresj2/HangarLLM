@@ -8,8 +8,8 @@ import pytest
 from botocore.credentials import Credentials
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.types.router import GenericHangarLLMParams
 from tests.unit.llms.bedrock.event_loop_probe import host_in_loop_probing_vault
 
 WORKSPACE_ALIASES: Final = ("workspace_id", "aws_workspace_id", "anthropic_workspace_id", "anthropic-workspace-id")
@@ -114,7 +114,7 @@ def _async_gateway_client(
 
 
 def test_claude_platform_builds_default_messages_url_from_region():
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from hangarllm.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -126,14 +126,14 @@ def test_claude_platform_builds_default_messages_url_from_region():
             api_key=None,
             model="claude-sonnet-4-6",
             optional_params={"aws_region_name": "us-west-2"},
-            litellm_params={},
+            hangarllm_params={},
         )
         == "https://aws-external-anthropic.us-west-2.api.aws/v1/messages"
     )
 
 
 def test_claude_platform_ignores_standard_anthropic_base_url(monkeypatch):
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from hangarllm.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -148,17 +148,17 @@ def test_claude_platform_ignores_standard_anthropic_base_url(monkeypatch):
             api_key=None,
             model="claude-sonnet-4-6",
             optional_params={"aws_region_name": "us-west-2"},
-            litellm_params={},
+            hangarllm_params={},
         )
         == "https://aws-external-anthropic.us-west-2.api.aws/v1/messages"
     )
 
 
 def test_claude_platform_uses_bedrock_subroute():
-    import litellm
-    from litellm.llms.bedrock.common_utils import BedrockModelInfo
+    import hangarllm
+    from hangarllm.llms.bedrock.common_utils import BedrockModelInfo
 
-    model, provider, _, _ = litellm.get_llm_provider(model="bedrock/claude_platform/claude-sonnet-4-6")
+    model, provider, _, _ = hangarllm.get_llm_provider(model="bedrock/claude_platform/claude-sonnet-4-6")
 
     assert provider == "bedrock"
     assert model == "claude_platform/claude-sonnet-4-6"
@@ -167,8 +167,8 @@ def test_claude_platform_uses_bedrock_subroute():
 
 
 def test_claude_platform_requires_workspace_header():
-    from litellm import AuthenticationError
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from hangarllm import AuthenticationError
+    from hangarllm.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -181,14 +181,14 @@ def test_claude_platform_requires_workspace_header():
             model="claude-sonnet-4-6",
             messages=[{"role": "user", "content": "hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
     assert "workspace" in str(exc_info.value).lower()
 
 
 def test_claude_platform_api_key_auth_sets_workspace_and_key_headers():
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from hangarllm.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -199,7 +199,7 @@ def test_claude_platform_api_key_auth_sets_workspace_and_key_headers():
         model="claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"workspace_id": "wrkspc_test"},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert headers["x-api-key"] == "fake-platform-key"
@@ -208,7 +208,7 @@ def test_claude_platform_api_key_auth_sets_workspace_and_key_headers():
 
 
 def test_claude_platform_chat_sends_the_binding_beta_when_thinking_carries_block_binding():
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from hangarllm.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -221,14 +221,14 @@ def test_claude_platform_chat_sends_the_binding_beta_when_thinking_carries_block
             "workspace_id": "wrkspc_test",
             "thinking": {"type": "adaptive", "block_binding": {"prefix_mismatch_behavior": "error"}},
         },
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert "thinking-binding-controls-2026-08-01" in headers["anthropic-beta"].split(",")
 
 
 def test_claude_platform_does_not_use_standard_anthropic_api_key(monkeypatch):
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from hangarllm.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -241,14 +241,14 @@ def test_claude_platform_does_not_use_standard_anthropic_api_key(monkeypatch):
         model="claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"workspace_id": "wrkspc_test"},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert "x-api-key" not in headers
 
 
 def test_claude_platform_sigv4_signs_transformed_request_body():
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from hangarllm.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -281,7 +281,7 @@ def test_claude_platform_sigv4_signs_transformed_request_body():
 
 
 def test_claude_platform_standard_anthropic_api_key_does_not_skip_sigv4(monkeypatch):
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from hangarllm.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -313,10 +313,10 @@ def test_claude_platform_standard_anthropic_api_key_does_not_skip_sigv4(monkeypa
 
 
 def test_bedrock_claude_platform_messages_config_round_trips_native_body():
-    import litellm
-    from litellm.types.utils import LlmProviders
+    import hangarllm
+    from hangarllm.types.utils import LlmProviders
 
-    config = litellm.ProviderConfigManager.get_provider_anthropic_messages_config(
+    config = hangarllm.ProviderConfigManager.get_provider_anthropic_messages_config(
         model="claude_platform/claude-sonnet-4-6",
         provider=LlmProviders.BEDROCK,
     )
@@ -328,13 +328,13 @@ def test_bedrock_claude_platform_messages_config_round_trips_native_body():
         model="claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"max_tokens": 10},
-        litellm_params={"workspace_id": "wrkspc_test"},
+        hangarllm_params={"workspace_id": "wrkspc_test"},
     )
     request_body = config.transform_anthropic_messages_request(
         model="claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         anthropic_messages_optional_request_params={"max_tokens": 10},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers=headers,
     )
 
@@ -349,7 +349,7 @@ def test_bedrock_claude_platform_messages_config_round_trips_native_body():
 
 @pytest.mark.asyncio
 async def test_anthropic_messages_bedrock_claude_platform_forwards_anthropic_beta_verbatim():
-    import litellm
+    import hangarllm
 
     requests = []
 
@@ -359,10 +359,10 @@ async def test_anthropic_messages_bedrock_claude_platform_forwards_anthropic_bet
 
     try:
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new=mock_post,
         ):
-            await litellm.anthropic_messages(
+            await hangarllm.anthropic_messages(
                 model="bedrock/claude_platform/claude-sonnet-4-6",
                 messages=[{"role": "user", "content": "hello"}],
                 max_tokens=10,
@@ -373,7 +373,7 @@ async def test_anthropic_messages_bedrock_claude_platform_forwards_anthropic_bet
                 extra_headers={"anthropic-beta": "prompt-caching-scope-2026-01-05,mcp-client-2025-11-20"},
             )
     finally:
-        await litellm.close_litellm_async_clients()
+        await hangarllm.close_hangarllm_async_clients()
 
     assert len(requests) == 1
     assert requests[0]["headers"]["anthropic-beta"] == "mcp-client-2025-11-20,prompt-caching-scope-2026-01-05"
@@ -383,7 +383,7 @@ async def test_anthropic_messages_bedrock_claude_platform_forwards_anthropic_bet
 
 
 def test_claude_platform_strips_auth_params_from_request_body():
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from hangarllm.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -398,7 +398,7 @@ def test_claude_platform_strips_auth_params_from_request_body():
         model="claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -407,10 +407,10 @@ def test_claude_platform_strips_auth_params_from_request_body():
 
 
 def test_claude_platform_messages_strips_auth_params_from_request_body():
-    import litellm
-    from litellm.types.utils import LlmProviders
+    import hangarllm
+    from hangarllm.types.utils import LlmProviders
 
-    config = litellm.ProviderConfigManager.get_provider_anthropic_messages_config(
+    config = hangarllm.ProviderConfigManager.get_provider_anthropic_messages_config(
         model="claude_platform/claude-sonnet-4-6",
         provider=LlmProviders.BEDROCK,
     )
@@ -425,7 +425,7 @@ def test_claude_platform_messages_strips_auth_params_from_request_body():
         model="claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         anthropic_messages_optional_request_params=input_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -440,7 +440,7 @@ def test_claude_platform_messages_strips_auth_params_from_request_body():
 def test_claude_platform_strips_unsupported_context_management_param(caplog):
     import logging
 
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from hangarllm.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -451,12 +451,12 @@ def test_claude_platform_strips_unsupported_context_management_param(caplog):
         "max_tokens": 10,
     }
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         request_body = config.transform_request(
             model="claude-sonnet-4-6",
             messages=[{"role": "user", "content": "hello"}],
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -469,10 +469,10 @@ def test_claude_platform_strips_unsupported_context_management_param(caplog):
 
 
 def test_claude_platform_messages_strips_unsupported_context_management_param():
-    import litellm
-    from litellm.types.utils import LlmProviders
+    import hangarllm
+    from hangarllm.types.utils import LlmProviders
 
-    config = litellm.ProviderConfigManager.get_provider_anthropic_messages_config(
+    config = hangarllm.ProviderConfigManager.get_provider_anthropic_messages_config(
         model="claude_platform/claude-sonnet-4-6",
         provider=LlmProviders.BEDROCK,
     )
@@ -486,7 +486,7 @@ def test_claude_platform_messages_strips_unsupported_context_management_param():
         model="claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         anthropic_messages_optional_request_params=input_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -495,9 +495,9 @@ def test_claude_platform_messages_strips_unsupported_context_management_param():
     assert "context_management" in input_params
 
 
-@pytest.mark.parametrize("override_in", ["litellm_params", "optional_params"])
+@pytest.mark.parametrize("override_in", ["hangarllm_params", "optional_params"])
 def test_claude_platform_unsupported_override_allows_context_management(override_in):
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from hangarllm.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -513,7 +513,7 @@ def test_claude_platform_unsupported_override_allows_context_management(override
             "max_tokens": 10,
             **(override if override_in == "optional_params" else {}),
         },
-        litellm_params=override if override_in == "litellm_params" else {},
+        hangarllm_params=override if override_in == "hangarllm_params" else {},
         headers={},
     )
 
@@ -526,8 +526,8 @@ def test_claude_platform_unsupported_override_allows_context_management(override
 
 
 def test_claude_platform_unsupported_override_ignores_invalid_type():
-    from litellm.llms.bedrock.claude_platform import common_utils
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from hangarllm.llms.bedrock.claude_platform import common_utils
+    from hangarllm.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -540,7 +540,7 @@ def test_claude_platform_unsupported_override_ignores_invalid_type():
                 "context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]},
                 "max_tokens": 10,
             },
-            litellm_params={"claude_platform_unsupported_params": "not_a_list"},
+            hangarllm_params={"claude_platform_unsupported_params": "not_a_list"},
             headers={},
         )
 
@@ -551,10 +551,10 @@ def test_claude_platform_unsupported_override_ignores_invalid_type():
 
 
 def test_claude_platform_messages_does_not_advertise_beta_for_stripped_context_management():
-    import litellm
-    from litellm.types.utils import LlmProviders
+    import hangarllm
+    from hangarllm.types.utils import LlmProviders
 
-    config = litellm.ProviderConfigManager.get_provider_anthropic_messages_config(
+    config = hangarllm.ProviderConfigManager.get_provider_anthropic_messages_config(
         model="claude_platform/claude-sonnet-4-6",
         provider=LlmProviders.BEDROCK,
     )
@@ -569,17 +569,17 @@ def test_claude_platform_messages_does_not_advertise_beta_for_stripped_context_m
             "max_tokens": 10,
             "context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]},
         },
-        litellm_params={"workspace_id": "wrkspc_test"},
+        hangarllm_params={"workspace_id": "wrkspc_test"},
     )
 
     assert "context-management-2025-06-27" not in headers.get("anthropic-beta", "")
 
 
 def test_claude_platform_messages_override_keeps_beta_for_context_management():
-    import litellm
-    from litellm.types.utils import LlmProviders
+    import hangarllm
+    from hangarllm.types.utils import LlmProviders
 
-    config = litellm.ProviderConfigManager.get_provider_anthropic_messages_config(
+    config = hangarllm.ProviderConfigManager.get_provider_anthropic_messages_config(
         model="claude_platform/claude-sonnet-4-6",
         provider=LlmProviders.BEDROCK,
     )
@@ -594,7 +594,7 @@ def test_claude_platform_messages_override_keeps_beta_for_context_management():
             "max_tokens": 10,
             "context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]},
         },
-        litellm_params={
+        hangarllm_params={
             "workspace_id": "wrkspc_test",
             "claude_platform_unsupported_params": [],
         },
@@ -604,10 +604,10 @@ def test_claude_platform_messages_override_keeps_beta_for_context_management():
 
 
 def test_claude_platform_messages_unsupported_override_allows_context_management():
-    import litellm
-    from litellm.types.utils import LlmProviders
+    import hangarllm
+    from hangarllm.types.utils import LlmProviders
 
-    config = litellm.ProviderConfigManager.get_provider_anthropic_messages_config(
+    config = hangarllm.ProviderConfigManager.get_provider_anthropic_messages_config(
         model="claude_platform/claude-sonnet-4-6",
         provider=LlmProviders.BEDROCK,
     )
@@ -620,7 +620,7 @@ def test_claude_platform_messages_unsupported_override_allows_context_management
             "context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]},
             "max_tokens": 10,
         },
-        litellm_params=GenericLiteLLMParams.model_validate({"claude_platform_unsupported_params": []}),
+        hangarllm_params=GenericHangarLLMParams.model_validate({"claude_platform_unsupported_params": []}),
         headers={},
     )
 
@@ -662,11 +662,11 @@ def _assert_gateway_accepted(request: dict, auth_kwargs: dict) -> None:
 @pytest.mark.parametrize("auth_kwargs", [API_KEY_KWARGS, SIGV4_KWARGS], ids=["api_key", "sigv4"])
 @pytest.mark.parametrize("workspace_alias", WORKSPACE_ALIASES)
 def test_chat_completion_claude_platform_sends_exact_body_through_strict_gateway(auth_kwargs, workspace_alias):
-    import litellm
+    import hangarllm
 
     requests: list[dict] = []
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="bedrock/claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         max_tokens=10,
@@ -685,11 +685,11 @@ def test_chat_completion_claude_platform_sends_exact_body_through_strict_gateway
 @pytest.mark.parametrize("auth_kwargs", [API_KEY_KWARGS, SIGV4_KWARGS], ids=["api_key", "sigv4"])
 @pytest.mark.parametrize("workspace_alias", WORKSPACE_ALIASES)
 async def test_anthropic_messages_claude_platform_sends_exact_body_through_strict_gateway(auth_kwargs, workspace_alias):
-    import litellm
+    import hangarllm
 
     requests: list[dict] = []
 
-    response = await litellm.anthropic_messages(
+    response = await hangarllm.anthropic_messages(
         model="bedrock/claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         max_tokens=10,
@@ -708,7 +708,7 @@ async def test_anthropic_messages_claude_platform_sends_exact_body_through_stric
 async def test_anthropic_messages_claude_platform_workspace_and_region_lookups_leave_the_event_loop_free(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm
+    import hangarllm
 
     monkeypatch.setenv("ANTHROPIC_AWS_WORKSPACE_ID", "wrkspc_test")
     monkeypatch.setenv("AWS_REGION_NAME", "us-west-2")
@@ -716,7 +716,7 @@ async def test_anthropic_messages_claude_platform_workspace_and_region_lookups_l
     sigv4_without_region: Final = {key: value for key, value in SIGV4_KWARGS.items() if key != "aws_region_name"}
     requests: list[dict] = []
 
-    response = await litellm.anthropic_messages(
+    response = await hangarllm.anthropic_messages(
         model="bedrock/claude_platform/claude-sonnet-5-5",
         messages=[{"role": "user", "content": "hello"}],
         max_tokens=10,
@@ -731,11 +731,11 @@ async def test_anthropic_messages_claude_platform_workspace_and_region_lookups_l
 
 
 def test_chat_completion_claude_platform_drops_context_management_and_gateway_accepts():
-    import litellm
+    import hangarllm
 
     requests: list[dict] = []
 
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         max_tokens=10,
@@ -749,12 +749,12 @@ def test_chat_completion_claude_platform_drops_context_management_and_gateway_ac
 
 
 def test_chat_completion_claude_platform_override_kwarg_is_honoured_and_not_sent():
-    import litellm
+    import hangarllm
 
     requests: list[dict] = []
     context_management = {"edits": [{"type": "clear_tool_uses_20250919"}]}
 
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         max_tokens=10,
@@ -849,10 +849,10 @@ _BARE_STREAMED_ANSWER: Final = {"content": _RISK_ANSWER, "tool_call_deltas": 0, 
 
 
 def test_chat_completion_claude_platform_streams_a_wrapped_json_schema_answer_as_the_bare_object():
-    import litellm
+    import hangarllm
 
     chunks: Final = tuple(
-        litellm.completion(
+        hangarllm.completion(
             **_JSON_SCHEMA_STREAM_KWARGS,
             client=_sync_gateway_client([], respond=_wrapped_json_tool_stream),
         )
@@ -863,9 +863,9 @@ def test_chat_completion_claude_platform_streams_a_wrapped_json_schema_answer_as
 
 @pytest.mark.asyncio
 async def test_async_chat_completion_claude_platform_streams_a_wrapped_json_schema_answer_as_the_bare_object():
-    import litellm
+    import hangarllm
 
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         **_JSON_SCHEMA_STREAM_KWARGS,
         client=_async_gateway_client([], respond=_wrapped_json_tool_stream),
     )
@@ -888,7 +888,7 @@ def test_fake_claude_platform_gateway_rejects_leaked_internal_fields():
 
 
 def test_sigv4_no_duplicate_content_type_when_caller_sets_lowercase():
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
 
     llm = BaseAWSLLM()
     mock_credentials = Credentials("key", "secret", "token")

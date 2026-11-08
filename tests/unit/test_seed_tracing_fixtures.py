@@ -13,8 +13,8 @@ import pytest
 from prisma import Json, Prisma
 from pydantic import InstanceOf, TypeAdapter
 
-from litellm.tracing.generated.responses import TraceSQLResponse
-from litellm.tracing.types import SpendLogRecord
+from hangarllm.tracing.generated.responses import TraceSQLResponse
+from hangarllm.tracing.types import SpendLogRecord
 from scripts.seed_tracing_fixtures import (
     JSON,
     TRACE_FIXTURES,
@@ -105,8 +105,8 @@ def test_captured_spend_replay_preserves_real_cost_and_call_identity(
         assert after["request_id"] != before["request_id"]
         assert after["start_time"] == before["start_time"] + offset_ms
         assert after["end_time"] == before["end_time"] + offset_ms
-        if before["litellm_call_id"]:
-            assert after["litellm_call_id"] != before["litellm_call_id"]
+        if before["hangarllm_call_id"]:
+            assert after["hangarllm_call_id"] != before["hangarllm_call_id"]
 
 
 @pytest.mark.parametrize("call_id", (None, "gateway"))
@@ -114,11 +114,11 @@ def test_spend_fixture_loading_preserves_gateway_ids_and_defaults_legacy_rows(
     tmp_path: Path, call_id: str | None
 ) -> None:
     original: Final = dict(spend_fixtures())["deepagents_swarm"][0]
-    fields: Final = {key: value for key, value in original.items() if key != "litellm_call_id"}
-    supplied: Final = fields if call_id is None else {**fields, "litellm_call_id": call_id}
+    fields: Final = {key: value for key, value in original.items() if key != "hangarllm_call_id"}
+    supplied: Final = fields if call_id is None else {**fields, "hangarllm_call_id": call_id}
     (tmp_path / "example_spend_logs.jsonl").write_text(json.dumps(supplied) + "\n")
     loaded: Final = spend_fixtures(tmp_path)
-    assert loaded == (("example", ({**original, "litellm_call_id": call_id or ""},)),)
+    assert loaded == (("example", ({**original, "hangarllm_call_id": call_id or ""},)),)
 
 
 def test_seed_cli_rejects_nonpositive_copies() -> None:
@@ -165,9 +165,9 @@ async def test_seed_copy_uses_lens_authenticated_tenant_for_both_spend_stores(mo
 
     import httpx
 
-    from litellm.tracing.remote import RemoteTraceStore
+    from hangarllm.tracing.remote import RemoteTraceStore
 
-    monkeypatch.setenv("LITELLM_MASTER_KEY", "fixture-admin")
+    monkeypatch.setenv("HANGARLLM_MASTER_KEY", "fixture-admin")
     fixture: Final = next(item for item in spend_fixtures() if item[0] == "deepagents_swarm")
     pattern: Final = response_pattern(fixture[1])
     replay: Final = next(
@@ -191,7 +191,7 @@ async def test_seed_copy_uses_lens_authenticated_tenant_for_both_spend_stores(mo
             )
         return httpx.Response(204)
 
-    database: Final = AsyncMock(spec=Prisma, litellm_spendlogs=AsyncMock())
+    database: Final = AsyncMock(spec=Prisma, hangarllm_spendlogs=AsyncMock())
     async with httpx.AsyncClient(base_url="http://lens", transport=httpx.MockTransport(accept)) as client:
         captures: Final = await seed_copy(client, RemoteTraceStore(client), database, (replay,), (fixture,), pattern)
     upload: Final = requests.get_nowait()
@@ -207,7 +207,7 @@ async def test_seed_copy_uses_lens_authenticated_tenant_for_both_spend_stores(mo
         (row["team_id"], row["api_key"], row["user"]) == ("lens-team", "lens-key-hash", "lens-user") for row in rows
     )
     assert tuple(row["request_id"] for row in captures[0][1]) == tuple(row["request_id"] for row in rows)
-    saved: Final = database.litellm_spendlogs.create_many.call_args.kwargs["data"]
+    saved: Final = database.hangarllm_spendlogs.create_many.call_args.kwargs["data"]
     assert tuple((row["request_id"], row["spend"]) for row in saved) == tuple(
         (row["request_id"], row["spend"]) for row in rows
     )
@@ -217,10 +217,10 @@ async def test_seed_copy_uses_lens_authenticated_tenant_for_both_spend_stores(mo
 @pytest.mark.asyncio
 async def test_seed_copy_ids_come_from_lens_normalization(monkeypatch: pytest.MonkeyPatch) -> None:
 
-    from litellm.tracing.remote import RemoteTraceStore
+    from hangarllm.tracing.remote import RemoteTraceStore
     from scripts.seed_tracing_fixtures import seeded_trace_ids
 
-    monkeypatch.setenv("LITELLM_MASTER_KEY", "fixture-admin")
+    monkeypatch.setenv("HANGARLLM_MASTER_KEY", "fixture-admin")
 
     def accept(request: httpx.Request) -> httpx.Response:
         assert json.loads(request.content) == {

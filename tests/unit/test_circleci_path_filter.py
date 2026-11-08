@@ -40,9 +40,9 @@ def classify(category: str, changed: list[str]) -> str:
     return result.stdout.strip()
 
 
-DOCS = ["README.md", "docs/my_website/index.mdx", "litellm/anywhere.md"]
-CLIENT = ["ui/litellm-dashboard/src/App.tsx"]
-BACKEND = ["litellm/main.py"]
+DOCS = ["README.md", "docs/my_website/index.mdx", "hangarllm/anywhere.md"]
+CLIENT = ["ui/hangarllm-dashboard/src/App.tsx"]
+BACKEND = ["hangarllm/main.py"]
 CI = [".github/workflows/test-unit.yml"]
 
 
@@ -51,24 +51,24 @@ CI = [".github/workflows/test-unit.yml"]
     [
         ("mcp-dependencies", ["pyproject.toml"], "run"),
         ("mcp-dependencies", ["uv.lock"], "run"),
-        ("mcp-dependencies", ["litellm/mcp_client/client.py"], "run"),
+        ("mcp-dependencies", ["hangarllm/mcp_client/client.py"], "run"),
         ("mcp-dependencies", ["tests/e2e/mcp/datadog_mcp.py"], "run"),
-        ("mcp-dependencies", ["litellm-proxy-extras/pyproject.toml"], "run"),
+        ("mcp-dependencies", ["hangarllm-proxy-extras/pyproject.toml"], "run"),
         ("mcp-dependencies", ["scripts/check_mcp_sdk_install.py"], "run"),
         ("mcp-dependencies", [".github/workflows/test-mcp-dependency-resolution.yml"], "run"),
         ("mcp-dependencies", [".circleci/scripts/classify_changes.sh"], "run"),
-        ("mcp-dependencies", ["litellm/llms/openai/chat/gpt_transformation.py"], "skip"),
+        ("mcp-dependencies", ["hangarllm/llms/openai/chat/gpt_transformation.py"], "skip"),
         ("mcp-dependencies", DOCS + CLIENT, "skip"),
-        ("windows-release", ["litellm-rust/crates/inference/src/lib.rs"], "run"),
-        ("windows-release", ["litellm/rust_bridge/dispatch.py"], "run"),
+        ("windows-release", ["hangarllm-rust/crates/inference/src/lib.rs"], "run"),
+        ("windows-release", ["hangarllm/rust_bridge/dispatch.py"], "run"),
         ("windows-release", ["rust-toolchain.toml"], "run"),
         ("windows-release", ["pyproject.toml"], "run"),
         ("windows-release", ["uv.lock"], "run"),
         ("windows-release", ["tests/windows_tests/check_windows_wheel_install.py"], "run"),
         ("windows-release", [".circleci/config.yml"], "run"),
-        ("windows-release", ["litellm/main.py"], "skip"),
+        ("windows-release", ["hangarllm/main.py"], "skip"),
         ("windows-release", ["tests/unit/test_utils.py"], "skip"),
-        ("windows-release", ["ui/litellm-dashboard/src/App.tsx"], "skip"),
+        ("windows-release", ["ui/hangarllm-dashboard/src/App.tsx"], "skip"),
         ("windows-release", ["docs/my-website/docs/index.md"], "skip"),
         # docs-only: skip everything
         ("backend", DOCS, "skip"),
@@ -95,7 +95,7 @@ CI = [".github/workflows/test-unit.yml"]
         ("client", BACKEND + CLIENT, "run"),
         ("ui", BACKEND + CLIENT, "run"),
         ("cost-map-only", ["model_prices_and_context_window.json"], "run"),
-        ("cost-map-only", ["litellm/model_prices_and_context_window_backup.json"], "run"),
+        ("cost-map-only", ["hangarllm/model_prices_and_context_window_backup.json"], "run"),
         (
             "cost-map-only",
             ["model_prices_and_context_window.json", "tests/unit/proxy/test_y.py"],
@@ -103,7 +103,7 @@ CI = [".github/workflows/test-unit.yml"]
         ),
         (
             "cost-map-only",
-            ["model_prices_and_context_window.json", "litellm/utils.py"],
+            ["model_prices_and_context_window.json", "hangarllm/utils.py"],
             "skip",
         ),
         ("cost-map-only", ["tests/unit/proxy/test_y.py"], "skip"),
@@ -120,14 +120,14 @@ def test_classify_decisions(category: str, changed: list[str], expected: str) ->
 @pytest.mark.parametrize(
     ("changed", "expected"),
     (
-        ("litellm/caching/redis_cache.py", "run"),
+        ("hangarllm/caching/redis_cache.py", "run"),
         ("tests/unit/caching/test_redis_cluster_cache.py", "run"),
         ("tests/integration/sdk/test_redis_cluster_iam_auth.py", "run"),
         (".github/workflows/test-unit.yml", "run"),
         ("tests/integration/run.py", "run"),
         ("uv.lock", "run"),
         (".circleci/config.yml", "skip"),
-        ("litellm/router.py", "skip"),
+        ("hangarllm/router.py", "skip"),
         ("docs/my-website/redis.md", "skip"),
     ),
 )
@@ -136,9 +136,9 @@ def test_redis_compat_path_filter(changed: str, expected: str) -> None:
 
 
 def test_markdown_under_ui_counts_as_client_not_docs() -> None:
-    assert classify("client", ["ui/litellm-dashboard/README.md"]) == "run"
-    assert classify("backend", ["ui/litellm-dashboard/README.md"]) == "skip"
-    assert classify("ui", ["ui/litellm-dashboard/README.md"]) == "run"
+    assert classify("client", ["ui/hangarllm-dashboard/README.md"]) == "run"
+    assert classify("backend", ["ui/hangarllm-dashboard/README.md"]) == "skip"
+    assert classify("ui", ["ui/hangarllm-dashboard/README.md"]) == "run"
 
 
 def test_ci_config_changes_reach_every_category() -> None:
@@ -187,11 +187,11 @@ def _pr_repo(tmp_path: Path, feature_files: dict[str, str]) -> Path:
     _git(work, "config", "user.email", "t@t")
     _git(work, "config", "user.name", "t")
     _git(work, "remote", "add", "origin", str(remote))
-    (work / "litellm_inference.py").write_text("x\n")
+    (work / "hangarllm_inference.py").write_text("x\n")
     _git(work, "add", ".")
     _git(work, "commit", "-qm", "base")
     _git(work, "push", "-q", "origin", "main")
-    _git(work, "checkout", "-q", "-b", "litellm_feature")
+    _git(work, "checkout", "-q", "-b", "hangarllm_feature")
     for rel, content in feature_files.items():
         target = work / rel
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -229,7 +229,7 @@ def test_path_filter_halts_docs_only_pr(tmp_path: Path) -> None:
 
 
 def test_path_filter_runs_backend_pr(tmp_path: Path) -> None:
-    work = _pr_repo(tmp_path, {"litellm/new.py": "y\n"})
+    work = _pr_repo(tmp_path, {"hangarllm/new.py": "y\n"})
     result = _run_path_filter(work, tmp_path, "backend", SCRIPTS_DIR)
     assert result.returncode == 0
     assert "running job" in result.stdout

@@ -3,13 +3,13 @@ from unittest.mock import MagicMock
 import pytest
 
 
-from litellm.proxy._types import (
+from hangarllm.proxy._types import (
     KeyManagementRoutes,
     Member,
     ProxyException,
     UserAPIKeyAuth,
 )
-from litellm.proxy.management_helpers.team_member_permission_checks import (
+from hangarllm.proxy.management_helpers.team_member_permission_checks import (
     BASELINE_TEAM_MEMBER_PERMISSIONS,
     TeamMemberPermissionChecks,
 )
@@ -65,41 +65,41 @@ class TestGetPermissionsForTeamMember:
 
 class TestGetDefaultTeamParam:
     def test_returns_none_when_no_config(self, monkeypatch):
-        """Returns None when litellm.default_team_params is None."""
-        import litellm
+        """Returns None when hangarllm.default_team_params is None."""
+        import hangarllm
 
-        from litellm.proxy.management_endpoints.team_endpoints import (
+        from hangarllm.proxy.management_endpoints.team_endpoints import (
             _get_default_team_param,
         )
 
-        monkeypatch.setattr(litellm, "default_team_params", None)
+        monkeypatch.setattr(hangarllm, "default_team_params", None)
 
         assert _get_default_team_param("team_member_permissions") is None
         assert _get_default_team_param("max_budget") is None
 
     def test_returns_none_when_field_not_set(self, monkeypatch):
         """Returns None when default_team_params exists but the field is not set."""
-        import litellm
+        import hangarllm
 
-        from litellm.proxy.management_endpoints.team_endpoints import (
+        from hangarllm.proxy.management_endpoints.team_endpoints import (
             _get_default_team_param,
         )
 
-        monkeypatch.setattr(litellm, "default_team_params", {"models": ["gpt-4"]})
+        monkeypatch.setattr(hangarllm, "default_team_params", {"models": ["gpt-4"]})
 
         assert _get_default_team_param("team_member_permissions") is None
         assert _get_default_team_param("max_budget") is None
 
     def test_returns_permissions_from_dict_config(self, monkeypatch):
         """Returns permissions when default_team_params is a dict."""
-        import litellm
+        import hangarllm
 
-        from litellm.proxy.management_endpoints.team_endpoints import (
+        from hangarllm.proxy.management_endpoints.team_endpoints import (
             _get_default_team_param,
         )
 
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "default_team_params",
             {"team_member_permissions": ["/key/generate", "/key/update"]},
         )
@@ -109,14 +109,14 @@ class TestGetDefaultTeamParam:
 
     def test_returns_scalar_fields_from_dict_config(self, monkeypatch):
         """Returns scalar fields (max_budget, tpm_limit, etc.) from dict config."""
-        import litellm
+        import hangarllm
 
-        from litellm.proxy.management_endpoints.team_endpoints import (
+        from hangarllm.proxy.management_endpoints.team_endpoints import (
             _get_default_team_param,
         )
 
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "default_team_params",
             {
                 "max_budget": 100.0,
@@ -133,12 +133,12 @@ class TestGetDefaultTeamParam:
 
     def test_returns_permissions_from_pydantic_config(self, monkeypatch):
         """Returns permissions when default_team_params is a DefaultTeamSSOParams object."""
-        import litellm
+        import hangarllm
 
-        from litellm.proxy.management_endpoints.team_endpoints import (
+        from hangarllm.proxy.management_endpoints.team_endpoints import (
             _get_default_team_param,
         )
-        from litellm.types.proxy.management_endpoints.ui_sso import (
+        from hangarllm.types.proxy.management_endpoints.ui_sso import (
             DefaultTeamSSOParams,
         )
 
@@ -148,19 +148,19 @@ class TestGetDefaultTeamParam:
                 KeyManagementRoutes.KEY_DELETE,
             ]
         )
-        monkeypatch.setattr(litellm, "default_team_params", params)
+        monkeypatch.setattr(hangarllm, "default_team_params", params)
 
         result = _get_default_team_param("team_member_permissions")
         assert result == ["/key/generate", "/key/delete"]
 
     def test_returns_scalar_fields_from_pydantic_config(self, monkeypatch):
         """Returns scalar fields from DefaultTeamSSOParams object."""
-        import litellm
+        import hangarllm
 
-        from litellm.proxy.management_endpoints.team_endpoints import (
+        from hangarllm.proxy.management_endpoints.team_endpoints import (
             _get_default_team_param,
         )
-        from litellm.types.proxy.management_endpoints.ui_sso import (
+        from hangarllm.types.proxy.management_endpoints.ui_sso import (
             DefaultTeamSSOParams,
         )
 
@@ -170,7 +170,7 @@ class TestGetDefaultTeamParam:
             tpm_limit=1000,
             rpm_limit=100,
         )
-        monkeypatch.setattr(litellm, "default_team_params", params)
+        monkeypatch.setattr(hangarllm, "default_team_params", params)
 
         assert _get_default_team_param("max_budget") == 250.0
         assert _get_default_team_param("budget_duration") == "7d"
@@ -182,8 +182,8 @@ class TestCanTeamMemberExecuteKeyManagementEndpoint:
     @pytest.mark.asyncio
     async def test_raises_when_user_not_in_keys_team(self, monkeypatch):
         """Non-members should be blocked from team-scoped key management endpoints."""
-        from litellm.proxy.management_endpoints import key_management_endpoints
-        from litellm.proxy.management_helpers import (
+        from hangarllm.proxy.management_endpoints import key_management_endpoints
+        from hangarllm.proxy.management_helpers import (
             team_member_permission_checks as module,
         )
 
@@ -220,8 +220,8 @@ class TestCanTeamMemberExecuteKeyManagementEndpoint:
     @pytest.mark.asyncio
     async def test_allows_team_admin_in_keys_team(self, monkeypatch):
         """Team admins of the key's team should be allowed."""
-        from litellm.proxy.management_endpoints import key_management_endpoints
-        from litellm.proxy.management_helpers import (
+        from hangarllm.proxy.management_endpoints import key_management_endpoints
+        from hangarllm.proxy.management_helpers import (
             team_member_permission_checks as module,
         )
 
@@ -276,7 +276,7 @@ class TestEnforceMemberCanAssignAccessGroups:
     def test_no_access_group_ids_is_noop(self, monkeypatch):
         """When no access groups are requested the gate never raises, even
         for a gated member with no opt-in permission."""
-        from litellm.proxy.management_endpoints import key_management_endpoints
+        from hangarllm.proxy.management_endpoints import key_management_endpoints
 
         monkeypatch.setattr(
             key_management_endpoints,
@@ -294,10 +294,10 @@ class TestEnforceMemberCanAssignAccessGroups:
 
     def test_proxy_admin_bypasses(self, monkeypatch):
         """Proxy admins may assign access groups regardless of team opt-in."""
-        from litellm.proxy._types import LitellmUserRoles
+        from hangarllm.proxy._types import HangarllmUserRoles
 
         TeamMemberPermissionChecks.enforce_member_can_assign_access_groups(
-            user_api_key_dict=self._user(role=LitellmUserRoles.PROXY_ADMIN.value),
+            user_api_key_dict=self._user(role=HangarllmUserRoles.PROXY_ADMIN.value),
             team_table=self._team([]),
             access_group_ids=["ag-1"],
         )
@@ -321,10 +321,10 @@ class TestEnforceMemberCanAssignAccessGroups:
     def test_personal_key_proxy_admin_can_assign(self):
         """Proxy admins bypass the personal-key gate and may assign access
         groups on personal keys."""
-        from litellm.proxy._types import LitellmUserRoles
+        from hangarllm.proxy._types import HangarllmUserRoles
 
         TeamMemberPermissionChecks.enforce_member_can_assign_access_groups(
-            user_api_key_dict=self._user(role=LitellmUserRoles.PROXY_ADMIN.value),
+            user_api_key_dict=self._user(role=HangarllmUserRoles.PROXY_ADMIN.value),
             team_table=None,
             access_group_ids=["ag-private"],
         )
@@ -345,7 +345,7 @@ class TestEnforceMemberCanAssignAccessGroups:
 
     def test_team_admin_bypasses(self, monkeypatch):
         """Team admins may assign access groups even without the opt-in perm."""
-        from litellm.proxy.management_endpoints import key_management_endpoints
+        from hangarllm.proxy.management_endpoints import key_management_endpoints
 
         monkeypatch.setattr(
             key_management_endpoints,
@@ -363,7 +363,7 @@ class TestEnforceMemberCanAssignAccessGroups:
         """A non-admin member without the opt-in permission gets a 403."""
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints import key_management_endpoints
+        from hangarllm.proxy.management_endpoints import key_management_endpoints
 
         monkeypatch.setattr(
             key_management_endpoints,
@@ -382,7 +382,7 @@ class TestEnforceMemberCanAssignAccessGroups:
 
     def test_member_allowed_with_opt_in(self, monkeypatch):
         """A non-admin member is allowed once the team opts in via the perm."""
-        from litellm.proxy.management_endpoints import key_management_endpoints
+        from hangarllm.proxy.management_endpoints import key_management_endpoints
 
         monkeypatch.setattr(
             key_management_endpoints,
@@ -454,7 +454,7 @@ class TestCanTeamMemberExecuteKeyManagementEndpointServiceAccount:
     async def test_service_account_same_team_with_permission(self, monkeypatch):
         """A service account key can manage keys in its own team when the
         team grants the route via team_member_permissions."""
-        from litellm.proxy.management_helpers import (
+        from hangarllm.proxy.management_helpers import (
             team_member_permission_checks as module,
         )
 
@@ -483,7 +483,7 @@ class TestCanTeamMemberExecuteKeyManagementEndpointServiceAccount:
     async def test_service_account_same_team_without_permission(self, monkeypatch):
         """A service account key is denied when the team's
         team_member_permissions does not include the route."""
-        from litellm.proxy.management_helpers import (
+        from hangarllm.proxy.management_helpers import (
             team_member_permission_checks as module,
         )
 
@@ -514,7 +514,7 @@ class TestCanTeamMemberExecuteKeyManagementEndpointServiceAccount:
     async def test_service_account_different_team_denied(self, monkeypatch):
         """A service account key cannot manage keys in another team, even if
         that team grants the route to its members."""
-        from litellm.proxy.management_helpers import (
+        from hangarllm.proxy.management_helpers import (
             team_member_permission_checks as module,
         )
 

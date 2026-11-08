@@ -76,7 +76,7 @@ def test_short_window_blocks_then_resets(client: BudgetClient, resources: Resour
     )
     resources.defer(lambda: client.delete_key(key))
 
-    # 1. exhaust the tight window -> litellm returns budget_exceeded
+    # 1. exhaust the tight window -> hangarllm returns budget_exceeded
     start = time.monotonic()
     _drive_to_block(client, key)
 

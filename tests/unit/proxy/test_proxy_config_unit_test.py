@@ -7,18 +7,18 @@ import pytest
 
 from dotenv import load_dotenv
 
-import litellm.proxy
-import litellm.proxy.proxy_server
+import hangarllm.proxy
+import hangarllm.proxy.proxy_server
 
 load_dotenv()
 import io
 
-# this file is to test litellm/proxy
+# this file is to test hangarllm/proxy
 
 import asyncio
 import logging
 
-from litellm.proxy.proxy_server import ProxyConfig
+from hangarllm.proxy.proxy_server import ProxyConfig
 
 INVALID_FILES = ["config_with_missing_include.yaml"]
 
@@ -90,15 +90,15 @@ async def test_read_config_file_with_os_environ_vars():
     print(config)
 
     # Add assertions
-    assert config["litellm_settings"]["default_internal_user_params"]["user_role"] == "admin"
-    assert config["litellm_settings"]["s3_callback_params"]["s3_aws_access_key_id"] == "1234567890"
-    assert config["litellm_settings"]["s3_callback_params"]["s3_aws_secret_access_key"] == "1234567890"
+    assert config["hangarllm_settings"]["default_internal_user_params"]["user_role"] == "admin"
+    assert config["hangarllm_settings"]["s3_callback_params"]["s3_aws_access_key_id"] == "1234567890"
+    assert config["hangarllm_settings"]["s3_callback_params"]["s3_aws_secret_access_key"] == "1234567890"
 
     for model in config["model_list"]:
-        if "azure" in model["litellm_params"]["model"]:
-            assert model["litellm_params"]["api_key"] == "1234567890"
-        elif "fireworks" in model["litellm_params"]["model"]:
-            assert model["litellm_params"]["api_key"] == "1234567890"
+        if "azure" in model["hangarllm_params"]["model"]:
+            assert model["hangarllm_params"]["api_key"] == "1234567890"
+        elif "fireworks" in model["hangarllm_params"]["model"]:
+            assert model["hangarllm_params"]["api_key"] == "1234567890"
 
     # cleanup
     for key, value in _env_vars_for_testing.items():
@@ -124,7 +124,7 @@ async def test_basic_include_directive():
     assert any(model["model_name"] == "included-model" for model in config["model_list"])
 
     # Verify original config settings remain
-    assert config["litellm_settings"]["callbacks"] == ["prometheus"]
+    assert config["hangarllm_settings"]["callbacks"] == ["prometheus"]
 
 
 @pytest.mark.asyncio
@@ -157,25 +157,25 @@ async def test_multiple_includes():
     assert any(model["model_name"] == "included-model-2" for model in config["model_list"])
 
     # Verify original config settings remain
-    assert config["litellm_settings"]["callbacks"] == ["prometheus"]
+    assert config["hangarllm_settings"]["callbacks"] == ["prometheus"]
 
 
 def test_add_callbacks_from_db_config():
     """Test that callbacks are added correctly and duplicates are prevented"""
     # Setup
-    from litellm.integrations.langfuse.langfuse_prompt_management import (
+    from hangarllm.integrations.langfuse.langfuse_prompt_management import (
         LangfusePromptManagement,
     )
 
     proxy_config = ProxyConfig()
 
-    # Reset litellm callbacks before test
-    litellm.success_callback = []
-    litellm.failure_callback = []
+    # Reset hangarllm callbacks before test
+    hangarllm.success_callback = []
+    hangarllm.failure_callback = []
 
     # Test Case 1: Add new callbacks
     config_data = {
-        "litellm_settings": {
+        "hangarllm_settings": {
             "success_callback": ["langfuse", "custom_callback_api"],
             "failure_callback": ["langfuse"],
         }
@@ -183,25 +183,25 @@ def test_add_callbacks_from_db_config():
 
     proxy_config._add_callbacks_from_db_config(config_data)
 
-    # 1 instance of LangfusePromptManagement should exist in litellm.success_callback
+    # 1 instance of LangfusePromptManagement should exist in hangarllm.success_callback
     num_langfuse_instances = sum(
-        isinstance(callback, LangfusePromptManagement) for callback in litellm.success_callback
+        isinstance(callback, LangfusePromptManagement) for callback in hangarllm.success_callback
     )
     assert num_langfuse_instances == 1
-    assert len(litellm.success_callback) == 2
-    assert len(litellm.failure_callback) == 1
+    assert len(hangarllm.success_callback) == 2
+    assert len(hangarllm.failure_callback) == 1
 
     # Test Case 2: Try adding duplicate callbacks
     proxy_config._add_callbacks_from_db_config(config_data)
 
     # Verify no duplicates were added
-    assert len(litellm.success_callback) == 2
-    assert len(litellm.failure_callback) == 1
+    assert len(hangarllm.success_callback) == 2
+    assert len(hangarllm.failure_callback) == 1
 
     # Cleanup
-    litellm.success_callback = []
-    litellm.failure_callback = []
-    litellm._known_custom_logger_compatible_callbacks = []
+    hangarllm.success_callback = []
+    hangarllm.failure_callback = []
+    hangarllm._known_custom_logger_compatible_callbacks = []
 
 
 def test_add_callbacks_invalid_input():
@@ -209,12 +209,12 @@ def test_add_callbacks_invalid_input():
     proxy_config = ProxyConfig()
 
     # Reset callbacks
-    litellm.success_callback = []
-    litellm.failure_callback = []
+    hangarllm.success_callback = []
+    hangarllm.failure_callback = []
 
     # Test Case 1: Invalid callback format
     config_data = {
-        "litellm_settings": {
+        "hangarllm_settings": {
             "success_callback": "invalid_string_format",  # Should be a list
             "failure_callback": 123,  # Should be a list
         }
@@ -223,30 +223,30 @@ def test_add_callbacks_invalid_input():
     proxy_config._add_callbacks_from_db_config(config_data)
 
     # Verify no callbacks were added with invalid input
-    assert len(litellm.success_callback) == 0
-    assert len(litellm.failure_callback) == 0
+    assert len(hangarllm.success_callback) == 0
+    assert len(hangarllm.failure_callback) == 0
 
-    # Test Case 2: Missing litellm_settings
+    # Test Case 2: Missing hangarllm_settings
     config_data = {}
     proxy_config._add_callbacks_from_db_config(config_data)
 
     # Verify no callbacks were added
-    assert len(litellm.success_callback) == 0
-    assert len(litellm.failure_callback) == 0
+    assert len(hangarllm.success_callback) == 0
+    assert len(hangarllm.failure_callback) == 0
 
     # Cleanup
-    litellm.success_callback = []
-    litellm.failure_callback = []
+    hangarllm.success_callback = []
+    hangarllm.failure_callback = []
 
 
 @pytest.mark.asyncio
 async def test_json_logs_calls_turn_on_json():
     """
-    Test that json_logs: true in litellm_settings calls litellm.turn_on_json()
+    Test that json_logs: true in hangarllm_settings calls hangarllm.turn_on_json()
 
     This is a regression test for the bug where json_logs in config file
     would only set the attribute but not actually enable JSON logging.
-    See: https://github.com/BerriAI/litellm/issues/XXXX
+    See: https://github.com/valteresj2/HangarLLM/issues/XXXX
     """
     import tempfile
 
@@ -257,10 +257,10 @@ async def test_json_logs_calls_turn_on_json():
         "model_list": [
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "openai/gpt-4", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/gpt-4", "api_key": "test-key"},
             }
         ],
-        "litellm_settings": {"json_logs": True},
+        "hangarllm_settings": {"json_logs": True},
     }
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as temp_file:
@@ -271,7 +271,7 @@ async def test_json_logs_calls_turn_on_json():
         proxy_config = ProxyConfig()
 
         # Mock _turn_on_json to track if it gets called
-        with mock.patch("litellm.turn_on_json") as mock_turn_on_json:
+        with mock.patch("hangarllm.turn_on_json") as mock_turn_on_json:
             await proxy_config.load_config(
                 router=None,
                 config_file_path=temp_file_path,
@@ -281,12 +281,12 @@ async def test_json_logs_calls_turn_on_json():
             mock_turn_on_json.assert_called_once()
 
         # Also verify the attribute was set
-        assert litellm.json_logs is True
+        assert hangarllm.json_logs is True
 
     finally:
         # Cleanup
         os.unlink(temp_file_path)
-        litellm.json_logs = False
+        hangarllm.json_logs = False
 
 
 class TestYamlStorePromptsDbOverride:
@@ -295,12 +295,12 @@ class TestYamlStorePromptsDbOverride:
         proxy_config = ProxyConfig()
         proxy_config.settings.load_yaml({"store_prompts_in_spend_logs": False})
 
-        with mock.patch("litellm.proxy.proxy_server.general_settings", proxy_config.settings):
+        with mock.patch("hangarllm.proxy.proxy_server.general_settings", proxy_config.settings):
             await proxy_config._update_general_settings(
                 db_general_settings={"store_prompts_in_spend_logs": True},
             )
 
-            from litellm.proxy import proxy_server
+            from hangarllm.proxy import proxy_server
 
             assert proxy_server.general_settings["store_prompts_in_spend_logs"] is False
             assert proxy_server.general_settings.source("store_prompts_in_spend_logs") == "config"
@@ -310,12 +310,12 @@ class TestYamlStorePromptsDbOverride:
         proxy_config = ProxyConfig()
         proxy_config.settings.load_yaml({"master_key": "sk-test"})
 
-        with mock.patch("litellm.proxy.proxy_server.general_settings", proxy_config.settings):
+        with mock.patch("hangarllm.proxy.proxy_server.general_settings", proxy_config.settings):
             await proxy_config._update_general_settings(
                 db_general_settings={"store_prompts_in_spend_logs": True},
             )
 
-            from litellm.proxy import proxy_server
+            from hangarllm.proxy import proxy_server
 
             assert proxy_server.general_settings["store_prompts_in_spend_logs"] is True
             assert proxy_server.general_settings.source("store_prompts_in_spend_logs") == "db"
@@ -325,7 +325,7 @@ class TestYamlStorePromptsDbOverride:
         proxy_config = ProxyConfig()
         proxy_config.settings.load_yaml({"master_key": "sk-test"})
 
-        with mock.patch("litellm.proxy.proxy_server.general_settings", proxy_config.settings):
+        with mock.patch("hangarllm.proxy.proxy_server.general_settings", proxy_config.settings):
             await proxy_config._update_general_settings(
                 db_general_settings={"store_prompts_in_spend_logs": True},
             )
@@ -333,7 +333,7 @@ class TestYamlStorePromptsDbOverride:
                 db_general_settings={"store_prompts_in_spend_logs": False},
             )
 
-            from litellm.proxy import proxy_server
+            from hangarllm.proxy import proxy_server
 
             assert proxy_server.general_settings["store_prompts_in_spend_logs"] is False
             assert proxy_server.general_settings.source("store_prompts_in_spend_logs") == "db"

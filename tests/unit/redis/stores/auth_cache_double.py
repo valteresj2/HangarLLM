@@ -8,10 +8,10 @@ from dataclasses import dataclass, field
 from typing import Final, TypeVar
 from unittest.mock import MagicMock
 
-from litellm.caching.redis_cache import RedisCache
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.redis.stores.auth_cache import AuthCacheSettings, AuthCacheStore, WriteBack
-from litellm.rust_bridge._native import LocalSizes
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.redis.stores.auth_cache import AuthCacheSettings, AuthCacheStore, WriteBack
+from hangarllm.rust_bridge._native import LocalSizes
 
 T = TypeVar("T")
 

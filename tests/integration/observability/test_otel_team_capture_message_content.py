@@ -30,7 +30,7 @@ from pydantic import JsonValue, TypeAdapter
 MARKER: Final = re.compile(rb"cmc-(?:tool-|fail-)?[0-9a-f]{32}")
 JSON: Final[TypeAdapter[JsonValue]] = TypeAdapter(JsonValue)
 SERVER: Final = 2
-CALL_ID: Final = "litellm.call_id"
+CALL_ID: Final = "hangarllm.call_id"
 OPERATION: Final = "gen_ai.operation.name"
 INPUT_TOKENS: Final = "gen_ai.usage.input_tokens"
 Endpoint = Literal["chat", "responses", "messages"]
@@ -243,7 +243,7 @@ class Rig:
         headers: Final = {
             "Authorization": f"Bearer {key}",
             "traceparent": f"00-{trace_id}-{uuid.uuid4().hex[:16]}-01",
-            "x-litellm-call-id": call_id,
+            "x-hangarllm-call-id": call_id,
         }
         with self.proxy.client.stream("POST", path, json={**body, **(extra or {})}, headers=headers) as response:
             text: Final = response.read().decode()
@@ -653,8 +653,8 @@ def test_stalled_tenant_during_a_mixed_burst_keeps_serving_and_each_teams_policy
 
 def _write_config(directory: Path, sinks: SpanSinks, name: str, callbacks: tuple[str, ...]) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"] = {
-        **config.get("litellm_settings", {}),
+    config["hangarllm_settings"] = {
+        **config.get("hangarllm_settings", {}),
         "callbacks": list(callbacks),
         "otel_tenant_destination_mode": "additive",
         "provider_url_destination_allowed_hosts": [
@@ -679,7 +679,7 @@ def _started(
     callbacks: tuple[str, ...] = ("langfuse_otel",),
 ) -> Generator[Rig]:
     environment: Final = {
-        "LITELLM_OTEL_V2": "1",
+        "HANGARLLM_OTEL_V2": "1",
         "OTEL_BSP_SCHEDULE_DELAY": "300",
         "MAPPER_NAMES": "genai,openinference",
         "LANGFUSE_HOST": sinks.operator,
@@ -707,7 +707,7 @@ def _started(
             config=_write_config(directory, sinks, "capture", callbacks),
             remove_environment=(
                 "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT",
-                "LITELLM_OTEL_TENANT_DESTINATION_MODE",
+                "HANGARLLM_OTEL_TENANT_DESTINATION_MODE",
             ),
             workers=2,
         ) as owned,

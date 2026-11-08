@@ -4,7 +4,7 @@ Registers Cohere and Bedrock rerank deployments at runtime and asserts the
 endpoint returns scored results within the requested top_n. No official
 OpenAI/Anthropic SDK covers /v1/rerank, so the call rides the shared typed
 transport via ProxyClient.rerank. Migrated from
-litellm-regression-tests/tests/test_inference_endpoints.py.
+hangarllm-regression-tests/tests/test_inference_endpoints.py.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from e2e_config import unique_marker
 from e2e_http import unwrap
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody, RerankBody, RerankResponse
+from models import HangarLLMParamsBody, RerankBody, RerankResponse
 from proxy_client import ProxyClient
 
 pytestmark = pytest.mark.e2e
@@ -61,7 +61,7 @@ class TestRerank:
         model = f"e2e-rerank-{unique_marker()}"
         model_id = proxy.create_model(
             model,
-            LiteLLMParamsBody(model=COHERE_RERANK_BACKEND, api_key="os.environ/COHERE_API_KEY"),
+            HangarLLMParamsBody(model=COHERE_RERANK_BACKEND, api_key="os.environ/COHERE_API_KEY"),
         )
         resources.defer(lambda: proxy.delete_model(model_id))
         key = resources.key()
@@ -84,7 +84,7 @@ class TestRerank:
         model = f"e2e-bedrock-rerank-{unique_marker()}"
         model_id = proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=BEDROCK_RERANK_BACKEND,
                 aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
                 aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",

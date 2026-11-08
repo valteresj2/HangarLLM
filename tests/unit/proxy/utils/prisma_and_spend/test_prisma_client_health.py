@@ -22,11 +22,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.db.health_check_latest import (
+from hangarllm.proxy.db.health_check_latest import (
     LATEST_HEALTH_CHECKS_FOR_MODELS_SQL,
     LATEST_HEALTH_CHECKS_SQL,
 )
-from litellm.proxy.utils import PrismaClient
+from hangarllm.proxy.utils import PrismaClient
 
 
 @pytest.mark.asyncio
@@ -95,7 +95,7 @@ async def test_set_spend_logs_row_count_in_proxy_state_writes_to_state(
     fake_state = MagicMock()
     fake_state.set_proxy_state_variable = MagicMock()
 
-    import litellm.proxy.proxy_server as proxy_server_mod
+    import hangarllm.proxy.proxy_server as proxy_server_mod
 
     monkeypatch.setattr(proxy_server_mod, "proxy_state", fake_state, raising=False)
 
@@ -111,7 +111,7 @@ async def test_set_spend_logs_row_count_error_raises_through_backoff(
 ) -> None:
     fake_state = MagicMock()
     fake_state.set_proxy_state_variable = MagicMock(side_effect=RuntimeError("boom"))
-    import litellm.proxy.proxy_server as proxy_server_mod
+    import hangarllm.proxy.proxy_server as proxy_server_mod
 
     monkeypatch.setattr(proxy_server_mod, "proxy_state", fake_state, raising=False)
 
@@ -168,7 +168,7 @@ def test_clean_details_invalid_payload_returns_none(
     """When ``safe_dumps`` itself blows up (e.g. an internal exception), the
     error path swallows it and returns None.
     """
-    import litellm.proxy.utils as utils_mod
+    import hangarllm.proxy.utils as utils_mod
 
     def _explode(_: Any) -> str:
         raise RuntimeError("safe_dumps broken")
@@ -182,7 +182,7 @@ async def test_save_health_check_result_creates_record(
     prisma_client: PrismaClient,
 ) -> None:
     expected = MagicMock(name="HealthCheckRow")
-    prisma_client.db.litellm_healthchecktable.create = AsyncMock(return_value=expected)
+    prisma_client.db.hangarllm_healthchecktable.create = AsyncMock(return_value=expected)
     result = await prisma_client.save_health_check_result(
         model_name="gpt-4o",
         status="healthy",
@@ -193,7 +193,7 @@ async def test_save_health_check_result_creates_record(
         checked_by="probe",
         model_id="m-1",
     )
-    data = prisma_client.db.litellm_healthchecktable.create.await_args.kwargs["data"]
+    data = prisma_client.db.hangarllm_healthchecktable.create.await_args.kwargs["data"]
     pinned = {
         "returned": result,
         "model_name": data["model_name"],
@@ -220,7 +220,7 @@ async def test_save_health_check_result_creates_record(
 async def test_save_health_check_result_db_failure_returns_none(
     prisma_client: PrismaClient,
 ) -> None:
-    prisma_client.db.litellm_healthchecktable.create = AsyncMock(
+    prisma_client.db.hangarllm_healthchecktable.create = AsyncMock(
         side_effect=RuntimeError("db down")
     )
     result = await prisma_client.save_health_check_result(
@@ -234,11 +234,11 @@ async def test_get_health_check_history_filters_by_model_and_status(
     prisma_client: PrismaClient,
 ) -> None:
     rows = [MagicMock(name=f"row-{i}") for i in range(2)]
-    prisma_client.db.litellm_healthchecktable.find_many = AsyncMock(return_value=rows)
+    prisma_client.db.hangarllm_healthchecktable.find_many = AsyncMock(return_value=rows)
     result = await prisma_client.get_health_check_history(
         model_name="gpt-4o", limit=5, offset=10, status_filter="healthy"
     )
-    kwargs = prisma_client.db.litellm_healthchecktable.find_many.await_args.kwargs
+    kwargs = prisma_client.db.hangarllm_healthchecktable.find_many.await_args.kwargs
     actual = {
         "result_len": len(result),
         "where": kwargs["where"],
@@ -259,7 +259,7 @@ async def test_get_health_check_history_filters_by_model_and_status(
 async def test_get_health_check_history_db_error_returns_empty_list(
     prisma_client: PrismaClient,
 ) -> None:
-    prisma_client.db.litellm_healthchecktable.find_many = AsyncMock(
+    prisma_client.db.hangarllm_healthchecktable.find_many = AsyncMock(
         side_effect=RuntimeError("network down")
     )
     assert await prisma_client.get_health_check_history() == []

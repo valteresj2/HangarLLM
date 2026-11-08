@@ -5,7 +5,7 @@ import threading
 import weakref
 import httpx
 import json
-import litellm
+import hangarllm
 import pytest
 import redis
 import respx
@@ -18,16 +18,16 @@ from uuid import uuid4
 from typing import Final
 from unittest.mock import MagicMock
 
-from litellm.router_api import RouterSettings
+from hangarllm.router_api import RouterSettings
 from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stubs
 
 from fakeredis import TcpFakeServer
 from fastapi import HTTPException
 
-from litellm.caching.caching import DualCache
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.route_llm_request import (
+from hangarllm.caching.caching import DualCache
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.route_llm_request import (
     JSON_OBJECT_ADAPTER,
     ProxyModelNotFoundError,
     UserConfigRouters,
@@ -35,12 +35,12 @@ from litellm.proxy.route_llm_request import (
     route_request,
     user_config_routers,
 )
-from litellm.proxy.utils import ProxyLogging
-from litellm.router_strategy.adaptive_router.config import (
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.router_strategy.adaptive_router.config import (
     ADAPTIVE_ROUTER_CHOSEN_MODEL_KEY,
     ADAPTIVE_ROUTER_RESPONSE_HEADER,
 )
-from litellm.types.router import RouterErrors, RouterGeneralSettings, RouterRateLimitError
+from hangarllm.types.router import RouterErrors, RouterGeneralSettings, RouterRateLimitError
 
 
 @pytest.mark.parametrize(
@@ -77,15 +77,15 @@ async def test_route_request_dynamic_credentials(route_type, required_body_param
 
 @pytest.mark.asyncio
 async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_without_team_id():
-    import litellm
+    import hangarllm
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "internal-team-azure-east",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4o",
                     "api_key": "fake",
                     "api_base": "https://east.example.openai.azure.com",
@@ -100,7 +100,7 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
             },
             {
                 "model_name": "internal-team-azure-west",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4o",
                     "api_key": "fake",
                     "api_base": "https://west.example.openai.azure.com",
@@ -115,7 +115,7 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
             },
         ]
     )
-    admin_auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin_auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     data = {
         "model": "team-azure",
         "messages": [{"role": "user", "content": "Hello"}],
@@ -141,7 +141,7 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
         "team-azure-west",
     }
 
-    non_admin_auth = UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER)
+    non_admin_auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER)
     with pytest.raises(ProxyModelNotFoundError):
         await route_request(
             data={
@@ -154,12 +154,12 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
             user_api_key_dict=non_admin_auth,
         )
 
-    from litellm.types.router import Deployment
+    from hangarllm.types.router import Deployment
 
     router.add_deployment(
         Deployment(
             model_name="internal-team-only",
-            litellm_params={
+            hangarllm_params={
                 "model": "azure/gpt-4o",
                 "api_key": "fake",
                 "api_base": "https://internal.example.openai.azure.com",
@@ -184,7 +184,7 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
     router.add_deployment(
         Deployment(
             model_name="internal-other-team-azure",
-            litellm_params={
+            hangarllm_params={
                 "model": "azure/gpt-4o",
                 "api_key": "fake",
                 "api_base": "https://other.example.openai.azure.com",
@@ -209,13 +209,13 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
         )
         await ambiguous_call
 
-    with pytest.raises(litellm.BadRequestError, match="multiple teams"):
+    with pytest.raises(hangarllm.BadRequestError, match="multiple teams"):
         await _route_and_await()
 
     router.add_deployment(
         Deployment(
             model_name="team-azure",
-            litellm_params={
+            hangarllm_params={
                 "model": "azure/gpt-4o",
                 "api_key": "fake",
                 "api_base": "https://legacy.example.openai.azure.com",
@@ -231,7 +231,7 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
     router.add_deployment(
         Deployment(
             model_name="team-azure",
-            litellm_params={
+            hangarllm_params={
                 "model": "azure/gpt-4o",
                 "api_key": "fake",
                 "api_base": "https://other-legacy.example.openai.azure.com",
@@ -245,7 +245,7 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
         )
     )
 
-    with pytest.raises(litellm.BadRequestError, match="multiple teams"):
+    with pytest.raises(hangarllm.BadRequestError, match="multiple teams"):
         await router.async_get_healthy_deployments(
             model="team-azure",
             request_kwargs=data,
@@ -254,7 +254,7 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
     router.add_deployment(
         Deployment(
             model_name="team-azure",
-            litellm_params={
+            hangarllm_params={
                 "model": "azure/gpt-4o",
                 "api_key": "fake",
                 "api_base": "https://global.example.openai.azure.com",
@@ -389,8 +389,8 @@ async def test_route_request_no_model_required_with_router_settings_and_no_route
     """Test route types that don't require model parameter with router settings and no router"""
     from unittest.mock import patch
 
-    import litellm
-    from litellm.proxy.route_llm_request import route_request
+    import hangarllm
+    from hangarllm.proxy.route_llm_request import route_request
 
     data = {
         "model": "my-model-id",
@@ -398,7 +398,7 @@ async def test_route_request_no_model_required_with_router_settings_and_no_route
         "messages": [{"role": "user", "content": "what llm are you"}],
     }
 
-    with patch.object(litellm, "acompletion", return_value="fake_response") as mock_completion:
+    with patch.object(hangarllm, "acompletion", return_value="fake_response") as mock_completion:
         await route_request(data, None, "gpt-3.5-turbo", "acompletion")
 
         mock_completion.assert_called_once_with(**data)
@@ -447,9 +447,9 @@ async def test_route_request_with_router_settings_override():
 async def test_route_request_with_router_settings_override_no_router():
     """
     Test that router_settings_override works when no router is provided,
-    falling back to litellm module directly.
+    falling back to hangarllm module directly.
     """
-    import litellm
+    import hangarllm
 
     data = {
         "model": "gpt-3.5-turbo",
@@ -462,19 +462,19 @@ async def test_route_request_with_router_settings_override_no_router():
 
     # Use MagicMock explicitly to avoid auto-AsyncMock behavior in Python 3.12+
     mock_completion = MagicMock(return_value="success")
-    original_acompletion = litellm.acompletion
-    litellm.acompletion = mock_completion
+    original_acompletion = hangarllm.acompletion
+    hangarllm.acompletion = mock_completion
 
     try:
         response = await route_request(data, None, "gpt-3.5-turbo", "acompletion")
 
         assert response == "success"
-        # Verify litellm.acompletion was called with merged settings
+        # Verify hangarllm.acompletion was called with merged settings
         call_kwargs = mock_completion.call_args[1]
         assert "fallbacks" not in call_kwargs
         assert call_kwargs["num_retries"] == 3
     finally:
-        litellm.acompletion = original_acompletion
+        hangarllm.acompletion = original_acompletion
 
 
 @pytest.mark.asyncio
@@ -508,14 +508,14 @@ async def test_route_request_with_router_settings_override_preserves_existing():
 
 def test_gated_mock_params_cover_mock_router_testing_params():
     """``GATED_MOCK_PARAM_NAMES`` is hardcoded to avoid a cyclic import
-    against ``litellm.types.router``. This test guards against drift — if a
+    against ``hangarllm.types.router``. This test guards against drift — if a
     new ``mock_testing_*`` field is added to ``MockRouterTestingParams`` the
     gate must be updated to keep covering it. The gate is a superset: it also
     covers params consumed outside that dataclass."""
     from dataclasses import fields
 
-    from litellm.proxy.route_llm_request import GATED_MOCK_PARAM_NAMES
-    from litellm.types.router import MockRouterTestingParams
+    from hangarllm.proxy.route_llm_request import GATED_MOCK_PARAM_NAMES
+    from hangarllm.types.router import MockRouterTestingParams
 
     assert {f.name for f in fields(MockRouterTestingParams)} <= set(GATED_MOCK_PARAM_NAMES)
     assert {"mock_testing_rate_limit_error", "mock_timeout", "mock_delay"} <= set(GATED_MOCK_PARAM_NAMES)
@@ -533,7 +533,7 @@ def test_e2e_proxy_config_opts_in_to_the_mock_params_its_suite_sends():
 
     import yaml
 
-    from litellm.proxy.route_llm_request import (
+    from hangarllm.proxy.route_llm_request import (
         GATED_MOCK_PARAM_NAMES,
         MOCK_TESTING_CONFIG_KEY,
     )
@@ -572,7 +572,7 @@ def test_e2e_proxy_config_opts_in_to_the_mock_params_its_suite_sends():
 def test_mock_params_rejected_when_not_allowed(mock_param):
     """Every gated param must be rejected by name when the proxy has not
     opted in, and the error must point the caller at the config key."""
-    from litellm.proxy.route_llm_request import (
+    from hangarllm.proxy.route_llm_request import (
         MOCK_TESTING_CONFIG_KEY,
         raise_if_mock_testing_params_disallowed,
     )
@@ -602,7 +602,7 @@ def test_mock_params_rejected_when_not_allowed(mock_param):
 def test_mock_params_pass_through_when_allowed(mock_param):
     """With the opt-in set, gated params must survive untouched — a gate that
     rejects correctly but strips anyway would leave the feature unusable."""
-    from litellm.proxy.route_llm_request import raise_if_mock_testing_params_disallowed
+    from hangarllm.proxy.route_llm_request import raise_if_mock_testing_params_disallowed
 
     data = {"model": "gpt-3.5-turbo", mock_param: True}
 
@@ -614,7 +614,7 @@ def test_mock_params_pass_through_when_allowed(mock_param):
 def test_mock_param_gate_reports_every_param_present():
     """A request carrying several gated params must name all of them, so a
     caller fixing one is not surprised by the next."""
-    from litellm.proxy.route_llm_request import raise_if_mock_testing_params_disallowed
+    from hangarllm.proxy.route_llm_request import raise_if_mock_testing_params_disallowed
 
     data = {
         "model": "gpt-3.5-turbo",
@@ -632,7 +632,7 @@ def test_mock_param_gate_reports_every_param_present():
 
 def test_ordinary_request_is_not_rejected_by_the_mock_param_gate():
     """The gate must not fire on a request that carries no gated param."""
-    from litellm.proxy.route_llm_request import raise_if_mock_testing_params_disallowed
+    from hangarllm.proxy.route_llm_request import raise_if_mock_testing_params_disallowed
 
     data = {
         "model": "gpt-3.5-turbo",
@@ -647,7 +647,7 @@ def test_ordinary_request_is_not_rejected_by_the_mock_param_gate():
 async def test_route_request_rejects_mock_params_by_default(monkeypatch):
     """End-to-end through ``route_request``: with no opt-in configured the
     request is rejected before it ever reaches the router."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {}, raising=False)
 
@@ -669,9 +669,9 @@ async def test_route_request_rejects_mock_params_by_default(monkeypatch):
 async def test_route_request_forwards_mock_params_when_opted_in(monkeypatch):
     """End-to-end through ``route_request``: with the opt-in set the param
     reaches the router, which is what makes a fallback drill possible."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
-    from litellm.proxy.route_llm_request import MOCK_TESTING_CONFIG_KEY
+    from hangarllm.proxy.route_llm_request import MOCK_TESTING_CONFIG_KEY
 
     monkeypatch.setattr(
         proxy_server,
@@ -753,10 +753,10 @@ async def _invoke_realtime_route(
 
 @pytest.fixture
 def openai_realtime_credential():
-    import litellm
-    from litellm.types.utils import CredentialItem
+    import hangarllm
+    from hangarllm.types.utils import CredentialItem
 
-    litellm.credential_list = [
+    hangarllm.credential_list = [
         CredentialItem(
             credential_name="openai-realtime-cred",
             credential_info={"custom_llm_provider": "openai"},
@@ -764,7 +764,7 @@ def openai_realtime_credential():
         )
     ]
     yield
-    litellm.credential_list = []
+    hangarllm.credential_list = []
 
 
 @pytest.mark.asyncio
@@ -776,16 +776,16 @@ async def test_route_request_realtime_wildcard_model_resolves_credentials(
     must match an openai/* deployment and forward its api_key upstream.
     """
     import httpx
-    import litellm
+    import hangarllm
     from unittest.mock import AsyncMock, patch
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
                     "api_key": "wildcard-realtime-key",
                 },
@@ -793,7 +793,7 @@ async def test_route_request_realtime_wildcard_model_resolves_credentials(
         ]
     )
     with patch(
-        "litellm.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
+        "hangarllm.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
         new_callable=AsyncMock,
     ) as mock_handler:
         mock_handler.return_value = httpx.Response(200, json={"value": "ephemeral"})
@@ -814,16 +814,16 @@ async def test_route_request_realtime_team_scoped_model_resolves_credentials(
     user_api_key_team_id is present, same as /chat/completions.
     """
     import httpx
-    import litellm
+    import hangarllm
     from unittest.mock import AsyncMock, patch
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "internal-realtime",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-realtime",
                     "api_key": "team-realtime-key",
                 },
@@ -835,7 +835,7 @@ async def test_route_request_realtime_team_scoped_model_resolves_credentials(
         ]
     )
     with patch(
-        "litellm.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
+        "hangarllm.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
         new_callable=AsyncMock,
     ) as mock_handler:
         mock_handler.return_value = httpx.Response(200, json={"value": "ephemeral"})
@@ -851,33 +851,33 @@ async def test_route_request_realtime_team_scoped_model_resolves_credentials(
 
 
 @pytest.mark.asyncio
-async def test_route_request_realtime_litellm_credential_name_resolves_api_key(
+async def test_route_request_realtime_hangarllm_credential_name_resolves_api_key(
     openai_realtime_credential,
     monkeypatch,
 ):
     """
-    litellm_credential_name on a wildcard deployment must resolve to the stored
+    hangarllm_credential_name on a wildcard deployment must resolve to the stored
     api_key when routing acreate_realtime_client_secret through the router.
     """
     import httpx
-    import litellm
+    import hangarllm
     from unittest.mock import AsyncMock, patch
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
-                    "litellm_credential_name": "openai-realtime-cred",
+                    "hangarllm_credential_name": "openai-realtime-cred",
                 },
             }
         ]
     )
     with patch(
-        "litellm.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
+        "hangarllm.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
         new_callable=AsyncMock,
     ) as mock_handler:
         mock_handler.return_value = httpx.Response(200, json={"value": "ephemeral"})
@@ -891,26 +891,26 @@ async def test_route_request_realtime_unresolvable_model_raises_not_found(
     monkeypatch,
 ):
     """
-    An unknown model must not silently fall through to litellm with an empty
+    An unknown model must not silently fall through to hangarllm with an empty
     OPENAI_API_KEY env var.
     """
-    import litellm
+    import hangarllm
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.route_llm_request import ProxyModelNotFoundError
+    from hangarllm.proxy.route_llm_request import ProxyModelNotFoundError
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "other-model",
-                "litellm_params": {"model": "openai/gpt-4", "api_key": "other-key"},
+                "hangarllm_params": {"model": "openai/gpt-4", "api_key": "other-key"},
             }
         ]
     )
     with patch(
-        "litellm.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
+        "hangarllm.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
         new_callable=AsyncMock,
     ) as mock_handler:
         with pytest.raises(ProxyModelNotFoundError):
@@ -927,17 +927,17 @@ async def test_route_request_realtime_calls_resolves_api_base(monkeypatch):
     defaulting to https://api.openai.com.
     """
     import httpx
-    import litellm
+    import hangarllm
     from unittest.mock import AsyncMock, patch
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "my-realtime",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-realtime",
                     "api_key": "calls-key",
                     "api_base": "https://custom-realtime.example.com/v1",
@@ -946,7 +946,7 @@ async def test_route_request_realtime_calls_resolves_api_base(monkeypatch):
         ]
     )
     with patch(
-        "litellm.realtime_api.main.base_llm_http_handler.async_realtime_calls_handler",
+        "hangarllm.realtime_api.main.base_llm_http_handler.async_realtime_calls_handler",
         new_callable=AsyncMock,
     ) as mock_handler:
         mock_handler.return_value = httpx.Response(200, content=b"v=0\r\n")
@@ -970,16 +970,16 @@ async def test_route_request_realtime_transcription_session_resolves_credentials
     (wildcard deployment) rather than falling back to an empty OPENAI_API_KEY.
     """
     import httpx
-    import litellm
+    import hangarllm
     from unittest.mock import AsyncMock, patch
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
                     "api_key": "transcription-key",
                 },
@@ -987,7 +987,7 @@ async def test_route_request_realtime_transcription_session_resolves_credentials
         ]
     )
     with patch(
-        "litellm.realtime_api.main.base_llm_http_handler.async_realtime_transcription_session_handler",
+        "hangarllm.realtime_api.main.base_llm_http_handler.async_realtime_transcription_session_handler",
         new_callable=AsyncMock,
     ) as mock_handler:
         mock_handler.return_value = httpx.Response(200, json={"client_secret": {"value": "ephemeral"}})
@@ -1086,12 +1086,12 @@ def _chat_completion_response(model: str) -> httpx.Response:
     )
 
 
-def _proxy_router_with_two_model_groups() -> litellm.Router:
-    return litellm.Router(
+def _proxy_router_with_two_model_groups() -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"openai/{model}",
                     "api_key": "sk-proxy",
                     "api_base": _PROXY_DEPLOYMENT_BASE,
@@ -1118,7 +1118,7 @@ def _proxy_router_with_two_model_groups() -> litellm.Router:
                     "model_list": [
                         {
                             "model_name": "gpt-3.5-turbo",
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": "openai/gpt-3.5-turbo",
                                 "api_key": "sk-user-config",
                                 "api_base": "https://user-config.example/v1",
@@ -1136,7 +1136,7 @@ def _proxy_router_with_two_model_groups() -> litellm.Router:
 async def test_route_request_never_forwards_router_settings_override(
     monkeypatch: pytest.MonkeyPatch, extra_body: dict[str, object], upstream_base: str
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     data: Final = {
         "model": "gpt-3.5-turbo",
         "messages": list(_HELLO_MESSAGES),
@@ -1159,7 +1159,7 @@ async def test_route_request_never_forwards_router_settings_override(
     primary_response: Final = response[0] if isinstance(response, list) else response
     sent_bodies: Final = [json.loads(call.request.content) for call in primary.calls]
     assert not [body for body in sent_bodies if "router_settings_override" in body], sent_bodies
-    assert primary_response._hidden_params["additional_headers"]["x-litellm-max-retries"] == 2, (
+    assert primary_response._hidden_params["additional_headers"]["x-hangarllm-max-retries"] == 2, (
         primary_response._hidden_params
     )
 
@@ -1169,7 +1169,7 @@ async def test_route_request_never_forwards_router_settings_override(
 async def test_route_request_treats_null_router_settings_override_as_absent(
     monkeypatch: pytest.MonkeyPatch, extra_body: dict[str, str]
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     data: Final = {
         "model": "gpt-3.5-turbo",
         "messages": list(_HELLO_MESSAGES),
@@ -1199,10 +1199,10 @@ async def test_route_request_treats_null_router_settings_override_as_absent(
 async def test_route_request_rejects_non_object_router_settings_override(
     monkeypatch: pytest.MonkeyPatch, global_drop_params: bool, extra_body: dict[str, bool | str], override: object
 ) -> None:
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "drop_params", global_drop_params)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "drop_params", global_drop_params)
     data: Final = {
         "model": "gpt-3.5-turbo",
         "messages": list(_HELLO_MESSAGES),
@@ -1236,8 +1236,8 @@ async def test_route_request_rejects_non_object_router_settings_override(
 async def test_route_request_drops_non_object_router_settings_override_under_drop_params(
     monkeypatch: pytest.MonkeyPatch, global_drop_params: bool, extra_body: dict[str, bool | str], override: object
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "drop_params", global_drop_params)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "drop_params", global_drop_params)
     data: Final = {
         "model": "gpt-3.5-turbo",
         "messages": list(_HELLO_MESSAGES),
@@ -1267,7 +1267,7 @@ async def test_route_request_drops_non_object_router_settings_override_under_dro
 async def test_route_request_user_config_router_settings_beat_key_settings(
     monkeypatch: pytest.MonkeyPatch, user_config_settings: dict[str, int], expected_upstream_calls: int
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     user_config_base: Final = "https://user-config.example/v1"
     data: Final = {
         "model": "gpt-3.5-turbo",
@@ -1278,7 +1278,7 @@ async def test_route_request_user_config_router_settings_beat_key_settings(
             "model_list": [
                 {
                     "model_name": "gpt-3.5-turbo",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-3.5-turbo",
                         "api_key": "sk-user-config",
                         "api_base": user_config_base,
@@ -1295,7 +1295,7 @@ async def test_route_request_user_config_router_settings_beat_key_settings(
                 _chat_completion_response("gpt-3.5-turbo"),
             ]
         )
-        with contextlib.suppress(litellm.InternalServerError):
+        with contextlib.suppress(hangarllm.InternalServerError):
             await (await route_request(data, _proxy_router_with_two_model_groups(), None, "acompletion"))
 
     assert upstream.call_count == expected_upstream_calls
@@ -1312,18 +1312,18 @@ async def test_route_request_user_config_router_settings_beat_key_settings(
 async def test_route_request_refuses_blocked_model_whether_or_not_key_has_router_settings(
     extra_body: dict[str, dict[str, int]],
 ) -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "sk-proxy"},
+                "hangarllm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "sk-proxy"},
                 "model_info": {"blocked": True},
             }
         ],
     )
     data: Final = {"model": "gpt-3.5-turbo", "messages": list(_HELLO_MESSAGES), **extra_body}
 
-    with pytest.raises(litellm.PermissionDeniedError):
+    with pytest.raises(hangarllm.PermissionDeniedError):
         await route_request(data, router, None, "acompletion")
 
 
@@ -1374,7 +1374,7 @@ async def test_route_request_applies_override_fallbacks_when_request_carries_cre
     fallback_field: str,
     upstream_error: httpx.Response,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     data: Final = {
         "model": "gpt-3.5-turbo",
         "messages": list(_HELLO_MESSAGES),
@@ -1408,15 +1408,15 @@ async def test_route_request_applies_override_fallbacks_when_request_carries_cre
 async def test_route_request_keeps_router_only_override_settings_out_of_pass_through_provider_body(
     monkeypatch: pytest.MonkeyPatch, router_only_setting: dict[str, object]
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-pass-through")
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "openai/gpt-4", "api_key": "sk-proxy", "api_base": _PROXY_DEPLOYMENT_BASE},
+                "hangarllm_params": {"model": "openai/gpt-4", "api_key": "sk-proxy", "api_base": _PROXY_DEPLOYMENT_BASE},
             }
         ],
         router_general_settings=RouterGeneralSettings(pass_through_all_models=True),
@@ -1440,15 +1440,15 @@ async def test_route_request_keeps_router_only_override_settings_out_of_pass_thr
 async def test_route_request_keeps_key_fallbacks_out_of_pass_through_provider_body(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-pass-through")
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "openai/gpt-4", "api_key": "sk-proxy", "api_base": _PROXY_DEPLOYMENT_BASE},
+                "hangarllm_params": {"model": "openai/gpt-4", "api_key": "sk-proxy", "api_base": _PROXY_DEPLOYMENT_BASE},
             }
         ],
         router_general_settings=RouterGeneralSettings(pass_through_all_models=True),
@@ -1463,7 +1463,7 @@ async def test_route_request_keeps_key_fallbacks_out_of_pass_through_provider_bo
         upstream: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
             return_value=httpx.Response(500, json={"error": {"message": "upstream down"}})
         )
-        with pytest.raises(litellm.InternalServerError):
+        with pytest.raises(hangarllm.InternalServerError):
             await (await route_request(data, router, None, "acompletion"))
 
     provider_bodies: Final = tuple(JSON_OBJECT_ADAPTER.validate_json(call.request.content) for call in upstream.calls)
@@ -1504,7 +1504,7 @@ async def test_route_request_keeps_key_fallbacks_out_of_pass_through_provider_bo
     ],
 )
 def test_raise_if_required_body_param_missing_rejects_missing_param(route_type, param, route):
-    from litellm.proxy.route_llm_request import (
+    from hangarllm.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
@@ -1531,13 +1531,13 @@ def test_raise_if_required_body_param_missing_rejects_missing_param(route_type, 
     ],
 )
 def test_create_interaction_accepts_input_or_a_continuation_token(data: dict[str, object]) -> None:
-    from litellm.proxy.route_llm_request import raise_if_required_body_param_missing
+    from hangarllm.proxy.route_llm_request import raise_if_required_body_param_missing
 
     assert raise_if_required_body_param_missing(route_type="acreate_interaction", data=data, llm_router=None) is None
 
 
 def test_create_interaction_without_input_or_continuation_token_names_input() -> None:
-    from litellm.proxy.route_llm_request import (
+    from hangarllm.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
@@ -1563,7 +1563,7 @@ def test_create_interaction_without_input_or_continuation_token_names_input() ->
     ],
 )
 def test_raise_if_required_body_param_missing_names_first_missing_batch_param(data, param):
-    from litellm.proxy.route_llm_request import (
+    from hangarllm.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
@@ -1575,7 +1575,7 @@ def test_raise_if_required_body_param_missing_names_first_missing_batch_param(da
 
 
 def test_raise_if_required_body_param_missing_rejects_null_for_merge_base_route() -> None:
-    from litellm.proxy.route_llm_request import (
+    from hangarllm.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
@@ -1606,20 +1606,20 @@ def test_raise_if_required_body_param_missing_rejects_null_for_merge_base_route(
     ),
 )
 def test_required_present_body_param_accepts_explicit_null(route_type: str, data: dict[str, object]) -> None:
-    from litellm.proxy.route_llm_request import raise_if_required_body_param_missing
+    from hangarllm.proxy.route_llm_request import raise_if_required_body_param_missing
 
     raise_if_required_body_param_missing(route_type=route_type, data=data, llm_router=None)
 
 
 def test_required_present_body_param_uses_router_deployment_default() -> None:
-    import litellm
-    from litellm.proxy.route_llm_request import raise_if_required_body_param_missing
+    import hangarllm
+    from hangarllm.proxy.route_llm_request import raise_if_required_body_param_missing
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "claude-default",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "test-key",
                     "max_tokens": 32,
@@ -1636,17 +1636,17 @@ def test_required_present_body_param_uses_router_deployment_default() -> None:
 
 
 def test_required_present_body_param_without_router_default_still_raises() -> None:
-    import litellm
-    from litellm.proxy.route_llm_request import (
+    import hangarllm
+    from hangarllm.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "claude-without-default",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "test-key",
                 },
@@ -1674,20 +1674,20 @@ def test_required_present_body_param_without_router_default_still_raises() -> No
 def test_required_present_body_param_uses_router_wide_default(
     route_type: str, data: dict[str, object], param: str, default: object
 ) -> None:
-    import litellm
-    from litellm.proxy.route_llm_request import raise_if_required_body_param_missing
+    import hangarllm
+    from hangarllm.proxy.route_llm_request import raise_if_required_body_param_missing
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": str(data["model"]),
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "test-key",
                 },
             }
         ],
-        default_litellm_params={param: default},
+        default_hangarllm_params={param: default},
     )
 
     raise_if_required_body_param_missing(route_type=route_type, data=data, llm_router=router)
@@ -1703,23 +1703,23 @@ def test_required_present_body_param_uses_router_wide_default(
 def test_required_present_body_param_with_none_router_wide_default_still_raises(
     route_type: str, data: dict[str, object], param: str
 ) -> None:
-    import litellm
-    from litellm.proxy.route_llm_request import (
+    import hangarllm
+    from hangarllm.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": str(data["model"]),
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "test-key",
                 },
             }
         ],
-        default_litellm_params={param: None},
+        default_hangarllm_params={param: None},
     )
 
     with pytest.raises(ProxyMissingRequiredParamError) as exc_info:
@@ -1741,23 +1741,23 @@ def test_required_present_body_param_with_none_router_wide_default_still_raises(
 def test_required_present_body_param_ignores_router_wide_default_when_dispatch_skips_router(
     route_type: str, data: dict[str, object], param: str
 ) -> None:
-    import litellm
-    from litellm.proxy.route_llm_request import (
+    import hangarllm
+    from hangarllm.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": str(data.get("model") or "any-model"),
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "test-key",
                 },
             }
         ],
-        default_litellm_params={param: "supplied-by-router-default"},
+        default_hangarllm_params={param: "supplied-by-router-default"},
     )
 
     with pytest.raises(ProxyMissingRequiredParamError) as exc_info:
@@ -1767,37 +1767,37 @@ def test_required_present_body_param_ignores_router_wide_default_when_dispatch_s
 
 
 def test_required_present_body_param_uses_user_config_router_defaults() -> None:
-    from litellm.proxy.route_llm_request import raise_if_required_body_param_missing
+    from hangarllm.proxy.route_llm_request import raise_if_required_body_param_missing
 
     raise_if_required_body_param_missing(
         route_type="anthropic_messages",
         data={
             "model": "claude-user-config",
             "messages": [],
-            "user_config": {"default_litellm_params": {"max_tokens": 16}},
+            "user_config": {"default_hangarllm_params": {"max_tokens": 16}},
         },
         llm_router=None,
     )
 
 
 def test_required_present_body_param_ignores_global_router_defaults_for_user_config_requests() -> None:
-    import litellm
-    from litellm.proxy.route_llm_request import (
+    import hangarllm
+    from hangarllm.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "claude-user-config",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "test-key",
                 },
             }
         ],
-        default_litellm_params={"max_tokens": 16},
+        default_hangarllm_params={"max_tokens": 16},
     )
 
     with pytest.raises(ProxyMissingRequiredParamError) as exc_info:
@@ -1817,14 +1817,14 @@ def test_required_present_body_param_ignores_global_router_defaults_for_user_con
         pytest.param(
             SimpleNamespace(
                 registry=lambda: SimpleNamespace(deployments=lambda *_args, **_kwargs: ()),
-                settings=lambda: RouterSettings(_unset=frozenset({"default_litellm_params"})),
+                settings=lambda: RouterSettings(_unset=frozenset({"default_hangarllm_params"})),
             ),
             id="router-without-defaults-attr",
         ),
     ],
 )
 def test_required_present_body_param_ignores_non_mapping_router_defaults(llm_router: object) -> None:
-    from litellm.proxy.route_llm_request import (
+    from hangarllm.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
@@ -1853,7 +1853,7 @@ def test_required_present_body_param_ignores_non_mapping_router_defaults(llm_rou
     ],
 )
 def test_raise_if_required_body_param_missing_names_each_missing_param(route_type, data, param):
-    from litellm.proxy.route_llm_request import (
+    from hangarllm.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
@@ -1888,7 +1888,7 @@ def test_raise_if_required_body_param_missing_names_each_missing_param(route_typ
         ("aimage_generation", {"model": "gpt-image-1", "prompt": "a cat"}),
         ("aspeech", {"model": "gpt-4o-mini-tts", "input": "hi", "voice": "alloy"}),
         ("amoderation", {"model": "omni-moderation-latest", "input": ""}),
-        ("asearch", {"model": "perplexity-search", "query": "litellm"}),
+        ("asearch", {"model": "perplexity-search", "query": "hangarllm"}),
         (
             "acreate_batch",
             {"input_file_id": "file-abc", "endpoint": "/v1/chat/completions", "completion_window": "24h"},
@@ -1896,7 +1896,7 @@ def test_raise_if_required_body_param_missing_names_each_missing_param(route_typ
     ],
 )
 def test_raise_if_required_body_param_missing_allows_valid_requests(route_type, data):
-    from litellm.proxy.route_llm_request import raise_if_required_body_param_missing
+    from hangarllm.proxy.route_llm_request import raise_if_required_body_param_missing
 
     raise_if_required_body_param_missing(route_type=route_type, data=data, llm_router=None)
 
@@ -1905,7 +1905,7 @@ def test_raise_if_required_body_param_missing_allows_valid_requests(route_type, 
 async def test_route_request_rejects_chat_completion_without_messages():
     """A /chat/completions body without `messages` used to splat into
     Router.acompletion() and surface the resulting TypeError as a 500."""
-    from litellm.proxy.route_llm_request import ProxyMissingRequiredParamError
+    from hangarllm.proxy.route_llm_request import ProxyMissingRequiredParamError
 
     llm_router = route_entry_points_to_stubs(MagicMock())
 
@@ -1919,7 +1919,7 @@ async def test_route_request_rejects_chat_completion_without_messages():
 
 @pytest.mark.asyncio
 async def test_route_request_rejects_responses_without_input():
-    from litellm.proxy.route_llm_request import ProxyMissingRequiredParamError
+    from hangarllm.proxy.route_llm_request import ProxyMissingRequiredParamError
 
     llm_router = route_entry_points_to_stubs(MagicMock())
 
@@ -1945,7 +1945,7 @@ def _fake_prisma_client_with_models(rows):
     from types import SimpleNamespace
 
     table = FakeProxyModelTable(rows)
-    return SimpleNamespace(db=SimpleNamespace(litellm_proxymodeltable=table)), table
+    return SimpleNamespace(db=SimpleNamespace(hangarllm_proxymodeltable=table)), table
 
 
 def _db_model_row(model_name: str, mock_response: str):
@@ -1954,7 +1954,7 @@ def _db_model_row(model_name: str, mock_response: str):
     return SimpleNamespace(
         model_id=f"{model_name}-id",
         model_name=model_name,
-        litellm_params={"model": "openai/gpt-4o", "api_key": "fake", "mock_response": mock_response},
+        hangarllm_params={"model": "openai/gpt-4o", "api_key": "fake", "mock_response": mock_response},
         model_info={},
         blocked=False,
     )
@@ -1964,15 +1964,15 @@ def _db_model_row(model_name: str, mock_response: str):
 async def test_route_request_read_through_recovers_model_created_on_sibling_replica(monkeypatch):
     """Regression: a model written to the DB by another replica must be served on
     first request instead of 400ing until the periodic config reload."""
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
 
     model_name = "e2e-sibling-replica-model"
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "some-other-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
             }
         ]
     )
@@ -1998,7 +1998,7 @@ def _tagged_db_model_row(model_name: str, tag: str, order: int) -> SimpleNamespa
     return SimpleNamespace(
         model_id=f"{model_name}-{tag}-id",
         model_name=model_name,
-        litellm_params={
+        hangarllm_params={
             "model": "openai/gpt-4o",
             "api_key": "fake",
             "mock_response": f"{tag}-deployment",
@@ -2012,11 +2012,11 @@ def _tagged_db_model_row(model_name: str, tag: str, order: int) -> SimpleNamespa
 
 @pytest.mark.asyncio
 async def test_route_request_read_through_retry_keeps_key_tag_filtering(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     model_name: Final = "sibling-replica-model-for-key-with-tag-filtering"
-    router: Final = litellm.Router(
-        model_list=[{"model_name": "some-other-model", "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"}}]
+    router: Final = hangarllm.Router(
+        model_list=[{"model_name": "some-other-model", "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake"}}]
     )
     fake_prisma, _ = _fake_prisma_client_with_models(
         [_tagged_db_model_row(model_name, "free", order=1), _tagged_db_model_row(model_name, "paid", order=2)]
@@ -2044,15 +2044,15 @@ async def test_route_request_read_through_retry_keeps_key_tag_filtering(monkeypa
 
 @pytest.mark.asyncio
 async def test_route_request_unknown_model_raises_and_hits_db_once_within_ttl(monkeypatch):
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
 
     model_name = "e2e-model-nobody-created"
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "some-other-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
             }
         ]
     )
@@ -2072,15 +2072,15 @@ async def test_route_request_unknown_model_raises_and_hits_db_once_within_ttl(mo
 
 @pytest.mark.asyncio
 async def test_route_request_read_through_disabled_without_store_model_in_db(monkeypatch):
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
 
     model_name = "e2e-config-only-proxy-model"
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "some-other-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
             }
         ]
     )
@@ -2102,19 +2102,19 @@ async def test_route_request_read_through_disabled_without_store_model_in_db(mon
 
 @pytest.mark.asyncio
 async def test_route_request_read_through_supplies_db_model_default_for_missing_param(monkeypatch):
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, patch
 
     model_name = "e2e-db-only-max-tokens-default"
-    router = litellm.Router(
-        model_list=[{"model_name": "some-other-model", "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"}}]
+    router = hangarllm.Router(
+        model_list=[{"model_name": "some-other-model", "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake"}}]
     )
     db_row = SimpleNamespace(
         model_id=f"{model_name}-id",
         model_name=model_name,
-        litellm_params={"model": "anthropic/claude-sonnet-4-5", "api_key": "fake", "max_tokens": 64},
+        hangarllm_params={"model": "anthropic/claude-sonnet-4-5", "api_key": "fake", "max_tokens": 64},
         model_info={},
         blocked=False,
     )
@@ -2134,13 +2134,13 @@ async def test_route_request_read_through_supplies_db_model_default_for_missing_
 
 @pytest.mark.asyncio
 async def test_route_request_missing_param_for_unknown_model_still_400s_after_read_through(monkeypatch):
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.route_llm_request import ProxyMissingRequiredParamError
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.route_llm_request import ProxyMissingRequiredParamError
 
     model_name = "e2e-unknown-model-missing-max-tokens"
-    router = litellm.Router(
-        model_list=[{"model_name": "some-other-model", "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"}}]
+    router = hangarllm.Router(
+        model_list=[{"model_name": "some-other-model", "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake"}}]
     )
     fake_prisma, table = _fake_prisma_client_with_models([])
     monkeypatch.setattr(proxy_server, "prisma_client", fake_prisma)
@@ -2163,12 +2163,12 @@ async def test_route_request_missing_param_for_unknown_model_still_400s_after_re
 async def test_route_request_routing_group_name_passes_model_gate():
     from unittest.mock import AsyncMock, patch
 
-    from litellm import Router
+    from hangarllm import Router
 
     router = Router(
         model_list=[
-            {"model_name": "member-a", "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"}},
-            {"model_name": "member-b", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}},
+            {"model_name": "member-a", "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"}},
+            {"model_name": "member-b", "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}},
         ],
         routing_groups=[
             {"group_name": "grouped-quality", "models": ["member-a", "member-b"], "routing_strategy": "simple-shuffle"}
@@ -2188,21 +2188,21 @@ async def test_route_request_a2a_agent_miss_does_not_consume_model_read_through(
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
 
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
 
     model_name = "a2a/agent-nobody-created"
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "some-other-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
             }
         ]
     )
     fake_prisma, model_table = _fake_prisma_client_with_models([])
     agents_find_unique = AsyncMock(return_value=None)
-    fake_prisma.db.litellm_agentstable = SimpleNamespace(find_unique=agents_find_unique)
+    fake_prisma.db.hangarllm_agentstable = SimpleNamespace(find_unique=agents_find_unique)
     monkeypatch.setattr(proxy_server, "prisma_client", fake_prisma)
     monkeypatch.setattr(proxy_server, "store_model_in_db", True)
     monkeypatch.setattr(proxy_server, "llm_router", router)
@@ -2231,12 +2231,12 @@ def test_proxy_model_not_found_error_keeps_the_raw_model_only_in_the_client_resp
 
 @pytest.mark.asyncio
 async def test_route_request_without_model_on_model_routed_endpoint_is_a_400():
-    import litellm
-    from litellm.proxy.route_llm_request import ProxyMissingRequiredParamError
+    import hangarllm
+    from hangarllm.proxy.route_llm_request import ProxyMissingRequiredParamError
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "rerank-model", "litellm_params": {"model": "cohere/rerank-v3.5", "api_key": "fake"}}
+            {"model_name": "rerank-model", "hangarllm_params": {"model": "cohere/rerank-v3.5", "api_key": "fake"}}
         ]
     )
 
@@ -2283,18 +2283,18 @@ async def test_route_request_router_settings_override_skips_null_fields():
     assert "model_group_retry_policy" not in call_kwargs
 
 
-def _router_with_defaults(default_litellm_params: dict[str, object]):
-    import litellm
+def _router_with_defaults(default_hangarllm_params: dict[str, object]):
+    import hangarllm
 
-    return litellm.Router(
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "served",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
                 "model_info": {"id": "served-deployment"},
             }
         ],
-        default_litellm_params=default_litellm_params,
+        default_hangarllm_params=default_hangarllm_params,
     )
 
 
@@ -2308,7 +2308,7 @@ def _router_with_defaults(default_litellm_params: dict[str, object]):
     ],
 )
 def test_router_default_for_positional_param_still_raises(route_type: str, param: str) -> None:
-    from litellm.proxy.route_llm_request import (
+    from hangarllm.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
@@ -2331,7 +2331,7 @@ def test_router_default_for_positional_param_still_raises(route_type: str, param
     ],
 )
 def test_user_config_default_for_positional_param_still_raises(route_type: str, param: str) -> None:
-    from litellm.proxy.route_llm_request import (
+    from hangarllm.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
@@ -2339,7 +2339,7 @@ def test_user_config_default_for_positional_param_still_raises(route_type: str, 
     with pytest.raises(ProxyMissingRequiredParamError) as exc_info:
         raise_if_required_body_param_missing(
             route_type=route_type,
-            data={"model": "img", "user_config": {"model_list": [], "default_litellm_params": {param: "x"}}},
+            data={"model": "img", "user_config": {"model_list": [], "default_hangarllm_params": {param: "x"}}},
             llm_router=None,
         )
 
@@ -2347,17 +2347,17 @@ def test_user_config_default_for_positional_param_still_raises(route_type: str, 
 
 
 def test_deployment_param_for_positional_param_still_raises() -> None:
-    import litellm
-    from litellm.proxy.route_llm_request import (
+    import hangarllm
+    from hangarllm.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "img",
-                "litellm_params": {"model": "openai/gpt-image-1", "api_key": "test-key", "prompt": "a cat"},
+                "hangarllm_params": {"model": "openai/gpt-image-1", "api_key": "test-key", "prompt": "a cat"},
             }
         ]
     )
@@ -2377,7 +2377,7 @@ def test_deployment_param_for_positional_param_still_raises() -> None:
     ],
 )
 def test_router_default_ignored_for_moderation_model_the_router_does_not_list(model: str) -> None:
-    from litellm.proxy.route_llm_request import (
+    from hangarllm.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
@@ -2418,7 +2418,7 @@ def _registered_bedrock_kb_search(team_id: str) -> dict[str, object]:
     return {
         "model": None,
         "vector_store_id": "KB12345678",
-        "query": "litellm proxy",
+        "query": "hangarllm proxy",
         "custom_llm_provider": "bedrock",
         "aws_region_name": "us-east-1",
         "aws_access_key_id": "AKIAREGISTRYKEY00000",
@@ -2427,19 +2427,19 @@ def _registered_bedrock_kb_search(team_id: str) -> dict[str, object]:
     }
 
 
-def _team_a_router(*team_models: tuple[str, dict[str, object]]) -> litellm.Router:
-    return litellm.Router(
+def _team_a_router(*team_models: tuple[str, dict[str, object]]) -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": f"internal-team-a-{public_name}",
-                "litellm_params": litellm_params,
+                "hangarllm_params": hangarllm_params,
                 "model_info": {
                     "id": f"team-a-{public_name}",
                     "team_id": "team-a",
                     "team_public_model_name": public_name,
                 },
             }
-            for public_name, litellm_params in team_models
+            for public_name, hangarllm_params in team_models
         ]
     )
 
@@ -2476,7 +2476,7 @@ async def test_team_key_search_of_registered_bedrock_store_reaches_bedrock_with_
     """A team key's model-less search of a registered Bedrock store was routed through the team's first
     deployment, so a langgraph team model turned it into "Vector store search is not supported for langgraph"."""
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
     with respx.mock(assert_all_called=True) as respx_mock:
         route: Final = respx_mock.post(
@@ -2524,16 +2524,16 @@ async def _wait_out_a_rate_limit_minute_rollover() -> None:
         await asyncio.sleep(seconds_left)
 
 
-def _proxy_logging_obj(model: str = "rate-limited") -> LiteLLMLoggingObj:
-    logging_obj, _ = litellm.utils.function_setup(
+def _proxy_logging_obj(model: str = "rate-limited") -> HangarLLMLoggingObj:
+    logging_obj, _ = hangarllm.utils.function_setup(
         original_function="acompletion",
-        rules_obj=litellm.utils.Rules(),
+        rules_obj=hangarllm.utils.Rules(),
         start_time=datetime.now(),
         model=model,
         messages=[{"role": "user", "content": "hi"}],
-        litellm_call_id=str(uuid4()),
+        hangarllm_call_id=str(uuid4()),
     )
-    assert isinstance(logging_obj, LiteLLMLoggingObj)
+    assert isinstance(logging_obj, HangarLLMLoggingObj)
     return logging_obj
 
 
@@ -2541,7 +2541,7 @@ def _mock_deployment(model_name: str, **deployment_limits: int) -> dict[str, obj
     return {
         "model_name": model_name,
         **deployment_limits,
-        "litellm_params": {"model": "openai/gpt-5.5", "api_key": "sk-test", "mock_response": "ok"},
+        "hangarllm_params": {"model": "openai/gpt-5.5", "api_key": "sk-test", "mock_response": "ok"},
     }
 
 
@@ -2549,13 +2549,13 @@ async def _user_config_request_outcome(
     redis_port: int | None,
     routing_settings: Mapping[str, object],
     deployment_limits: Mapping[str, int],
-    logging_obj: LiteLLMLoggingObj | None,
+    logging_obj: HangarLLMLoggingObj | None,
 ) -> str:
     data: Final = {
         "model": "rate-limited",
         "messages": [{"role": "user", "content": "hi"}],
         "num_retries": 0,
-        **({"litellm_logging_obj": logging_obj} if logging_obj is not None else {}),
+        **({"hangarllm_logging_obj": logging_obj} if logging_obj is not None else {}),
         "user_config": {
             **routing_settings,
             **({"redis_host": "127.0.0.1", "redis_port": redis_port} if redis_port is not None else {}),
@@ -2564,7 +2564,7 @@ async def _user_config_request_outcome(
     }
     try:
         await (await route_request(data, None, None, "acompletion"))
-    except (litellm.RateLimitError, RouterRateLimitError):
+    except (hangarllm.RateLimitError, RouterRateLimitError):
         return "429"
     finally:
         await asyncio.sleep(0.3)
@@ -2573,18 +2573,18 @@ async def _user_config_request_outcome(
 
 async def _tpm_for_three_requests() -> int:
     messages: Final = [{"role": "user", "content": "hi"}]
-    probe: Final = await litellm.acompletion(model="openai/gpt-5.5", messages=messages, mock_response="ok")
-    assert isinstance(probe, litellm.ModelResponse)
+    probe: Final = await hangarllm.acompletion(model="openai/gpt-5.5", messages=messages, mock_response="ok")
+    assert isinstance(probe, hangarllm.ModelResponse)
     probe_usage: Final = getattr(probe, "usage", None)
-    assert isinstance(probe_usage, litellm.Usage)
-    return 2 * probe_usage.total_tokens + litellm.token_counter(messages=messages)
+    assert isinstance(probe_usage, hangarllm.Usage)
+    return 2 * probe_usage.total_tokens + hangarllm.token_counter(messages=messages)
 
 
 async def _request_cost() -> float:
-    probe: Final = await litellm.acompletion(
+    probe: Final = await hangarllm.acompletion(
         model="openai/gpt-5.5", messages=[{"role": "user", "content": "hi"}], mock_response="ok"
     )
-    return litellm.completion_cost(completion_response=probe)
+    return hangarllm.completion_cost(completion_response=probe)
 
 
 async def _proxy_router_outcomes(
@@ -2593,7 +2593,7 @@ async def _proxy_router_outcomes(
     deployment_limits: Mapping[str, int],
     requests: int,
 ) -> list[str]:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         **routing_settings,
         num_retries=0,
         model_list=[_mock_deployment("proxy-rate-limited", **deployment_limits)],
@@ -2603,7 +2603,7 @@ async def _proxy_router_outcomes(
     async def outcome() -> str:
         try:
             await router.acompletion(model="proxy-rate-limited", messages=[{"role": "user", "content": "hi"}])
-        except (litellm.RateLimitError, RouterRateLimitError):
+        except (hangarllm.RateLimitError, RouterRateLimitError):
             return "429"
         finally:
             await asyncio.sleep(0.3)
@@ -2625,7 +2625,7 @@ async def test_a_user_config_adaptive_request_answers_with_the_model_it_picked()
             "model_list": [
                 {
                     "model_name": "smart-cheap-router",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "auto_router/adaptive_router",
                         "adaptive_router_config": {"available_models": ["fast", "smart"]},
                     },
@@ -2651,7 +2651,7 @@ async def test_a_user_config_adaptive_request_answers_with_the_model_it_picked()
 
 
 def _global_router_callbacks() -> tuple[list[object], list[object]]:
-    return list(litellm.callbacks), list(litellm.input_callback)
+    return list(hangarllm.callbacks), list(hangarllm.input_callback)
 
 
 @pytest.mark.parametrize(
@@ -2755,7 +2755,7 @@ async def test_a_proxy_router_on_the_same_strategy_leaves_the_user_config_limit_
     user_config_routers.clear()
     await asyncio.sleep(0.3)
     redis.Redis(host="127.0.0.1", port=fake_redis_port).flushall()
-    proxy_router: Final = litellm.Router(
+    proxy_router: Final = hangarllm.Router(
         routing_strategy=routing_strategy,
         model_list=[_mock_deployment("proxy-model")],
         redis_host="127.0.0.1" if proxy_router_shares_redis else None,
@@ -2775,7 +2775,7 @@ async def test_a_proxy_router_on_the_same_strategy_leaves_the_user_config_limit_
 async def test_user_config_requests_stay_under_the_proxy_provider_budget(
     user_config_settings: Mapping[str, object],
 ) -> None:
-    proxy_router: Final = litellm.Router(
+    proxy_router: Final = hangarllm.Router(
         model_list=[_mock_deployment("proxy-model")],
         provider_budget_config={"openai": {"budget_limit": await _request_cost() / 2, "time_period": "1d"}},
     )
@@ -2814,7 +2814,7 @@ async def test_a_request_in_flight_when_its_user_config_router_is_dropped_still_
                 {
                     "model": "budgeted",
                     "messages": [{"role": "user", "content": "hi"}],
-                    "litellm_logging_obj": _proxy_logging_obj("budgeted"),
+                    "hangarllm_logging_obj": _proxy_logging_obj("budgeted"),
                     "user_config": {
                         "redis_host": "127.0.0.1",
                         "redis_port": fake_redis_port,
@@ -2822,7 +2822,7 @@ async def test_a_request_in_flight_when_its_user_config_router_is_dropped_still_
                         "model_list": [
                             {
                                 "model_name": "budgeted",
-                                "litellm_params": {
+                                "hangarllm_params": {
                                     "model": "openai/gpt-5.5",
                                     "api_key": "sk-test",
                                     "mock_response": "ok",
@@ -2856,7 +2856,7 @@ async def _user_config_request(model: str, user_config: Mapping[str, object], ar
                 "model": model,
                 "messages": list(_HELLO_MESSAGES),
                 "num_retries": 0,
-                **({"litellm_logging_obj": _proxy_logging_obj(model)} if arrives_with_logging_obj else {}),
+                **({"hangarllm_logging_obj": _proxy_logging_obj(model)} if arrives_with_logging_obj else {}),
                 "user_config": user_config,
             },
             None,
@@ -2870,7 +2870,7 @@ def _ordered_pair(model_name: str, first_base: str, second_base: str) -> list[di
     return [
         {
             "model_name": model_name,
-            "litellm_params": {"model": "openai/gpt-5.5", "api_key": "sk-test", "api_base": api_base, "order": order},
+            "hangarllm_params": {"model": "openai/gpt-5.5", "api_key": "sk-test", "api_base": api_base, "order": order},
         }
         for order, api_base in ((1, first_base), (2, second_base))
     ]
@@ -2881,7 +2881,7 @@ def _ordered_pair(model_name: str, first_base: str, second_base: str) -> list[di
 async def test_a_rate_limited_user_config_deployment_cools_down_for_the_next_requests(
     monkeypatch: pytest.MonkeyPatch, arrives_with_logging_obj: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     rate_limited_base: Final = "https://rate-limited.example/v1"
     healthy_base: Final = "https://healthy.example/v1"
     user_config: Final = {"model_list": _ordered_pair("flaky", rate_limited_base, healthy_base)}
@@ -2904,11 +2904,11 @@ async def _remaining_usage_headers_after_429_then_200s(
     async def remaining_usage() -> tuple[object, object] | str:
         try:
             response: Final = await send()
-        except litellm.RateLimitError:
+        except hangarllm.RateLimitError:
             return "429"
         finally:
             await asyncio.sleep(0.3)
-        assert isinstance(response, litellm.ModelResponse)
+        assert isinstance(response, hangarllm.ModelResponse)
         headers: Final = response._hidden_params["additional_headers"]
         return headers.get("x-ratelimit-remaining-requests"), headers.get("x-ratelimit-remaining-tokens")
 
@@ -2928,7 +2928,7 @@ async def _remaining_usage_headers_after_429_then_200s(
 async def test_user_config_remaining_usage_headers_match_a_proxy_router_with_the_same_deployment(
     monkeypatch: pytest.MonkeyPatch, arrives_with_logging_obj: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     await _wait_out_a_rate_limit_minute_rollover()
     proxy_base: Final = "https://proxy-limited.example/v1"
     user_config_base: Final = "https://user-config-limited.example/v1"
@@ -2936,7 +2936,7 @@ async def test_user_config_remaining_usage_headers_match_a_proxy_router_with_the
     def deployment(model_name: str, api_base: str) -> dict[str, object]:
         return {
             "model_name": model_name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-5.5",
                 "api_key": "sk-test",
                 "api_base": api_base,
@@ -2945,7 +2945,7 @@ async def test_user_config_remaining_usage_headers_match_a_proxy_router_with_the
             },
         }
 
-    proxy_router: Final = litellm.Router(model_list=[deployment("proxy-limited", proxy_base)])
+    proxy_router: Final = hangarllm.Router(model_list=[deployment("proxy-limited", proxy_base)])
     try:
         proxy_router_headers: Final = await _remaining_usage_headers_after_429_then_200s(
             lambda: proxy_router.acompletion(model="proxy-limited", messages=list(_HELLO_MESSAGES), num_retries=0),
@@ -2981,9 +2981,9 @@ async def _first_deployment_calls_over_successes_then_failures(
 async def test_user_config_successes_keep_a_deployment_out_of_cooldown_like_a_proxy_router(
     monkeypatch: pytest.MonkeyPatch, arrives_with_logging_obj: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     await _wait_out_a_rate_limit_minute_rollover()
-    proxy_router: Final = litellm.Router(
+    proxy_router: Final = hangarllm.Router(
         model_list=_ordered_pair("proxy-pair", "https://proxy-first.example/v1", "https://proxy-second.example/v1")
     )
     try:
@@ -3016,7 +3016,7 @@ async def test_user_config_adaptive_router_learns_from_proxy_requests() -> None:
             _mock_deployment("fast"),
             {
                 "model_name": "adaptive",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/adaptive_router",
                     "adaptive_router_config": {"available_models": ["smart", "fast"]},
                 },
@@ -3029,7 +3029,7 @@ async def test_user_config_adaptive_router_learns_from_proxy_requests() -> None:
                 "model": "adaptive",
                 "messages": [{"role": "user", "content": "write a sorting function"}],
                 "metadata": {"session_id": "session-1"},
-                "litellm_logging_obj": _proxy_logging_obj("adaptive"),
+                "hangarllm_logging_obj": _proxy_logging_obj("adaptive"),
                 "user_config": user_config,
             },
             None,
@@ -3051,10 +3051,10 @@ async def test_user_config_routers_discard_the_least_recently_used_router_past_c
     def config(model_name: str) -> dict[str, object]:
         return {"routing_strategy": "usage-based-routing-v2", "model_list": [_mock_deployment(model_name)]}
 
-    def build(model_name: str) -> litellm.Router:
-        return litellm.Router(**config(model_name))
+    def build(model_name: str) -> hangarllm.Router:
+        return hangarllm.Router(**config(model_name))
 
-    def must_be_cached() -> litellm.Router:
+    def must_be_cached() -> hangarllm.Router:
         pytest.fail("a cached router was rebuilt")
 
     first_handler: Final = weakref.ref(routers.get(config("first"), lambda: build("first")).lowesttpm_logger_v2)
@@ -3071,15 +3071,15 @@ async def test_user_config_routers_discard_the_least_recently_used_router_past_c
 
 
 def test_fallback_probe_skips_only_a_loaded_model_that_refuses_the_route() -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "chat-fallback",
-                "litellm_params": {"model": "openai/gpt-5.4-nano", "api_key": "unit-provider-key"},
+                "hangarllm_params": {"model": "openai/gpt-5.4-nano", "api_key": "unit-provider-key"},
             },
             {
                 "model_name": "embed-only",
-                "litellm_params": {"model": "openai/text-embedding-3-small", "api_key": "unit-provider-key"},
+                "hangarllm_params": {"model": "openai/text-embedding-3-small", "api_key": "unit-provider-key"},
                 "model_info": {"enforce_supported_endpoints": True, "supported_endpoints": ["/v1/embeddings"]},
             },
         ],

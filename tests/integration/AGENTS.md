@@ -8,7 +8,7 @@ The root example is from here. The spend row lands async: poll, never sleep
 
 ```python
 rows = eventually(
-    lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (body["id"],)),
+    lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (body["id"],)),
     lambda values: len(values) == 1,
     seconds=70,
 )

@@ -1,12 +1,12 @@
 """basic_messaging_streaming x Azure (Microsoft Foundry).
 
 Drive the real `claude` CLI in headless `--output-format stream-json`
-mode against a running LiteLLM proxy that routes Claude requests to
+mode against a running HangarLLM proxy that routes Claude requests to
 Anthropic's models hosted in Microsoft Foundry on Azure, and report the
 outcome via `compat_result`.
 
 Foundry exposes Claude on an Anthropic-shape `/anthropic/v1/messages`
-endpoint with native SSE streaming; LiteLLM forwards stream events
+endpoint with native SSE streaming; HangarLLM forwards stream events
 through the `azure_ai/claude-*` provider unchanged.
 
 The (feature, provider) for this cell is inferred from the file path by
@@ -41,7 +41,7 @@ AZURE_MODELS = [
     )
 )
 def test_basic_messaging_streaming_azure(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a
     non-empty streamed reply (one row per Claude tier).
     """
     run_basic_messaging_cell(

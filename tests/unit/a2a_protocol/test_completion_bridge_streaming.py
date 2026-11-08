@@ -17,7 +17,7 @@ class TestA2AStreamingTransformation:
     """Test the A2A streaming transformation creates proper events."""
 
     def test_a2a_metadata_forwarded_to_completion_params(self):
-        from litellm.a2a_protocol.litellm_completion_bridge.transformation import (
+        from hangarllm.a2a_protocol.hangarllm_completion_bridge.transformation import (
             A2ACompletionBridgeTransformation,
         )
 
@@ -45,7 +45,7 @@ class TestA2AStreamingTransformation:
         }
 
     def test_configured_metadata_wins_over_forwarded_a2a_metadata(self):
-        from litellm.a2a_protocol.litellm_completion_bridge.transformation import (
+        from hangarllm.a2a_protocol.hangarllm_completion_bridge.transformation import (
             A2ACompletionBridgeTransformation,
         )
 
@@ -77,7 +77,7 @@ class TestA2AStreamingTransformation:
         }
 
     def test_langgraph_transform_preserves_message_metadata(self):
-        from litellm.llms.langgraph.chat.transformation import LangGraphConfig
+        from hangarllm.llms.langgraph.chat.transformation import LangGraphConfig
 
         config = LangGraphConfig()
         request = config.transform_request(
@@ -90,7 +90,7 @@ class TestA2AStreamingTransformation:
                 }
             ],
             optional_params={},
-            litellm_params={"stream": False},
+            hangarllm_params={"stream": False},
             headers={},
         )
         assert request["input"]["messages"][-1]["metadata"] == {
@@ -99,7 +99,7 @@ class TestA2AStreamingTransformation:
 
     def test_create_task_event(self):
         """Test that create_task_event produces proper A2A task event structure."""
-        from litellm.a2a_protocol.litellm_completion_bridge.transformation import (
+        from hangarllm.a2a_protocol.hangarllm_completion_bridge.transformation import (
             A2ACompletionBridgeTransformation,
             A2AStreamingContext,
         )
@@ -126,7 +126,7 @@ class TestA2AStreamingTransformation:
 
     def test_create_status_update_working(self):
         """Test that create_status_update_event produces proper working status."""
-        from litellm.a2a_protocol.litellm_completion_bridge.transformation import (
+        from hangarllm.a2a_protocol.hangarllm_completion_bridge.transformation import (
             A2ACompletionBridgeTransformation,
             A2AStreamingContext,
         )
@@ -152,7 +152,7 @@ class TestA2AStreamingTransformation:
 
     def test_create_artifact_update(self):
         """Test that create_artifact_update_event produces proper artifact event."""
-        from litellm.a2a_protocol.litellm_completion_bridge.transformation import (
+        from hangarllm.a2a_protocol.hangarllm_completion_bridge.transformation import (
             A2ACompletionBridgeTransformation,
             A2AStreamingContext,
         )
@@ -178,11 +178,11 @@ class TestA2AStreamingTransformation:
 @pytest.mark.asyncio
 async def test_handle_streaming_emits_proper_events():
     """Test that handle_streaming emits events in correct order with proper structure."""
-    from litellm.a2a_protocol.litellm_completion_bridge.handler import (
+    from hangarllm.a2a_protocol.hangarllm_completion_bridge.handler import (
         A2ACompletionBridgeHandler,
     )
 
-    # Mock litellm.acompletion to return a streaming response
+    # Mock hangarllm.acompletion to return a streaming response
     mock_chunk1 = MagicMock()
     mock_chunk1.choices = [MagicMock()]
     mock_chunk1.choices[0].delta = MagicMock()
@@ -197,7 +197,7 @@ async def test_handle_streaming_emits_proper_events():
         yield mock_chunk1
         yield mock_chunk2
 
-    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+    with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
         mock_acompletion.return_value = mock_streaming_response()
 
         params = {
@@ -212,7 +212,7 @@ async def test_handle_streaming_emits_proper_events():
         async for event in A2ACompletionBridgeHandler.handle_streaming(
             request_id="req-456",
             params=params,
-            litellm_params={"custom_llm_provider": "langgraph", "model": "agent"},
+            hangarllm_params={"custom_llm_provider": "langgraph", "model": "agent"},
             api_base="http://localhost:2024",
         ):
             events.append(event)
@@ -241,8 +241,8 @@ async def test_handle_streaming_emits_proper_events():
 
 @pytest.mark.asyncio
 async def test_handle_streaming_forwards_api_key():
-    """Test that handle_streaming forwards api_key from litellm_params to acompletion."""
-    from litellm.a2a_protocol.litellm_completion_bridge.handler import (
+    """Test that handle_streaming forwards api_key from hangarllm_params to acompletion."""
+    from hangarllm.a2a_protocol.hangarllm_completion_bridge.handler import (
         A2ACompletionBridgeHandler,
     )
 
@@ -254,7 +254,7 @@ async def test_handle_streaming_forwards_api_key():
     async def mock_streaming_response():
         yield mock_chunk
 
-    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+    with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
         mock_acompletion.return_value = mock_streaming_response()
 
         params = {
@@ -269,7 +269,7 @@ async def test_handle_streaming_forwards_api_key():
         async for event in A2ACompletionBridgeHandler.handle_streaming(
             request_id="req-456",
             params=params,
-            litellm_params={
+            hangarllm_params={
                 "custom_llm_provider": "azure_ai",
                 "model": "agents/asst_123",
                 "api_key": "test-api-key-12345",
@@ -288,8 +288,8 @@ async def test_handle_streaming_forwards_api_key():
 
 @pytest.mark.asyncio
 async def test_handle_non_streaming_forwards_api_key():
-    """Test that handle_non_streaming forwards api_key from litellm_params to acompletion."""
-    from litellm.a2a_protocol.litellm_completion_bridge.handler import (
+    """Test that handle_non_streaming forwards api_key from hangarllm_params to acompletion."""
+    from hangarllm.a2a_protocol.hangarllm_completion_bridge.handler import (
         A2ACompletionBridgeHandler,
     )
 
@@ -299,7 +299,7 @@ async def test_handle_non_streaming_forwards_api_key():
     mock_response.choices[0].message.content = "Hello!"
     mock_response.id = "resp-123"
 
-    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+    with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
         mock_acompletion.return_value = mock_response
 
         params = {
@@ -313,7 +313,7 @@ async def test_handle_non_streaming_forwards_api_key():
         await A2ACompletionBridgeHandler.handle_non_streaming(
             request_id="req-456",
             params=params,
-            litellm_params={
+            hangarllm_params={
                 "custom_llm_provider": "azure_ai",
                 "model": "agents/asst_456",
                 "api_key": "my-secret-api-key",
@@ -332,8 +332,8 @@ async def test_handle_non_streaming_forwards_api_key():
 @pytest.mark.asyncio
 async def test_handle_streaming_keeps_agent_card_path_out_of_the_completion_call():
     """agent_card_path describes where an A2A agent serves its card; a completion-bridge agent carrying
-    it must not pass it to litellm.acompletion, where an unknown kwarg breaks the provider call."""
-    from litellm.a2a_protocol.litellm_completion_bridge.handler import (
+    it must not pass it to hangarllm.acompletion, where an unknown kwarg breaks the provider call."""
+    from hangarllm.a2a_protocol.hangarllm_completion_bridge.handler import (
         A2ACompletionBridgeHandler,
     )
 
@@ -344,7 +344,7 @@ async def test_handle_streaming_keeps_agent_card_path_out_of_the_completion_call
         chunk.choices[0].delta.content = "Hello"
         yield chunk
 
-    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+    with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
         mock_acompletion.return_value = mock_streaming_response()
 
         events = [
@@ -352,7 +352,7 @@ async def test_handle_streaming_keeps_agent_card_path_out_of_the_completion_call
             async for event in A2ACompletionBridgeHandler.handle_streaming(
                 request_id="req-card-path",
                 params={"message": {"role": "user", "parts": [{"kind": "text", "text": "Hi"}], "messageId": "m1"}},
-                litellm_params={
+                hangarllm_params={
                     "custom_llm_provider": "langgraph",
                     "model": "agent",
                     "agent_card_path": "agentCard/v1.0",
@@ -382,14 +382,14 @@ async def test_a2a_completion_bridge_bedrock_agentcore(respx_mock, monkeypatch):
     upstream: asserts the outbound invocation request and the emitted A2A event
     sequence.
     """
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     import httpx
     from a2a.compat.v0_3.types import MessageSendParams, SendStreamingMessageRequest
     from uuid import uuid4
 
-    from litellm.a2a_protocol import asend_message_streaming
+    from hangarllm.a2a_protocol import asend_message_streaming
 
     sse_body = (
         'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant","content":"Machine "}}]}\n\n'
@@ -419,7 +419,7 @@ async def test_a2a_completion_bridge_bedrock_agentcore(respx_mock, monkeypatch):
     async for chunk in asend_message_streaming(
         request=request,
         api_base=None,
-        litellm_params={
+        hangarllm_params={
             "custom_llm_provider": "bedrock",
             "model": f"bedrock/agentcore/{AGENTCORE_ARN}",
             "api_key": "unit-jwt-token",

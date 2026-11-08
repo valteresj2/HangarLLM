@@ -30,7 +30,7 @@ from tests.integration._support.client import Gateway
 from tests.integration._support.process import owned_proxy_process, refused_boot_log
 
 JSON_RECORD: Final = TypeAdapter(dict[str, JsonValue])
-PLAIN_LOG_LINE: Final = re.compile(r"^\d\d:\d\d:\d\d - LiteLLM")
+PLAIN_LOG_LINE: Final = re.compile(r"^\d\d:\d\d:\d\d - HangarLLM")
 PRISMA_ENGINE_TEXT: Final = re.compile(r"query-engine [0-9a-f]{40}")
 STARTED_WORKER: Final = "Started server process"
 MODEL_LIST_HEADER: Final = "Proxy initialized with Config, Set models:"
@@ -45,28 +45,28 @@ BURST_SIZE: Final = 16
 CACHE_SETTINGS: Final[Mapping[str, JsonValue]] = {"cache": True, "cache_params": {"type": "redis"}}
 STDOUT_CAP: Final = 4096
 POLICY_COUNT: Final = 60
-POLICY_LIST_HEADER: Final = "LiteLLM Policy Engine: Loaded"
-TRUNCATION_MARKER: Final = "litellm_truncated"
+POLICY_LIST_HEADER: Final = "HangarLLM Policy Engine: Loaded"
+TRUNCATION_MARKER: Final = "hangarllm_truncated"
 DEPRECATED_FLAG: Final = "--enforce_prisma_migration_check"
 DEPRECATED_FLAG_NOTICE: Final = "--enforce_prisma_migration_check is deprecated and has no effect"
 UNPARSEABLE_CONFIG: Final = "model_list: [\n  - bad: yaml: here\n"
 OPERATOR_LOG_CONFIG: Final[Mapping[str, JsonValue]] = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {"json": {"()": "litellm._logging.JsonFormatter"}},
+    "formatters": {"json": {"()": "hangarllm._logging.JsonFormatter"}},
     "handlers": {"stdout": {"class": "logging.StreamHandler", "stream": "ext://sys.stdout", "formatter": "json"}},
-    "loggers": {"LiteLLM Proxy": {"level": "INFO"}},
+    "loggers": {"HangarLLM Proxy": {"level": "INFO"}},
     "root": {"level": "INFO", "handlers": ["stdout"]},
 }
 OPERATOR_SILENCING_LOG_CONFIG: Final[Mapping[str, JsonValue]] = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {"json": {"()": "litellm._logging.JsonFormatter"}},
+    "formatters": {"json": {"()": "hangarllm._logging.JsonFormatter"}},
     "handlers": {
         "stdout": {"class": "logging.StreamHandler", "stream": "ext://sys.stdout", "formatter": "json"},
         "silence": {"class": "logging.NullHandler"},
     },
-    "loggers": {"LiteLLM Proxy": {"level": "INFO", "handlers": ["silence"], "propagate": False}},
+    "loggers": {"HangarLLM Proxy": {"level": "INFO", "handlers": ["silence"], "propagate": False}},
     "root": {"level": "INFO", "handlers": ["stdout"]},
 }
 
@@ -90,7 +90,7 @@ def _write_config(
     directory: Path,
     upstream_url: str,
     models: tuple[str, ...],
-    litellm_settings: Mapping[str, JsonValue],
+    hangarllm_settings: Mapping[str, JsonValue],
     extra_sections: Mapping[str, JsonValue] | None = None,
 ) -> Path:
     config: Final = directory / f"json_logs_{uuid.uuid4().hex}.yaml"
@@ -100,7 +100,7 @@ def _write_config(
                 "model_list": [
                     {
                         "model_name": model,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": f"openai/{model}",
                             "api_base": f"{upstream_url}/v1",
                             "api_key": "integration-provider-key",
@@ -108,9 +108,9 @@ def _write_config(
                     }
                     for model in models
                 ],
-                "litellm_settings": dict(litellm_settings),
+                "hangarllm_settings": dict(hangarllm_settings),
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "disable_prisma_schema_update": True,
                 },
@@ -205,7 +205,7 @@ def test_json_logs_env_keeps_every_line_json(gateway: Gateway, tmp_path: Path, w
     models: Final = _models()
     config: Final = _write_config(tmp_path, gateway.upstream_url, models, CACHE_SETTINGS)
     log: Final = _boot_serve_and_stop(
-        gateway, tmp_path, config, {"JSON_LOGS": "true", "LITELLM_LOG": "INFO"}, workers, models
+        gateway, tmp_path, config, {"JSON_LOGS": "true", "HANGARLLM_LOG": "INFO"}, workers, models
     )
     _assert_every_line_is_json(log, workers, models)
 
@@ -214,7 +214,7 @@ def test_json_logs_env_keeps_every_line_json(gateway: Gateway, tmp_path: Path, w
 def test_json_logs_config_keeps_every_line_json(gateway: Gateway, tmp_path: Path, workers: int) -> None:
     models: Final = _models()
     config: Final = _write_config(tmp_path, gateway.upstream_url, models, {**CACHE_SETTINGS, "json_logs": True})
-    log: Final = _boot_serve_and_stop(gateway, tmp_path, config, {"LITELLM_LOG": "INFO"}, workers, models)
+    log: Final = _boot_serve_and_stop(gateway, tmp_path, config, {"HANGARLLM_LOG": "INFO"}, workers, models)
     _assert_every_line_is_json(log, workers, models)
 
 
@@ -233,7 +233,7 @@ def test_json_logs_with_operator_log_config_keeps_every_line_json(
     log_config: Final = tmp_path / "operator_log_config.yaml"
     log_config.write_text(yaml.safe_dump(dict(OPERATOR_LOG_CONFIG)))
     log: Final = _boot_serve_and_stop(
-        gateway, tmp_path, config, {"LITELLM_LOG": "INFO"}, workers, models, ("--log_config", str(log_config))
+        gateway, tmp_path, config, {"HANGARLLM_LOG": "INFO"}, workers, models, ("--log_config", str(log_config))
     )
     _assert_every_line_is_json(log, workers, models, redis_auth_cache_line=False)
 
@@ -252,7 +252,7 @@ def test_json_logs_with_operator_handler_on_the_proxy_logger_keeps_the_startup_n
     log_config: Final = tmp_path / "operator_silencing_log_config.yaml"
     log_config.write_text(yaml.safe_dump(dict(OPERATOR_SILENCING_LOG_CONFIG)))
     log: Final = _boot_serve_and_stop(
-        gateway, tmp_path, config, {"LITELLM_LOG": "INFO"}, workers, models, ("--log_config", str(log_config))
+        gateway, tmp_path, config, {"HANGARLLM_LOG": "INFO"}, workers, models, ("--log_config", str(log_config))
     )
     _assert_every_line_is_json(log, workers, models, redis_auth_cache_line=False)
 
@@ -268,7 +268,7 @@ def test_json_logs_keeps_a_startup_listing_longer_than_the_stdout_cap_whole(gate
         tmp_path, gateway.upstream_url, models, {**CACHE_SETTINGS, "json_logs": True}, {"policies": policies}
     )
 
-    log: Final = _boot_serve_and_stop(gateway, tmp_path, config, {"LITELLM_LOG": "INFO"}, 1, models)
+    log: Final = _boot_serve_and_stop(gateway, tmp_path, config, {"HANGARLLM_LOG": "INFO"}, 1, models)
 
     _assert_every_line_is_json(log, 1, models)
     listings: Final = tuple(message for message in _messages(log) if POLICY_LIST_HEADER in message)
@@ -287,14 +287,14 @@ def test_json_logs_model_list_keeps_a_model_name_the_secret_patterns_would_match
     models: Final = (f"risk-assessment-{uuid.uuid4().hex}",)
     config: Final = _write_config(tmp_path, gateway.upstream_url, models, {**CACHE_SETTINGS, "json_logs": True})
 
-    log: Final = _boot_serve_and_stop(gateway, tmp_path, config, {"LITELLM_LOG": "INFO"}, 1, models)
+    log: Final = _boot_serve_and_stop(gateway, tmp_path, config, {"HANGARLLM_LOG": "INFO"}, 1, models)
 
     _assert_every_line_is_json(log, 1, models)
     assert f"    {models[0]}" in _messages(log), _messages(log)
 
 
 def test_json_logs_default_level_keeps_every_line_json(gateway: Gateway, tmp_path: Path) -> None:
-    """Without LITELLM_LOG the proxy loggers sit at WARNING; the startup notices a plain-mode operator
+    """Without HANGARLLM_LOG the proxy loggers sit at WARNING; the startup notices a plain-mode operator
     always sees still arrive, as JSON, and nothing arrives as plaintext."""
     models: Final = _models()
     config: Final = _write_config(tmp_path, gateway.upstream_url, models, {**CACHE_SETTINGS, "json_logs": True})
@@ -315,11 +315,11 @@ def test_json_logs_default_level_keeps_every_line_json(gateway: Gateway, tmp_pat
 
 
 def test_json_logs_warning_level_keeps_startup_notices(gateway: Gateway, tmp_path: Path) -> None:
-    """`LITELLM_LOG=WARNING` drops the INFO logger lines; the startup notices a plain-mode operator sees at
+    """`HANGARLLM_LOG=WARNING` drops the INFO logger lines; the startup notices a plain-mode operator sees at
     every level still arrive, as JSON, and nothing arrives as plaintext."""
     models: Final = _models()
     config: Final = _write_config(tmp_path, gateway.upstream_url, models, {**CACHE_SETTINGS, "json_logs": True})
-    log: Final = _boot_serve_and_stop(gateway, tmp_path, config, {"LITELLM_LOG": "WARNING"}, 1, models)
+    log: Final = _boot_serve_and_stop(gateway, tmp_path, config, {"HANGARLLM_LOG": "WARNING"}, 1, models)
     plaintext: Final = _non_json_lines(log)
     assert plaintext == (), "plaintext lines with JSON logs on:\n" + "\n".join(plaintext)
     messages: Final = _messages(log)
@@ -341,7 +341,7 @@ def test_json_logs_burst_on_two_workers_keeps_every_line_json(gateway: Gateway, 
     models: Final = _models()
     config: Final = _write_config(tmp_path, gateway.upstream_url, models, {**CACHE_SETTINGS, "json_logs": True})
     with owned_proxy_process(
-        gateway, tmp_path, {"LITELLM_LOG": "INFO"}, config=config, workers=2, database_setup=()
+        gateway, tmp_path, {"HANGARLLM_LOG": "INFO"}, config=config, workers=2, database_setup=()
     ) as owned:
         with ThreadPoolExecutor(max_workers=BURST_SIZE) as pool:
             replies: Final = tuple(
@@ -359,7 +359,7 @@ def test_json_logs_config_makes_the_deprecated_flag_notice_one_json_record(gatew
     """The notice waits until the config is read, so a json_logs set only there makes it a JSON record."""
     models: Final = _models()
     config: Final = _write_config(tmp_path, gateway.upstream_url, models, {"json_logs": True})
-    log: Final = _boot_serve_and_stop(gateway, tmp_path, config, {"LITELLM_LOG": "INFO"}, 1, models, (DEPRECATED_FLAG,))
+    log: Final = _boot_serve_and_stop(gateway, tmp_path, config, {"HANGARLLM_LOG": "INFO"}, 1, models, (DEPRECATED_FLAG,))
     plaintext: Final = _non_json_lines(log)
     assert plaintext == (), "plaintext lines with JSON logs on:\n" + "\n".join(plaintext)
     assert sum(DEPRECATED_FLAG_NOTICE in message for message in _messages(log)) == 1, _messages(log)
@@ -382,7 +382,7 @@ def test_a_config_that_fails_to_load_still_prints_the_deprecated_flag_notice(
 def test_plain_logs_control_prints_startup_text(gateway: Gateway, tmp_path: Path) -> None:
     models: Final = _models()
     config: Final = _write_config(tmp_path, gateway.upstream_url, models, CACHE_SETTINGS)
-    log: Final = _boot_serve_and_stop(gateway, tmp_path, config, {"LITELLM_LOG": "INFO"}, 1, models)
+    log: Final = _boot_serve_and_stop(gateway, tmp_path, config, {"HANGARLLM_LOG": "INFO"}, 1, models)
     plaintext: Final = _non_json_lines(log)
     assert any(BANNER_FRAGMENT in line for line in plaintext), log
     assert any(FEEDBACK_BOX_LINE in line for line in plaintext), log
@@ -394,4 +394,4 @@ def test_plain_logs_control_prints_startup_text(gateway: Gateway, tmp_path: Path
             log,
         )
     assert any(PLAIN_LOG_LINE.match(line) and REDIS_AUTH_CACHE_LINE in line for line in plaintext), log
-    assert any(line.startswith(f"LiteLLM Proxy: {CONNECTION_BUDGET_LINE}") for line in plaintext), log
+    assert any(line.startswith(f"HangarLLM Proxy: {CONNECTION_BUDGET_LINE}") for line in plaintext), log

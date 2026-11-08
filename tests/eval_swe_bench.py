@@ -1,7 +1,7 @@
 """
 SWE-bench Compression Evaluation
 ==================================
-Measures litellm.compress() impact on SWE-bench Lite problems.
+Measures hangarllm.compress() impact on SWE-bench Lite problems.
 
 Each instance includes ~27k tokens of BM25-retrieved repo context — large
 enough to meaningfully stress compression without requiring Docker or GitHub
@@ -38,9 +38,9 @@ from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import litellm  # noqa: E402
-from litellm.compression import compress as litellm_compress  # noqa: E402
-from litellm.types.utils import CallTypes  # noqa: E402
+import hangarllm  # noqa: E402
+from hangarllm.compression import compress as hangarllm_compress  # noqa: E402
+from hangarllm.types.utils import CallTypes  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Prompts
@@ -95,7 +95,7 @@ def _load_via_api(n: int, split: str) -> list[dict]:
             "?dataset=princeton-nlp/SWE-bench_Lite_bm25_27K"
             f"&config=default&split={split}&offset={offset}&length={length}"
         )
-        req = urllib.request.Request(url, headers={"User-Agent": "litellm-eval"})
+        req = urllib.request.Request(url, headers={"User-Agent": "hangarllm-eval"})
         with urllib.request.urlopen(req, timeout=60) as resp:
             data = json.loads(resp.read().decode())
         rows = [row["row"] for row in data["rows"]]
@@ -364,7 +364,7 @@ def _run_with_retrieval_loop(
     max_retrievals: int = 5,
 ) -> tuple[str, object, float, float]:
     """
-    Call the model, and if it invokes litellm_content_retrieve, fulfill
+    Call the model, and if it invokes hangarllm_content_retrieve, fulfill
     the tool call from the cache and re-call until the model produces a
     final text response (or we hit max_retrievals).
 
@@ -384,7 +384,7 @@ def _run_with_retrieval_loop(
 
     for _ in range(max_retrievals + 1):
         t0 = time.time()
-        resp = litellm.completion(**kwargs)
+        resp = hangarllm.completion(**kwargs)
         total_latency += (time.time() - t0) * 1000
         total_cost += resp._hidden_params.get("response_cost", 0) or 0
         total_usage = resp.usage
@@ -398,7 +398,7 @@ def _run_with_retrieval_loop(
             kwargs["messages"].append(choice.message.model_dump())
 
             for tc in tool_calls:
-                if tc.function.name == "litellm_content_retrieve":
+                if tc.function.name == "hangarllm_content_retrieve":
                     import json as _json
 
                     args = _json.loads(tc.function.arguments)
@@ -452,7 +452,7 @@ def eval_instance(
         }
         if compression_target is not None:
             compress_kwargs["compression_target"] = compression_target
-        result = litellm_compress(**compress_kwargs)
+        result = hangarllm_compress(**compress_kwargs)
         messages = result["messages"]
         tools = result["tools"]
         cache = result["cache"]
@@ -551,7 +551,7 @@ def run_benchmark(
     Run baseline vs compressed evaluation on SWE-bench Lite problems.
 
     Parameters:
-        model:               LLM model name (litellm format).
+        model:               LLM model name (hangarllm format).
         num_problems:        How many SWE-bench Lite problems to run.
         compression_trigger: Token count above which compression activates.
                              The bm25_27K dataset has ~27k tokens of context
@@ -713,7 +713,7 @@ def run_benchmark(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SWE-bench Compression Evaluation")
     parser.add_argument(
-        "--model", default="gpt-4o-mini", help="Model name (litellm format)"
+        "--model", default="gpt-4o-mini", help="Model name (hangarllm format)"
     )
     parser.add_argument(
         "--problems",

@@ -11,15 +11,15 @@ import json
 import pytest
 from starlette.requests import Request
 
-from litellm import Router
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+from hangarllm import Router
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
 
 def _deployment(model_name: str, model: str = "openai/gpt-4o", **model_info):
     return {
         "model_name": model_name,
-        "litellm_params": {"model": model, "api_key": "sk-fake"},
+        "hangarllm_params": {"model": model, "api_key": "sk-fake"},
         "model_info": {"id": f"{model_name}-id", **model_info},
     }
 
@@ -66,7 +66,7 @@ def flagged_team_router(monkeypatch) -> Router:
 
 @pytest.fixture
 def team_admin_privileges(monkeypatch) -> None:
-    from litellm.proxy.management_endpoints import common_utils
+    from hangarllm.proxy.management_endpoints import common_utils
 
     async def _is_team_admin(**kwargs) -> bool:
         return True
@@ -75,17 +75,17 @@ def team_admin_privileges(monkeypatch) -> None:
 
 
 def _non_admin() -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(api_key="sk-test", user_role=LitellmUserRoles.INTERNAL_USER)
+    return UserAPIKeyAuth(api_key="sk-test", user_role=HangarllmUserRoles.INTERNAL_USER)
 
 
-def _team_member(role: LitellmUserRoles = LitellmUserRoles.INTERNAL_USER) -> UserAPIKeyAuth:
+def _team_member(role: HangarllmUserRoles = HangarllmUserRoles.INTERNAL_USER) -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         api_key="sk-test", user_id="u", user_role=role, team_id="team1", team_models=["team-gpt", "team-chat"]
     )
 
 
 def _admin() -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=LitellmUserRoles.PROXY_ADMIN, team_models=[])
+    return UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=HangarllmUserRoles.PROXY_ADMIN, team_models=[])
 
 
 def _anthropic_request() -> Request:
@@ -148,7 +148,7 @@ async def test_v1_models_group_with_one_discoverable_deployment_stays_listed(mon
         _deployment("shared", discoverable=False),
         {
             "model_name": "shared",
-            "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-fake"},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-fake"},
             "model_info": {"id": "shared-public"},
         },
         _deployment("internal-evaluator", discoverable=False),
@@ -179,7 +179,7 @@ async def test_v1_model_info_hides_flagged_rows_from_non_admin_only(flagged_rout
 async def test_v1_model_info_by_id_still_serves_the_hidden_row_to_non_admin(flagged_router):
     assert "internal-evaluator" not in await _v1_model_info_names(_non_admin())
 
-    assert await _v1_model_info_names(_non_admin(), litellm_model_id="internal-evaluator-id") == [
+    assert await _v1_model_info_names(_non_admin(), hangarllm_model_id="internal-evaluator-id") == [
         "internal-evaluator"
     ]
 
@@ -193,7 +193,7 @@ async def test_model_group_info_hides_flagged_group_from_non_admin_only(flagged_
 @pytest.mark.asyncio
 async def test_v1_models_hides_flagged_team_model_from_its_team_member_only(flagged_team_router):
     assert await _v1_models(_team_member()) == ["team-chat"]
-    assert set(await _v1_models(_team_member(LitellmUserRoles.PROXY_ADMIN))) >= {"team-gpt", "team-chat"}
+    assert set(await _v1_models(_team_member(HangarllmUserRoles.PROXY_ADMIN))) >= {"team-gpt", "team-chat"}
 
 
 @pytest.mark.asyncio

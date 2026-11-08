@@ -1,4 +1,4 @@
-"""Generic configuration for live e2e tests against a running LiteLLM proxy.
+"""Generic configuration for live e2e tests against a running HangarLLM proxy.
 
 Shared by every e2e suite under tests/e2e/. Values come from the
 environment so the same tests run against localhost or a deployed proxy.
@@ -25,15 +25,15 @@ from pydantic import TypeAdapter
 # inherit that file unless we load it. override=False so a real shell export wins.
 load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 
-PROXY_BASE_URL = os.environ.get("LITELLM_PROXY_URL", "http://localhost:4000").rstrip("/")
-MASTER_KEY = os.environ["LITELLM_MASTER_KEY"]
+PROXY_BASE_URL = os.environ.get("HANGARLLM_PROXY_URL", "http://localhost:4000").rstrip("/")
+MASTER_KEY = os.environ["HANGARLLM_MASTER_KEY"]
 
 # Control-plane (management/admin) base URL. Defaults to PROXY_BASE_URL so a
 # single path-routing host (stage ALB, compose monolith) works for both planes.
-# Set LITELLM_CONTROL_PLANE_URL only when management is a different base than
+# Set HANGARLLM_CONTROL_PLANE_URL only when management is a different base than
 # the LLM host and you are not going through an ingress that path-routes.
 CONTROL_PLANE_BASE_URL = os.environ.get(
-    "LITELLM_CONTROL_PLANE_URL", PROXY_BASE_URL
+    "HANGARLLM_CONTROL_PLANE_URL", PROXY_BASE_URL
 ).rstrip("/")
 
 
@@ -48,11 +48,11 @@ def parse_replica_urls(raw: str, fallback: str) -> tuple[str, ...]:
 def parse_control_plane_replica_urls(
     raw: str, *, control_plane_base_url: str, base_url: str, replica_urls: tuple[str, ...]
 ) -> tuple[str, ...]:
-    """The replicas a management read-back polls. LITELLM_CONTROL_PLANE_REPLICA_URLS
+    """The replicas a management read-back polls. HANGARLLM_CONTROL_PLANE_REPLICA_URLS
     names them outright; unset, they follow the two base URLs: every data-plane
     replica when the planes share a base (a monolith serves every route from every
     replica) and the control-plane base alone when they differ. A stack sets it when
-    LITELLM_PROXY_REPLICA_URLS names gateway pods behind a shared router base, since
+    HANGARLLM_PROXY_REPLICA_URLS names gateway pods behind a shared router base, since
     a gateway trims the management routes at startup and answers them 404."""
     explicit: Final = split_replica_urls(raw)
     if explicit:
@@ -60,9 +60,9 @@ def parse_control_plane_replica_urls(
     return replica_urls if control_plane_base_url == base_url else (control_plane_base_url,)
 
 
-PROXY_REPLICA_URLS: Final = parse_replica_urls(os.environ.get("LITELLM_PROXY_REPLICA_URLS", ""), PROXY_BASE_URL)
+PROXY_REPLICA_URLS: Final = parse_replica_urls(os.environ.get("HANGARLLM_PROXY_REPLICA_URLS", ""), PROXY_BASE_URL)
 CONTROL_PLANE_REPLICA_URLS: Final = parse_control_plane_replica_urls(
-    os.environ.get("LITELLM_CONTROL_PLANE_REPLICA_URLS", ""),
+    os.environ.get("HANGARLLM_CONTROL_PLANE_REPLICA_URLS", ""),
     control_plane_base_url=CONTROL_PLANE_BASE_URL,
     base_url=PROXY_BASE_URL,
     replica_urls=PROXY_REPLICA_URLS,

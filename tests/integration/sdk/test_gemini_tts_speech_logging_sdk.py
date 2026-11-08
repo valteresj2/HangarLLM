@@ -19,8 +19,8 @@ from integration.providers._gemini_tts_voice_support import (
     wav_payload,
 )
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
 
 BINARY_RESPONSE: Final = "HttpxBinaryResponseContent"
 
@@ -54,11 +54,11 @@ class _Recorder(CustomLogger):
 
 def test_sync_speech_logs_one_success_event_carrying_the_reply_token_usage(monkeypatch: pytest.MonkeyPatch) -> None:
     recorder: Final = _Recorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     with wire_server(gemini_peer) as wire:
         monkeypatch.setenv("GEMINI_API_BASE", wire.url)
         text: Final = marker()
-        audio: Final = litellm.speech(model=f"gemini/{BACKEND}", input=text, voice="Kore", api_key=GEMINI_API_KEY)
+        audio: Final = hangarllm.speech(model=f"gemini/{BACKEND}", input=text, voice="Kore", api_key=GEMINI_API_KEY)
         assert wav_payload(audio.content) == PCM
         assert sum(1 for request in wire.drain() if received_text(request) == text) == 1
     events: Final = eventually(

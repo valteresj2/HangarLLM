@@ -13,8 +13,8 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from pydantic import JsonValue, TypeAdapter
 
-import litellm.proxy.proxy_server
-from litellm.secret_managers.hashicorp_secret_manager import HashicorpSecretManager
+import hangarllm.proxy.proxy_server
+from hangarllm.secret_managers.hashicorp_secret_manager import HashicorpSecretManager
 
 VAULT_ADDR: Final = "http://vault.test:8200"
 LOGIN_RESPONSE: Final = {"auth": {"client_token": "hvs.login-token", "lease_duration": 3600}}
@@ -42,7 +42,7 @@ PARITY_ENV_VARS: Final = (
 
 
 def _build_manager(monkeypatch: pytest.MonkeyPatch, env: Mapping[str, str]) -> HashicorpSecretManager:
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "premium_user", True)
     for name in NAMESPACE_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
     for name in ("HCP_VAULT_CLIENT_CERT", "HCP_VAULT_CLIENT_KEY", "HCP_VAULT_CERT_ROLE"):
@@ -159,7 +159,7 @@ def test_sync_read_caches_per_data_key_for_the_same_secret_path(monkeypatch: pyt
 @pytest.mark.asyncio
 @respx.mock
 async def test_async_delete_evicts_every_cached_field_of_the_secret_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     manager: Final = _build_manager(monkeypatch, {"HCP_VAULT_SECRET_NAMESPACE": "teams/team-a"})
     respx.post(f"{VAULT_ADDR}/v1/auth/approle/login").respond(json=LOGIN_RESPONSE)
     secret_url: Final = f"{VAULT_ADDR}/v1/teams/team-a/secret/data/DB_CREDS"
@@ -177,7 +177,7 @@ async def test_async_delete_evicts_every_cached_field_of_the_secret_path(monkeyp
 @pytest.mark.asyncio
 @respx.mock
 async def test_async_read_uses_secret_namespace_and_login_namespace(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     manager: Final = _build_manager(
         monkeypatch, {"HCP_VAULT_LOGIN_NAMESPACE": "root", "HCP_VAULT_SECRET_NAMESPACE": "teams/team-a"}
     )
@@ -196,7 +196,7 @@ async def test_async_read_uses_secret_namespace_and_login_namespace(monkeypatch:
 @pytest.mark.asyncio
 @respx.mock
 async def test_async_write_and_read_share_the_secret_namespace_target(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     manager: Final = _build_manager(
         monkeypatch, {"HCP_VAULT_LOGIN_NAMESPACE": "root", "HCP_VAULT_SECRET_NAMESPACE": "teams/team-a"}
     )
@@ -217,7 +217,7 @@ async def test_async_write_and_read_share_the_secret_namespace_target(monkeypatc
 
 def _write_self_signed_cert(directory: Path) -> tuple[Path, Path]:
     private_key: Final = ec.derive_private_key(1, ec.SECP256R1())
-    name: Final = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "litellm-test")])
+    name: Final = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "hangarllm-test")])
     valid_from: Final = datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc)
     valid_until: Final = datetime.datetime(2049, 12, 31, tzinfo=datetime.timezone.utc)
     certificate: Final = (
@@ -246,7 +246,7 @@ def _write_self_signed_cert(directory: Path) -> tuple[Path, Path]:
 @respx.mock
 def test_tls_login_uses_login_namespace(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cert, key = _write_self_signed_cert(tmp_path)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "premium_user", True)
     for name in NAMESPACE_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.delenv("HCP_VAULT_TOKEN", raising=False)
@@ -284,7 +284,7 @@ def test_hashicorp_secret_manager_get_secret(monkeypatch: pytest.MonkeyPatch) ->
 @pytest.mark.asyncio
 @respx.mock
 async def test_hashicorp_secret_manager_write_secret(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     manager: Final = _build_manager(monkeypatch, {"HCP_VAULT_NAMESPACE": "admin"})
     respx.post(f"{VAULT_ADDR}/v1/auth/approle/login").respond(json=LOGIN_RESPONSE)
     write_route: Final = respx.post(f"{VAULT_ADDR}/v1/admin/secret/data/sample-secret").respond(
@@ -303,7 +303,7 @@ async def test_hashicorp_secret_manager_write_secret(monkeypatch: pytest.MonkeyP
 async def test_hashicorp_secret_manager_write_secret_with_team_overrides(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     manager: Final = _build_manager(monkeypatch, {})
     respx.post(f"{VAULT_ADDR}/v1/auth/approle/login").respond(json=LOGIN_RESPONSE)
     write_route: Final = respx.post(
@@ -329,7 +329,7 @@ async def test_hashicorp_secret_manager_write_secret_with_team_overrides(
 @pytest.mark.asyncio
 @respx.mock
 async def test_hashicorp_secret_manager_delete_secret(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     manager: Final = _build_manager(monkeypatch, {"HCP_VAULT_NAMESPACE": "admin"})
     respx.post(f"{VAULT_ADDR}/v1/auth/approle/login").respond(json=LOGIN_RESPONSE)
     delete_route: Final = respx.delete(f"{VAULT_ADDR}/v1/admin/secret/data/sample-secret").respond(
@@ -350,7 +350,7 @@ async def test_hashicorp_secret_manager_delete_secret(monkeypatch: pytest.Monkey
 async def test_hashicorp_secret_manager_delete_secret_with_team_overrides(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     manager: Final = _build_manager(monkeypatch, {})
     respx.post(f"{VAULT_ADDR}/v1/auth/approle/login").respond(json=LOGIN_RESPONSE)
     delete_route: Final = respx.delete(
@@ -411,7 +411,7 @@ def test_hashicorp_custom_mount_and_prefix(monkeypatch: pytest.MonkeyPatch) -> N
     "malicious_secret_name",
     [
         "../../../other-app/creds",
-        "litellm/../../secret",
+        "hangarllm/../../secret",
         "foo\nbar",
         "foo\u2028bar",
         "foo\u2029bar",
@@ -432,7 +432,7 @@ def test_hashicorp_get_url_rejects_path_traversal(
 async def test_hashicorp_secret_manager_rotate_secret_different_names(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     manager: Final = _build_manager(monkeypatch, {})
     respx.post(f"{VAULT_ADDR}/v1/auth/approle/login").respond(json=LOGIN_RESPONSE)
     current_route: Final = respx.get(f"{VAULT_ADDR}/v1/secret/data/old-secret").respond(
@@ -466,7 +466,7 @@ async def test_hashicorp_secret_manager_rotate_secret_different_names(
 async def test_hashicorp_secret_manager_rotate_secret_same_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     manager: Final = _build_manager(monkeypatch, {})
     respx.post(f"{VAULT_ADDR}/v1/auth/approle/login").respond(json=LOGIN_RESPONSE)
     secret_route: Final = respx.get(f"{VAULT_ADDR}/v1/secret/data/same-secret").mock(
@@ -497,7 +497,7 @@ async def test_hashicorp_secret_manager_rotate_secret_same_name(
 async def test_hashicorp_secret_manager_rotate_secret_current_not_found(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     manager: Final = _build_manager(monkeypatch, {})
     respx.post(f"{VAULT_ADDR}/v1/auth/approle/login").respond(json=LOGIN_RESPONSE)
     respx.get(f"{VAULT_ADDR}/v1/secret/data/non-existent").respond(
@@ -518,7 +518,7 @@ async def test_hashicorp_secret_manager_rotate_secret_current_not_found(
 async def test_hashicorp_secret_manager_rotate_secret_write_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     manager: Final = _build_manager(monkeypatch, {})
     respx.post(f"{VAULT_ADDR}/v1/auth/approle/login").respond(json=LOGIN_RESPONSE)
     respx.get(f"{VAULT_ADDR}/v1/secret/data/old-secret").respond(
@@ -541,7 +541,7 @@ async def test_hashicorp_secret_manager_rotate_secret_write_fails(
 async def test_hashicorp_secret_manager_rotate_secret_with_team_overrides(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     manager: Final = _build_manager(monkeypatch, {})
     respx.post(f"{VAULT_ADDR}/v1/auth/approle/login").respond(json=LOGIN_RESPONSE)
     current_route: Final = respx.get(
@@ -586,7 +586,7 @@ async def test_hashicorp_secret_manager_rotate_secret_with_team_overrides(
 async def test_hashicorp_secret_manager_rotate_secret_value_mismatch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     manager: Final = _build_manager(monkeypatch, {})
     respx.post(f"{VAULT_ADDR}/v1/auth/approle/login").respond(json=LOGIN_RESPONSE)
     respx.get(f"{VAULT_ADDR}/v1/secret/data/old-secret").respond(
@@ -616,7 +616,7 @@ with Path(__file__).with_name("hashicorp_vault_parity.json").open() as parity_fi
 def test_configuration_matches_native_parity_fixture(
     monkeypatch: pytest.MonkeyPatch, case: Mapping[str, object]
 ) -> None:
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "premium_user", True)
     for name in PARITY_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
     for name, value in case["env"].items():

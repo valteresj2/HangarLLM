@@ -227,7 +227,7 @@ def _stream(
     headers: Final = _auth(gateway) if key is None else {"Authorization": f"Bearer {key}"}
     with gateway.client.stream("POST", _path(endpoint), json=body, headers=headers) as response:
         lines: Final = tuple(line for line in response.iter_lines() if line)
-        return _Streamed(response.status_code, response.headers.get("x-litellm-call-id", ""), lines)
+        return _Streamed(response.status_code, response.headers.get("x-hangarllm-call-id", ""), lines)
 
 
 def _sse_payloads(lines: Iterable[str]) -> tuple[dict[str, JsonValue], ...]:
@@ -293,7 +293,7 @@ def _spend_row(request_id: str) -> dict[str, JsonValue]:
     assert request_id, "No id to look the spend row up by"
     (row,) = eventually(
         lambda: read_rows(
-            'SELECT request_id, status, call_type, end_user FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+            'SELECT request_id, status, call_type, end_user FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
             (request_id,),
         ),
         lambda found: len(found) >= 1,
@@ -317,7 +317,7 @@ def _success_row(request_id: str) -> dict[str, JsonValue]:
 def _rows_for(request_ids: frozenset[str], *, expected: int) -> tuple[dict[str, JsonValue], ...]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(string_to_array(%s, %s))',
+            'SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(string_to_array(%s, %s))',
             (",".join(sorted(request_ids)), ","),
         ),
         lambda found: len(found) >= expected,
@@ -371,7 +371,7 @@ async def test_r02_openai_async_sdk_stream_with_a_validation_exception_frame_fir
             with pytest.raises(openai.BadRequestError, match=re.escape(_REJECTION)) as raised:
                 await _consume_openai_chat_stream(client, model)
         _assert_stream_request(wire)
-        _failure_row(raised.value.response.headers.get("x-litellm-call-id", ""))
+        _failure_row(raised.value.response.headers.get("x-hangarllm-call-id", ""))
 
 
 def test_r03_chat_stream_throttled_after_text_delivers_the_text_then_the_error_and_no_stop_chunk(
@@ -651,7 +651,7 @@ def _sibling_deployment(scenario: Scenario, name: str, wire: Wire, **extra: Json
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {"model": _CONVERSE_MODEL, "api_base": wire.url, **_AWS, **extra},
+            "hangarllm_params": {"model": _CONVERSE_MODEL, "api_base": wire.url, **_AWS, **extra},
             "model_info": {},
         },
     )
@@ -714,7 +714,7 @@ async def _send(client: httpx.AsyncClient, key: str, model: str, call: _Call) ->
         "POST", _path(call.endpoint), json=_burst_body(model, call), headers={"Authorization": f"Bearer {key}"}
     ) as response:
         raw: Final = await response.aread()
-    return _Served(call, response.status_code, response.headers.get("x-litellm-call-id", ""), raw.decode())
+    return _Served(call, response.status_code, response.headers.get("x-hangarllm-call-id", ""), raw.decode())
 
 
 async def _burst(
@@ -804,7 +804,7 @@ def _owned_config(wire: Wire, directory: Path) -> Path:
         "model_list": [
             {
                 "model_name": _PLAIN,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": _CONVERSE_MODEL,
                     "api_base": wire.url,
                     "api_key": "integration-provider-key",

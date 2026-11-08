@@ -16,7 +16,7 @@ from lifecycle import ResourceManager
 from models import (
     ChatMessage,
     CountTokensResponse,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     ModelInfoBody,
     ModelNewBody,
     ResponsesInputTokensResponse,
@@ -90,8 +90,8 @@ TEXT_SHAPES: Final = SHAPES[:2]
 TEXT_SHAPE_IDS: Final = SHAPE_IDS[:2]
 
 
-def _bedrock(model: str) -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+def _bedrock(model: str) -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=model,
         aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
         aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",
@@ -99,12 +99,12 @@ def _bedrock(model: str) -> LiteLLMParamsBody:
     )
 
 
-def _serve(proxy: ProxyClient, backend: LiteLLMParamsBody, model_info: ModelInfoBody | None = None) -> Iterator[Served]:
+def _serve(proxy: ProxyClient, backend: HangarLLMParamsBody, model_info: ModelInfoBody | None = None) -> Iterator[Served]:
     resources: Final = ResourceManager(client=proxy)
     try:
         model: Final = f"e2e-count-source-{unique_marker()}"
         model_id: Final = proxy.register_model(
-            ModelNewBody(model_name=model, litellm_params=backend, model_info=model_info or ModelInfoBody())
+            ModelNewBody(model_name=model, hangarllm_params=backend, model_info=model_info or ModelInfoBody())
         )
         resources.defer(lambda: proxy.delete_model(model_id))
         yield Served(model=model, key=resources.key())
@@ -133,7 +133,7 @@ def bedrock_sonnet_with_configured_count_model(proxy: ProxyClient) -> Iterator[S
 
 @pytest.fixture(scope="module")
 def anthropic_sonnet(proxy: ProxyClient) -> Iterator[Served]:
-    yield from _serve(proxy, LiteLLMParamsBody(model=ANTHROPIC_SONNET, api_key="os.environ/ANTHROPIC_API_KEY"))
+    yield from _serve(proxy, HangarLLMParamsBody(model=ANTHROPIC_SONNET, api_key="os.environ/ANTHROPIC_API_KEY"))
 
 
 @pytest.fixture(scope="module")
@@ -148,7 +148,7 @@ def bedrock_nova(proxy: ProxyClient) -> Iterator[Served]:
 
 @pytest.fixture(scope="module")
 def openai_gpt(proxy: ProxyClient) -> Iterator[Served]:
-    yield from _serve(proxy, LiteLLMParamsBody(model=OPENAI_GPT, api_key="os.environ/OPENAI_API_KEY"))
+    yield from _serve(proxy, HangarLLMParamsBody(model=OPENAI_GPT, api_key="os.environ/OPENAI_API_KEY"))
 
 
 def _pdf(pages: int) -> str:
@@ -201,8 +201,8 @@ def _within_tolerance(counted: int, billed: int) -> bool:
 def _assert_counted_by_the_cost_map_count_model(served: Served, sdk: SdkClients, shape: PromptShape) -> None:
     counted, billed = _count_and_bill(sdk.anthropic(served.key), served.model, shape)
 
-    assert counted.litellm_count_source == "token_count_model", counted
-    assert counted.litellm_count_model == COST_MAP_COUNT_MODEL, counted
+    assert counted.hangarllm_count_source == "token_count_model", counted
+    assert counted.hangarllm_count_model == COST_MAP_COUNT_MODEL, counted
     assert _within_tolerance(counted.input_tokens, billed), (counted, billed)
 
 
@@ -257,8 +257,8 @@ class TestAnthropicClaudeCountsWithProvider:
     ) -> None:
         counted, billed = _count_and_bill(sdk.anthropic(anthropic_sonnet.key), anthropic_sonnet.model, shape)
 
-        assert counted.litellm_count_source == "provider", counted
-        assert counted.litellm_count_model is None, counted
+        assert counted.hangarllm_count_source == "provider", counted
+        assert counted.hangarllm_count_model is None, counted
         assert _within_tolerance(counted.input_tokens, billed), (counted, billed)
 
 
@@ -276,7 +276,7 @@ class TestBedrockKimiCountsWithFramedLocalEstimate:
     def test_text_estimate_matches_billed_input(self, bedrock_kimi: Served, sdk: SdkClients, shape: PromptShape) -> None:
         counted, billed = _count_and_bill(sdk.anthropic(bedrock_kimi.key), bedrock_kimi.model, shape)
 
-        assert counted.litellm_count_source == "local_estimate", counted
+        assert counted.hangarllm_count_source == "local_estimate", counted
         assert _within_tolerance(counted.input_tokens, billed), (counted, billed)
 
 
@@ -298,8 +298,8 @@ class TestConfiguredCountModelOverridesCostMap:
         )
         counted: Final = CountTokensResponse.model_validate_json(raw.text)
 
-        assert counted.litellm_count_source == "token_count_model", counted
-        assert counted.litellm_count_model == CONFIGURED_COUNT_MODEL, counted
+        assert counted.hangarllm_count_source == "token_count_model", counted
+        assert counted.hangarllm_count_model == CONFIGURED_COUNT_MODEL, counted
         assert counted.input_tokens > 0, counted
 
 
@@ -336,7 +336,7 @@ class TestCountSourceOnOtherCountEndpoints:
         )
         counted: Final = ResponsesInputTokensResponse.model_validate_json(raw.text)
 
-        assert counted.litellm_count_source == "provider", counted
+        assert counted.hangarllm_count_source == "provider", counted
         assert counted.input_tokens > 0, counted
 
     @meta(

@@ -17,7 +17,7 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTrace
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.proto.trace.v1.trace_pb2 import Span
 
-REDACTED: Final = "redacted-by-litellm"
+REDACTED: Final = "redacted-by-hangarllm"
 TRACE_FIELDS: Final = ("langfuse.trace.name", "langfuse.trace.input", "langfuse.trace.output", "langfuse.trace.tags")
 SURFACE_CALL_TYPES: Final = {
     "chat": "acompletion",
@@ -187,7 +187,7 @@ def _langfuse_config(directory: Path, name: str, settings: Mapping[str, object],
     base: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     judge: Final = {
         "model_name": JUDGE_MODEL,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-4o-mini",
             "api_base": provider_url + "/v1",
             "api_key": "synthetic-provider-key",
@@ -199,7 +199,7 @@ def _langfuse_config(directory: Path, name: str, settings: Mapping[str, object],
         "guardrails": [
             {
                 "guardrail_name": JUDGE_GUARDRAIL,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "llm_as_a_judge",
                     "mode": "post_call",
                     "judge_model": JUDGE_MODEL,
@@ -208,7 +208,7 @@ def _langfuse_config(directory: Path, name: str, settings: Mapping[str, object],
                 },
             }
         ],
-        "litellm_settings": {**base["litellm_settings"], "callbacks": ["langfuse_otel"], **settings},
+        "hangarllm_settings": {**base["hangarllm_settings"], "callbacks": ["langfuse_otel"], **settings},
     }
     path: Final = directory / f"{name}.yaml"
     path.write_text(yaml.safe_dump(config))
@@ -275,7 +275,7 @@ def v1(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
     )
 
 
-V2_ENVIRONMENT: Final = {"LITELLM_OTEL_V2": "1", "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "span_only"}
+V2_ENVIRONMENT: Final = {"HANGARLLM_OTEL_V2": "1", "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "span_only"}
 
 
 @pytest.fixture(scope="module")
@@ -286,7 +286,7 @@ def v2(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
 @pytest.fixture(scope="module")
 def v2_llm_only(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
     yield from _rig(
-        tmp_path_factory, "langfuse-v2-llm-only", {**V2_ENVIRONMENT, "LITELLM_OTEL_LANGFUSE_SPAN_SCOPE": "llm_only"}, {}
+        tmp_path_factory, "langfuse-v2-llm-only", {**V2_ENVIRONMENT, "HANGARLLM_OTEL_LANGFUSE_SPAN_SCOPE": "llm_only"}, {}
     )
 
 
@@ -341,7 +341,7 @@ def _trace_fields(spans: tuple[SpanRecord, ...]) -> Iterator[str]:
 
 def _assert_derived(span: SpanRecord, call_type: str) -> None:
     attributes: Final = span.attributes
-    assert attributes.get("langfuse.trace.name") == f"litellm-{call_type}", attributes
+    assert attributes.get("langfuse.trace.name") == f"hangarllm-{call_type}", attributes
     assert attributes.get("langfuse.trace.input") == attributes.get("langfuse.observation.input"), attributes
     assert attributes.get("langfuse.trace.output") == attributes.get("langfuse.observation.output"), attributes
     tags: Final = span.tags()
@@ -450,7 +450,7 @@ def test_mask_flags_redact_the_derived_trace_io(v1: Rig) -> None:
     attributes: Final = v1.sink.one(marker).attributes
     assert attributes.get("langfuse.trace.input") == REDACTED, attributes
     assert attributes.get("langfuse.trace.output") == REDACTED, attributes
-    assert attributes.get("langfuse.trace.name") == "litellm-acompletion", attributes
+    assert attributes.get("langfuse.trace.name") == "hangarllm-acompletion", attributes
 
 
 @pytest.mark.parametrize(
@@ -486,7 +486,7 @@ def test_malformed_caller_tags_still_log_the_generation_with_derived_fields(v1: 
     marker: Final = "lit8281-badtags-" + uuid.uuid4().hex
     _chat(v1, marker, metadata={"tags": tags})
     span: Final = v1.sink.one(marker)
-    assert span.attributes.get("langfuse.trace.name") == "litellm-acompletion", span.attributes
+    assert span.attributes.get("langfuse.trace.name") == "hangarllm-acompletion", span.attributes
     assert span.attributes.get("langfuse.trace.input") == span.attributes.get("langfuse.observation.input")
     assert all(isinstance(tag, str) for tag in span.tags()), span.tags()
 
@@ -501,7 +501,7 @@ def test_provider_failure_span_derives_name_and_input_without_output(v1: Rig) ->
     )
     assert response.status_code >= 500, response.text
     span: Final = v1.sink.one(marker)
-    assert span.attributes.get("langfuse.trace.name") == "litellm-acompletion", span.attributes
+    assert span.attributes.get("langfuse.trace.name") == "hangarllm-acompletion", span.attributes
     assert span.attributes.get("langfuse.trace.input") == span.attributes.get("langfuse.observation.input")
     assert "langfuse.trace.output" not in span.attributes, span.attributes
 
@@ -513,7 +513,7 @@ def test_embedding_call_derives_the_trace_name(v1: Rig) -> None:
     )
     assert response.status_code == 200, response.text
     span: Final = v1.sink.one(marker)
-    assert span.attributes.get("langfuse.trace.name") == "litellm-aembedding", span.attributes
+    assert span.attributes.get("langfuse.trace.name") == "hangarllm-aembedding", span.attributes
     assert span.attributes.get("langfuse.trace.output") == span.attributes.get("langfuse.observation.output")
 
 
@@ -534,7 +534,7 @@ def test_otel_v2_names_the_request_root_and_leaves_trace_io_to_the_root_observat
     derived_span: Final = v2.sink.one(derived)
     assert not set(_trace_fields((derived_span,))), derived_span.attributes
     root: Final = v2.sink.root_of(derived_span)
-    assert root.attributes.get("langfuse.trace.name") == "litellm-acompletion", root.attributes
+    assert root.attributes.get("langfuse.trace.name") == "hangarllm-acompletion", root.attributes
     assert derived in str(root.attributes.get("langfuse.observation.input")), root.attributes
     assert root.attributes.get("langfuse.observation.output") is not None, root.attributes
     caller_span: Final = v2.sink.one(caller)

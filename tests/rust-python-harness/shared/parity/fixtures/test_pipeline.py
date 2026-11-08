@@ -36,7 +36,7 @@ class _FixtureInput(BaseModel):
 class _ParityCase(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    litellm_input: _FixtureInput
+    hangarllm_input: _FixtureInput
     provider_responses: tuple[RecordedResponse, ...]
 
 

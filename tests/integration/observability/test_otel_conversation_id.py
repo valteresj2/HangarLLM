@@ -248,7 +248,7 @@ class Rig:
 
     def spend_session(self, response_id: str) -> str | None:
         rows: Final = eventually(
-            lambda: read_rows('SELECT session_id FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (response_id,)),
+            lambda: read_rows('SELECT session_id FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (response_id,)),
             lambda values: len(values) == 1,
             seconds=70,
         )
@@ -257,7 +257,7 @@ class Rig:
         return value
 
     def spend_request_ids(self, session: str) -> tuple[str, ...]:
-        rows: Final = read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE session_id=%s', (session,))
+        rows: Final = read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE session_id=%s', (session,))
         return tuple(str(row["request_id"]) for row in rows)
 
 
@@ -271,14 +271,14 @@ class RigFactory:
 
     def start(self) -> Iterator[Rig]:
         config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-        config["litellm_settings"].update({"callbacks": ["otel"]})
+        config["hangarllm_settings"].update({"callbacks": ["otel"]})
         config["general_settings"].update(self.settings)
         config["callback_settings"] = {
             "otel": {"exporter": "http/json", "endpoint": self.sink.wire.url, "mapper_names": ["genai"]},
         }
         path: Final = self.directory / f"otel-{uuid.uuid4().hex}.yaml"
         path.write_text(yaml.safe_dump(config))
-        overrides: Final = {"LITELLM_OTEL_V2": "1", "OTEL_BSP_SCHEDULE_DELAY": "300"}
+        overrides: Final = {"HANGARLLM_OTEL_V2": "1", "OTEL_BSP_SCHEDULE_DELAY": "300"}
         with (
             gateway_from_environment() as gateway,
             owned_proxy_process(gateway, self.directory, overrides, config=path, workers=self.workers) as owned,
@@ -313,13 +313,13 @@ def _assert_upstream_clean(rig: Rig, marker: str, session: str) -> None:
 
 
 @pytest.mark.covers("other.observability.otel.conversation_id_from_body_session_id_chat_sdk")
-def test_chat_completion_sdk_body_litellm_session_id_lands_as_conversation_id(rig: Rig) -> None:
+def test_chat_completion_sdk_body_hangarllm_session_id_lands_as_conversation_id(rig: Rig) -> None:
     marker: Final = _marker()
     session: Final = "conv-" + uuid.uuid4().hex
     completion: Final = rig.openai_client().chat.completions.create(
         model=rig.model,
         messages=[{"role": "user", "content": marker}],
-        extra_body={"litellm_session_id": session, "cache": {"no-cache": True}},
+        extra_body={"hangarllm_session_id": session, "cache": {"no-cache": True}},
     )
     assert completion.id == f"chatcmpl-{marker}", completion
     assert completion.choices[0].message.content == "conversation ok", completion
@@ -329,7 +329,7 @@ def test_chat_completion_sdk_body_litellm_session_id_lands_as_conversation_id(ri
 
 
 @pytest.mark.covers("other.observability.otel.conversation_id_from_header_chat_stream_async_sdk")
-def test_chat_stream_async_sdk_x_litellm_session_id_header_lands_as_conversation_id(rig: Rig) -> None:
+def test_chat_stream_async_sdk_x_hangarllm_session_id_header_lands_as_conversation_id(rig: Rig) -> None:
     marker: Final = _marker()
     session: Final = "conv-" + uuid.uuid4().hex
 
@@ -338,7 +338,7 @@ def test_chat_stream_async_sdk_x_litellm_session_id_header_lands_as_conversation
             model=rig.model,
             messages=[{"role": "user", "content": marker}],
             stream=True,
-            extra_headers={"x-litellm-session-id": session},
+            extra_headers={"x-hangarllm-session-id": session},
             extra_body={"cache": {"no-cache": True}},
         )
         chunks: Final = [chunk async for chunk in stream]
@@ -353,14 +353,14 @@ def test_chat_stream_async_sdk_x_litellm_session_id_header_lands_as_conversation
 
 
 @pytest.mark.covers("other.observability.otel.conversation_id_from_header_messages_sdk")
-def test_messages_sdk_x_litellm_session_id_header_lands_as_conversation_id(rig: Rig) -> None:
+def test_messages_sdk_x_hangarllm_session_id_header_lands_as_conversation_id(rig: Rig) -> None:
     marker: Final = _marker()
     session: Final = "conv-" + uuid.uuid4().hex
     message: Final = rig.anthropic_client().messages.create(
         model=rig.model,
         max_tokens=16,
         messages=[{"role": "user", "content": marker}],
-        extra_headers={"x-litellm-session-id": session},
+        extra_headers={"x-hangarllm-session-id": session},
     )
     assert message.content[0].type == "text" and message.content[0].text == "conversation ok", message
     assert rig.sink.single_span(message.id) == session
@@ -391,11 +391,11 @@ def test_messages_stream_async_sdk_langfuse_session_id_header_lands_as_conversat
 
 
 @pytest.mark.covers("other.observability.otel.conversation_id_from_header_responses_sdk")
-def test_responses_sdk_x_litellm_session_id_header_lands_as_conversation_id(rig: Rig) -> None:
+def test_responses_sdk_x_hangarllm_session_id_header_lands_as_conversation_id(rig: Rig) -> None:
     marker: Final = _marker()
     session: Final = "conv-" + uuid.uuid4().hex
     response: Final = rig.openai_client().responses.create(
-        model=rig.model, input=marker, extra_headers={"x-litellm-session-id": session}
+        model=rig.model, input=marker, extra_headers={"x-hangarllm-session-id": session}
     )
     assert response.output[0].id == f"msg_resp_{marker}", response
     assert response.output_text == "conversation ok", response
@@ -443,10 +443,10 @@ def test_chat_raw_metadata_session_id_lands_as_conversation_id(rig: Rig) -> None
 
 
 @pytest.mark.covers("other.observability.otel.conversation_id_non_string_session_ids_match_spend_row")
-def test_integer_and_list_litellm_session_id_match_the_spend_row_or_are_dropped_together(rig: Rig) -> None:
+def test_integer_and_list_hangarllm_session_id_match_the_spend_row_or_are_dropped_together(rig: Rig) -> None:
     for odd in (123, ["a", "b"]):
         marker: Final = _marker()
-        response: Final = rig.chat(marker, litellm_session_id=odd)
+        response: Final = rig.chat(marker, hangarllm_session_id=odd)
         assert response.status_code == 200, response.text
         identity: Final = response.json()["id"]
         assert rig.sink.single_span(identity) == rig.spend_session(identity), (odd, rig.sink.conversation_ids(identity))
@@ -454,9 +454,9 @@ def test_integer_and_list_litellm_session_id_match_the_spend_row_or_are_dropped_
 
 
 @pytest.mark.covers("other.observability.otel.conversation_id_empty_string_session_id_is_omitted")
-def test_empty_string_litellm_session_id_leaves_the_span_without_a_conversation_id(rig: Rig) -> None:
+def test_empty_string_hangarllm_session_id_leaves_the_span_without_a_conversation_id(rig: Rig) -> None:
     marker: Final = _marker()
-    response: Final = rig.chat(marker, litellm_session_id="")
+    response: Final = rig.chat(marker, hangarllm_session_id="")
     assert response.status_code == 200, response.text
     identity: Final = response.json()["id"]
     assert rig.sink.single_span(identity) is None
@@ -467,7 +467,7 @@ def test_empty_string_litellm_session_id_leaves_the_span_without_a_conversation_
 def test_five_kilobyte_session_header_round_trips_to_the_span_and_the_spend_row(rig: Rig) -> None:
     marker: Final = _marker()
     session: Final = ("s" * 5000) + uuid.uuid4().hex
-    response: Final = rig.chat(marker, headers={"x-litellm-session-id": session})
+    response: Final = rig.chat(marker, headers={"x-hangarllm-session-id": session})
     assert response.status_code == 200, response.text
     identity: Final = response.json()["id"]
     assert rig.sink.single_span(identity) == session
@@ -484,8 +484,8 @@ def test_duplicate_session_header_lands_once_and_unchanged(rig: Rig) -> None:
         json={"model": rig.model, "messages": [{"role": "user", "content": marker}], "cache": {"no-cache": True}},
         headers=[
             ("Authorization", f"Bearer {rig.proxy.key}"),
-            ("x-litellm-session-id", session),
-            ("x-litellm-session-id", session),
+            ("x-hangarllm-session-id", session),
+            ("x-hangarllm-session-id", session),
         ],
     )
     assert response.status_code == 200, response.text
@@ -498,7 +498,7 @@ def test_duplicate_session_header_lands_once_and_unchanged(rig: Rig) -> None:
 @pytest.mark.covers("other.observability.otel.conversation_id_unauthenticated_request_leaves_no_span")
 def test_unauthenticated_request_with_session_header_is_rejected_and_leaves_no_span(rig: Rig) -> None:
     marker: Final = _marker()
-    response: Final = rig.chat(marker, headers={"x-litellm-session-id": "conv-" + uuid.uuid4().hex}, key="sk-wrong")
+    response: Final = rig.chat(marker, headers={"x-hangarllm-session-id": "conv-" + uuid.uuid4().hex}, key="sk-wrong")
     assert response.status_code == 401, response.text
     assert rig.upstream_bodies(marker) == ()
     control: Final = rig.chat(marker)
@@ -511,14 +511,14 @@ def test_unauthenticated_request_with_session_header_is_rejected_and_leaves_no_s
 def test_sink_rejecting_with_403_drops_those_spans_and_later_spans_still_land(rig: Rig) -> None:
     rig.sink.rejection.set()
     try:
-        rejected: Final = rig.chat(_marker(), headers={"x-litellm-session-id": "conv-rejected"})
+        rejected: Final = rig.chat(_marker(), headers={"x-hangarllm-session-id": "conv-rejected"})
         assert rejected.status_code == 200, rejected.text
         eventually(lambda: any(request.body for request in rig.sink.wire.drain()), lambda seen: seen, seconds=30)
     finally:
         rig.sink.rejection.clear()
     marker: Final = _marker()
     session: Final = "conv-" + uuid.uuid4().hex
-    response: Final = rig.chat(marker, headers={"x-litellm-session-id": session})
+    response: Final = rig.chat(marker, headers={"x-hangarllm-session-id": session})
     assert response.status_code == 200, response.text
     assert rig.sink.single_span(response.json()["id"]) == session
 
@@ -559,8 +559,8 @@ def test_header_body_and_metadata_session_ids_resolve_to_the_same_id_as_the_spen
     header: Final = "conv-header-" + uuid.uuid4().hex
     response: Final = rig.chat(
         marker,
-        headers={"x-litellm-session-id": header},
-        litellm_session_id="conv-body-" + uuid.uuid4().hex,
+        headers={"x-hangarllm-session-id": header},
+        hangarllm_session_id="conv-body-" + uuid.uuid4().hex,
         metadata={"session_id": "conv-meta-" + uuid.uuid4().hex},
     )
     assert response.status_code == 200, response.text
@@ -573,7 +573,7 @@ def test_header_body_and_metadata_session_ids_resolve_to_the_same_id_as_the_spen
 def test_three_identical_requests_produce_one_span_each_with_the_same_conversation_id(rig: Rig) -> None:
     marker: Final = _marker()
     session: Final = "conv-" + uuid.uuid4().hex
-    responses: Final = tuple(rig.chat(marker, headers={"x-litellm-session-id": session}) for _ in range(3))
+    responses: Final = tuple(rig.chat(marker, headers={"x-hangarllm-session-id": session}) for _ in range(3))
     assert all(response.status_code == 200 for response in responses), [response.text for response in responses]
     identity: Final = f"chatcmpl-{marker}"
     spans: Final = eventually(lambda: rig.sink.conversation_ids(identity), lambda values: len(values) == 3, seconds=30)
@@ -625,7 +625,7 @@ def _burst(rig: Rig, count: int, session_for: Mapping[int, str]) -> tuple[tuple[
 
     def one(index: int) -> tuple[int, str, str | None]:
         marker: Final = markers[index]
-        headers: Final = {"Authorization": f"Bearer {rig.proxy.key}", "x-litellm-session-id": session_for[index]}
+        headers: Final = {"Authorization": f"Bearer {rig.proxy.key}", "x-hangarllm-session-id": session_for[index]}
         route: Final = index % 3
         try:
             if route == 0:
@@ -744,7 +744,7 @@ def test_killing_one_of_two_workers_mid_burst_keeps_serving_and_never_duplicates
             if index == 8:
                 kill()
             try:
-                response: Final = rig.chat(markers[index], headers={"x-litellm-session-id": sessions[index]})
+                response: Final = rig.chat(markers[index], headers={"x-hangarllm-session-id": sessions[index]})
                 return f"chatcmpl-{markers[index]}", None if response.status_code == 200 else response.text
             except httpx.HTTPError as error:
                 return f"chatcmpl-{markers[index]}", repr(error)
@@ -752,7 +752,7 @@ def test_killing_one_of_two_workers_mid_burst_keeps_serving_and_never_duplicates
         with ThreadPoolExecutor(max_workers=6) as pool:
             results: Final = tuple(pool.map(one, range(24)))
         assert rig.process.process.poll() is None, "Proxy root exited after a worker was killed"
-        after: Final = rig.chat(_marker(), headers={"x-litellm-session-id": "conv-after-kill"})
+        after: Final = rig.chat(_marker(), headers={"x-hangarllm-session-id": "conv-after-kill"})
         assert after.status_code == 200, after.text
     assert rig.sink.single_span(after.json()["id"]) == "conv-after-kill"
     failures: Final = tuple(error for _, error in results if error)
@@ -784,7 +784,7 @@ def test_terminating_the_proxy_right_after_a_burst_flushes_every_span_before_exi
     sessions: Final = {index: f"conv-{index}-{uuid.uuid4().hex}" for index in range(10)}
     markers: Final = tuple(_marker() for _ in range(10))
     responses: Final = tuple(
-        rig.chat(markers[index], headers={"x-litellm-session-id": sessions[index]}) for index in range(10)
+        rig.chat(markers[index], headers={"x-hangarllm-session-id": sessions[index]}) for index in range(10)
     )
     assert all(response.status_code == 200 for response in responses), [response.text for response in responses]
     expected: Final = {f"chatcmpl-{markers[index]}": sessions[index] for index in range(10)}

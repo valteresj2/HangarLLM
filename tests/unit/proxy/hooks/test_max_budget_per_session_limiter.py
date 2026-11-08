@@ -2,7 +2,7 @@
 Unit Tests for the per-session budget limiter for the proxy.
 
 Tests that session-scoped budget tracking works correctly:
-- Enforces max_budget_per_session per session_id (read from agent litellm_params)
+- Enforces max_budget_per_session per session_id (read from agent hangarllm_params)
 - Different sessions have independent budgets
 - Requests under budget pass through
 - Requests without agent_id pass through
@@ -17,22 +17,22 @@ import logging
 import pytest
 from fastapi import HTTPException
 
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import _redis_circuit_breaker_guard
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.hooks.max_budget_per_session_limiter import (
+from hangarllm.caching.caching import DualCache
+from hangarllm.caching.redis_cache import _redis_circuit_breaker_guard
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.hooks.max_budget_per_session_limiter import (
     PROXY_MaxBudgetPerSessionHandler,
 )
-from litellm.proxy.utils import InternalUsageCache
-from litellm.types.agents import AgentResponse
-from litellm.types.videos.utils import POLLED_VIDEO_STATUS_KWARG
+from hangarllm.proxy.utils import InternalUsageCache
+from hangarllm.types.agents import AgentResponse
+from hangarllm.types.videos.utils import POLLED_VIDEO_STATUS_KWARG
 
 
 def _make_mock_agent(max_budget_per_session: float) -> AgentResponse:
     return AgentResponse(
         agent_id="agent-budget-123",
         agent_name="budget-agent",
-        litellm_params={"max_budget_per_session": max_budget_per_session},
+        hangarllm_params={"max_budget_per_session": max_budget_per_session},
         agent_card_params={"name": "budget-agent", "version": "1.0.0"},
     )
 
@@ -54,7 +54,7 @@ async def test_budget_per_session_under_budget_passes():
     mock_agent = _make_mock_agent(max_budget_per_session=5.0)
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = mock_agent
 
@@ -89,7 +89,7 @@ async def test_budget_per_session_exceeds_budget():
     mock_agent = _make_mock_agent(max_budget_per_session=1.0)
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = mock_agent
 
@@ -125,7 +125,7 @@ async def test_budget_per_session_independent_sessions():
     mock_agent = _make_mock_agent(max_budget_per_session=2.0)
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = mock_agent
 
@@ -153,7 +153,7 @@ async def test_budget_per_session_independent_sessions():
 async def test_repeated_polls_of_a_finished_job_charge_the_session_once():
     from openai.types import Batch
 
-    from litellm.types.videos.main import VideoObject
+    from hangarllm.types.videos.main import VideoObject
 
     handler = PROXY_MaxBudgetPerSessionHandler(internal_usage_cache=InternalUsageCache(DualCache()))
     video = VideoObject(id="job-1", object="video", status="completed")
@@ -164,7 +164,7 @@ async def test_repeated_polls_of_a_finished_job_charge_the_session_once():
     polls = (("avideo_status", video, 0.4), ("aretrieve_batch", batch, 0.1), ("acompletion", None, 0.01))
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = _make_mock_agent(max_budget_per_session=5.0)
         for call_type, response_obj, cost in polls * 3:
@@ -173,7 +173,7 @@ async def test_repeated_polls_of_a_finished_job_charge_the_session_once():
                     "call_type": call_type,
                     "response_cost": cost,
                     POLLED_VIDEO_STATUS_KWARG: "completed",
-                    "litellm_params": {"metadata": {"session_id": "session-jobs", "agent_id": "agent-budget-123"}},
+                    "hangarllm_params": {"metadata": {"session_id": "session-jobs", "agent_id": "agent-budget-123"}},
                 },
                 response_obj,
                 None,
@@ -197,7 +197,7 @@ async def test_a_batch_retrieve_before_its_cost_is_final_charges_the_session_not
         )
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = _make_mock_agent(max_budget_per_session=5.0)
         for response_obj, cost in (
@@ -210,7 +210,7 @@ async def test_a_batch_retrieve_before_its_cost_is_final_charges_the_session_not
                 {
                     "call_type": "aretrieve_batch",
                     "response_cost": cost,
-                    "litellm_params": {"metadata": {"session_id": "session-batch", "agent_id": "agent-budget-123"}},
+                    "hangarllm_params": {"metadata": {"session_id": "session-batch", "agent_id": "agent-budget-123"}},
                 },
                 response_obj,
                 None,
@@ -232,7 +232,7 @@ def _video_poll(
             "response_cost": video_cost + guardrail_cost,
             "guardrail_information": [{"guardrail_name": "priced", "guardrail_cost": guardrail_cost}],
         },
-        "litellm_params": {"metadata": {"session_id": session_id, "agent_id": "agent-budget-123"}},
+        "hangarllm_params": {"metadata": {"session_id": session_id, "agent_id": "agent-budget-123"}},
     }
 
 
@@ -245,13 +245,13 @@ def _video_poll(
 async def test_every_video_poll_pays_its_guardrail_and_only_the_finished_poll_pays_the_session_for_the_video(
     video_cost: float, guardrail_cost: float
 ):
-    from litellm.types.videos.main import VideoObject
+    from hangarllm.types.videos.main import VideoObject
 
     handler = PROXY_MaxBudgetPerSessionHandler(internal_usage_cache=InternalUsageCache(DualCache()))
     completed_polls: Final = 3
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = _make_mock_agent(max_budget_per_session=5.0)
         await handler.async_log_success_event(
@@ -325,7 +325,7 @@ class _ClockedRedis:
 
 @pytest.mark.asyncio
 async def test_a_finished_video_polled_without_pause_is_not_charged_again_once_the_session_window_rolls_over():
-    from litellm.types.videos.main import VideoObject
+    from hangarllm.types.videos.main import VideoObject
 
     redis = _ClockedRedis()
     handler = PROXY_MaxBudgetPerSessionHandler(
@@ -335,11 +335,11 @@ async def test_a_finished_video_polled_without_pause_is_not_charged_again_once_t
     chat = {
         "call_type": "acompletion",
         "response_cost": 0.01,
-        "litellm_params": {"metadata": {"session_id": "session-jobs", "agent_id": "agent-budget-123"}},
+        "hangarllm_params": {"metadata": {"session_id": "session-jobs", "agent_id": "agent-budget-123"}},
     }
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = _make_mock_agent(max_budget_per_session=5.0)
         for _ in range(3):
@@ -352,7 +352,7 @@ async def test_a_finished_video_polled_without_pause_is_not_charged_again_once_t
 
 @pytest.mark.asyncio
 async def test_a_finished_video_whose_charge_missed_redis_is_charged_on_the_next_poll_once_redis_answers():
-    from litellm.types.videos.main import VideoObject
+    from hangarllm.types.videos.main import VideoObject
 
     redis: Final = _ClockedRedis()
     handler: Final = PROXY_MaxBudgetPerSessionHandler(
@@ -361,7 +361,7 @@ async def test_a_finished_video_whose_charge_missed_redis_is_charged_on_the_next
     video: Final = VideoObject(id="job-1", object="video", status="completed")
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = _make_mock_agent(max_budget_per_session=5.0)
         redis.scripts_fail = True
@@ -381,14 +381,14 @@ async def test_a_cost_that_is_not_a_finite_number_leaves_the_session_spend_alone
     await handler._increment_spend(cache_key, 0.25)
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = _make_mock_agent(max_budget_per_session=5.0)
         await handler.async_log_success_event(
             {
                 "call_type": "acompletion",
                 "response_cost": response_cost,
-                "litellm_params": {"metadata": {"session_id": "session-unpriced", "agent_id": "agent-budget-123"}},
+                "hangarllm_params": {"metadata": {"session_id": "session-unpriced", "agent_id": "agent-budget-123"}},
             },
             None,
             None,
@@ -422,10 +422,10 @@ async def test_no_agent_id_passes():
 
 class _OpenBreakerRedis:
     def __init__(self) -> None:
-        from litellm._service_logger import ServiceLogging
-        from litellm.caching.redis_cache import RedisHealth
-        from litellm.redis.store_settings import RedisBreakerSettings
-        from litellm.rust_bridge._native import NativeRedisBreaker
+        from hangarllm._service_logger import ServiceLogging
+        from hangarllm.caching.redis_cache import RedisHealth
+        from hangarllm.redis.store_settings import RedisBreakerSettings
+        from hangarllm.rust_bridge._native import NativeRedisBreaker
 
         breaker: Final = NativeRedisBreaker(
             RedisBreakerSettings(failure_threshold=1, recovery_timeout=60.0, timeout_min_duration=5.0)
@@ -451,7 +451,7 @@ async def test_an_open_circuit_breaker_reads_session_spend_locally_without_a_war
     handler = PROXY_MaxBudgetPerSessionHandler(internal_usage_cache=InternalUsageCache(cache))
     caplog.clear()
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
         spend = await handler._get_current_spend("{session_budget:quiet}:spend")
 
     assert spend == 0.0

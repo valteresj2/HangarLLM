@@ -18,32 +18,32 @@ from httpx import Response
 from openai.types.chat import ChatCompletionMessage
 from pydantic import BaseModel, ConfigDict
 
-import litellm
-from litellm import Router
-from litellm._logging import verbose_logger
-from litellm.integrations.anthropic_cache_control_hook import (
+import hangarllm
+from hangarllm import Router
+from hangarllm._logging import verbose_logger
+from hangarllm.integrations.anthropic_cache_control_hook import (
     CARRY_UNMATCHED_MESSAGE_POINTS,
     EXTERNAL_BREAKPOINTS_STAMP,
     AnthropicCacheControlHook,
     configured_injection_points,
     supports_openai_prompt_cache_breakpoint,
 )
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
     _convert_to_bedrock_tool_call_invoke,
     convert_to_anthropic_tool_invoke,
 )
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionAssistantToolCall
-from litellm.types.utils import ChatCompletionMessageToolCall, LlmProviders, Message
-from litellm.utils import ProviderConfigManager
+from hangarllm.llms.anthropic.chat.transformation import AnthropicConfig
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.types.llms.openai import AllMessageValues, ChatCompletionAssistantToolCall
+from hangarllm.types.utils import ChatCompletionMessageToolCall, LlmProviders, Message
+from hangarllm.utils import ProviderConfigManager
 
 
 @pytest.fixture(autouse=True)
 def _no_openai_api_base_override(monkeypatch):
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
 
 
 def _rendered_log_message(call):
@@ -64,7 +64,7 @@ async def test_anthropic_cache_control_hook_system_message(monkeypatch: pytest.M
         },
     ):
         anthropic_cache_control_hook = AnthropicCacheControlHook()
-        monkeypatch.setattr(litellm, "callbacks", [anthropic_cache_control_hook])
+        monkeypatch.setattr(hangarllm, "callbacks", [anthropic_cache_control_hook])
 
         # Mock response data
         mock_response = MagicMock()
@@ -89,7 +89,7 @@ async def test_anthropic_cache_control_hook_system_message(monkeypatch: pytest.M
         # Mock AsyncHTTPHandler.post method
         client = AsyncHTTPHandler()
         with patch.object(client, "post", return_value=mock_response) as mock_post:
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0",
                 messages=[
                     {
@@ -143,7 +143,7 @@ async def test_anthropic_cache_control_hook_user_message(monkeypatch: pytest.Mon
         },
     ):
         anthropic_cache_control_hook = AnthropicCacheControlHook()
-        monkeypatch.setattr(litellm, "callbacks", [anthropic_cache_control_hook])
+        monkeypatch.setattr(hangarllm, "callbacks", [anthropic_cache_control_hook])
 
         # Mock response data
         mock_response = MagicMock()
@@ -168,7 +168,7 @@ async def test_anthropic_cache_control_hook_user_message(monkeypatch: pytest.Mon
         # Mock AsyncHTTPHandler.post method
         client = AsyncHTTPHandler()
         with patch.object(client, "post", return_value=mock_response) as mock_post:
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0",
                 messages=[
                     {
@@ -220,7 +220,7 @@ async def test_anthropic_cache_control_hook_negative_indices(monkeypatch: pytest
         },
     ):
         anthropic_cache_control_hook = AnthropicCacheControlHook()
-        monkeypatch.setattr(litellm, "callbacks", [anthropic_cache_control_hook])
+        monkeypatch.setattr(hangarllm, "callbacks", [anthropic_cache_control_hook])
 
         # Mock response data
         mock_response = MagicMock()
@@ -246,7 +246,7 @@ async def test_anthropic_cache_control_hook_negative_indices(monkeypatch: pytest
         client = AsyncHTTPHandler()
         with patch.object(client, "post", return_value=mock_response) as mock_post:
             # Test with multiple messages and negative indices
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 messages=[
                     {
@@ -332,7 +332,7 @@ async def test_anthropic_cache_control_hook_out_of_bounds_logging(monkeypatch: p
         },
     ):
         anthropic_cache_control_hook = AnthropicCacheControlHook()
-        monkeypatch.setattr(litellm, "callbacks", [anthropic_cache_control_hook])
+        monkeypatch.setattr(hangarllm, "callbacks", [anthropic_cache_control_hook])
 
         # Mock response data
         mock_response = MagicMock()
@@ -355,14 +355,14 @@ async def test_anthropic_cache_control_hook_out_of_bounds_logging(monkeypatch: p
         client = AsyncHTTPHandler()
 
         # Mock the verbose_logger to capture warning calls
-        with patch("litellm.integrations.anthropic_cache_control_hook.verbose_logger") as mock_logger:
+        with patch("hangarllm.integrations.anthropic_cache_control_hook.verbose_logger") as mock_logger:
             with patch.object(client, "post", return_value=mock_response) as mock_post:
                 messages = [
                     {"role": "user", "content": "Message 1"},
                     {"role": "user", "content": "Message 2"},
                 ]
 
-                await litellm.acompletion(
+                await hangarllm.acompletion(
                     model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                     messages=messages,
                     cache_control_injection_points=[{"location": "message", "index": 10}],  # Out of bounds index
@@ -394,7 +394,7 @@ async def test_anthropic_cache_control_hook_negative_out_of_bounds_logging(monke
         },
     ):
         anthropic_cache_control_hook = AnthropicCacheControlHook()
-        monkeypatch.setattr(litellm, "callbacks", [anthropic_cache_control_hook])
+        monkeypatch.setattr(hangarllm, "callbacks", [anthropic_cache_control_hook])
 
         # Mock response data
         mock_response = MagicMock()
@@ -417,13 +417,13 @@ async def test_anthropic_cache_control_hook_negative_out_of_bounds_logging(monke
         client = AsyncHTTPHandler()
 
         # Mock the verbose_logger to capture warning calls
-        with patch("litellm.integrations.anthropic_cache_control_hook.verbose_logger") as mock_logger:
+        with patch("hangarllm.integrations.anthropic_cache_control_hook.verbose_logger") as mock_logger:
             with patch.object(client, "post", return_value=mock_response) as mock_post:
                 messages = [
                     {"role": "user", "content": "Single message"},
                 ]
 
-                await litellm.acompletion(
+                await hangarllm.acompletion(
                     model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                     messages=messages,
                     cache_control_injection_points=[
@@ -461,7 +461,7 @@ async def test_anthropic_cache_control_hook_multiple_user_messages(monkeypatch: 
         },
     ):
         anthropic_cache_control_hook = AnthropicCacheControlHook()
-        monkeypatch.setattr(litellm, "callbacks", [anthropic_cache_control_hook])
+        monkeypatch.setattr(hangarllm, "callbacks", [anthropic_cache_control_hook])
 
         # Mock response data
         mock_response = MagicMock()
@@ -484,7 +484,7 @@ async def test_anthropic_cache_control_hook_multiple_user_messages(monkeypatch: 
         client = AsyncHTTPHandler()
         with patch.object(client, "post", return_value=mock_response) as mock_post:
             # Test with multiple user messages and negative indices
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 messages=[
                     {
@@ -553,7 +553,7 @@ async def test_anthropic_cache_control_hook_out_of_bounds(bad_index, monkeypatch
         },
     ):
         anthropic_cache_control_hook = AnthropicCacheControlHook()
-        monkeypatch.setattr(litellm, "callbacks", [anthropic_cache_control_hook])
+        monkeypatch.setattr(hangarllm, "callbacks", [anthropic_cache_control_hook])
 
         # Mock response data
         mock_response = MagicMock()
@@ -580,7 +580,7 @@ async def test_anthropic_cache_control_hook_out_of_bounds(bad_index, monkeypatch
                 {"role": "user", "content": "Message 2"},
             ]
 
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 messages=messages,
                 cache_control_injection_points=[{"location": "message", "index": bad_index}],
@@ -615,7 +615,7 @@ async def test_anthropic_cache_control_hook_single_message(message_list, monkeyp
         },
     ):
         anthropic_cache_control_hook = AnthropicCacheControlHook()
-        monkeypatch.setattr(litellm, "callbacks", [anthropic_cache_control_hook])
+        monkeypatch.setattr(hangarllm, "callbacks", [anthropic_cache_control_hook])
 
         # Mock response data
         mock_response = MagicMock()
@@ -637,7 +637,7 @@ async def test_anthropic_cache_control_hook_single_message(message_list, monkeyp
 
         client = AsyncHTTPHandler()
         with patch.object(client, "post", return_value=mock_response) as mock_post:
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 messages=message_list,
                 cache_control_injection_points=[{"location": "message", "index": -1}],
@@ -666,16 +666,16 @@ async def test_anthropic_cache_control_hook_empty_message_list(monkeypatch: pyte
         },
     ):
         anthropic_cache_control_hook = AnthropicCacheControlHook()
-        monkeypatch.setattr(litellm, "callbacks", [anthropic_cache_control_hook])
+        monkeypatch.setattr(hangarllm, "callbacks", [anthropic_cache_control_hook])
 
         client = AsyncHTTPHandler()
         with patch.object(client, "post", return_value=MagicMock()) as mock_post:
             # This should fail at the API level, not the hook level
             with pytest.raises(
-                litellm.BadRequestError,
+                hangarllm.BadRequestError,
                 match="bedrock requires at least one non-system message",
             ):
-                await litellm.acompletion(
+                await hangarllm.acompletion(
                     model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                     messages=[],
                     cache_control_injection_points=[{"location": "message", "index": -1}],
@@ -697,7 +697,7 @@ async def test_anthropic_cache_control_hook_no_op(monkeypatch: pytest.MonkeyPatc
         },
     ):
         anthropic_cache_control_hook = AnthropicCacheControlHook()
-        monkeypatch.setattr(litellm, "callbacks", [anthropic_cache_control_hook])
+        monkeypatch.setattr(hangarllm, "callbacks", [anthropic_cache_control_hook])
 
         # Mock response data
         mock_response = MagicMock()
@@ -724,7 +724,7 @@ async def test_anthropic_cache_control_hook_no_op(monkeypatch: pytest.MonkeyPatc
                 {"role": "user", "content": "Message 2"},
             ]
 
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 messages=messages,
                 # No cache_control_injection_points parameter
@@ -745,7 +745,7 @@ async def test_anthropic_cache_control_hook_no_op(monkeypatch: pytest.MonkeyPatc
 async def test_anthropic_cache_control_hook_multiple_content_items_last_only(monkeypatch: pytest.MonkeyPatch):
     """
     Test that cache_control is only applied to the last content item in a list, not all items.
-    This verifies the fix for https://github.com/BerriAI/litellm/issues/15696
+    This verifies the fix for upstream issue 15696
     """
     with patch.dict(
         os.environ,
@@ -756,7 +756,7 @@ async def test_anthropic_cache_control_hook_multiple_content_items_last_only(mon
         },
     ):
         anthropic_cache_control_hook = AnthropicCacheControlHook()
-        monkeypatch.setattr(litellm, "callbacks", [anthropic_cache_control_hook])
+        monkeypatch.setattr(hangarllm, "callbacks", [anthropic_cache_control_hook])
 
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -777,7 +777,7 @@ async def test_anthropic_cache_control_hook_multiple_content_items_last_only(mon
 
         client = AsyncHTTPHandler()
         with patch.object(client, "post", return_value=mock_response) as mock_post:
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 messages=[
                     {
@@ -827,7 +827,7 @@ async def test_anthropic_cache_control_hook_document_analysis_multiple_pages(mon
         },
     ):
         anthropic_cache_control_hook = AnthropicCacheControlHook()
-        monkeypatch.setattr(litellm, "callbacks", [anthropic_cache_control_hook])
+        monkeypatch.setattr(hangarllm, "callbacks", [anthropic_cache_control_hook])
 
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -848,7 +848,7 @@ async def test_anthropic_cache_control_hook_document_analysis_multiple_pages(mon
 
         client = AsyncHTTPHandler()
         with patch.object(client, "post", return_value=mock_response) as mock_post:
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 messages=[
                     {
@@ -895,10 +895,10 @@ def test_gemini_cache_control_injection_points_detected():
 
     Fixes GitHub issue #18519.
     """
-    from litellm.llms.vertex_ai.context_caching.transformation import (
+    from hangarllm.llms.vertex_ai.context_caching.transformation import (
         separate_cached_messages,
     )
-    from litellm.utils import is_cached_message
+    from hangarllm.utils import is_cached_message
 
     hook = AnthropicCacheControlHook()
 
@@ -944,10 +944,10 @@ def test_gemini_cache_control_injection_list_content_detected():
     Test that cache_control_injection_points work for Gemini models
     when the message content is a list (not string).
     """
-    from litellm.llms.vertex_ai.context_caching.transformation import (
+    from hangarllm.llms.vertex_ai.context_caching.transformation import (
         separate_cached_messages,
     )
-    from litellm.utils import is_cached_message
+    from hangarllm.utils import is_cached_message
 
     hook = AnthropicCacheControlHook()
 
@@ -1002,7 +1002,7 @@ async def test_anthropic_cache_control_hook_string_negative_index(monkeypatch: p
         },
     ):
         anthropic_cache_control_hook = AnthropicCacheControlHook()
-        monkeypatch.setattr(litellm, "callbacks", [anthropic_cache_control_hook])
+        monkeypatch.setattr(hangarllm, "callbacks", [anthropic_cache_control_hook])
 
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -1023,7 +1023,7 @@ async def test_anthropic_cache_control_hook_string_negative_index(monkeypatch: p
 
         client = AsyncHTTPHandler()
         with patch.object(client, "post", return_value=mock_response) as mock_post:
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 messages=[
                     {"role": "user", "content": "First message"},
@@ -1205,7 +1205,7 @@ def _wire_cache_marks(messages: list[AllMessageValues], model: str = "claude-opu
         model=model,
         messages=copy.deepcopy(messages),
         optional_params={"max_tokens": 64},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     message_blocks: Final = itertools.chain.from_iterable(
@@ -1272,7 +1272,7 @@ def test_cache_control_hook_counts_a_server_tool_call_mark_only_when_anthropic_r
     expected_breakpoints: int,
     model: str,
 ):
-    monkeypatch.setattr(litellm, "modify_params", modify_params)
+    monkeypatch.setattr(hangarllm, "modify_params", modify_params)
     messages: Final = [
         cast(AllMessageValues, {"role": "user", "content": "Weather in Paris?"}),
         _replayed_search_call(*tool_calls),
@@ -1294,7 +1294,7 @@ def test_cache_control_hook_counts_a_server_tool_call_mark_only_when_anthropic_r
 def test_cache_control_hook_never_counts_fewer_marks_than_anthropic_receives_after_a_system_message(
     monkeypatch: pytest.MonkeyPatch, modify_params: bool, model: str, after_the_call: tuple[dict[str, object], ...]
 ):
-    monkeypatch.setattr(litellm, "modify_params", modify_params)
+    monkeypatch.setattr(hangarllm, "modify_params", modify_params)
     messages: Final = [
         cast(AllMessageValues, {"role": "system", "content": "You are a weather assistant."}),
         cast(AllMessageValues, {"role": "user", "content": "Weather in Paris?"}),
@@ -1322,8 +1322,8 @@ def test_cache_control_hook_never_counts_fewer_marks_than_anthropic_receives_aft
 def test_cache_control_hook_fills_the_mark_budget_when_the_client_answers_one_of_two_marked_search_calls(
     monkeypatch: pytest.MonkeyPatch, hook_model: str, wire_model: str
 ):
-    monkeypatch.setattr(litellm, "modify_params", True)
-    monkeypatch.setitem(litellm.model_cost, "my-unreadable-claude-alias", [])
+    monkeypatch.setattr(hangarllm, "modify_params", True)
+    monkeypatch.setitem(hangarllm.model_cost, "my-unreadable-claude-alias", [])
     marked_text: Final = {"type": "text", "text": "Context: a trip.", "cache_control": {"type": "ephemeral"}}
     two_kept_searches: Final = {
         "role": "assistant",
@@ -1377,7 +1377,7 @@ def _marks_in(value: object) -> int:
 
 def _marks_the_route_sends(model: str, custom_llm_provider: str | None, messages: list[AllMessageValues]) -> int:
     served_model, provider, _, _ = (
-        (model, custom_llm_provider, None, None) if custom_llm_provider else litellm.get_llm_provider(model=model)
+        (model, custom_llm_provider, None, None) if custom_llm_provider else hangarllm.get_llm_provider(model=model)
     )
     route_config: Final = ProviderConfigManager.get_provider_chat_config(
         model=served_model, provider=LlmProviders(provider)
@@ -1392,7 +1392,7 @@ def _marks_the_route_sends(model: str, custom_llm_provider: str | None, messages
             model=served_model,
             messages=copy.deepcopy(messages),
             optional_params={"max_tokens": 64, "tools": [weather_tool]},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     )
@@ -1434,7 +1434,7 @@ def test_cache_control_injection_points_replace_client_prompt_cache_breakpoints_
         model="claude-sonnet-5-5",
         messages=_hook_output("anthropic/claude-sonnet-5-5"),
         optional_params={"max_tokens": 64},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1457,14 +1457,14 @@ def test_cache_control_injection_points_replace_client_prompt_cache_breakpoints_
 def test_cache_control_injection_points_replace_client_prompt_cache_breakpoints_on_a_flagged_bedrock_profile(
     local_model_cost_map, sibling_model_infos: tuple[Mapping[str, object], ...], route: str
 ):
-    from litellm import Router
+    from hangarllm import Router
 
     model: Final = f"{route}/arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/claude-flagged"
     Router(
         model_list=[
             {
                 "model_name": f"claude-profile-{position}",
-                "litellm_params": {"model": model, "aws_region_name": "us-east-1"},
+                "hangarllm_params": {"model": model, "aws_region_name": "us-east-1"},
                 "model_info": model_info,
             }
             for position, model_info in enumerate(({"supports_prompt_cache_breakpoint": True}, *sibling_model_infos))
@@ -1538,7 +1538,7 @@ def test_cache_control_hook_fills_the_mark_budget_every_claude_route_sends_after
     tool_calls: tuple[dict[str, object], ...],
     follow_ups: tuple[dict[str, object], ...],
 ):
-    monkeypatch.setattr(litellm, "modify_params", True)
+    monkeypatch.setattr(hangarllm, "modify_params", True)
     monkeypatch.setenv("GITHUB_COPILOT_TOKEN_DIR", str(tmp_path))
     monkeypatch.setenv("GITHUB_COPILOT_DEVICE_CODE_URL", "http://127.0.0.1:9/login/device/code")
     marked_text: Final = {"type": "text", "text": "Context: a trip.", "cache_control": {"type": "ephemeral"}}
@@ -1868,7 +1868,7 @@ async def test_cache_control_hook_bedrock_payload_caps_cachepoints_at_four(monke
             "AWS_REGION_NAME": "us-east-1",
         },
     ):
-        monkeypatch.setattr(litellm, "callbacks", [AnthropicCacheControlHook()])
+        monkeypatch.setattr(hangarllm, "callbacks", [AnthropicCacheControlHook()])
 
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -1895,7 +1895,7 @@ async def test_cache_control_hook_bedrock_payload_caps_cachepoints_at_four(monke
             ]
             messages.append({"role": "user", "content": "hello"})
 
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="bedrock/us.anthropic.claude-opus-4-6-v1:0",
                 messages=messages,
                 max_tokens=32,
@@ -1964,7 +1964,7 @@ async def test_cache_control_hook_bedrock_payload_caps_with_tool_config_point(mo
             "AWS_REGION_NAME": "us-east-1",
         },
     ):
-        monkeypatch.setattr(litellm, "callbacks", [AnthropicCacheControlHook()])
+        monkeypatch.setattr(hangarllm, "callbacks", [AnthropicCacheControlHook()])
 
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -1979,7 +1979,7 @@ async def test_cache_control_hook_bedrock_payload_caps_with_tool_config_point(mo
             messages = [{"role": "system", "content": f"System block {i}"} for i in range(4)]
             messages.append({"role": "user", "content": "What is the weather?"})
 
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="bedrock/us.anthropic.claude-opus-4-6-v1:0",
                 messages=messages,
                 max_tokens=32,
@@ -2058,7 +2058,7 @@ async def test_cache_control_hook_bedrock_tool_config_point_stands_down_when_cli
             "AWS_REGION_NAME": "us-east-1",
         },
     ):
-        monkeypatch.setattr(litellm, "callbacks", [AnthropicCacheControlHook()])
+        monkeypatch.setattr(hangarllm, "callbacks", [AnthropicCacheControlHook()])
 
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -2080,7 +2080,7 @@ async def test_cache_control_hook_bedrock_tool_config_point_stands_down_when_cli
                 {"role": "user", "content": "What is the weather?"},
             ]
 
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="bedrock/us.anthropic.claude-opus-4-6-v1:0",
                 messages=messages,
                 max_tokens=32,
@@ -2303,7 +2303,7 @@ class TestApplyToAnthropicMessagesRequest:
 
 
 class TestEnableAnthropicPromptCaching:
-    """Auto-injected default breakpoints via litellm.enable_anthropic_prompt_caching."""
+    """Auto-injected default breakpoints via hangarllm.enable_anthropic_prompt_caching."""
 
     MESSAGES: List[AllMessageValues] = [
         {"role": "system", "content": "a long system prompt"},
@@ -2322,27 +2322,27 @@ class TestEnableAnthropicPromptCaching:
         )
 
     def test_disabled_by_default(self):
-        assert litellm.enable_anthropic_prompt_caching is False
+        assert hangarllm.enable_anthropic_prompt_caching is False
         assert self._points() == []
 
     def test_injects_system_and_trailing_turn(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         assert self._points() == [
             {"location": "message", "role": "system", "index": None, "control": {"type": "ephemeral"}},
             {"location": "message", "role": None, "index": -1, "control": {"type": "ephemeral"}},
         ]
 
     def test_bedrock_claude_is_injected(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         points = self._points(model="us.anthropic.claude-sonnet-4-5-20250929-v1:0", provider="bedrock")
         assert [p["index"] for p in points] == [None, -1]
 
     @pytest.mark.parametrize("model, provider", [("gpt-4o", "openai")])
     def test_non_anthropic_providers_never_injected(self, monkeypatch, model, provider):
         """These report supports_prompt_caching=True but never consume cache_control markers."""
-        from litellm.utils import supports_prompt_caching
+        from hangarllm.utils import supports_prompt_caching
 
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         assert supports_prompt_caching(model=model, custom_llm_provider=provider) is True
         assert self._points(model=model, provider=provider) == []
 
@@ -2356,14 +2356,14 @@ class TestEnableAnthropicPromptCaching:
     def test_claude_transport_defaults(
         self, monkeypatch, local_model_cost_map, family, provider, template, infer_provider, supported
     ):
-        from litellm.utils import supports_prompt_caching
+        from hangarllm.utils import supports_prompt_caching
 
         model = template.format(f"claude-{family}")
         qualified = f"{provider}/{model}"
-        entry = {"litellm_provider": provider, "mode": "chat", "supports_prompt_caching": supported}
-        monkeypatch.setitem(litellm.model_cost, model, entry)
-        monkeypatch.setitem(litellm.model_cost, qualified, entry)
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", False)
+        entry = {"hangarllm_provider": provider, "mode": "chat", "supports_prompt_caching": supported}
+        monkeypatch.setitem(hangarllm.model_cost, model, entry)
+        monkeypatch.setitem(hangarllm.model_cost, qualified, entry)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", False)
         target = qualified if infer_provider else model
         resolved_provider = None if infer_provider else provider
         assert supports_prompt_caching(model=target, custom_llm_provider=resolved_provider) is supported
@@ -2399,13 +2399,13 @@ class TestEnableAnthropicPromptCaching:
     def test_non_claude_caching_capability_does_not_enable_defaults(
         self, monkeypatch, local_model_cost_map, provider, model
     ):
-        from litellm.utils import supports_prompt_caching
+        from hangarllm.utils import supports_prompt_caching
 
         qualified = f"{provider}/{model}"
-        entry = {"litellm_provider": provider, "mode": "chat", "supports_prompt_caching": True}
-        monkeypatch.setitem(litellm.model_cost, model, entry)
-        monkeypatch.setitem(litellm.model_cost, qualified, entry)
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        entry = {"hangarllm_provider": provider, "mode": "chat", "supports_prompt_caching": True}
+        monkeypatch.setitem(hangarllm.model_cost, model, entry)
+        monkeypatch.setitem(hangarllm.model_cost, qualified, entry)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         assert supports_prompt_caching(model=model, custom_llm_provider=provider)
         assert self._points(model=model, provider=provider) == []
         assert self._points(model=qualified, provider=None) == []
@@ -2418,15 +2418,15 @@ class TestEnableAnthropicPromptCaching:
     def test_new_transports_preserve_client_controls(
         self, monkeypatch, local_model_cost_map, provider, client_control, envelope, configured
     ):
-        from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import VertexAIAnthropicConfig
+        from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import VertexAIAnthropicConfig
 
         model = "claude-sonnet-5"
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             f"{provider}/{model}",
             {
-                **litellm.model_cost[f"{provider}/{model}"],
+                **hangarllm.model_cost[f"{provider}/{model}"],
                 "supports_prompt_caching": True,
             },
         )
@@ -2489,7 +2489,7 @@ class TestEnableAnthropicPromptCaching:
             assert (result_messages, result_system, tools) == original
             assert kwargs["metadata"] == {}
         else:
-            assert kwargs["metadata"]["litellm_gateway_injected_cache"] == "selected-deployment"
+            assert kwargs["metadata"]["hangarllm_gateway_injected_cache"] == "selected-deployment"
             assert sum(AnthropicCacheControlHook._count_cache_control_blocks(m) for m in result_messages) == 1
             assert result_system[0]["cache_control"] == control
             assert result_messages[-1]["content"][-1]["cache_control"] == control
@@ -2501,7 +2501,7 @@ class TestEnableAnthropicPromptCaching:
                     model=model,
                     messages=[{"role": "system", "content": result_system}, *result_messages],
                     optional_params={"max_tokens": 8},
-                    litellm_params={},
+                    hangarllm_params={},
                     headers={},
                 )
                 assert wire["system"][0]["cache_control"] == control
@@ -2539,16 +2539,16 @@ class TestEnableAnthropicPromptCaching:
         self, monkeypatch, local_model_cost_map, asynchronous, model, target, client_control, expected
     ):
         import httpx
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
-        monkeypatch.setattr(litellm, "model_alias_map", {model: target} if target else {})
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "model_alias_map", {model: target} if target else {})
         for qualified in (model, target):
             if qualified:
                 provider = qualified.split("/")[0]
-                entry = {"litellm_provider": provider, "mode": "chat", "supports_prompt_caching": True}
-                monkeypatch.setitem(litellm.model_cost, qualified, entry)
-                monkeypatch.setitem(litellm.model_cost, qualified.split("/", 1)[-1], entry)
+                entry = {"hangarllm_provider": provider, "mode": "chat", "supports_prompt_caching": True}
+                monkeypatch.setitem(hangarllm.model_cost, qualified, entry)
+                monkeypatch.setitem(hangarllm.model_cost, qualified.split("/", 1)[-1], entry)
         sent = []
 
         def respond(request):
@@ -2584,7 +2584,7 @@ class TestEnableAnthropicPromptCaching:
             "messages": copy.deepcopy(messages),
             "max_tokens": 32,
             "num_retries": 0,
-            "litellm_metadata": metadata,
+            "hangarllm_metadata": metadata,
             "api_base": "https://rig.services.ai.azure.com/anthropic",
             "api_key": "synthetic-test-key",
             "aws_access_key_id": "synthetic",
@@ -2597,13 +2597,13 @@ class TestEnableAnthropicPromptCaching:
             await handler.client.aclose()
             async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
                 handler.client = client
-                response = await litellm.acompletion(**kwargs, client=handler)
+                response = await hangarllm.acompletion(**kwargs, client=handler)
         else:
             with httpx.Client(transport=httpx.MockTransport(respond)) as client:
-                response = litellm.completion(**kwargs, client=HTTPHandler(client=client))
+                response = hangarllm.completion(**kwargs, client=HTTPHandler(client=client))
         assert response.choices[0].message.content == "ok"
         assert len(sent) == 1
-        assert ("litellm_gateway_injected_cache" in metadata) == (expected == 2)
+        assert ("hangarllm_gateway_injected_cache" in metadata) == (expected == 2)
         serialized = json.dumps(sent[0])
         assert serialized.count('"cache_control"') + serialized.count('"cachePoint"') == expected
         if client_control:
@@ -2612,15 +2612,15 @@ class TestEnableAnthropicPromptCaching:
         assert AnthropicCacheControlHook.count_request_cache_breakpoints(affinity) == (2 if expected == 2 else 0)
 
     def test_databricks_claude_not_injected_despite_caching_support(self, monkeypatch, local_model_cost_map):
-        from litellm.utils import supports_prompt_caching
+        from hangarllm.utils import supports_prompt_caching
 
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         model = "databricks/databricks-claude-sonnet-4-5"
         assert supports_prompt_caching(model=model, custom_llm_provider="databricks") is True
         assert self._points(model=model, provider="databricks") == []
 
     def test_model_without_caching_support_not_injected(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         assert self._points(model="anthropic.claude-3-5-sonnet-20240620-v1:0", provider="bedrock") == []
 
     @pytest.mark.parametrize("model", ["us.xai.grok-4.6", "global.xai.grok-4.6"])
@@ -2629,16 +2629,16 @@ class TestEnableAnthropicPromptCaching:
         breakpoints make it reject the whole request ("You invoked an unsupported model
         or your request did not allow prompt caching"), so supports_prompt_caching stays
         false, while implicit cache hits still bill at the cache-read rate."""
-        from litellm.utils import supports_prompt_caching
+        from hangarllm.utils import supports_prompt_caching
 
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         assert supports_prompt_caching(model=model, custom_llm_provider="bedrock") is False
         assert self._points(model=model, provider="bedrock") == []
-        entry = litellm.model_cost[model]
+        entry = hangarllm.model_cost[model]
         assert 0 < entry["cache_read_input_token_cost"] < entry["input_cost_per_token"]
 
     def test_stands_down_when_client_sent_cache_control(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         messages = [
             {"role": "system", "content": [{"type": "text", "text": "s", "cache_control": {"type": "ephemeral"}}]},
             {"role": "user", "content": "latest turn"},
@@ -2646,7 +2646,7 @@ class TestEnableAnthropicPromptCaching:
         assert self._points(messages=messages) == []
 
     def test_stands_down_when_system_block_has_cache_control(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         system = [{"type": "text", "text": "s", "cache_control": {"type": "ephemeral"}}]
         assert self._points(messages=[{"role": "user", "content": "hi"}], system=system) == []
 
@@ -2661,23 +2661,23 @@ class TestEnableAnthropicPromptCaching:
         """Caching just the tool definitions is a normal client pattern, and those
         breakpoints count toward the provider's four-block limit. Three of them plus
         our two would be five, which Anthropic rejects outright."""
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         assert self._points(tools=self._tools(3, cached=True)) == []
 
     def test_injects_when_tools_carry_no_cache_control(self, monkeypatch):
         """Tools alone must not suppress injection; only client-marked ones do."""
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         assert [p["index"] for p in self._points(tools=self._tools(3, cached=False))] == [None, -1]
 
     @pytest.mark.parametrize("tools", [None, []])
     def test_absent_tools_do_not_suppress_injection(self, monkeypatch, tools):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         assert [p["index"] for p in self._points(tools=tools)] == [None, -1]
 
     def test_stands_down_when_tool_function_carries_cache_control(self, monkeypatch):
         """OpenAI-shaped tools nest cache_control under ``function``; the Anthropic
         chat transform honors that location, so the stand-down must see it too."""
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         tools = [
             {"type": "function", "function": {"name": "t", "parameters": {}, "cache_control": {"type": "ephemeral"}}}
         ]
@@ -2685,7 +2685,7 @@ class TestEnableAnthropicPromptCaching:
 
     def test_seed_stands_down_when_only_tools_carry_cache_control(self, monkeypatch):
         """Same guard on the /chat/completions seeding path."""
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         params: dict = {}
         AnthropicCacheControlHook.maybe_seed_default_injection_points(
             non_default_params=params,
@@ -2698,7 +2698,7 @@ class TestEnableAnthropicPromptCaching:
 
     def test_v1_messages_stands_down_when_only_tools_carry_cache_control(self, monkeypatch):
         """Same guard on the /v1/messages path, where tools reach the hook directly."""
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         messages = [{"role": "user", "content": [{"type": "text", "text": "hi"}]}]
         result_msgs, result_sys = AnthropicCacheControlHook.maybe_inject_cache_control(
             copy.deepcopy(messages),
@@ -2746,17 +2746,17 @@ class TestEnableAnthropicPromptCaching:
         assert "cache_control_injection_points" not in params
 
     def test_default_ttl_is_anthropics_five_minute_cache(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         assert all(p["control"] == {"type": "ephemeral"} for p in self._points())
 
     @pytest.mark.parametrize("ttl", ["5m", "1h"])
     def test_ttl_override_applied(self, monkeypatch, ttl):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
-        monkeypatch.setattr(litellm, "anthropic_prompt_caching_ttl", ttl)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "anthropic_prompt_caching_ttl", ttl)
         assert all(p["control"] == {"type": "ephemeral", "ttl": ttl} for p in self._points())
 
     def test_seed_does_not_override_configured_points(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         configured = [{"location": "message", "role": "user", "index": 0}]
         params = {"cache_control_injection_points": configured}
         AnthropicCacheControlHook.maybe_seed_default_injection_points(
@@ -2768,7 +2768,7 @@ class TestEnableAnthropicPromptCaching:
         assert params["cache_control_injection_points"] is configured
 
     def test_seed_adds_defaults_when_enabled(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         params: dict = {}
         AnthropicCacheControlHook.maybe_seed_default_injection_points(
             non_default_params=params,
@@ -2789,7 +2789,7 @@ class TestEnableAnthropicPromptCaching:
         assert params == {}
 
     def test_v1_messages_applies_defaults_end_to_end(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         messages = [
             {"role": "user", "content": [{"type": "text", "text": "first"}]},
             {"role": "assistant", "content": [{"type": "text", "text": "reply"}]},
@@ -2810,10 +2810,10 @@ class TestEnableAnthropicPromptCaching:
     def test_messages_with_default_injections_leaves_the_caller_list_untouched(self, monkeypatch):
         """
         Routing calls this on the live request's own message list to derive the affinity key, before
-        the request is sent. Marking in place would leak litellm's breakpoints into the caller's
+        the request is sent. Marking in place would leak hangarllm's breakpoints into the caller's
         messages, where the real injection pass later reads them back as client-supplied ones.
         """
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         messages = copy.deepcopy(self.MESSAGES)
         before = copy.deepcopy(messages)
 
@@ -2833,7 +2833,7 @@ class TestClaudeCodeOneShotAutoCaching:
     @staticmethod
     def _kwargs(configured=None):
         kwargs = {
-            "litellm_metadata": {},
+            "hangarllm_metadata": {},
             "proxy_server_request": {
                 "headers": {
                     "user-agent": "claude-cli/2.1.263 (external, cli)",
@@ -2860,7 +2860,7 @@ class TestClaudeCodeOneShotAutoCaching:
     )
     @pytest.mark.parametrize("tools", [None, []], ids=["absent_tools", "empty_tools"])
     def test_skips_defaults_and_attribution_for_one_shot_subagent(self, monkeypatch, system, tools):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         messages = copy.deepcopy(self.MESSAGES)
         kwargs = self._kwargs()
 
@@ -2875,10 +2875,10 @@ class TestClaudeCodeOneShotAutoCaching:
 
         assert result_messages == self.MESSAGES
         assert result_system == system
-        assert "litellm_gateway_injected_cache" not in kwargs["litellm_metadata"]
+        assert "hangarllm_gateway_injected_cache" not in kwargs["hangarllm_metadata"]
 
     def test_user_agent_header_lookup_is_case_insensitive(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         kwargs = self._kwargs()
         user_agent = kwargs["proxy_server_request"]["headers"].pop("user-agent")
         kwargs["proxy_server_request"]["headers"]["User-Agent"] = user_agent
@@ -2895,7 +2895,7 @@ class TestClaudeCodeOneShotAutoCaching:
         assert result_system == self.BILLING_SYSTEM
 
     def test_router_affinity_skips_string_billing_system(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         messages = copy.deepcopy(self.MESSAGES)
         kwargs = self._kwargs()
         kwargs["system"] = self.BILLING_TEXT
@@ -2926,7 +2926,7 @@ class TestClaudeCodeOneShotAutoCaching:
         ids=["malformed_headers", "malformed_billing", "missing_system", "malformed_block", "non_text_block"],
     )
     def test_malformed_untrusted_context_keeps_defaults(self, monkeypatch, headers, system):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
 
         points = AnthropicCacheControlHook.get_default_injection_points(
             messages=copy.deepcopy(self.MESSAGES),
@@ -2939,7 +2939,7 @@ class TestClaudeCodeOneShotAutoCaching:
         assert len(points) == 2
 
     def test_message_without_role_keeps_defaults(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
 
         points = AnthropicCacheControlHook.get_default_injection_points(
             messages=[{"content": "missing role"}],
@@ -2973,7 +2973,7 @@ class TestClaudeCodeOneShotAutoCaching:
         ids=["tools", "real_system", "history"],
     )
     def test_keeps_defaults_for_reusable_subagents(self, monkeypatch, messages, system, tools):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         kwargs = self._kwargs()
 
         result_messages, result_system = AnthropicCacheControlHook.maybe_inject_cache_control(
@@ -2986,7 +2986,7 @@ class TestClaudeCodeOneShotAutoCaching:
         )
 
         assert AnthropicCacheControlHook.count_request_cache_breakpoints(result_messages, result_system) == 2
-        assert kwargs["litellm_metadata"]["litellm_gateway_injected_cache"] == ""
+        assert kwargs["hangarllm_metadata"]["hangarllm_gateway_injected_cache"] == ""
 
     @pytest.mark.parametrize(
         "user_agent,system",
@@ -3014,7 +3014,7 @@ class TestClaudeCodeOneShotAutoCaching:
         ids=["different_client", "appended_instructions", "not_a_subagent"],
     )
     def test_ambiguous_or_unmatched_signals_fail_open(self, monkeypatch, user_agent, system):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         kwargs = self._kwargs()
         kwargs["proxy_server_request"]["headers"]["user-agent"] = user_agent
 
@@ -3029,7 +3029,7 @@ class TestClaudeCodeOneShotAutoCaching:
         assert AnthropicCacheControlHook.count_request_cache_breakpoints(result_messages, result_system) == 2
 
     def test_explicit_injection_points_remain_authoritative(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         kwargs = self._kwargs([{"location": "message", "role": "user"}])
 
         result_messages, _ = AnthropicCacheControlHook.maybe_inject_cache_control(
@@ -3061,7 +3061,7 @@ class TestPerKeyEnablePromptCaching:
         )
 
     def test_true_injects_with_global_flag_off(self):
-        assert litellm.enable_anthropic_prompt_caching is False
+        assert hangarllm.enable_anthropic_prompt_caching is False
         assert self._points(True) == [
             {"location": "message", "role": "system", "index": None, "control": {"type": "ephemeral"}},
             {"location": "message", "role": None, "index": -1, "control": {"type": "ephemeral"}},
@@ -3072,7 +3072,7 @@ class TestPerKeyEnablePromptCaching:
         assert self._points(enable_prompt_caching) == []
 
     def test_false_does_not_suppress_global_flag(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         assert [p["index"] for p in self._points(False)] == [None, -1]
 
     def test_provider_gate_still_applies(self):
@@ -3420,16 +3420,16 @@ class TestConfiguredInjectionPointsSurviveClientMarks:
         assert result_sys == expected_system
 
     def test_v1_messages_automatic_defaults_stand_down_for_root_cache_control(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         root_cache_control = {"type": "ephemeral"}
-        kwargs = {"cache_control": root_cache_control, "litellm_metadata": {}}
+        kwargs = {"cache_control": root_cache_control, "hangarllm_metadata": {}}
 
         result_messages, result_system = self._inject(copy.deepcopy(self.V1_MESSAGES), kwargs)
 
         assert result_messages == self.V1_MESSAGES
         assert result_system == "sys"
         assert kwargs["cache_control"] is root_cache_control
-        assert "litellm_gateway_injected_cache" not in kwargs["litellm_metadata"]
+        assert "hangarllm_gateway_injected_cache" not in kwargs["hangarllm_metadata"]
 
     @pytest.mark.parametrize(
         "tools,kwargs,injected",
@@ -3443,8 +3443,8 @@ class TestConfiguredInjectionPointsSurviveClientMarks:
     def test_v1_messages_automatic_defaults_stand_down_for_a_direct_mark_extra_body_hides(
         self, monkeypatch, tools, kwargs, injected
     ):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
-        request_kwargs = {**copy.deepcopy(kwargs), "litellm_metadata": {}}
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
+        request_kwargs = {**copy.deepcopy(kwargs), "hangarllm_metadata": {}}
 
         result_messages, result_system = self._inject(
             copy.deepcopy(self.V1_MESSAGES), request_kwargs, tools=copy.deepcopy(tools)
@@ -3453,10 +3453,10 @@ class TestConfiguredInjectionPointsSurviveClientMarks:
         assert AnthropicCacheControlHook.count_request_cache_breakpoints(result_messages, result_system) == (
             2 if injected else 0
         )
-        assert ("litellm_gateway_injected_cache" in request_kwargs["litellm_metadata"]) is injected
+        assert ("hangarllm_gateway_injected_cache" in request_kwargs["hangarllm_metadata"]) is injected
 
     def test_chat_automatic_defaults_apply_when_extra_body_drops_the_only_client_mark(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         params = {"extra_body": {"tools": [self.UNMARKED_TOOL]}}
 
         self._seed(params, copy.deepcopy(self.CLEAN_MESSAGES), tools=[self.MARKED_TOOL_TOP_LEVEL])
@@ -3502,20 +3502,20 @@ class TestConfiguredInjectionPointsSurviveClientMarks:
 
 class TestAnthropicPromptCachingEnvVars:
     """Both settings are read from the environment at import, so an admin can enable
-    auto-caching without a config file. Each case re-imports litellm in a subprocess
+    auto-caching without a config file. Each case re-imports hangarllm in a subprocess
     so the env is read fresh without contaminating this process's module graph.
     """
 
     @staticmethod
-    def _import_litellm_with_env(env_override: dict) -> Tuple[bool, Optional[str]]:
+    def _import_hangarllm_with_env(env_override: dict) -> Tuple[bool, Optional[str]]:
         env = os.environ.copy()
-        env.pop("LITELLM_ENABLE_ANTHROPIC_PROMPT_CACHING", None)
-        env.pop("LITELLM_ANTHROPIC_PROMPT_CACHING_TTL", None)
+        env.pop("HANGARLLM_ENABLE_ANTHROPIC_PROMPT_CACHING", None)
+        env.pop("HANGARLLM_ANTHROPIC_PROMPT_CACHING_TTL", None)
         env.update(env_override)
         script = textwrap.dedent(
             """
-            import json, litellm
-            print(json.dumps([litellm.enable_anthropic_prompt_caching, litellm.anthropic_prompt_caching_ttl]))
+            import json, hangarllm
+            print(json.dumps([hangarllm.enable_anthropic_prompt_caching, hangarllm.anthropic_prompt_caching_ttl]))
             """
         )
         result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env, timeout=300)
@@ -3524,27 +3524,27 @@ class TestAnthropicPromptCachingEnvVars:
         return enabled, ttl
 
     def test_unset_env_leaves_auto_caching_off(self):
-        assert self._import_litellm_with_env({}) == (False, None)
+        assert self._import_hangarllm_with_env({}) == (False, None)
 
     @pytest.mark.parametrize("value", ["true", "True", "TRUE"])
     def test_env_enables_auto_caching_case_insensitively(self, value):
-        enabled, _ = self._import_litellm_with_env({"LITELLM_ENABLE_ANTHROPIC_PROMPT_CACHING": value})
+        enabled, _ = self._import_hangarllm_with_env({"HANGARLLM_ENABLE_ANTHROPIC_PROMPT_CACHING": value})
         assert enabled is True
 
     @pytest.mark.parametrize("value", ["false", "0", "yes", ""])
     def test_env_only_enables_on_true(self, value):
-        enabled, _ = self._import_litellm_with_env({"LITELLM_ENABLE_ANTHROPIC_PROMPT_CACHING": value})
+        enabled, _ = self._import_hangarllm_with_env({"HANGARLLM_ENABLE_ANTHROPIC_PROMPT_CACHING": value})
         assert enabled is False
 
     @pytest.mark.parametrize("value", ["5m", "1h"])
     def test_ttl_env_is_applied(self, value):
-        _, ttl = self._import_litellm_with_env({"LITELLM_ANTHROPIC_PROMPT_CACHING_TTL": value})
+        _, ttl = self._import_hangarllm_with_env({"HANGARLLM_ANTHROPIC_PROMPT_CACHING_TTL": value})
         assert ttl == value
 
     @pytest.mark.parametrize("value", ["10m", "1H", "3600", "ephemeral"])
     def test_unsupported_ttl_env_falls_back_to_provider_default(self, value):
         """An unparseable TTL must fall back to Anthropic's 5m default, never reach the provider verbatim."""
-        _, ttl = self._import_litellm_with_env({"LITELLM_ANTHROPIC_PROMPT_CACHING_TTL": value})
+        _, ttl = self._import_hangarllm_with_env({"HANGARLLM_ANTHROPIC_PROMPT_CACHING_TTL": value})
         assert ttl is None
 
 
@@ -3846,7 +3846,7 @@ class TestOpenAIPromptCacheBreakpoint:
             custom_llm_provider="openai",
         )
         assert params["cache_control_injection_points"] == [
-            {"location": "message", "role": "system", "_litellm_openai_dialect": True}
+            {"location": "message", "role": "system", "_hangarllm_openai_dialect": True}
         ]
         _, processed, _ = self._chat(messages, params)
         assert processed[0]["content"] == [{"type": "text", "text": "sys", "prompt_cache_breakpoint": self.EXPLICIT}]
@@ -4045,8 +4045,8 @@ class TestChatPathProviderStamp:
             assert AnthropicCacheControlHook.targets_openai_prompt_cache_breakpoint("my-custom-model", None) is False
         resolve.assert_not_called()
 
-    def test_litellm_proxy_target_keeps_anthropic_style_markers(self):
-        out, params = self._seed_and_run("litellm_proxy/gpt-5.6", None)
+    def test_hangarllm_proxy_target_keeps_anthropic_style_markers(self):
+        out, params = self._seed_and_run("hangarllm_proxy/gpt-5.6", None)
         assert out[0] == self.ANTHROPIC_STYLE
         assert "prompt_cache_options" not in params
 
@@ -4074,8 +4074,8 @@ class TestChatPathProviderStamp:
         assert out[0] == self.ANTHROPIC_STYLE
         assert "prompt_cache_options" not in params
 
-    def test_global_litellm_api_base_keeps_anthropic_style_markers(self, monkeypatch):
-        monkeypatch.setattr(litellm, "api_base", self.CUSTOM_API_BASE)
+    def test_global_hangarllm_api_base_keeps_anthropic_style_markers(self, monkeypatch):
+        monkeypatch.setattr(hangarllm, "api_base", self.CUSTOM_API_BASE)
         out, params = self._seed_and_run("gpt-5.6", None)
         assert out[0] == self.ANTHROPIC_STYLE
         assert "prompt_cache_options" not in params
@@ -4099,10 +4099,10 @@ class TestChatPathProviderStamp:
             custom_llm_provider=None,
             api_base=api_base,
         )
-        assert params["cache_control_injection_points"][0]["_litellm_openai_dialect"] is expected
+        assert params["cache_control_injection_points"][0]["_hangarllm_openai_dialect"] is expected
 
     def test_stamp_is_authoritative_over_request_params(self):
-        points = [{**self.POINTS[0], "_litellm_openai_dialect": False}]
+        points = [{**self.POINTS[0], "_hangarllm_openai_dialect": False}]
         out, params = self._run({"cache_control_injection_points": points, "custom_llm_provider": "openai"}, "gpt-5.6")
         assert out[0] == self.ANTHROPIC_STYLE
         assert "prompt_cache_options" not in params
@@ -4177,21 +4177,21 @@ class TestChatPathResolvesTheDeploymentProvider:
         self, monkeypatch: pytest.MonkeyPatch, api_base: str, pinned: bool
     ) -> None:
         self._pin_ambient_api_base(monkeypatch, pinned)
-        dispatched_provider: Final = litellm.get_llm_provider(model=self.MODEL, api_base=api_base)[1]
+        dispatched_provider: Final = hangarllm.get_llm_provider(model=self.MODEL, api_base=api_base)[1]
         assert self._chat(None, api_base) == self._chat(dispatched_provider, api_base)
 
     @pytest.mark.parametrize("model", [MODEL, "bedrock_mantle/openai.gpt-5.6-sol"])
     @pytest.mark.parametrize("set_globally", ["env", "module"])
-    def test_chat_path_marks_the_deployment_like_litellm_proxy_when_calls_route_to_one(
+    def test_chat_path_marks_the_deployment_like_hangarllm_proxy_when_calls_route_to_one(
         self, monkeypatch: pytest.MonkeyPatch, model: str, set_globally: str
     ) -> None:
         self._pin_ambient_api_base(monkeypatch, False)
         if set_globally == "env":
-            monkeypatch.setenv("USE_LITELLM_PROXY", "True")
+            monkeypatch.setenv("USE_HANGARLLM_PROXY", "True")
         else:
-            monkeypatch.setattr(litellm, "use_litellm_proxy", True)
+            monkeypatch.setattr(hangarllm, "use_hangarllm_proxy", True)
         assert self._chat(None, self.UPSTREAM_PROXY_API_BASE, model) == self._chat(
-            "litellm_proxy", self.UPSTREAM_PROXY_API_BASE, model
+            "hangarllm_proxy", self.UPSTREAM_PROXY_API_BASE, model
         )
 
 
@@ -4285,8 +4285,8 @@ class TestMessagesPathApiBaseGate:
         )
         return out[0]["content"][0], kwargs
 
-    def test_litellm_proxy_target_keeps_cache_control(self):
-        block, kwargs = self._inject("gpt-5.6", api_base=self.CUSTOM_API_BASE, custom_llm_provider="litellm_proxy")
+    def test_hangarllm_proxy_target_keeps_cache_control(self):
+        block, kwargs = self._inject("gpt-5.6", api_base=self.CUSTOM_API_BASE, custom_llm_provider="hangarllm_proxy")
         assert block == self.CACHE_CONTROL_BLOCK
         assert "prompt_cache_options" not in kwargs
 
@@ -4350,27 +4350,27 @@ class TestPromptCacheBreakpointCapability:
 
     @pytest.fixture(autouse=True)
     def _bundled_model_map(self, monkeypatch):
-        bundled = os.path.join(os.path.dirname(litellm.__file__), "model_prices_and_context_window_backup.json")
+        bundled = os.path.join(os.path.dirname(hangarllm.__file__), "model_prices_and_context_window_backup.json")
         with open(bundled) as handle:
-            monkeypatch.setattr(litellm, "model_cost", json.load(handle))
-        litellm.utils.cached_get_model_info_helper.cache_clear()
+            monkeypatch.setattr(hangarllm, "model_cost", json.load(handle))
+        hangarllm.utils.cached_get_model_info_helper.cache_clear()
         yield
-        litellm.utils.cached_get_model_info_helper.cache_clear()
+        hangarllm.utils.cached_get_model_info_helper.cache_clear()
 
     def test_listed_model_uses_the_model_map_flag(self, monkeypatch):
-        flagged = {**litellm.model_cost["gpt-4.1"], "supports_prompt_cache_breakpoint": True}
-        monkeypatch.setitem(litellm.model_cost, "gpt-4.1", flagged)
+        flagged = {**hangarllm.model_cost["gpt-4.1"], "supports_prompt_cache_breakpoint": True}
+        monkeypatch.setitem(hangarllm.model_cost, "gpt-4.1", flagged)
         assert supports_openai_prompt_cache_breakpoint("gpt-4.1") is True
 
     def test_listed_gpt_5_6_without_the_flag_falls_back_to_the_version_rule(self, monkeypatch):
-        unflagged = {k: v for k, v in litellm.model_cost["gpt-5.6"].items() if k != "supports_prompt_cache_breakpoint"}
-        monkeypatch.setitem(litellm.model_cost, "gpt-5.6", unflagged)
+        unflagged = {k: v for k, v in hangarllm.model_cost["gpt-5.6"].items() if k != "supports_prompt_cache_breakpoint"}
+        monkeypatch.setitem(hangarllm.model_cost, "gpt-5.6", unflagged)
         assert supports_openai_prompt_cache_breakpoint("gpt-5.6") is True
         assert supports_openai_prompt_cache_breakpoint("openai/gpt-5.6") is True
 
     def test_listed_model_flagged_false_is_not_eligible(self, monkeypatch):
         monkeypatch.setitem(
-            litellm.model_cost, "gpt-5.6", {**litellm.model_cost["gpt-5.6"], "supports_prompt_cache_breakpoint": False}
+            hangarllm.model_cost, "gpt-5.6", {**hangarllm.model_cost["gpt-5.6"], "supports_prompt_cache_breakpoint": False}
         )
         assert supports_openai_prompt_cache_breakpoint("gpt-5.6") is False
 
@@ -4378,13 +4378,13 @@ class TestPromptCacheBreakpointCapability:
     @pytest.mark.parametrize("flag", ["true", 1, "false", 0])
     def test_listed_model_with_an_odd_typed_flag_is_not_eligible(self, monkeypatch, model, flag):
         monkeypatch.setitem(
-            litellm.model_cost, model, {**litellm.model_cost[model], "supports_prompt_cache_breakpoint": flag}
+            hangarllm.model_cost, model, {**hangarllm.model_cost[model], "supports_prompt_cache_breakpoint": flag}
         )
         assert supports_openai_prompt_cache_breakpoint(model) is False
 
     def test_published_map_without_the_flag_still_injects_on_gpt_5_6(self, monkeypatch):
-        unflagged = {k: v for k, v in litellm.model_cost["gpt-5.6"].items() if k != "supports_prompt_cache_breakpoint"}
-        monkeypatch.setitem(litellm.model_cost, "gpt-5.6", unflagged)
+        unflagged = {k: v for k, v in hangarllm.model_cost["gpt-5.6"].items() if k != "supports_prompt_cache_breakpoint"}
+        monkeypatch.setitem(hangarllm.model_cost, "gpt-5.6", unflagged)
         points = [{"location": "message", "role": "system"}]
 
         _, chat_messages, chat_params = AnthropicCacheControlHook().get_chat_completion_prompt(
@@ -4409,7 +4409,7 @@ class TestPromptCacheBreakpointCapability:
 
     @pytest.mark.parametrize("model,expected", [("gpt-5.6-2026-01-01", True), ("gpt-5.5-preview-unlisted", False)])
     def test_unlisted_model_falls_back_to_the_version_rule(self, model, expected):
-        assert model not in litellm.model_cost
+        assert model not in hangarllm.model_cost
         assert supports_openai_prompt_cache_breakpoint(model) is expected
 
     def test_a_null_prompt_cache_options_takes_the_implicit_default_on_both_paths(self):
@@ -4439,10 +4439,10 @@ class TestHostedOpenAIDialectFlag:
     MANTLE_MODEL = "bedrock_mantle/openai.gpt-5.6-sol"
 
     def _register(self, monkeypatch, key, provider, flag=True, **extra):
-        entry = {"litellm_provider": provider, "mode": "chat", **extra}
+        entry = {"hangarllm_provider": provider, "mode": "chat", **extra}
         if flag is not None:
             entry["supports_prompt_cache_breakpoint"] = flag
-        monkeypatch.setitem(litellm.model_cost, key, entry)
+        monkeypatch.setitem(hangarllm.model_cost, key, entry)
 
     def test_flagged_non_openai_deployment_is_eligible(self, monkeypatch):
         self._register(monkeypatch, self.MANTLE_MODEL, "bedrock_mantle")
@@ -4492,8 +4492,8 @@ class TestHostedOpenAIDialectFlag:
 
     def test_openai_entries_still_go_through_the_api_base_check(self, monkeypatch):
         """gpt-5.6 is flagged and openai-provided, so it must not bypass the host gate."""
-        assert litellm.model_cost["gpt-5.6"]["supports_prompt_cache_breakpoint"] is True
-        assert litellm.model_cost["gpt-5.6"]["litellm_provider"] == "openai"
+        assert hangarllm.model_cost["gpt-5.6"]["supports_prompt_cache_breakpoint"] is True
+        assert hangarllm.model_cost["gpt-5.6"]["hangarllm_provider"] == "openai"
         assert (
             AnthropicCacheControlHook.targets_openai_prompt_cache_breakpoint(
                 "gpt-5.6", "openai", api_base="https://some-compatible-host.example.com"
@@ -4584,12 +4584,12 @@ class TestBedrockMantleGptShipsTheOpenAIDialect:
 
     @pytest.fixture(autouse=True)
     def _bundled_model_map(self, monkeypatch):
-        bundled = os.path.join(os.path.dirname(litellm.__file__), "model_prices_and_context_window_backup.json")
+        bundled = os.path.join(os.path.dirname(hangarllm.__file__), "model_prices_and_context_window_backup.json")
         with open(bundled) as handle:
-            monkeypatch.setattr(litellm, "model_cost", json.load(handle))
-        litellm.utils.cached_get_model_info_helper.cache_clear()
+            monkeypatch.setattr(hangarllm, "model_cost", json.load(handle))
+        hangarllm.utils.cached_get_model_info_helper.cache_clear()
         yield
-        litellm.utils.cached_get_model_info_helper.cache_clear()
+        hangarllm.utils.cached_get_model_info_helper.cache_clear()
 
     def test_shipped_entry_makes_the_deployment_eligible(self):
         assert supports_openai_prompt_cache_breakpoint(self.MANTLE_MODEL) is True
@@ -4601,7 +4601,7 @@ class TestBedrockMantleGptShipsTheOpenAIDialect:
     def test_every_flagged_mantle_row_is_an_openai_gpt_5_6_or_newer_model(self):
         flagged = {
             key
-            for key, entry in litellm.model_cost.items()
+            for key, entry in hangarllm.model_cost.items()
             if key.startswith("bedrock_mantle/") and entry.get("supports_prompt_cache_breakpoint") is True
         }
         assert self.MANTLE_MODEL in flagged
@@ -4617,7 +4617,7 @@ class TestBedrockMantleGptShipsTheOpenAIDialect:
             model=self.MANTLE_MODEL,
             custom_llm_provider=None,
         )
-        assert non_default_params["cache_control_injection_points"][0]["_litellm_openai_dialect"] is True
+        assert non_default_params["cache_control_injection_points"][0]["_hangarllm_openai_dialect"] is True
 
     def test_configured_point_emits_the_openai_marker_and_default_options(self):
         _, messages, params = AnthropicCacheControlHook().get_chat_completion_prompt(
@@ -4661,7 +4661,7 @@ class TestBedrockMantleGptShipsTheOpenAIDialect:
         stamped = AnthropicCacheControlHook._stamped_with_dialect(
             copy.deepcopy(self.POINTS), self.BARE_MODEL, "bedrock_mantle", None, None
         )
-        assert stamped[0]["_litellm_openai_dialect"] is True
+        assert stamped[0]["_hangarllm_openai_dialect"] is True
 
     def test_a_bare_deployment_name_without_its_provider_keeps_its_points_and_costs_no_lookup(self):
         points = copy.deepcopy(self.POINTS)
@@ -4689,7 +4689,7 @@ class TestBedrockMantleGptShipsTheOpenAIDialect:
         assert out["prompt_cache_options"] == {"mode": "implicit"}
 
     def test_the_responses_stamp_carries_the_resolved_provider_for_a_bare_deployment_name(self):
-        from litellm.responses.main import _stamp_injection_points_for_the_hook
+        from hangarllm.responses.main import _stamp_injection_points_for_the_hook
 
         kwargs: dict = {"cache_control_injection_points": copy.deepcopy(self.POINTS)}
         _stamp_injection_points_for_the_hook(kwargs, self.BARE_MODEL, "bedrock_mantle", None, None)
@@ -4747,8 +4747,8 @@ class TestResponsesLayerReservesMarksOutsideTheProvisionalMessages:
     def _marks_on_the_last_message_after_the_responses_pass(
         self, marked_calls: int, marked_tools: int = 0, other_items: tuple[dict[str, object], ...] = ()
     ) -> int:
-        from litellm.responses.main import _stamp_injection_points_for_the_hook
-        from litellm.responses.utils import ResponsesAPIRequestUtils
+        from hangarllm.responses.main import _stamp_injection_points_for_the_hook
+        from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
         *earlier, last = self._items(marked_calls)
         items = [*earlier, *other_items, last]
@@ -4792,7 +4792,7 @@ class TestResponsesLayerReservesMarksOutsideTheProvisionalMessages:
         assert self._marks_on_the_last_message_after_the_responses_pass(marked_calls=0, other_items=reasoning) == 1
 
     def test_a_marked_tool_of_another_type_is_not_reserved(self):
-        from litellm.responses.main import _cache_control_marks_outside_the_provisional_messages
+        from hangarllm.responses.main import _cache_control_marks_outside_the_provisional_messages
 
         tools = [{"type": "web_search", "cache_control": self.MARK}, *self._tools(1)]
         assert _cache_control_marks_outside_the_provisional_messages(self._items(1), tools) == 2
@@ -4800,7 +4800,7 @@ class TestResponsesLayerReservesMarksOutsideTheProvisionalMessages:
     def test_sdk_typed_output_items_are_skipped_by_the_reserve(self):
         from openai.types.responses import ResponseFunctionToolCall
 
-        from litellm.responses.main import _cache_control_marks_outside_the_provisional_messages
+        from hangarllm.responses.main import _cache_control_marks_outside_the_provisional_messages
 
         items = [
             *self._items(1),
@@ -4811,7 +4811,7 @@ class TestResponsesLayerReservesMarksOutsideTheProvisionalMessages:
     def test_sdk_typed_tools_are_skipped_by_the_reserve(self):
         from openai.types.responses import FunctionTool
 
-        from litellm.responses.main import _cache_control_marks_outside_the_provisional_messages
+        from hangarllm.responses.main import _cache_control_marks_outside_the_provisional_messages
 
         tools = [*self._tools(1), FunctionTool(type="function", name="typed", parameters={}, strict=False)]
         assert _cache_control_marks_outside_the_provisional_messages(self._items(1), tools) == 2
@@ -4858,12 +4858,12 @@ class TestResponsesLayerReservesMarksOutsideTheProvisionalMessages:
 class TestRecordGatewayInjection:
     """The injection marker spend accounting gates prompt-caching savings on."""
 
-    KEY = "litellm_gateway_injected_cache"
+    KEY = "hangarllm_gateway_injected_cache"
     DEPLOYMENT = "dep-abc"
 
     def test_records_only_an_actual_injection(self):
         """A zero delta is hook re-entry and a negative one is a prompt manager replacing
-        the messages; neither is litellm adding a breakpoint."""
+        the messages; neither is hangarllm adding a breakpoint."""
         kwargs: dict = {"metadata": {}, "model_info": {"id": self.DEPLOYMENT}}
         AnthropicCacheControlHook.record_gateway_injection(kwargs, 0)
         AnthropicCacheControlHook.record_gateway_injection(kwargs, -3)
@@ -4874,7 +4874,7 @@ class TestRecordGatewayInjection:
     def test_a_point_this_pass_did_not_place_is_not_claimed(self):
         """A tool_config point is placed by the Bedrock converse transform, and only when
         the request carries tools, so its presence here says nothing about whether a
-        breakpoint reaches the wire. Claiming it credited litellm on request shapes that
+        breakpoint reaches the wire. Claiming it credited hangarllm on request shapes that
         inject nothing, and under-crediting Bedrock tool caching is the fail-closed half.
         """
         kwargs: dict = {"metadata": {}, "model_info": {"id": self.DEPLOYMENT}}
@@ -4896,35 +4896,35 @@ class TestRecordGatewayInjection:
         assert kwargs == before
 
     def test_a_later_pass_cannot_unset_an_earlier_injection(self):
-        kwargs: dict = {"litellm_metadata": {"user_api_key": "k"}, "model_info": {"id": self.DEPLOYMENT}}
+        kwargs: dict = {"hangarllm_metadata": {"user_api_key": "k"}, "model_info": {"id": self.DEPLOYMENT}}
         AnthropicCacheControlHook.record_gateway_injection(kwargs, 2)
         AnthropicCacheControlHook.record_gateway_injection(kwargs, 0)
-        assert kwargs["litellm_metadata"][self.KEY] == self.DEPLOYMENT
+        assert kwargs["hangarllm_metadata"][self.KEY] == self.DEPLOYMENT
 
     def test_an_every_deployment_mark_survives_a_later_per_deployment_stamp(self):
         """A per-leg stamp like the Bedrock converse tool_config one describes one leg of
         a payload every leg sends, so narrowing an every-deployment mark to that leg's
         deployment would uncredit whichever leg gets billed after a failover."""
-        kwargs: dict = {"litellm_metadata": {self.KEY: ""}, "model_info": {"id": self.DEPLOYMENT}}
+        kwargs: dict = {"hangarllm_metadata": {self.KEY: ""}, "model_info": {"id": self.DEPLOYMENT}}
         AnthropicCacheControlHook.record_gateway_injection(kwargs, 1)
-        assert kwargs["litellm_metadata"][self.KEY] == ""
+        assert kwargs["hangarllm_metadata"][self.KEY] == ""
 
     def test_a_pre_choice_pass_stamps_the_sentinel_over_a_provisional_deployment(self):
         """The router's prompt-management factory stamps a provisional deployment's
         model_info into kwargs before the prompt pass runs, and any other deployment can
         end up billed, so the pass declares every-deployment scope explicitly."""
-        kwargs: dict = {"litellm_metadata": {}, "model_info": {"id": self.DEPLOYMENT}}
+        kwargs: dict = {"hangarllm_metadata": {}, "model_info": {"id": self.DEPLOYMENT}}
         AnthropicCacheControlHook.record_gateway_injection(kwargs, 1, injected_for_every_deployment=True)
-        assert kwargs["litellm_metadata"][self.KEY] == ""
+        assert kwargs["hangarllm_metadata"][self.KEY] == ""
 
     def test_a_per_deployment_mark_still_follows_the_latest_leg(self):
-        kwargs: dict = {"litellm_metadata": {self.KEY: "dep-old"}, "model_info": {"id": self.DEPLOYMENT}}
+        kwargs: dict = {"hangarllm_metadata": {self.KEY: "dep-old"}, "model_info": {"id": self.DEPLOYMENT}}
         AnthropicCacheControlHook.record_gateway_injection(kwargs, 1)
-        assert kwargs["litellm_metadata"][self.KEY] == self.DEPLOYMENT
+        assert kwargs["hangarllm_metadata"][self.KEY] == self.DEPLOYMENT
 
     def test_v1_messages_auto_injection_stamps_the_marker(self, monkeypatch):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
-        kwargs: dict = {"litellm_metadata": {}, "model_info": {"id": self.DEPLOYMENT}}
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
+        kwargs: dict = {"hangarllm_metadata": {}, "model_info": {"id": self.DEPLOYMENT}}
         result_msgs, result_sys = AnthropicCacheControlHook.maybe_inject_cache_control(
             [{"role": "user", "content": "latest turn"}],
             "a long system prompt",
@@ -4932,12 +4932,12 @@ class TestRecordGatewayInjection:
             model="claude-sonnet-4-5",
             custom_llm_provider="anthropic",
         )
-        assert kwargs["litellm_metadata"][self.KEY] == self.DEPLOYMENT
+        assert kwargs["hangarllm_metadata"][self.KEY] == self.DEPLOYMENT
 
     def test_v1_messages_stand_down_leaves_no_marker(self, monkeypatch):
         """Client-supplied cache_control means the gateway did nothing to credit."""
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
-        kwargs: dict = {"litellm_metadata": {}}
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
+        kwargs: dict = {"hangarllm_metadata": {}}
         AnthropicCacheControlHook.maybe_inject_cache_control(
             [
                 {
@@ -4951,13 +4951,13 @@ class TestRecordGatewayInjection:
             model="claude-sonnet-4-5",
             custom_llm_provider="anthropic",
         )
-        assert self.KEY not in kwargs["litellm_metadata"]
+        assert self.KEY not in kwargs["hangarllm_metadata"]
 
     def test_v1_messages_reentry_keeps_the_marker(self, monkeypatch):
         """A second pass over already-injected messages computes a zero delta, which must
         leave the first pass's mark standing rather than reading as no injection."""
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
-        kwargs: dict = {"litellm_metadata": {}, "model_info": {"id": self.DEPLOYMENT}}
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
+        kwargs: dict = {"hangarllm_metadata": {}, "model_info": {"id": self.DEPLOYMENT}}
         messages = [{"role": "user", "content": "latest turn"}]
         first_msgs, first_sys = AnthropicCacheControlHook.maybe_inject_cache_control(
             messages, "a long system prompt", kwargs, model="claude-sonnet-4-5", custom_llm_provider="anthropic"
@@ -4965,11 +4965,11 @@ class TestRecordGatewayInjection:
         AnthropicCacheControlHook.maybe_inject_cache_control(
             first_msgs, first_sys, kwargs, model="claude-sonnet-4-5", custom_llm_provider="anthropic"
         )
-        assert kwargs["litellm_metadata"][self.KEY] == self.DEPLOYMENT
+        assert kwargs["hangarllm_metadata"][self.KEY] == self.DEPLOYMENT
 
     def test_configured_points_skipping_a_marked_target_record_nothing(self):
         kwargs: dict = {
-            "litellm_metadata": {},
+            "hangarllm_metadata": {},
             "cache_control_injection_points": [{"location": "message", "role": "system", "index": None}],
         }
         AnthropicCacheControlHook.maybe_inject_cache_control(
@@ -4985,7 +4985,7 @@ class TestRecordGatewayInjection:
             model="claude-sonnet-4-5",
             custom_llm_provider="anthropic",
         )
-        assert self.KEY not in kwargs["litellm_metadata"]
+        assert self.KEY not in kwargs["hangarllm_metadata"]
 
 
 class TestMalformedInjectionPointsAreIgnored:
@@ -5038,7 +5038,7 @@ class TestMalformedInjectionPointsAreIgnored:
 
     @pytest.mark.parametrize("value", SHAPES)
     def test_chat_seeding_falls_through_to_the_defaults(self, monkeypatch, value):
-        monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+        monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
         params: dict = {"cache_control_injection_points": copy.deepcopy(value)}
         AnthropicCacheControlHook.maybe_seed_default_injection_points(
             non_default_params=params,
@@ -5061,7 +5061,7 @@ class TestMalformedInjectionPointsAreIgnored:
 
     @pytest.mark.parametrize("value", SHAPES)
     def test_responses_dialect_stamp_leaves_the_request_untouched(self, value):
-        from litellm.responses.main import _stamp_injection_points_for_the_hook
+        from hangarllm.responses.main import _stamp_injection_points_for_the_hook
 
         kwargs: dict = {"cache_control_injection_points": copy.deepcopy(value)}
         _stamp_injection_points_for_the_hook(kwargs, "gpt-5.6", "openai", None, None)
@@ -5098,7 +5098,7 @@ def test_capping_thousands_of_marks_on_one_tool_result_counts_the_request_a_loga
 def test_cache_control_hook_leaves_the_duplicate_tool_result_warning_to_the_request_builder(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    monkeypatch.setattr(litellm, "modify_params", True)
+    monkeypatch.setattr(hangarllm, "modify_params", True)
     weather_answer: Final = {"role": "tool", "tool_call_id": "toolu_01Weather", "content": "18C"}
     messages: Final = [
         cast(AllMessageValues, {"role": "user", "content": "Weather in Paris?"}),
@@ -5129,7 +5129,7 @@ def test_cache_control_hook_leaves_the_duplicate_tool_result_warning_to_the_requ
 def test_cache_control_hook_counts_marked_tool_calls_next_to_a_message_it_cannot_pair(
     monkeypatch: pytest.MonkeyPatch, stray_message: object
 ):
-    monkeypatch.setattr(litellm, "modify_params", True)
+    monkeypatch.setattr(hangarllm, "modify_params", True)
     messages: Final = [
         stray_message,
         {"role": "assistant", "content": None, "tool_calls": [_SEARCH_CALL, _WEATHER_CALL]},
@@ -5164,7 +5164,7 @@ def test_cache_control_hook_counts_marked_tool_calls_next_to_a_message_it_cannot
 def test_cache_control_hook_injects_next_to_a_malformed_message_instead_of_raising(
     monkeypatch: pytest.MonkeyPatch, modify_params: bool, malformed: dict[str, object]
 ):
-    monkeypatch.setattr(litellm, "modify_params", modify_params)
+    monkeypatch.setattr(hangarllm, "modify_params", modify_params)
     messages: Final = [
         {"role": "system", "content": "You are a weather assistant."},
         {"role": "user", "content": "Weather in Paris?"},
@@ -5238,7 +5238,7 @@ def _foundry_siblings_sharing_one_model_string(
     registration_order: tuple[str, ...],
     upstream: tuple[str, Mapping[str, object]],
 ) -> tuple[Router, Mapping[str, respx.Route]]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     path, reply = upstream
     routes: Final = MappingProxyType(
         {
@@ -5252,7 +5252,7 @@ def _foundry_siblings_sharing_one_model_string(
         model_list=[
             {
                 "model_name": host,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": _SHARED_FOUNDRY_MODEL,
                     "api_base": f"https://{host}.services.ai.azure.com/models",
                     "api_key": "azure-ai-test-key",
@@ -5327,11 +5327,11 @@ def test_openai_deployment_reads_the_catalog_not_a_siblings_flag_on_the_shared_k
     monkeypatch: pytest.MonkeyPatch, model: str, sibling_flag: bool, expected: bool
 ) -> None:
     sibling_entry: Final = {
-        "litellm_provider": "openai",
+        "hangarllm_provider": "openai",
         "mode": "chat",
         "supports_prompt_cache_breakpoint": sibling_flag,
     }
-    monkeypatch.setitem(litellm.model_cost, model, sibling_entry)
+    monkeypatch.setitem(hangarllm.model_cost, model, sibling_entry)
 
     assert (
         AnthropicCacheControlHook.targets_openai_prompt_cache_breakpoint(
@@ -5403,7 +5403,7 @@ async def test_azure_drop_params_keeps_a_client_breakpoint_by_the_deployments_ow
     part_type: str,
     reply: Mapping[str, object],
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     routes: Final = MappingProxyType(
         {
             host: respx_mock.post(host=f"{host}.openai.azure.com").mock(return_value=Response(200, json=dict(reply)))
@@ -5414,7 +5414,7 @@ async def test_azure_drop_params_keeps_a_client_breakpoint_by_the_deployments_ow
         model_list=[
             {
                 "model_name": host,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-qa-shared",
                     "api_base": f"https://{host}.openai.azure.com",
                     "api_key": "azure-test-key",
@@ -5448,7 +5448,7 @@ async def test_azure_drop_params_keeps_a_client_breakpoint_by_the_deployments_ow
 async def test_openai_messages_bridge_sends_a_breakpoint_by_the_deployments_own_flag_not_a_siblings(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, registration_order: tuple[str, ...]
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     _, reply = _FOUNDRY_RESPONSES_ROUTE
     responses_route: Final = respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=Response(200, json=dict(reply))
@@ -5457,7 +5457,7 @@ async def test_openai_messages_bridge_sends_a_breakpoint_by_the_deployments_own_
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {"model": "openai/qa-shared-gpt-deployment", "api_key": "openai-test-key"},
+                "hangarllm_params": {"model": "openai/qa-shared-gpt-deployment", "api_key": "openai-test-key"},
                 "model_info": {"id": f"{name}-id", **_SIBLING_BREAKPOINT_FLAGS.get(name, {})},
             }
             for name in registration_order
@@ -5490,7 +5490,7 @@ _OPENAI_ROUTES: Final = MappingProxyType(
 
 
 def _openai_route(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, entrypoint: str) -> respx.Route:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     url, reply = _OPENAI_ROUTES[entrypoint]
     return respx_mock.post(url).mock(return_value=Response(200, json=dict(reply)))
 
@@ -5504,7 +5504,7 @@ async def test_a_wildcard_deployments_prompt_cache_flag_leaves_each_matched_mode
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
                     "api_key": "openai-test-key",
                     "cache_control_injection_points": [{"location": "message", "role": "system"}],
@@ -5528,7 +5528,7 @@ async def test_a_wildcard_deployments_prompt_cache_flag_leaves_each_matched_mode
 async def test_an_azure_ai_wildcard_deployments_breakpoint_flag_still_speaks_for_each_matched_model(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     path, reply = _FOUNDRY_CHAT_ROUTE
     chat: Final = respx_mock.post(host="qa-wildcard.services.ai.azure.com", path=path).mock(
         return_value=Response(200, json=dict(reply))
@@ -5537,7 +5537,7 @@ async def test_an_azure_ai_wildcard_deployments_breakpoint_flag_still_speaks_for
         model_list=[
             {
                 "model_name": "azure_ai/*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure_ai/*",
                     "api_base": "https://qa-wildcard.services.ai.azure.com/models",
                     "api_key": "azure-ai-test-key",
@@ -5559,7 +5559,7 @@ async def test_an_azure_ai_wildcard_deployments_breakpoint_flag_still_speaks_for
 
 
 @pytest.mark.parametrize("entrypoint", ["acompletion", "aresponses", "aanthropic_messages"])
-@pytest.mark.parametrize("declared_in", ["litellm_params", "model_info"])
+@pytest.mark.parametrize("declared_in", ["hangarllm_params", "model_info"])
 async def test_a_base_model_that_takes_breakpoints_leaves_an_openai_deployments_request_as_it_was(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, entrypoint: str, declared_in: str
 ) -> None:
@@ -5568,11 +5568,11 @@ async def test_a_base_model_that_takes_breakpoints_leaves_an_openai_deployments_
     def deployment(name: str, base_model: Mapping[str, str]) -> dict[str, object]:
         return {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4.1-qa",
                 "api_key": "openai-test-key",
                 "cache_control_injection_points": [{"location": "message", "role": "system"}],
-                **(base_model if declared_in == "litellm_params" else {}),
+                **(base_model if declared_in == "hangarllm_params" else {}),
             },
             "model_info": {"id": f"{name}-id", **(base_model if declared_in == "model_info" else {})},
         }
@@ -5590,14 +5590,14 @@ async def test_a_base_model_that_takes_breakpoints_leaves_an_openai_deployments_
 
 
 def test_a_routed_call_honors_a_register_model_breakpoint_opt_out_made_under_the_provider_prefixed_name() -> None:
-    from litellm.utils import catalog_with_runtime_registrations
+    from hangarllm.utils import catalog_with_runtime_registrations
 
     model: Final = next(
         key
         for key, entry in catalog_with_runtime_registrations().items()
-        if entry.get("litellm_provider") == "openai" and entry.get("supports_prompt_cache_breakpoint") is True
+        if entry.get("hangarllm_provider") == "openai" and entry.get("supports_prompt_cache_breakpoint") is True
     )
-    litellm.register_model({f"openai/{model}": {"supports_prompt_cache_breakpoint": False}})
+    hangarllm.register_model({f"openai/{model}": {"supports_prompt_cache_breakpoint": False}})
 
     assert supports_openai_prompt_cache_breakpoint(model, "openai", {"id": "plain-id"}) is False
 
@@ -5624,7 +5624,7 @@ _APPLICATION_INFERENCE_PROFILE: Final = "arn:aws:bedrock:us-east-1:123456789012:
         ("my-custom-deployment", "azure", True),
         ("qa-mantle-model", "bedrock_mantle", True),
         ("anthropic/qa-gateway-claude", "openrouter", False),
-        ("qa-downstream-claude", "litellm_proxy", False),
+        ("qa-downstream-claude", "hangarllm_proxy", False),
         ("qa-self-hosted-model", "hosted_vllm", False),
     ],
 )
@@ -5640,7 +5640,7 @@ def test_a_declared_breakpoint_flag_picks_openais_dialect_only_where_the_request
 
 
 def test_a_gateway_deployment_declaring_the_flag_picks_openais_dialect_for_a_model_the_cost_map_lists_there() -> None:
-    litellm.register_model({"openrouter/qa-listed-gpt": {"litellm_provider": "openrouter", "mode": "chat"}})
+    hangarllm.register_model({"openrouter/qa-listed-gpt": {"hangarllm_provider": "openrouter", "mode": "chat"}})
 
     assert [
         AnthropicCacheControlHook.targets_openai_prompt_cache_breakpoint(
@@ -5655,14 +5655,14 @@ def test_a_gateway_deployment_declaring_the_flag_picks_openais_dialect_when_its_
         AnthropicCacheControlHook.targets_openai_prompt_cache_breakpoint(
             "qa-self-hosted-gpt",
             "hosted_vllm",
-            model_info={"supports_prompt_cache_breakpoint": True, "litellm_provider": listed_provider},
+            model_info={"supports_prompt_cache_breakpoint": True, "hangarllm_provider": listed_provider},
         )
         for listed_provider in ("hosted_vllm", "openrouter")
     ] == [True, False]
 
 def test_a_custom_handler_provider_declaring_the_flag_keeps_the_anthropic_mark() -> None:
-    litellm.register_model(
-        {"qa-custom-handler/qa-model": {"litellm_provider": "qa-custom-handler", "mode": "chat"}}
+    hangarllm.register_model(
+        {"qa-custom-handler/qa-model": {"hangarllm_provider": "qa-custom-handler", "mode": "chat"}}
     )
 
     assert (
@@ -5674,14 +5674,14 @@ def test_a_custom_handler_provider_declaring_the_flag_keeps_the_anthropic_mark()
 
 
 def test_a_routed_deployment_without_its_own_flag_reads_a_register_model_opt_in_but_not_a_siblings() -> None:
-    litellm.register_model(
-        {"azure_ai/qa-registered-gpt": {"litellm_provider": "azure_ai", "supports_prompt_cache_breakpoint": True}}
+    hangarllm.register_model(
+        {"azure_ai/qa-registered-gpt": {"hangarllm_provider": "azure_ai", "supports_prompt_cache_breakpoint": True}}
     )
     Router(
         model_list=[
             {
                 "model_name": "qa-opted-in-sibling",
-                "litellm_params": {"model": "azure_ai/qa-sibling-gpt", "api_base": "https://qa.services.ai.azure.com"},
+                "hangarllm_params": {"model": "azure_ai/qa-sibling-gpt", "api_base": "https://qa.services.ai.azure.com"},
                 "model_info": {"id": "qa-opted-in-sibling-id", "supports_prompt_cache_breakpoint": True},
             }
         ]
@@ -5710,7 +5710,7 @@ async def test_an_azure_custom_deployment_declaring_the_breakpoint_flag_gets_ope
     entrypoint: str,
     injection_points: list[dict[str, str]] | None,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     azure: Final = respx_mock.post(host="qa-azure.openai.azure.com").mock(
         side_effect=lambda request: Response(
             200,
@@ -5729,7 +5729,7 @@ async def test_an_azure_custom_deployment_declaring_the_breakpoint_flag_gets_ope
         model_list=[
             {
                 "model_name": "custom-azure",
-                "litellm_params": (
+                "hangarllm_params": (
                     deployment_params
                     if injection_points is None
                     else {**deployment_params, "cache_control_injection_points": injection_points}
@@ -5788,7 +5788,7 @@ _BEDROCK_INVOKE_REPLY: Final = MappingProxyType(
 async def test_a_bedrock_claude_deployment_declaring_the_breakpoint_flag_keeps_bedrocks_own_cache_marks(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, entrypoint: str, expected_system: list[object]
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     bedrock: Final = respx_mock.post(host="bedrock-runtime.us-east-1.amazonaws.com").mock(
         side_effect=lambda request: Response(
             200,
@@ -5799,7 +5799,7 @@ async def test_a_bedrock_claude_deployment_declaring_the_breakpoint_flag_keeps_b
         model_list=[
             {
                 "model_name": "claude-on-bedrock",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/us.anthropic.claude-sonnet-5-5",
                     "aws_access_key_id": "bedrock-test-key",
                     "aws_secret_access_key": "bedrock-test-secret",

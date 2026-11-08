@@ -44,7 +44,7 @@ async function createPricedDeployment(
     headers: { Authorization: `Bearer ${masterKey()}`, "Content-Type": "application/json" },
     data: {
       model_name: modelName,
-      litellm_params: {
+      hangarllm_params: {
         model: MOCK_DEPLOYMENT,
         api_base: `http://127.0.0.1:${process.env.MOCK_LLM_PORT ?? "8090"}/v1`,
         api_key: "fake-key",

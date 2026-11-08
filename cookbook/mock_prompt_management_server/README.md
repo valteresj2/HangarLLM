@@ -1,8 +1,8 @@
 # Mock Prompt Management Server
 
-A reference implementation of the [LiteLLM Generic Prompt Management API](https://docs.litellm.ai/docs/adding_provider/generic_prompt_management_api).
+A reference implementation of the [HangarLLM Generic Prompt Management API](https://github.com/valteresj2/HangarLLM#readme).
 
-This FastAPI server demonstrates how to build a prompt management API that integrates with LiteLLM without requiring a PR to the LiteLLM repository.
+This FastAPI server demonstrates how to build a prompt management API that integrates with HangarLLM without requiring a PR to the HangarLLM repository.
 
 ## Quick Start
 
@@ -24,10 +24,10 @@ The server will start on `http://localhost:8080`
 
 ```bash
 # Get a prompt
-curl "http://localhost:8080/beta/litellm_prompt_management?prompt_id=hello-world-prompt"
+curl "http://localhost:8080/beta/hangarllm_prompt_management?prompt_id=hello-world-prompt"
 
 # Get a prompt with authentication
-curl "http://localhost:8080/beta/litellm_prompt_management?prompt_id=hello-world-prompt" \
+curl "http://localhost:8080/beta/hangarllm_prompt_management?prompt_id=hello-world-prompt" \
   -H "Authorization: Bearer test-token-12345"
 
 # List all prompts
@@ -37,7 +37,7 @@ curl "http://localhost:8080/prompts"
 curl "http://localhost:8080/prompts/hello-world-prompt/variables"
 ```
 
-## Using with LiteLLM
+## Using with HangarLLM
 
 ### Configuration
 
@@ -46,22 +46,22 @@ Create a `config.yaml` file:
 ```yaml
 model_list:
   - model_name: gpt-3.5-turbo
-    litellm_params:
+    hangarllm_params:
       model: openai/gpt-3.5-turbo
       api_key: os.environ/OPENAI_API_KEY
 
 prompts:
   - prompt_id: "hello-world-prompt"
-    litellm_params:
+    hangarllm_params:
       prompt_integration: "generic_prompt_management"
       api_base: http://localhost:8080
       api_key: test-token-12345
 ```
 
-### Start LiteLLM Proxy
+### Start HangarLLM Proxy
 
 ```bash
-litellm --config config.yaml
+hangarllm --config config.yaml
 ```
 
 ### Make a Request
@@ -69,7 +69,7 @@ litellm --config config.yaml
 ```bash
 curl http://0.0.0.0:4000/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -H "Authorization: Bearer $HANGARLLM_MASTER_KEY" \
   -d '{
     "model": "gpt-3.5-turbo",
     "prompt_id": "hello-world-prompt",
@@ -107,11 +107,11 @@ If no `Authorization` header is provided, requests are allowed (for testing purp
 
 ## API Endpoints
 
-### LiteLLM Spec Endpoints
+### HangarLLM Spec Endpoints
 
-#### `GET /beta/litellm_prompt_management`
+#### `GET /beta/hangarllm_prompt_management`
 
-Get a prompt by ID (required by LiteLLM).
+Get a prompt by ID (required by HangarLLM).
 
 **Query Parameters:**
 - `prompt_id` (required): The prompt ID
@@ -141,7 +141,7 @@ Get a prompt by ID (required by LiteLLM).
 }
 ```
 
-### Convenience Endpoints (Not in LiteLLM Spec)
+### Convenience Endpoints (Not in HangarLLM Spec)
 
 #### `GET /health`
 
@@ -170,7 +170,7 @@ python mock_prompt_management_server.py
 ### 2. Test with Python
 
 ```python
-from litellm import completion
+from hangarllm import completion
 
 # The completion will:
 # 1. Fetch the prompt from your API
@@ -233,7 +233,7 @@ PROMPTS_DB = {
 Replace the `PROMPTS_DB` dictionary with database queries:
 
 ```python
-@app.get("/beta/litellm_prompt_management")
+@app.get("/beta/hangarllm_prompt_management")
 async def get_prompt(prompt_id: str):
     # Fetch from database
     prompt = await db.prompts.find_one({"prompt_id": prompt_id})
@@ -249,7 +249,7 @@ async def get_prompt(prompt_id: str):
 Use the custom query parameters for access control:
 
 ```python
-@app.get("/beta/litellm_prompt_management")
+@app.get("/beta/hangarllm_prompt_management")
 async def get_prompt(
     prompt_id: str,
     project_name: Optional[str] = None,
@@ -283,10 +283,10 @@ Before deploying to production:
 
 ## Related Documentation
 
-- [Generic Prompt Management API Documentation](https://docs.litellm.ai/docs/adding_provider/generic_prompt_management_api)
-- [LiteLLM Prompt Management](https://docs.litellm.ai/docs/proxy/prompt_management)
-- [Generic Guardrail API](https://docs.litellm.ai/docs/adding_provider/generic_guardrail_api)
+- [Generic Prompt Management API Documentation](https://github.com/valteresj2/HangarLLM#readme)
+- [HangarLLM Prompt Management](https://github.com/valteresj2/HangarLLM#readme)
+- [Generic Guardrail API](https://github.com/valteresj2/HangarLLM#readme)
 
 ## Questions?
 
-This is a reference implementation for the LiteLLM Generic Prompt Management API. For questions or issues, please open an issue on the [LiteLLM GitHub repository](https://github.com/BerriAI/litellm).
+This is a reference implementation for the HangarLLM Generic Prompt Management API. For questions or issues, please open an issue on the [HangarLLM GitHub repository](https://github.com/valteresj2/HangarLLM).

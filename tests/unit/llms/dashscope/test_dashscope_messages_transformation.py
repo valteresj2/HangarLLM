@@ -7,9 +7,9 @@ from typing import Final
 import pytest
 import respx
 
-import litellm
-from litellm.exceptions import AuthenticationError
-from litellm.llms.dashscope.messages.transformation import (
+import hangarllm
+from hangarllm.exceptions import AuthenticationError
+from hangarllm.llms.dashscope.messages.transformation import (
     DashScopeAnthropicMessagesConfig,
 )
 
@@ -81,7 +81,7 @@ def test_get_complete_url(api_base: str | None, expected: str):
         api_key="sk-test",
         model="qwen3.7-plus",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert url == expected
@@ -96,7 +96,7 @@ def test_missing_dashscope_key_does_not_fall_back_to_anthropic(
         monkeypatch.setenv("DASHSCOPE_API_KEY", dashscope_api_key)
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-secret")
-    monkeypatch.setattr(litellm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
     headers: dict[str, str] = {}
 
     with pytest.raises(AuthenticationError) as error:
@@ -105,7 +105,7 @@ def test_missing_dashscope_key_does_not_fall_back_to_anthropic(
             model="qwen3.7-plus",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
             api_base=WORKSPACE,
         )
@@ -117,7 +117,7 @@ def test_missing_dashscope_key_does_not_fall_back_to_anthropic(
 
 def test_caller_auth_header_is_honored_without_a_dashscope_key(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
-    monkeypatch.setattr(litellm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
     headers: Final = {"x-api-key": "caller-key"}
 
     resolved_headers, _ = DashScopeAnthropicMessagesConfig().validate_anthropic_messages_environment(
@@ -125,7 +125,7 @@ def test_caller_auth_header_is_honored_without_a_dashscope_key(monkeypatch: pyte
         model="qwen3.7-plus",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=WORKSPACE,
     )
@@ -135,7 +135,7 @@ def test_caller_auth_header_is_honored_without_a_dashscope_key(monkeypatch: pyte
 
 def test_caller_authorization_header_is_honored_without_a_dashscope_key(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
-    monkeypatch.setattr(litellm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
     headers: Final = {"Authorization": "Bearer caller-token"}
 
     resolved_headers, _ = DashScopeAnthropicMessagesConfig().validate_anthropic_messages_environment(
@@ -143,7 +143,7 @@ def test_caller_authorization_header_is_honored_without_a_dashscope_key(monkeypa
         model="qwen3.7-plus",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=WORKSPACE,
     )
@@ -160,7 +160,7 @@ def test_dashscope_key_wins_over_an_anthropic_environment_key(monkeypatch: pytes
         model="qwen3.7-plus",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=WORKSPACE,
     )
@@ -171,7 +171,7 @@ def test_dashscope_key_wins_over_an_anthropic_environment_key(monkeypatch: pytes
 
 
 def test_dashscope_prefix_reaches_the_provider():
-    model, provider, _, _ = litellm.get_llm_provider(
+    model, provider, _, _ = hangarllm.get_llm_provider(
         "dashscope/qwen3.7-plus",
         api_base=WORKSPACE,
     )
@@ -198,13 +198,13 @@ async def test_only_a_domain_root_or_anthropic_base_leaves_the_chat_bridge(
     monkeypatch: pytest.MonkeyPatch, api_base: str | None, expected_url: str
 ):
     monkeypatch.delenv("DASHSCOPE_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
     with respx.mock(assert_all_called=False) as upstream:
         upstream.route(path__regex=r".*/chat/completions$").respond(200, json=CHAT_COMPLETION)
         upstream.route(path__regex=r".*/v1/messages$").respond(200, json=MESSAGE)
 
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             model="dashscope/qwen3.7-plus",
             messages=[{"role": "user", "content": "say ok"}],
             max_tokens=16,

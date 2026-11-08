@@ -241,7 +241,7 @@ def test_semantic_cache_embeds_tool_results_and_does_not_replay_the_previous_tur
             )
             models: Final = config["model_list"]
             assert isinstance(models, list)
-            settings: Final = object_value(config["litellm_settings"])
+            settings: Final = object_value(config["hangarllm_settings"])
             config_path: Final = tmp_path / "semantic-cache.yaml"
             config_path.write_text(
                 yaml.safe_dump(
@@ -251,14 +251,14 @@ def test_semantic_cache_embeds_tool_results_and_does_not_replay_the_previous_tur
                             *models,
                             {
                                 "model_name": "semantic-embedding",
-                                "litellm_params": {
+                                "hangarllm_params": {
                                     "model": "openai/text-embedding-3-small",
                                     "api_base": embeddings.url + "/v1",
                                     "api_key": "scripted-embedding-key",
                                 },
                             },
                         ],
-                        "litellm_settings": {
+                        "hangarllm_settings": {
                             **settings,
                             "cache_params": {
                                 "type": "redis-semantic",

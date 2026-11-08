@@ -9,7 +9,7 @@ test cannot observe whether the endpoint round-tripped correctly
 through the proxy for any given provider.
 
 This module is the second test pattern the matrix supports: a plain
-HTTP POST against a LiteLLM proxy endpoint, parsed and shape-checked
+HTTP POST against a HangarLLM proxy endpoint, parsed and shape-checked
 in the test, with the same `compat_result` recording convention as the
 CLI-driven cells. The goal is to keep this pattern *narrow* -- if a
 feature can be tested via the CLI, it should be, because the CLI path
@@ -23,7 +23,7 @@ and typed `Result` handling the rest of `tests/e2e/` uses. This is a
 "did the request shape survive the proxy's provider-specific
 transformations" test, not a load test, and a real endpoint regression
 typically surfaces in well under a second of wall time (400 / 500 from
-the upstream, or LiteLLM 500 on a transformation bug).
+the upstream, or HangarLLM 500 on a transformation bug).
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ if TYPE_CHECKING:
 
 # The tool_search discovery tool plus one trivial user tool, matching the
 # `tools` array real Claude Code emits when its MCP-tool-search beta is active.
-# The discovery tool's `_20251119`-suffixed type is what LiteLLM keys its
+# The discovery tool's `_20251119`-suffixed type is what HangarLLM keys its
 # per-provider beta-header translation on; the user tool is included so the wire
 # shape mirrors what Claude Code sends rather than a semantically empty request.
 _TOOL_SEARCH_TOOLS: tuple[AnthropicTool, ...] = (
@@ -117,7 +117,7 @@ def probe_count_tokens(
 ) -> Result[CountTokensResponse]:
     """POST to `/v1/messages/count_tokens` for `model` and return the typed result.
 
-    The Anthropic / LiteLLM `count_tokens` endpoint accepts a request body whose
+    The Anthropic / HangarLLM `count_tokens` endpoint accepts a request body whose
     shape mirrors `/v1/messages` (model + messages) and returns
     `{"input_tokens": N}` for a successful response. Anything else -- non-200
     status, non-JSON body, missing/non-int `input_tokens` -- is a regression the
@@ -142,7 +142,7 @@ def probe_tool_search(
     """POST to `/v1/messages` with a `tool_search_tool_regex_20251119` tool
     definition and return the typed result.
 
-    LiteLLM's `is_tool_search_used` helper keys on the `_20251119`-suffixed type
+    HangarLLM's `is_tool_search_used` helper keys on the `_20251119`-suffixed type
     string to decide whether to attach the provider-specific tool-search beta
     header (`advanced-tool-use-2025-11-20` for Anthropic/Azure,
     `tool-search-tool-2025-10-19` for Vertex/Bedrock). A proxy regression in that
@@ -304,7 +304,7 @@ def assert_tool_search_shape(result: Result[AnthropicMessagesResponse]) -> str |
          tool_search tool type or a missing beta header, no 429/401/transport
          error).
       2. The body has either `content` (Anthropic-shape passthrough) or `choices`
-         (LiteLLM normalized OpenAI-shape, used by Bedrock Converse). Either is
+         (HangarLLM normalized OpenAI-shape, used by Bedrock Converse). Either is
          acceptable -- the matrix cares that the proxy *accepts and forwards*
          tool_search, not that the model actually chose to invoke it.
     """

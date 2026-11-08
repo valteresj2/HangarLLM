@@ -130,7 +130,7 @@ def _respond(request: Request) -> Reply:
 def _text_deployment(model_name: str, wire: Wire) -> dict[str, JsonValue]:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "text-completion-openai/gpt-3.5-turbo-instruct",
             "api_base": f"{wire.url}/v1",
             "api_key": _PROVIDER_KEY,
@@ -150,7 +150,7 @@ def _config(directory: Path, wire: Wire) -> Path:
         "guardrails": [
             {
                 "guardrail_name": _GUARDRAIL,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "tool_permission",
                     "mode": "post_call",
                     "default_on": True,
@@ -160,8 +160,8 @@ def _config(directory: Path, wire: Wire) -> Path:
             },
             {
                 "guardrail_name": _KEYWORD_FILTER,
-                "litellm_params": {
-                    "guardrail": "litellm_content_filter",
+                "hangarllm_params": {
+                    "guardrail": "hangarllm_content_filter",
                     "mode": "post_call",
                     "default_on": False,
                     "blocked_words": [
@@ -242,7 +242,7 @@ def test_guarded_text_completion_stream_reaches_the_caller_whole_with_its_usage(
     assert _posted_targets(rig.wire) == ("/v1/completions",)
     (row,) = eventually(
         lambda: rig.proxy.gateway.rows(
-            'SELECT prompt_tokens, completion_tokens, metadata FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
+            'SELECT prompt_tokens, completion_tokens, metadata FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
             (identity,),
         ),
         lambda rows: len(rows) == 1,
@@ -266,7 +266,7 @@ def test_post_call_pipeline_masks_a_streamed_text_completion(rig: _Rig) -> None:
         (_PROMPT_TOKENS, _COMPLETION_TOKENS)
     ], stream.frames
     (row,) = eventually(
-        lambda: rig.proxy.gateway.rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (identity,)),
+        lambda: rig.proxy.gateway.rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (identity,)),
         lambda rows: len(rows) == 1,
         seconds=70,
     )

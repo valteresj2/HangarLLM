@@ -31,7 +31,7 @@ from pydantic import JsonValue
 
 pytestmark = pytest.mark.timeout(graceful_stop_seconds() + 240)
 
-CALL_ID: Final = "litellm.call_id"
+CALL_ID: Final = "hangarllm.call_id"
 KEY_HASH: Final = "metadata.user_api_key_hash"
 SPAN_SECONDS: Final = 30
 QUIET_SECONDS: Final = 3
@@ -59,7 +59,7 @@ def rig(sinks: SpanSinks, tmp_path_factory: pytest.TempPathFactory) -> Iterator[
         tmp_path_factory.mktemp("safeguards-otel"),
         environment=otel_exporter,
         general_settings={"allow_client_side_credentials": True},
-        litellm_settings={"callbacks": ["otel"]},
+        hangarllm_settings={"callbacks": ["otel"]},
         top_level=otel_destination,
     ) as value:
         yield value
@@ -117,7 +117,7 @@ def assert_logged_without_content(sinks: SpanSinks, key: str, redacted: str) -> 
 def test_disable_callbacks_header_keeps_the_classifier_call_out_of_that_callback(rig: Rig, sinks: SpanSinks) -> None:
     with rig.gateway.scenario() as scenario:
         hidden_key: Final = scenario.key()
-        turn(rig, hidden_key, headers={"x-litellm-disable-callbacks": "opentelemetry"})
+        turn(rig, hidden_key, headers={"x-hangarllm-disable-callbacks": "opentelemetry"})
         assert_skipped_by_the_callback(rig, sinks, hidden_key, scenario.key())
 
 
@@ -125,7 +125,7 @@ def test_key_metadata_callback_opt_out_logs_the_classifier_call_exactly_like_its
     rig: Rig, sinks: SpanSinks
 ) -> None:
     with rig.gateway.scenario() as scenario:
-        opted_out: Final = scenario.key(metadata={"litellm_disabled_callbacks": ["opentelemetry"]})
+        opted_out: Final = scenario.key(metadata={"hangarllm_disabled_callbacks": ["opentelemetry"]})
         opted_out_turn: Final = turn(rig, opted_out)
         assert_both_calls_logged_with_content(rig, sinks, scenario.key())
         held(
@@ -141,7 +141,7 @@ def test_redaction_header_keeps_the_conversation_out_of_the_classifier_calls_pay
 ) -> None:
     with rig.gateway.scenario() as scenario:
         key: Final = scenario.key()
-        redacted: Final = turn(rig, key, headers={"x-litellm-enable-message-redaction": "true"})
+        redacted: Final = turn(rig, key, headers={"x-hangarllm-enable-message-redaction": "true"})
         assert_logged_without_content(sinks, key, redacted)
         assert_both_calls_logged_with_content(rig, sinks, key)
 

@@ -1,8 +1,8 @@
 """
 Tests for the grace-period key-rotation feature (MLI-6358).
 
-Two bugs are confirmed in LiteLLM v1.83.7-stable (upstream BerriAI/litellm#27193).
-Both live in _lookup_deprecated_key() (litellm/proxy/utils.py):
+Two bugs are confirmed in HangarLLM v1.83.7-stable (upstream valteresj2/HangarLLM#27193).
+Both live in _lookup_deprecated_key() (hangarllm/proxy/utils.py):
 
   Bug 1 — duplicate cache read (cosmetic, no functional impact on its own):
       The cache is fetched twice in a row with no state change between the calls.
@@ -37,8 +37,8 @@ def _make_db(active_token_id: Optional[str]) -> MagicMock:
     row.active_token_id = active_token_id
     row.revoke_at = datetime.now(timezone.utc) + timedelta(minutes=5)
     db = MagicMock()
-    db.litellm_deprecatedverificationtoken = MagicMock()
-    db.litellm_deprecatedverificationtoken.find_first = AsyncMock(
+    db.hangarllm_deprecatedverificationtoken = MagicMock()
+    db.hangarllm_deprecatedverificationtoken.find_first = AsyncMock(
         return_value=row if active_token_id else None
     )
     return db
@@ -50,7 +50,7 @@ def _make_db(active_token_id: Optional[str]) -> MagicMock:
 @pytest.mark.asyncio
 async def test_lookup_deprecated_key_db_miss_returns_none():
     """Token absent from deprecated table → returns None without error."""
-    from litellm.proxy.utils import _lookup_deprecated_key, _deprecated_key_cache
+    from hangarllm.proxy.utils import _lookup_deprecated_key, _deprecated_key_cache
 
     _deprecated_key_cache.clear()
     db = _make_db(active_token_id=None)
@@ -58,7 +58,7 @@ async def test_lookup_deprecated_key_db_miss_returns_none():
     result = await _lookup_deprecated_key(db=db, hashed_token=HASHED_TOKEN)
 
     assert result is None
-    db.litellm_deprecatedverificationtoken.find_first.assert_called_once()
+    db.hangarllm_deprecatedverificationtoken.find_first.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -68,7 +68,7 @@ async def test_lookup_deprecated_key_db_hit_returns_active_token_id():
     active_token_id correctly.  The DB path itself works; the bug is on the
     second call when the result is read back from cache.
     """
-    from litellm.proxy.utils import _lookup_deprecated_key, _deprecated_key_cache
+    from hangarllm.proxy.utils import _lookup_deprecated_key, _deprecated_key_cache
 
     _deprecated_key_cache.clear()
     db = _make_db(active_token_id=ACTIVE_TOKEN_HASH)
@@ -76,7 +76,7 @@ async def test_lookup_deprecated_key_db_hit_returns_active_token_id():
     result = await _lookup_deprecated_key(db=db, hashed_token=HASHED_TOKEN)
 
     assert result == ACTIVE_TOKEN_HASH
-    db.litellm_deprecatedverificationtoken.find_first.assert_called_once()
+    db.hangarllm_deprecatedverificationtoken.find_first.assert_called_once()
 
 
 # ── Bug 2: second call (cache path) ──────────────────────────────────────────
@@ -88,7 +88,7 @@ async def test_lookup_deprecated_key_cache_hit_returns_on_second_call():
     Regression guard: after first call warms the cache with a 3-tuple,
     second call should return from cache without raising.
     """
-    from litellm.proxy.utils import _lookup_deprecated_key, _deprecated_key_cache
+    from hangarllm.proxy.utils import _lookup_deprecated_key, _deprecated_key_cache
 
     _deprecated_key_cache.clear()
     db = _make_db(active_token_id=ACTIVE_TOKEN_HASH)
@@ -102,7 +102,7 @@ async def test_lookup_deprecated_key_cache_hit_returns_on_second_call():
     assert r2 == ACTIVE_TOKEN_HASH
 
     # DB is queried exactly once; the second call never reaches it
-    assert db.litellm_deprecatedverificationtoken.find_first.call_count == 1
+    assert db.hangarllm_deprecatedverificationtoken.find_first.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -110,7 +110,7 @@ async def test_lookup_deprecated_key_pre_warmed_cache_returns():
     """
     Pre-warmed 3-tuple cache entry should be served directly from cache.
     """
-    from litellm.proxy.utils import _lookup_deprecated_key, _deprecated_key_cache
+    from hangarllm.proxy.utils import _lookup_deprecated_key, _deprecated_key_cache
 
     _deprecated_key_cache.clear()
     now_ts = datetime.now(timezone.utc).timestamp()
@@ -125,7 +125,7 @@ async def test_lookup_deprecated_key_pre_warmed_cache_returns():
     result = await _lookup_deprecated_key(db=db, hashed_token=HASHED_TOKEN)
     assert result == ACTIVE_TOKEN_HASH
 
-    db.litellm_deprecatedverificationtoken.find_first.assert_not_called()
+    db.hangarllm_deprecatedverificationtoken.find_first.assert_not_called()
 
 
 # ── End-to-end reproduction of the demo ──────────────────────────────────────
@@ -140,7 +140,7 @@ async def test_grace_period_three_requests_mirrors_demo():
       Request 2 (cache hit)                → succeeds
       Request 3 (cache hit)                → succeeds
     """
-    from litellm.proxy.utils import _lookup_deprecated_key, _deprecated_key_cache
+    from hangarllm.proxy.utils import _lookup_deprecated_key, _deprecated_key_cache
 
     _deprecated_key_cache.clear()
     db = _make_db(active_token_id=ACTIVE_TOKEN_HASH)
@@ -154,13 +154,13 @@ async def test_grace_period_three_requests_mirrors_demo():
     assert r3 == ACTIVE_TOKEN_HASH
 
     # DB hit only once; requests 2 and 3 never reach it
-    assert db.litellm_deprecatedverificationtoken.find_first.call_count == 1
+    assert db.hangarllm_deprecatedverificationtoken.find_first.call_count == 1
 
 
 @pytest.mark.asyncio
 async def test_cache_hit_respects_revoke_at_timestamp():
     """Cache entries should not remain valid past revoke_at even if cache TTL is still live."""
-    from litellm.proxy.utils import _lookup_deprecated_key, _deprecated_key_cache
+    from hangarllm.proxy.utils import _lookup_deprecated_key, _deprecated_key_cache
 
     _deprecated_key_cache.clear()
     now_ts = datetime.now(timezone.utc).timestamp()
@@ -174,4 +174,4 @@ async def test_cache_hit_respects_revoke_at_timestamp():
     db = _make_db(active_token_id=None)
     result = await _lookup_deprecated_key(db=db, hashed_token=HASHED_TOKEN)
     assert result is None
-    db.litellm_deprecatedverificationtoken.find_first.assert_called_once()
+    db.hangarllm_deprecatedverificationtoken.find_first.assert_called_once()

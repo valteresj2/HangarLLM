@@ -10,21 +10,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from prometheus_client import REGISTRY
 
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.proxy._types import (
-    LiteLLM_BudgetTable,
-    LiteLLM_OrganizationTable,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
+from hangarllm.integrations.prometheus import PrometheusLogger
+from hangarllm.proxy._types import (
+    HangarLLM_BudgetTable,
+    HangarLLM_OrganizationTable,
+    HangarLLM_TeamTable,
+    HangarLLM_UserTable,
     UserAPIKeyAuth,
 )
-from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
-from litellm.proxy.spend_tracking.carried_budget_state import (
+from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
+from hangarllm.proxy.spend_tracking.carried_budget_state import (
     carried_budget_metadata,
     carry_organization_budget_state,
     carry_team_and_user_budget_state,
 )
-from litellm.types.proxy.carried_budget_state import (
+from hangarllm.types.proxy.carried_budget_state import (
     KeyBudgetSnapshot,
     TeamBudgetSnapshot,
     UserBudgetSnapshot,
@@ -61,10 +61,10 @@ def getters():
     mocks = {
         "get_key_object": AsyncMock(return_value=UserAPIKeyAuth(token="hashed", budget_reset_at=KEY_RESET_AT)),
         "get_team_object": AsyncMock(
-            return_value=LiteLLM_TeamTable(team_id="t1", budget_reset_at=TEAM_RESET_AT, max_budget=300.0)
+            return_value=HangarLLM_TeamTable(team_id="t1", budget_reset_at=TEAM_RESET_AT, max_budget=300.0)
         ),
         "get_user_object": AsyncMock(
-            return_value=LiteLLM_UserTable(
+            return_value=HangarLLM_UserTable(
                 user_id="u1",
                 budget_reset_at=USER_RESET_AT,
                 user_email="alice@example.com",
@@ -73,23 +73,23 @@ def getters():
             )
         ),
         "get_org_object": AsyncMock(
-            return_value=LiteLLM_OrganizationTable(
+            return_value=HangarLLM_OrganizationTable(
                 organization_id="o1",
                 organization_alias="platform-org",
                 budget_id="b1",
                 created_by="admin",
                 updated_by="admin",
                 spend=40.0,
-                litellm_budget_table=LiteLLM_BudgetTable(max_budget=500.0),
+                hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=500.0),
             )
         ),
     }
     with (
         patch.multiple(  # test-quality-ok: prometheus reads these proxy_server globals at call time, no injection seam
-            "litellm.proxy.proxy_server", prisma_client=MagicMock(), user_api_key_cache=MagicMock()
+            "hangarllm.proxy.proxy_server", prisma_client=MagicMock(), user_api_key_cache=MagicMock()
         ),
         patch.multiple(  # test-quality-ok: the getters are the DB boundary this test counts calls to
-            "litellm.proxy.auth.auth_checks", **mocks
+            "hangarllm.proxy.auth.auth_checks", **mocks
         ),
     ):
         yield mocks
@@ -114,46 +114,46 @@ def _authed_token() -> UserAPIKeyAuth:
     )
     carry_team_and_user_budget_state(
         valid_token=token,
-        team_object=LiteLLM_TeamTable(team_id="t1", budget_reset_at=TEAM_RESET_AT, max_budget=300.0),
-        user_object=LiteLLM_UserTable(user_id="u1", budget_reset_at=USER_RESET_AT, user_alias="Alice", max_budget=50.0),
+        team_object=HangarLLM_TeamTable(team_id="t1", budget_reset_at=TEAM_RESET_AT, max_budget=300.0),
+        user_object=HangarLLM_UserTable(user_id="u1", budget_reset_at=USER_RESET_AT, user_alias="Alice", max_budget=50.0),
     )
     carry_organization_budget_state(
         valid_token=token,
-        org_table=LiteLLM_OrganizationTable(
+        org_table=HangarLLM_OrganizationTable(
             organization_id="o1",
             organization_alias="platform-org",
             budget_id="b1",
             created_by="admin",
             updated_by="admin",
             spend=40.0,
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=500.0),
+            hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=500.0),
         ),
     )
     return token
 
 
 def _request_metadata(token: UserAPIKeyAuth) -> dict:
-    """What add_user_api_key_auth_to_request_metadata leaves in litellm_params["metadata"]."""
+    """What add_user_api_key_auth_to_request_metadata leaves in hangarllm_params["metadata"]."""
     return {
-        **LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(token),
+        **HangarLLMProxyRequestSetup.get_sanitized_user_information_from_key(token),
         **carried_budget_metadata(token),
     }
 
 
 def _stub_gauges(prometheus_logger: PrometheusLogger) -> None:
     for name in (
-        "litellm_remaining_api_key_budget_metric",
-        "litellm_api_key_max_budget_metric",
-        "litellm_api_key_budget_remaining_hours_metric",
-        "litellm_remaining_team_budget_metric",
-        "litellm_team_max_budget_metric",
-        "litellm_team_budget_remaining_hours_metric",
-        "litellm_remaining_user_budget_metric",
-        "litellm_user_max_budget_metric",
-        "litellm_user_budget_remaining_hours_metric",
-        "litellm_remaining_org_budget_metric",
-        "litellm_org_max_budget_metric",
-        "litellm_org_budget_remaining_hours_metric",
+        "hangarllm_remaining_api_key_budget_metric",
+        "hangarllm_api_key_max_budget_metric",
+        "hangarllm_api_key_budget_remaining_hours_metric",
+        "hangarllm_remaining_team_budget_metric",
+        "hangarllm_team_max_budget_metric",
+        "hangarllm_team_budget_remaining_hours_metric",
+        "hangarllm_remaining_user_budget_metric",
+        "hangarllm_user_max_budget_metric",
+        "hangarllm_user_budget_remaining_hours_metric",
+        "hangarllm_remaining_org_budget_metric",
+        "hangarllm_org_max_budget_metric",
+        "hangarllm_org_budget_remaining_hours_metric",
     ):
         setattr(prometheus_logger, name, MagicMock())
 
@@ -164,7 +164,7 @@ async def _emit(prometheus_logger: PrometheusLogger, metadata: dict) -> None:
         user_api_team_alias="team-alias",
         user_api_key="hashed",
         user_api_key_alias="key-alias",
-        litellm_params={"metadata": metadata},
+        hangarllm_params={"metadata": metadata},
         response_cost=2.0,
         user_id="u1",
         user_api_key_org_id="o1",
@@ -181,10 +181,10 @@ async def test_authed_request_sets_every_gauge_without_any_object_getter(prometh
         name: getter.await_count for name, getter in getters.items()
     }
     remaining = {
-        "key": prometheus_logger.litellm_remaining_api_key_budget_metric.labels().set.call_args[0][0],
-        "team": prometheus_logger.litellm_remaining_team_budget_metric.labels().set.call_args[0][0],
-        "user": prometheus_logger.litellm_remaining_user_budget_metric.labels().set.call_args[0][0],
-        "org": prometheus_logger.litellm_remaining_org_budget_metric.labels().set.call_args[0][0],
+        "key": prometheus_logger.hangarllm_remaining_api_key_budget_metric.labels().set.call_args[0][0],
+        "team": prometheus_logger.hangarllm_remaining_team_budget_metric.labels().set.call_args[0][0],
+        "user": prometheus_logger.hangarllm_remaining_user_budget_metric.labels().set.call_args[0][0],
+        "org": prometheus_logger.hangarllm_remaining_org_budget_metric.labels().set.call_args[0][0],
     }
     assert remaining == {
         "key": pytest.approx(7.0),
@@ -192,10 +192,10 @@ async def test_authed_request_sets_every_gauge_without_any_object_getter(prometh
         "user": pytest.approx(43.0),
         "org": 458.0,
     }
-    prometheus_logger.litellm_org_max_budget_metric.labels().set.assert_called_once_with(500.0)
-    prometheus_logger.litellm_api_key_budget_remaining_hours_metric.labels().set.assert_called_once()
-    prometheus_logger.litellm_team_budget_remaining_hours_metric.labels().set.assert_called_once()
-    prometheus_logger.litellm_user_budget_remaining_hours_metric.labels().set.assert_called_once()
+    prometheus_logger.hangarllm_org_max_budget_metric.labels().set.assert_called_once_with(500.0)
+    prometheus_logger.hangarllm_api_key_budget_remaining_hours_metric.labels().set.assert_called_once()
+    prometheus_logger.hangarllm_team_budget_remaining_hours_metric.labels().set.assert_called_once()
+    prometheus_logger.hangarllm_user_budget_remaining_hours_metric.labels().set.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -210,8 +210,8 @@ async def test_metadata_without_carried_state_still_fetches_each_object_once(pro
         "get_user_object": 1,
         "get_org_object": 1,
     }
-    prometheus_logger.litellm_remaining_org_budget_metric.labels().set.assert_called_once_with(458.0)
-    prometheus_logger.litellm_team_budget_remaining_hours_metric.labels().set.assert_called_once()
+    prometheus_logger.hangarllm_remaining_org_budget_metric.labels().set.assert_called_once_with(458.0)
+    prometheus_logger.hangarllm_team_budget_remaining_hours_metric.labels().set.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -220,7 +220,7 @@ async def test_partial_carried_state_only_skips_the_carried_objects(prometheus_l
     token = UserAPIKeyAuth(token="hashed", team_id="t1", user_id="u1", org_id="o1")
     carry_team_and_user_budget_state(
         valid_token=token,
-        team_object=LiteLLM_TeamTable(team_id="t1", budget_reset_at=TEAM_RESET_AT),
+        team_object=HangarLLM_TeamTable(team_id="t1", budget_reset_at=TEAM_RESET_AT),
         user_object=None,
     )
 

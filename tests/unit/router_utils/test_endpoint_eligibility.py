@@ -4,8 +4,8 @@ from typing import Final
 import pytest
 from pydantic import TypeAdapter
 
-from litellm.exceptions import EndpointNotSupportedByModelError
-from litellm.router_utils.endpoint_eligibility import (
+from hangarllm.exceptions import EndpointNotSupportedByModelError
+from hangarllm.router_utils.endpoint_eligibility import (
     eligible_deployments,
     endpoint_selection,
     warn_on_unenforced_endpoint_flag,
@@ -19,7 +19,7 @@ def _deployment(info: Mapping[str, object], identity: str = "embedding") -> dict
         [
             {
                 "model_name": "shared",
-                "litellm_params": {"model": "openai/test-model"},
+                "hangarllm_params": {"model": "openai/test-model"},
                 "model_info": {"id": identity, **info},
             }
         ]

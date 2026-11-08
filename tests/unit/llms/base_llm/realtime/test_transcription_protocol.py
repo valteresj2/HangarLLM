@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from litellm.llms.base_llm.realtime.transcription_protocol import (
+from hangarllm.llms.base_llm.realtime.transcription_protocol import (
     RealtimeTranscriptionProtocolError,
     completed_event,
     decode_pcm16_append,

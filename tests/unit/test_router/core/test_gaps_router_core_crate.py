@@ -11,19 +11,19 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.litellm_core_utils.core_helpers import as_str_mapping
-from litellm.router import Router
-from litellm.router_api import ChangeSet
-from litellm.router_core import RouterCore
-from litellm.types.router import RoutingGroup
+import hangarllm
+from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping
+from hangarllm.router import Router
+from hangarllm.router_api import ChangeSet
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import RoutingGroup
 from tests.unit.test_router.core.registry_helpers import team_deployment
 from tests.unit.test_router.core.retries_health_helpers import MakeCore, attempt, cooled_down, headers_of
 from tests.unit.test_router.core.scripted_host import ScriptedHost, completion_response, deployment, rate_limit
 
 DEFAULT: Final[dict[str, object]] = {  # mutable-ok: a deployment dict, copied per test
     "model_name": "dm",
-    "litellm_params": {"model": "openai/other-model"},
+    "hangarllm_params": {"model": "openai/other-model"},
     "model_info": {"id": "dd"},
 }
 
@@ -63,11 +63,11 @@ async def test_an_unknown_model_routes_to_the_default_deployment_without_retries
     host.answer("other-model", rate_limit(), completion_response())
 
     failed: Final = await attempt(core, model="other-model")
-    assert isinstance(failed, litellm.RateLimitError)
+    assert isinstance(failed, hangarllm.RateLimitError)
     assert cooled_down(core, ["dd", "a"]) == {}
     served: Final = await attempt(core, model="other-model")
 
-    assert headers_of(served)["x-litellm-model-group"] == "other-model"
+    assert headers_of(served)["x-hangarllm-model-group"] == "other-model"
     assert [call.deployment_id for call in host.calls] == ["dd", "dd"]
     assert host.calls[0].kwargs["model"] == "other-model"
     assert host.sleeps == []
@@ -117,7 +117,7 @@ async def test_a_raising_retry_policy_lookup_replaces_the_error_and_stops_the_ho
     if raised is ValidationError:
         assert error.__context__ is None
     else:
-        assert isinstance(error.__context__, litellm.RateLimitError)
+        assert isinstance(error.__context__, hangarllm.RateLimitError)
     assert len(host.calls) == 1
     assert host.sleeps == []
 
@@ -139,7 +139,7 @@ async def test_a_raising_retry_policy_lookup_takes_the_generic_fallbacks(
 
     served: Final = await attempt(core)
 
-    assert headers_of(served)["x-litellm-attempted-fallbacks"] == 1
+    assert headers_of(served)["x-hangarllm-attempted-fallbacks"] == 1
     assert host.deployments_called("acompletion")[-1] == "c"
     assert len(host.calls) == 2
 
@@ -155,7 +155,7 @@ async def test_a_policy_naming_another_group_leaves_this_group_retrying(
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.RateLimitError)
+    assert isinstance(error, hangarllm.RateLimitError)
     assert len(host.calls) == 2
 
 
@@ -262,7 +262,7 @@ async def test_an_assigned_zero_cooldown_time_never_keeps_a_deployment_cooled(
     host.answer("*", rate_limit())
 
     for _ in range(3):
-        assert isinstance(await attempt(core), litellm.RateLimitError)
+        assert isinstance(await attempt(core), hangarllm.RateLimitError)
         assert cooled_down(core, ["a", "b"]) == {}
 
     assert core.settings().cooldown_time == 0
@@ -280,4 +280,4 @@ async def test_an_assigned_none_cooldown_time_cools_for_the_default(make_core: M
 
     assert sorted(cooled_down(core, ["a", "b"])) == ["a", "b"]
     assert {entry["cooldown_time"] for entry in cooled_down(core, ["a", "b"]).values()} == {5}
-    assert isinstance(await attempt(core), litellm.RouterRateLimitError)
+    assert isinstance(await attempt(core), hangarllm.RouterRateLimitError)

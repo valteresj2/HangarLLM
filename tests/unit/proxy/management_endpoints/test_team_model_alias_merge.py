@@ -1,7 +1,7 @@
 """
 Tests for atomic team model operations during BYOK model creation.
 
-Regression tests for https://github.com/BerriAI/litellm/issues/22594
+Regression tests for upstream issue 22594
 Concurrent BYOK model creates must not overwrite each other's entries
 in team.models.
 """
@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 
-from litellm.proxy._types import (
-    LitellmUserRoles,
+from hangarllm.proxy._types import (
+    HangarllmUserRoles,
     TeamModelAddRequest,
     UserAPIKeyAuth,
 )
@@ -26,10 +26,10 @@ class TestTeamModelAddAtomicAppend:
         """team_model_add must call execute_raw with DISTINCT unnest SQL."""
         from unittest.mock import patch
 
-        from litellm.proxy.management_endpoints.team_endpoints import team_model_add
+        from hangarllm.proxy.management_endpoints.team_endpoints import team_model_add
 
         mock_request = MagicMock()
-        mock_user = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test_user")
+        mock_user = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="test_user")
 
         existing_team = MagicMock()
         existing_team.model_dump.return_value = {
@@ -45,17 +45,17 @@ class TestTeamModelAddAtomicAppend:
         }
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+            patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
             patch(
-                "litellm.proxy.management_endpoints.team_endpoints.cache_team_object",
+                "hangarllm.proxy.management_endpoints.team_endpoints.cache_team_object",
                 new_callable=AsyncMock,
             ),
-            patch("litellm.proxy.proxy_server.user_api_key_cache"),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj"),
+            patch("hangarllm.proxy.proxy_server.user_api_key_cache"),
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj"),
         ):
-            mock_prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=existing_team)
+            mock_prisma.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=existing_team)
             mock_prisma.db.execute_raw = AsyncMock(return_value=None)
-            mock_prisma.db.litellm_teamtable.update = AsyncMock(return_value=updated_team)
+            mock_prisma.db.hangarllm_teamtable.update = AsyncMock(return_value=updated_team)
 
             await team_model_add(
                 data=TeamModelAddRequest(team_id="team-1", models=["new-model"]),
@@ -71,4 +71,4 @@ class TestTeamModelAddAtomicAppend:
             assert mock_prisma.db.execute_raw.call_args[0][2] == "team-1"
 
             # Should use write-routed update to re-fetch, not find_unique
-            mock_prisma.db.litellm_teamtable.update.assert_called_once()
+            mock_prisma.db.hangarllm_teamtable.update.assert_called_once()

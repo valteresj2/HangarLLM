@@ -4,7 +4,7 @@ Test University of Toronto identifier regex patterns added for FIPPA compliance.
 Tests UTORid, student/employee number, and TCard number detection patterns.
 """
 
-from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.patterns import (
+from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.patterns import (
     get_compiled_pattern,
 )
 

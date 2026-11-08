@@ -1,23 +1,23 @@
-# litellm_fallback (Data Source)
+# hangarllm_fallback (Data Source)
 
-Retrieves the fallback configuration for a LiteLLM model. Use this to reference fallbacks that were configured outside of Terraform.
+Retrieves the fallback configuration for a HangarLLM model. Use this to reference fallbacks that were configured outside of Terraform.
 
 ## Example Usage
 
 ```hcl
-data "litellm_fallback" "gpt4" {
+data "hangarllm_fallback" "gpt4" {
   model = "gpt-4"
 }
 
 output "gpt4_fallback_models" {
-  value = data.litellm_fallback.gpt4.fallback_models
+  value = data.hangarllm_fallback.gpt4.fallback_models
 }
 ```
 
 ### Specific Fallback Type
 
 ```hcl
-data "litellm_fallback" "gpt4_context_window" {
+data "hangarllm_fallback" "gpt4_context_window" {
   model         = "gpt-4"
   fallback_type = "context_window"
 }

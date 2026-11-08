@@ -152,7 +152,7 @@ def test_allowed_replay_is_served_and_its_cache_hit_still_checks_the_allowlist(g
         _assert_served(first, wire, marker)
         await_entry(redis_store(), str(rv.JSON_OBJECT.validate_json(first.text)["id"]))
         hit: Final = gateway.request("POST", "/v1/chat/completions", cached, key=allowed)
-        assert hit.status_code == 200 and hit.headers.get("x-litellm-cache-key"), (hit.text, dict(hit.headers))
+        assert hit.status_code == 200 and hit.headers.get("x-hangarllm-cache-key"), (hit.text, dict(hit.headers))
         assert ts.first_message(hit.text)["content"] == rv.answer(marker), hit.text
         shell_body: Final = {
             key: value

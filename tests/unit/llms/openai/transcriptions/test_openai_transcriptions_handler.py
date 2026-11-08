@@ -5,8 +5,8 @@ import httpx
 import pytest
 from openai import AsyncOpenAI, OpenAI
 
-from litellm.llms.openai.transcriptions.handler import OpenAIAudioTranscription
-from litellm.types.utils import TranscriptionResponse
+from hangarllm.llms.openai.transcriptions.handler import OpenAIAudioTranscription
+from hangarllm.types.utils import TranscriptionResponse
 
 _PROVIDER_HEADERS: Final = {"x-request-id": "req_stt", "x-ratelimit-remaining-requests": "41"}
 
@@ -26,7 +26,7 @@ def _call_kwargs(logging_obj: Mock) -> dict:
         "model": "gpt-4o-mini-transcribe",
         "audio_file": ("audio.wav", b"riff-bytes", "audio/wav"),
         "optional_params": {},
-        "litellm_params": {},
+        "hangarllm_params": {},
         "model_response": TranscriptionResponse(),
         "timeout": 10.0,
         "max_retries": 0,

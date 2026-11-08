@@ -14,11 +14,11 @@ ROOT: Final = Path(__file__).resolve().parents[2]
 
 
 def test_core_manifest_preserves_runtime_dependencies_without_extras() -> None:
-    manifest: Final = ROOT / "packaging/litellm-core/pyproject.toml"
+    manifest: Final = ROOT / "packaging/hangarllm-core/pyproject.toml"
     assert manifest.is_file(), "The core distribution needs its own build manifest"
     core: Final = tomllib.loads(manifest.read_text())
     legacy: Final = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    assert core["project"]["name"] == "litellm-core"
+    assert core["project"]["name"] == "hangarllm-core"
     removed: Final = {"boto3", "tokenizers", "huggingface-hub"}
     core_dependencies: Final = {Requirement(value).name for value in core["project"]["dependencies"]}
     legacy_dependencies: Final = {Requirement(value).name for value in legacy["project"]["dependencies"]}

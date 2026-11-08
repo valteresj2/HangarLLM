@@ -3,8 +3,8 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.anthropic_beta_gated_fields import (
+import hangarllm
+from hangarllm.anthropic_beta_gated_fields import (
     ANTHROPIC_INLINE_TOOLS_BETA_HEADER,
     ANTHROPIC_MID_CONVERSATION_SYSTEM_CLEAR_AT_BETA_HEADER,
     ANTHROPIC_THINKING_BINDING_CONTROLS_BETA_HEADER,
@@ -16,7 +16,7 @@ from litellm.anthropic_beta_gated_fields import (
     strip_beta_gated_system_messages,
     strip_beta_gated_thinking,
 )
-from litellm.types.llms.anthropic import (
+from hangarllm.types.llms.anthropic import (
     ANTHROPIC_MID_CONVERSATION_OUTPUT_CONFIG_BETA_HEADER,
     ANTHROPIC_MID_CONVERSATION_TOOL_CHANGES_BETA_HEADER,
     ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER,
@@ -259,7 +259,7 @@ def test_request_strip_is_identity_when_nothing_is_gated() -> None:
 def test_without_drop_params_every_gated_field_is_sent_as_is(
     drop_params: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     messages: Final = [{"role": "user", "content": "hi"}, _system_turn()]
     request: Final = {"thinking": BOUND_THINKING, "messages": messages}
 
@@ -276,7 +276,7 @@ def test_without_drop_params_every_gated_field_is_sent_as_is(
 
 
 def test_global_drop_params_strips_without_a_per_call_flag(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     assert strip_beta_gated_thinking(BOUND_THINKING, frozenset(), drop_params=None).thinking == {"type": "adaptive"}
 
 
@@ -290,7 +290,7 @@ def test_active_beta_values_reads_the_header_case_insensitively_and_merges_body_
 def test_every_strip_is_logged_once_at_warning_with_the_fields_model_and_provider(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         log_beta_gated_strips(("thinking.block_binding", "thinking.block_binding"), model="claude", provider="azure_ai")
         log_beta_gated_strips((), model="claude", provider="azure_ai")
     warnings: Final = [record for record in caplog.records if record.levelno == logging.WARNING]

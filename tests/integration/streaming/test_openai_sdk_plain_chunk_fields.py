@@ -131,7 +131,7 @@ def test_plain_chunks_keep_text_role_and_provider_fields(gateway: Gateway, provi
     )
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT spend, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+            'SELECT spend, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
             (identity,),
             database_url=gateway.database_url,
         ),

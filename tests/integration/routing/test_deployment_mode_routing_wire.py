@@ -38,7 +38,7 @@ _NO_RETRIES: Final[Mapping[str, JsonValue]] = MappingProxyType({"num_retries": 0
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _MARKER: Final = re.compile(r"marker-([0-9a-f]{32})")
 _STARTED_WORKER: Final = re.compile(r"Started server process \[(\d+)\]")
-_SPEND_BY_MODEL_GROUP: Final = 'SELECT request_id, status, model_group FROM "LiteLLM_SpendLogs" WHERE model_group = %s'
+_SPEND_BY_MODEL_GROUP: Final = 'SELECT request_id, status, model_group FROM "HangarLLM_SpendLogs" WHERE model_group = %s'
 _N_REJECTED_BY_MANTLE: Final = "'n' is not supported for values greater than 1"
 _FUNCTION_TOOL: Final[Mapping[str, JsonValue]] = MappingProxyType(
     {
@@ -172,7 +172,7 @@ def _wildcard(scenario: Scenario, wire: Wire, mode: str | None) -> str:
         "/model/new",
         {
             "model_name": f"{prefix}/*",
-            "litellm_params": {"model": "bedrock_mantle/*", "api_base": wire.url + "/openai/v1", "api_key": _API_KEY},
+            "hangarllm_params": {"model": "bedrock_mantle/*", "api_base": wire.url + "/openai/v1", "api_key": _API_KEY},
             "model_info": {} if mode is None else {"mode": mode},
         },
     )
@@ -192,7 +192,7 @@ def _raw_model_info_deployment(scenario: Scenario, wire: Wire, raw_model_info: s
     )
     response: Final = scenario.gateway.client.post(
         "/model/new",
-        content=f'{{"model_name": "{name}", "litellm_params": {params}, "model_info": {raw_model_info}}}',
+        content=f'{{"model_name": "{name}", "hangarllm_params": {params}, "model_info": {raw_model_info}}}',
         headers={"Authorization": f"Bearer {scenario.gateway.key}", "Content-Type": "application/json"},
     )
     assert response.status_code == 200, response.text
@@ -253,7 +253,7 @@ async def _send(client: httpx.AsyncClient, key: str, call: _Call, extra: Mapping
     ) as response:
         text: Final = (await response.aread()).decode()
     identity: Final = _identity(call.endpoint, call.stream, text) if response.status_code == 200 else ""
-    call_id: Final = response.headers["x-litellm-call-id"] if "x-litellm-call-id" in response.headers else ""
+    call_id: Final = response.headers["x-hangarllm-call-id"] if "x-hangarllm-call-id" in response.headers else ""
     return _Answer(response.status_code, identity, call_id, text)
 
 
@@ -489,7 +489,7 @@ async def _messages_with_thinking(
             headers={"Authorization": f"Bearer {gateway.key}", "anthropic-version": "2023-06-01"},
         )
     identity: Final = _identity("messages", False, response.text) if response.status_code == 200 else ""
-    return _Answer(response.status_code, identity, response.headers.get("x-litellm-call-id", ""), response.text)
+    return _Answer(response.status_code, identity, response.headers.get("x-hangarllm-call-id", ""), response.text)
 
 
 @pytest.mark.parametrize(("summary", "route"), ((None, "chat"), ("auto", "responses")), ids=("plain", "summary"))
@@ -566,8 +566,8 @@ def _auto_summary_config(wire: Wire, tmp_path: Path) -> Path:
     config: Final = {
         **base,
         "model_list": [
-            {"model_name": "auto-summary-mantle", "litellm_params": mantle},
-            {"model_name": "auto-summary-openai", "litellm_params": openai_codex},
+            {"model_name": "auto-summary-mantle", "hangarllm_params": mantle},
+            {"model_name": "auto-summary-openai", "hangarllm_params": openai_codex},
         ],
         "router_settings": {**object_value(base["router_settings"]), "num_retries": 0},
     }
@@ -593,7 +593,7 @@ async def test_the_auto_summary_asks_each_target_for_a_level_it_accepts_on_every
     )
     with wire_server(_upstream()) as wire:
         config: Final = _auto_summary_config(wire, tmp_path)
-        with owned_proxy_process(gateway, tmp_path, {"LITELLM_REASONING_AUTO_SUMMARY": "true"}, config=config) as owned:
+        with owned_proxy_process(gateway, tmp_path, {"HANGARLLM_REASONING_AUTO_SUMMARY": "true"}, config=config) as owned:
             for call in calls:
                 _assert_answered(await _ask_for_reasoning(owned.gateway, call), call.marker)
         sent: Final = {
@@ -627,7 +627,7 @@ def test_a_health_check_probes_the_api_its_deployment_sends_chat_to(
 
 _INPUT_PRICE: Final = 0.001
 _OUTPUT_PRICE: Final = 0.002
-_SPEND_OF_MODEL_GROUP: Final = 'SELECT request_id, spend FROM "LiteLLM_SpendLogs" WHERE model_group = %s'
+_SPEND_OF_MODEL_GROUP: Final = 'SELECT request_id, spend FROM "HangarLLM_SpendLogs" WHERE model_group = %s'
 
 
 def _priced_chat_pin(scenario: Scenario, wire: Wire) -> str:
@@ -731,7 +731,7 @@ def _probed_deployment_config(wire: Wire, tmp_path: Path, mode: str | None, gene
     pin: Final[dict[str, JsonValue]] = {} if mode is None else {"model_info": {"mode": mode}}
     config: Final = {
         **base,
-        "model_list": [{"model_name": _PROBED, "litellm_params": params, **pin}],
+        "model_list": [{"model_name": _PROBED, "hangarllm_params": params, **pin}],
         "general_settings": {**object_value(base["general_settings"]), "store_model_in_db": False, **general},
         "router_settings": {
             **object_value(base["router_settings"]),
@@ -955,8 +955,8 @@ def _yaml_config(wire: Wire, tmp_path: Path, order: tuple[str, ...], label: str)
         "api_key": _API_KEY,
     }
     entries: Final[Mapping[str, dict[str, JsonValue]]] = {
-        _PINNED: {"model_name": _PINNED, "litellm_params": params, "model_info": {"mode": "chat"}},
-        _SIBLING: {"model_name": _SIBLING, "litellm_params": params},
+        _PINNED: {"model_name": _PINNED, "hangarllm_params": params, "model_info": {"mode": "chat"}},
+        _SIBLING: {"model_name": _SIBLING, "hangarllm_params": params},
     }
     config: Final = {
         **base,

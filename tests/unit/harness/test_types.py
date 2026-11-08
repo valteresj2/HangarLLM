@@ -1,4 +1,4 @@
-"""Tests for litellm/harness/types.py."""
+"""Tests for hangarllm/harness/types.py."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import asyncio
 
 import pytest
 
-from litellm.harness.errors import StateIncompatible
-from litellm.harness.types import (
+from hangarllm.harness.errors import StateIncompatible
+from hangarllm.harness.types import (
     Approval,
     Done,
     Harness,

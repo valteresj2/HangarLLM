@@ -13,27 +13,27 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm.caching.dual_cache as dual_cache_module
-from litellm import Router
-from litellm._internal_context import current_service_target
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.redis_batch import Batch, active_request_redis_batches, request_redis_batch_scope
-from litellm.proxy._types import LiteLLM_TeamTableCachedObj, LiteLLM_UserTable
-from litellm.proxy.auth.auth_checks import cache_team_object
-from litellm.proxy.auth.auth_object_prefetch import _CacheEntry, _write_back, prefetch_identity_keys
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+import hangarllm.caching.dual_cache as dual_cache_module
+from hangarllm import Router
+from hangarllm._internal_context import current_service_target
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.redis_batch import Batch, active_request_redis_batches, request_redis_batch_scope
+from hangarllm.proxy._types import HangarLLM_TeamTableCachedObj, HangarLLM_UserTable
+from hangarllm.proxy.auth.auth_checks import cache_team_object
+from hangarllm.proxy.auth.auth_object_prefetch import _CacheEntry, _write_back, prefetch_identity_keys
+from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
     PROXY_MaxParallelRequestsHandler_v3,
     RateLimitDescriptor,
     RateLimitUnverifiableError,
 )
-from litellm.proxy.utils import InternalUsageCache
-from litellm.redis.stores._route import route
-from litellm.redis.stores.rate_limits import RateLimitScope
-from litellm.redis.stores.router_cooldowns import ActiveCooldowns, RouterCooldownStore
-from litellm.redis.stores.router_usage import ROUTER_USAGE_TARGET
-from litellm.router_api import RoutingContext
-from litellm.router_utils.routing_prefetch import ArmedRead, TierRead, arm_cooldowns, read_cooldowns
-from litellm.router_utils.routing_read_batch import RoutingPrefetch
+from hangarllm.proxy.utils import InternalUsageCache
+from hangarllm.redis.stores._route import route
+from hangarllm.redis.stores.rate_limits import RateLimitScope
+from hangarllm.redis.stores.router_cooldowns import ActiveCooldowns, RouterCooldownStore
+from hangarllm.redis.stores.router_usage import ROUTER_USAGE_TARGET
+from hangarllm.router_api import RoutingContext
+from hangarllm.router_utils.routing_prefetch import ArmedRead, TierRead, arm_cooldowns, read_cooldowns
+from hangarllm.router_utils.routing_read_batch import RoutingPrefetch
 from tests.unit.redis.stores.auth_cache_double import FakeAuthCache, shared_cache
 from tests.unit.redis.stores.fake_rate_limits import FakeRateLimits
 
@@ -312,7 +312,7 @@ async def test_the_admission_script_and_the_armed_cooldown_read_go_out_in_one_na
 def _deployment(deployment_id: str) -> dict:
     return {
         "model_name": _MODEL_GROUP,
-        "litellm_params": {"model": "anthropic/claude-x", "api_key": "test", "mock_response": "pong"},
+        "hangarllm_params": {"model": "anthropic/claude-x", "api_key": "test", "mock_response": "pong"},
         "model_info": {"id": deployment_id},
     }
 
@@ -332,7 +332,7 @@ _PING: Final = [{"role": "user", "content": "ping"}]
 def pinned_clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     """Pins the usage counters' minute and the router cache's read throttle clock; tests move `now[0]`."""
     now: Final = [_START]  # mutable-ok: the test advances the pinned clock
-    monkeypatch.setattr("litellm.router_strategy.lowest_tpm_rpm_v2.get_utc_datetime", lambda: _PINNED_MINUTE)
+    monkeypatch.setattr("hangarllm.router_strategy.lowest_tpm_rpm_v2.get_utc_datetime", lambda: _PINNED_MINUTE)
     monkeypatch.setattr(dual_cache_module.time, "time", lambda: now[0])
     return now
 
@@ -744,9 +744,9 @@ async def test_caches_on_one_server_with_different_namespaces_keep_their_own_key
     assert sent == ((("MGET", "proxy:a"),), (("MGET", "router:b"),)), "each cache reads under its own namespace"
 
 
-def _user_entry() -> tuple[_CacheEntry, LiteLLM_UserTable]:
-    entry = _CacheEntry("user-1", "user_row", LiteLLM_UserTable, 42)
-    return entry, LiteLLM_UserTable(user_id="user-1", max_budget=None, spend=0.0)
+def _user_entry() -> tuple[_CacheEntry, HangarLLM_UserTable]:
+    entry = _CacheEntry("user-1", "user_row", HangarLLM_UserTable, 42)
+    return entry, HangarLLM_UserTable(user_id="user-1", max_budget=None, spend=0.0)
 
 
 @pytest.mark.asyncio
@@ -810,7 +810,7 @@ async def test_a_team_refresh_inside_a_request_sends_its_set_and_alias_del_in_on
     cache.set_local("team_alias:alpha", "stale alias", None)
     proxy_logging_obj = MagicMock()
     proxy_logging_obj.internal_usage_cache = InternalUsageCache(dual_cache=usage_cache)
-    team = LiteLLM_TeamTableCachedObj(team_id="t1", team_alias="alpha")
+    team = HangarLLM_TeamTableCachedObj(team_id="t1", team_alias="alpha")
     natives: Final = FakeNatives()
     with request_redis_batch_scope(native_factory=natives, native_send_factory=fake_send) as request:  # pyright: ignore[reportArgumentType]  # test double
         await cache_team_object("t1", team, cache, proxy_logging_obj)

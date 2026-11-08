@@ -2,7 +2,7 @@
 Test that add_deployment works without master_key set.
 
 This test verifies the fix for the bug where saving LLM spend logs
-failed when master_key was None. [https://github.com/BerriAI/litellm/issues/16428]
+failed when master_key was None. [upstream issue 16428]
 """
 
 import os
@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.proxy.proxy_server import ProxyConfig
-from litellm.proxy.utils import PrismaClient, ProxyLogging
+import hangarllm
+from hangarllm.proxy.proxy_server import ProxyConfig
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging
 
 
 @pytest.mark.asyncio
@@ -25,12 +25,12 @@ async def test_add_deployment_without_master_key():
     Previously, it would raise: "Master key is not initialized or formatted"
     """
     # Set master_key to None
-    with patch("litellm.proxy.proxy_server.master_key", None):
+    with patch("hangarllm.proxy.proxy_server.master_key", None):
         # Mock the required dependencies
         mock_prisma_client = MagicMock(spec=PrismaClient)
         mock_prisma_client.db = MagicMock()
-        mock_prisma_client.db.litellm_config = MagicMock()
-        mock_prisma_client.db.litellm_config.find_first = AsyncMock(return_value=None)
+        mock_prisma_client.db.hangarllm_config = MagicMock()
+        mock_prisma_client.db.hangarllm_config.find_first = AsyncMock(return_value=None)
 
         mock_proxy_logging = MagicMock(spec=ProxyLogging)
 
@@ -62,21 +62,21 @@ async def test_add_deployment_without_master_key():
 @pytest.mark.asyncio
 async def test_add_deployment_without_salt_key_or_master_key(monkeypatch):
     """
-    Test that add_deployment() works when both master_key and LITELLM_SALT_KEY are None.
+    Test that add_deployment() works when both master_key and HANGARLLM_SALT_KEY are None.
 
     This tests the scenario where the user runs proxy without any encryption keys,
     such as in a local/dev environment or when just saving spend logs.
     """
-    # Remove LITELLM_SALT_KEY from environment
-    monkeypatch.delenv("LITELLM_SALT_KEY", raising=False)
+    # Remove HANGARLLM_SALT_KEY from environment
+    monkeypatch.delenv("HANGARLLM_SALT_KEY", raising=False)
 
     # Set master_key to None
-    with patch("litellm.proxy.proxy_server.master_key", None):
+    with patch("hangarllm.proxy.proxy_server.master_key", None):
         # Mock the required dependencies
         mock_prisma_client = MagicMock(spec=PrismaClient)
         mock_prisma_client.db = MagicMock()
-        mock_prisma_client.db.litellm_config = MagicMock()
-        mock_prisma_client.db.litellm_config.find_first = AsyncMock(
+        mock_prisma_client.db.hangarllm_config = MagicMock()
+        mock_prisma_client.db.hangarllm_config.find_first = AsyncMock(
             return_value=None
         )
 
@@ -121,8 +121,8 @@ def test_add_deployment_sync_without_master_key():
     This tests the internal method used by add_deployment().
     """
     # Set master_key to None
-    with patch("litellm.proxy.proxy_server.master_key", None):
-        with patch("litellm.proxy.proxy_server.llm_router", None):
+    with patch("hangarllm.proxy.proxy_server.master_key", None):
+        with patch("hangarllm.proxy.proxy_server.llm_router", None):
             # Create ProxyConfig instance
             proxy_config = ProxyConfig()
 

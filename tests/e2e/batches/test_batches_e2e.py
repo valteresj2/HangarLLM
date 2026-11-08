@@ -1,4 +1,4 @@
-"""Live e2e for the Batches API across every provider LiteLLM supports.
+"""Live e2e for the Batches API across every provider HangarLLM supports.
 
 Mostly synchronous tier: a batch's completion window is 24h, so the lifecycle
 matrix never waits for "completed". Each case uploads a tiny JSONL, creates the
@@ -71,7 +71,7 @@ from e2e_http import (
     unwrap,
 )
 from lifecycle import ResourceManager
-from models import KeyGenerateBody, KeyMetadata, LiteLLMParamsBody, SpendLogRow
+from models import KeyGenerateBody, KeyMetadata, HangarLLMParamsBody, SpendLogRow
 from pydantic import BaseModel, Field
 
 pytestmark = pytest.mark.e2e
@@ -448,7 +448,7 @@ def unattributed_rows(rows: list[SpendLogRow]) -> list[SpendLogRow]:
 @pytest.mark.skip(
     reason=(
         "LIT-5027: the path under test hangs. The batch rate limiter reads the input file "
-        "to count tokens by awaiting litellm.afile_content with no timeout, so a slow Files "
+        "to count tokens by awaiting hangarllm.afile_content with no timeout, so a slow Files "
         "API holds POST /v1/batches open past any client deadline (63.6s observed on stage "
         "against a 60s read timeout). The unattributed-spend-row contract below is never "
         "reached, so the test reports a timeout rather than the behavior it guards. Unskip "
@@ -663,7 +663,7 @@ class TestOpenAIFiles:
     )
     @pytest.mark.skip(
         reason=(
-            "LIT-4820 (https://linear.app/litellm-ai/issue/LIT-4820): GET /v1/files omits "
+            "LIT-4820 (https://linear.app/hangarllm-ai/issue/LIT-4820): GET /v1/files omits "
             "newly uploaded files. The upload succeeds and "
             "GET /v1/files/{id} returns the file, but it never appears in the listing; the "
             "returned set is stable with its newest entry ~10h old, on both the managed "
@@ -1037,8 +1037,8 @@ class TestBatchEnqueuedTokenLimit:
 ASSUME_ROLE_RAW_MODEL = "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 
-def _assume_role_params(role_arn: str, session_name: str) -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+def _assume_role_params(role_arn: str, session_name: str) -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=ASSUME_ROLE_RAW_MODEL,
         aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
         aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",
@@ -1056,7 +1056,7 @@ def _assume_role_params(role_arn: str, session_name: str) -> LiteLLMParamsBody:
 class TestBedrockBatchAssumeRole:
     """Bedrock batch create under STS assume-role credentials.
 
-    Provisions a bedrock batch deployment whose litellm_params carry
+    Provisions a bedrock batch deployment whose hangarllm_params carry
     aws_role_name / aws_session_name (the product path for role assumption) and
     runs the unified file-upload + batch-create lifecycle. Success means the
     proxy assumed the role and Bedrock accepted the job; a misconfigured role
@@ -1118,8 +1118,8 @@ class TestBedrockBatchAssumeRole:
         assert fetched.id == batch.id
 
 
-def _split_s3_identity_params() -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+def _split_s3_identity_params() -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=ASSUME_ROLE_RAW_MODEL,
         aws_access_key_id="os.environ/AWS_BEDROCK_ONLY_ACCESS_KEY_ID",
         aws_secret_access_key="os.environ/AWS_BEDROCK_ONLY_SECRET_ACCESS_KEY",
@@ -1196,8 +1196,8 @@ GOVCLOUD_REGION: Final = "us-gov-west-1"
 GOVCLOUD_RAW_MODEL: Final = "bedrock/amazon.nova-lite-v1:0"
 
 
-def _govcloud_params() -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+def _govcloud_params() -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=GOVCLOUD_RAW_MODEL,
         aws_access_key_id="os.environ/AWS_GOVCLOUD_ACCESS_KEY_ID",
         aws_secret_access_key="os.environ/AWS_GOVCLOUD_SECRET_ACCESS_KEY",
@@ -1318,7 +1318,7 @@ class TestGeminiFiles:
         model_name = batch_model_name("gemini-files")
         model_id = client.create_model(
             model_name,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=f"gemini/{GEMINI_FILES_RAW_MODEL}",
                 api_key="os.environ/GEMINI_API_KEY",
             ),
@@ -1338,8 +1338,8 @@ class TestGeminiFiles:
         assert file.id, "gemini file upload returned no id"
 
 
-def _vllm_params(api_base: str, api_key: str | None, model_id: str) -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+def _vllm_params(api_base: str, api_key: str | None, model_id: str) -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=f"hosted_vllm/{model_id}",
         api_base=api_base,
         api_key=api_key,
@@ -1394,7 +1394,7 @@ def _download_managed_file(client: BatchClient, file_id: str, *, key: str) -> li
 class TestHostedVllmBatch:
     """hosted_vllm file upload + batch execution (LIT-5739).
 
-    vLLM implements neither /v1/files nor /v1/batches, so LiteLLM keeps the batch
+    vLLM implements neither /v1/files nor /v1/batches, so HangarLLM keeps the batch
     input in its own database, runs every line through the deployment's
     /v1/chat/completions itself, and serves the batch plus its output and error
     files from that database under the creating key. Needs a live vLLM server
@@ -1430,13 +1430,13 @@ class TestHostedVllmBatch:
         )
         resources.defer(lambda: cleanup_file(client, file.id, key=key))
         assert_file_object(file, provider="hosted_vllm")
-        assert is_managed_id(file.id), f"hosted_vllm batch input must stay in LiteLLM, got file id {file.id!r}"
+        assert is_managed_id(file.id), f"hosted_vllm batch input must stay in HangarLLM, got file id {file.id!r}"
 
         created = client.create_batch(body=BatchCreateBody(input_file_id=file.id), key=key)
         require_successful_call(created)
         batch = BatchObject.model_validate_json(created.body)
         resources.defer(lambda: cleanup_batch(client, batch.id, key=key, delete_output_files=True))
-        assert is_managed_id(batch.id), f"hosted_vllm batch must be LiteLLM-managed, got {batch.id!r}"
+        assert is_managed_id(batch.id), f"hosted_vllm batch must be HangarLLM-managed, got {batch.id!r}"
         assert batch.status in CREATED_BATCH_STATUSES, f"hosted_vllm batch has non-transitional status {batch.status!r}"
         assert_batch_object(batch)
 
@@ -1685,10 +1685,10 @@ class TestBatchFailurePaths:
 
 
 class TestBatchSecondHop:
-    """Two-proxy batch routing: a litellm_proxy deployment chained to the gateway
+    """Two-proxy batch routing: a hangarllm_proxy deployment chained to the gateway
     itself (LIT-5347, PR #36240).
 
-    The hop deployment's litellm_params point litellm_proxy/<inner model> at this
+    The hop deployment's hangarllm_params point hangarllm_proxy/<inner model> at this
     gateway's own base URL with a freshly minted virtual key, so the unified
     upload and batch create traverse gateway -> gateway -> OpenAI. The regression
     this pins: target_model_names must be rewritten to the inner deployment on
@@ -1703,7 +1703,7 @@ class TestBatchSecondHop:
         Subject(
             domain=Domain.LLM_TRANSLATION,
             route=Route.BATCHES,
-            providers=(MetaProvider.LITELLM_PROXY, MetaProvider.OPENAI),
+            providers=(MetaProvider.HANGARLLM_PROXY, MetaProvider.OPENAI),
             models=(OPENAI_BATCH_BACKEND,),
             mode=Mode.BATCH,
         )
@@ -1715,8 +1715,8 @@ class TestBatchSecondHop:
         hop_name = batch_model_name("openai-batch-hop")
         model_id = client.create_model(
             hop_name,
-            LiteLLMParamsBody(
-                model=f"litellm_proxy/{OPENAI_BATCH_MODEL}",
+            HangarLLMParamsBody(
+                model=f"hangarllm_proxy/{OPENAI_BATCH_MODEL}",
                 api_base=PROXY_BASE_URL,
                 api_key=key,
             ),
@@ -1767,7 +1767,7 @@ class BatchOutputLine(BaseModel):
     response: BatchOutputResponse
 
 
-TERMINAL_MARKER_KEY = "litellm_e2e_suite"
+TERMINAL_MARKER_KEY = "hangarllm_e2e_suite"
 TERMINAL_MARKER_VALUE = "batches-terminal-baton"
 TERMINAL_POLL_SECONDS = 300.0
 TERMINAL_POLL_INTERVAL_SECONDS = 10.0
@@ -2009,7 +2009,7 @@ class TestVertexNativePassthrough:
         require_successful_call(created)
         batch = BatchObject.model_validate_json(created.body)
         resources.defer(lambda: cleanup_batch(client, batch.id, key=key, delete_output_files=True))
-        assert is_managed_id(batch.id), f"passthrough batch must be LiteLLM-managed, got {batch.id!r}"
+        assert is_managed_id(batch.id), f"passthrough batch must be HangarLLM-managed, got {batch.id!r}"
         assert batch.status in CREATED_BATCH_STATUSES, f"passthrough batch has non-transitional status {batch.status!r}"
         assert batch.input_file_id == file.id
 

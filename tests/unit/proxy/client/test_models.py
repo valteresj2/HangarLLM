@@ -7,8 +7,8 @@ import requests
 
 import responses
 
-from litellm.proxy.client import Client, ModelsManagementClient
-from litellm.proxy.client.exceptions import NotFoundError, UnauthorizedError
+from hangarllm.proxy.client import Client, ModelsManagementClient
+from hangarllm.proxy.client.exceptions import NotFoundError, UnauthorizedError
 
 
 @pytest.fixture
@@ -200,7 +200,7 @@ def test_new_request_creation(client, base_url, api_key):
     # Check request body
     assert request.json == {
         "model_name": model_name,
-        "litellm_params": model_params,
+        "hangarllm_params": model_params,
         "model_info": model_info,
     }
 
@@ -215,7 +215,7 @@ def test_new_without_model_info(client):
     )
 
     # Check request body doesn't include model_info
-    assert request.json == {"model_name": model_name, "litellm_params": model_params}
+    assert request.json == {"model_name": model_name, "hangarllm_params": model_params}
 
 
 @responses.activate
@@ -383,7 +383,7 @@ def test_info_success(client):
             {
                 "model_name": "gpt-4",
                 "model_info": {"id": "model-123", "description": "GPT-4 model"},
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4",
                     "api_base": "https://api.openai.com/v1",
                 },
@@ -391,7 +391,7 @@ def test_info_success(client):
             {
                 "model_name": "gpt-3.5-turbo",
                 "model_info": {"id": "model-456", "description": "GPT-3.5 Turbo model"},
-                "litellm_params": {"model": "openai/gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "openai/gpt-3.5-turbo"},
             },
         ]
     }
@@ -492,7 +492,7 @@ def test_get_success_by_id(client):
             {
                 "model_name": "gpt-4",
                 "model_info": {"id": model_id},
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4",
                     "api_base": "https://api.openai.com/v1",
                 },
@@ -521,7 +521,7 @@ def test_get_success_by_name(client):
             {
                 "model_name": model_name,
                 "model_info": {"id": "model-123"},
-                "litellm_params": {"model": "openai/gpt-4"},
+                "hangarllm_params": {"model": "openai/gpt-4"},
             }
         ]
     }
@@ -618,7 +618,7 @@ def test_update_request_creation(client, base_url, api_key):
     # Check request body
     assert request.json == {
         "id": model_id,
-        "litellm_params": model_params,
+        "hangarllm_params": model_params,
         "model_info": model_info,
     }
 
@@ -633,7 +633,7 @@ def test_update_without_model_info(client):
     )
 
     # Check request body doesn't include model_info
-    assert request.json == {"id": model_id, "litellm_params": model_params}
+    assert request.json == {"id": model_id, "hangarllm_params": model_params}
 
 
 @responses.activate

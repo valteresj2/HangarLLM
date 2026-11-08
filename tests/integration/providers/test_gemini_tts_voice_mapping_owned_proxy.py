@@ -2,7 +2,7 @@
 
 The speech bridge calls the Gemini chat path without the deployment's ``api_base`` (tracked separately),
 so these rows boot their own proxy with ``GEMINI_API_BASE`` pointed at the scripted peer, and with
-``LITELLM_GEMINI_LIVE_DEFER_SETUP`` so a client ``session.update`` voice builds the Vertex Live setup.
+``HANGARLLM_GEMINI_LIVE_DEFER_SETUP`` so a client ``session.update`` voice builds the Vertex Live setup.
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ MAPPED: Final = MappingProxyType({"alloy": "Kore", "fable": "Umbriel", "Kore": "
 
 
 def _overrides(wire_url: str) -> dict[str, str]:
-    return {"GEMINI_API_BASE": wire_url, "LITELLM_GEMINI_LIVE_DEFER_SETUP": "true"}
+    return {"GEMINI_API_BASE": wire_url, "HANGARLLM_GEMINI_LIVE_DEFER_SETUP": "true"}
 
 
 @pytest.fixture(scope="module")
@@ -109,7 +109,7 @@ def test_speech_route_maps_alloy_and_answers_wav(owned: OwnedProxy, shared_wire:
         assert response.headers["content-type"].startswith("audio/wav"), response.headers
         assert wav_payload(response.content) == PCM
         assert received_voice(_received(shared_wire, text)) == "Kore"
-        _assert_speech_logged(response.headers.get("x-litellm-call-id", ""))
+        _assert_speech_logged(response.headers.get("x-hangarllm-call-id", ""))
 
 
 def test_speech_sdk_maps_alloy_and_answers_wav(owned: OwnedProxy, shared_wire: Wire) -> None:
@@ -121,7 +121,7 @@ def test_speech_sdk_maps_alloy_and_answers_wav(owned: OwnedProxy, shared_wire: W
         )
         assert wav_payload(raw.content) == PCM
         assert received_voice(_received(shared_wire, text)) == "Kore"
-        _assert_speech_logged(raw.headers.get("x-litellm-call-id", ""))
+        _assert_speech_logged(raw.headers.get("x-hangarllm-call-id", ""))
 
 
 async def _async_speech(gateway: Gateway, model: str, text: str) -> tuple[bytes, str, str]:
@@ -130,7 +130,7 @@ async def _async_speech(gateway: Gateway, model: str, text: str) -> tuple[bytes,
         raw: Final = await client.audio.speech.with_raw_response.create(
             model=model, input=text, voice="Alloy", response_format="pcm"
         )
-        return raw.content, raw.headers.get("content-type", ""), raw.headers.get("x-litellm-call-id", "")
+        return raw.content, raw.headers.get("content-type", ""), raw.headers.get("x-hangarllm-call-id", "")
     finally:
         await client.close()
 
@@ -155,7 +155,7 @@ def test_speech_route_forwards_gemini_voice_names_verbatim(owned: OwnedProxy, sh
         assert response.status_code == 200, response.text
         assert wav_payload(response.content) == PCM
         assert received_voice(_received(shared_wire, text)) == voice
-        _assert_speech_logged(response.headers.get("x-litellm-call-id", ""))
+        _assert_speech_logged(response.headers.get("x-hangarllm-call-id", ""))
 
 
 def _health(gateway: Gateway, model: str) -> dict[str, JsonValue]:
@@ -239,7 +239,7 @@ async def _fire(url: str, key: str, model: str, *, tolerate_transport_errors: bo
             if not tolerate_transport_errors:
                 raise
             return Sent(voice, text, 0, repr(error).encode(), "")
-        return Sent(voice, text, response.status_code, response.content, response.headers.get("x-litellm-call-id", ""))
+        return Sent(voice, text, response.status_code, response.content, response.headers.get("x-hangarllm-call-id", ""))
 
     async with httpx.AsyncClient(base_url=url, timeout=60, trust_env=False) as client:
         return tuple(await asyncio.gather(*(one(client, index) for index in range(BURST))))

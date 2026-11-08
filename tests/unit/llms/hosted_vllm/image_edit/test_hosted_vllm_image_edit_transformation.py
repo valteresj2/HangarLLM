@@ -1,12 +1,12 @@
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.hosted_vllm.image_edit import get_hosted_vllm_image_edit_config
-from litellm.llms.hosted_vllm.image_edit.transformation import HostedVLLMImageEditConfig
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.hosted_vllm.image_edit import get_hosted_vllm_image_edit_config
+from hangarllm.llms.hosted_vllm.image_edit.transformation import HostedVLLMImageEditConfig
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 PNG_BYTES = b"\x89PNG\r\n\x1a\nfakepng"
 MODEL = "Qwen/Qwen-Image-Edit-2511"
@@ -36,7 +36,7 @@ def test_get_complete_url_appends_images_edits(api_base: str):
     config = HostedVLLMImageEditConfig()
 
     assert (
-        config.get_complete_url(model=MODEL, api_base=api_base, litellm_params={})
+        config.get_complete_url(model=MODEL, api_base=api_base, hangarllm_params={})
         == "http://localhost:8091/v1/images/edits"
     )
 
@@ -46,7 +46,7 @@ def test_get_complete_url_falls_back_to_env(monkeypatch: pytest.MonkeyPatch):
     config = HostedVLLMImageEditConfig()
 
     assert (
-        config.get_complete_url(model=MODEL, api_base=None, litellm_params={})
+        config.get_complete_url(model=MODEL, api_base=None, hangarllm_params={})
         == "http://vllm-omni:8000/v1/images/edits"
     )
 
@@ -55,7 +55,7 @@ def test_get_complete_url_requires_api_base():
     config = HostedVLLMImageEditConfig()
 
     with pytest.raises(ValueError, match="api_base not set"):
-        config.get_complete_url(model=MODEL, api_base=None, litellm_params={})
+        config.get_complete_url(model=MODEL, api_base=None, hangarllm_params={})
 
 
 def test_validate_environment_defaults_to_fake_api_key():
@@ -89,7 +89,7 @@ def test_image_edit_posts_multipart_to_vllm_omni():
         captured.append(request)
         return httpx.Response(200, json={"created": 1712697600, "data": [{"b64_json": "aW1n"}]})
 
-    response = litellm.image_edit(
+    response = hangarllm.image_edit(
         model=f"hosted_vllm/{MODEL}",
         image=PNG_BYTES,
         prompt="add a hat",
@@ -129,8 +129,8 @@ def test_image_edit_rejects_quality_unless_dropped():
 
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(handler)))
 
-    with pytest.raises(litellm.UnsupportedParamsError, match="quality"):
-        litellm.image_edit(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="quality"):
+        hangarllm.image_edit(
             model=f"hosted_vllm/{MODEL}",
             image=PNG_BYTES,
             prompt="add a hat",
@@ -140,7 +140,7 @@ def test_image_edit_rejects_quality_unless_dropped():
         )
     assert captured == []
 
-    litellm.image_edit(
+    hangarllm.image_edit(
         model=f"hosted_vllm/{MODEL}",
         image=PNG_BYTES,
         prompt="add a hat",

@@ -5,12 +5,12 @@ import psycopg
 from psycopg import sql
 
 _TABLE_NAMES: Final = (
-    "LiteLLM_DailyUserSpend",
-    "LiteLLM_DailyTeamSpend",
-    "LiteLLM_VerificationToken",
-    "LiteLLM_DeletedVerificationToken",
-    "LiteLLM_UserTable",
-    "LiteLLM_TeamTable",
+    "HangarLLM_DailyUserSpend",
+    "HangarLLM_DailyTeamSpend",
+    "HangarLLM_VerificationToken",
+    "HangarLLM_DeletedVerificationToken",
+    "HangarLLM_UserTable",
+    "HangarLLM_TeamTable",
 )
 
 _TAG_KEY_MEMBERSHIPS: Final = (
@@ -35,12 +35,12 @@ _TAG_ACTIVITY_DATES: Final = ("2026-06-01", "2026-06-02")
 
 
 def seed_daily_activity_fixture(connection: psycopg.Connection, *, schema: str, ptu_sentinel_api_key: str) -> None:
-    daily_user_table: Final = sql.Identifier(schema, "LiteLLM_DailyUserSpend")
-    daily_team_table: Final = sql.Identifier(schema, "LiteLLM_DailyTeamSpend")
-    verification_token_table: Final = sql.Identifier(schema, "LiteLLM_VerificationToken")
-    deleted_token_table: Final = sql.Identifier(schema, "LiteLLM_DeletedVerificationToken")
-    user_table: Final = sql.Identifier(schema, "LiteLLM_UserTable")
-    team_table: Final = sql.Identifier(schema, "LiteLLM_TeamTable")
+    daily_user_table: Final = sql.Identifier(schema, "HangarLLM_DailyUserSpend")
+    daily_team_table: Final = sql.Identifier(schema, "HangarLLM_DailyTeamSpend")
+    verification_token_table: Final = sql.Identifier(schema, "HangarLLM_VerificationToken")
+    deleted_token_table: Final = sql.Identifier(schema, "HangarLLM_DeletedVerificationToken")
+    user_table: Final = sql.Identifier(schema, "HangarLLM_UserTable")
+    team_table: Final = sql.Identifier(schema, "HangarLLM_TeamTable")
     keys: Final = (
         ("key-a", "model-popular", 100.0, 2, 1),
         ("key-b", "model-popular", 90.0, 3, 1),
@@ -211,7 +211,7 @@ def seed_daily_activity_fixture(connection: psycopg.Connection, *, schema: str, 
 
 
 def seed_daily_tag_activity_fixture(connection: psycopg.Connection, *, schema: str) -> None:
-    tag_table: Final = sql.Identifier(schema, "LiteLLM_DailyTagSpend")
+    tag_table: Final = sql.Identifier(schema, "HangarLLM_DailyTagSpend")
     rows: Final = tuple(
         (
             f"tag-rollup-{row_index}",
@@ -234,7 +234,7 @@ def seed_daily_tag_activity_fixture(connection: psycopg.Connection, *, schema: s
         cursor.execute(
             sql.SQL("CREATE TABLE {} (LIKE {} INCLUDING DEFAULTS INCLUDING CONSTRAINTS)").format(
                 tag_table,
-                sql.Identifier("LiteLLM_DailyTagSpend"),
+                sql.Identifier("HangarLLM_DailyTagSpend"),
             )
         )
         cursor.executemany(
@@ -250,7 +250,7 @@ def seed_daily_tag_activity_fixture(connection: psycopg.Connection, *, schema: s
 
 
 def seed_daily_tag_float_tie_fixture(connection: psycopg.Connection, *, schema: str) -> None:
-    tag_table: Final = sql.Identifier(schema, "LiteLLM_DailyTagSpend")
+    tag_table: Final = sql.Identifier(schema, "HangarLLM_DailyTagSpend")
     key_spends: Final = (
         ("key-z", 0.1),
         ("key-z", 0.2),
@@ -281,7 +281,7 @@ def seed_daily_tag_float_tie_fixture(connection: psycopg.Connection, *, schema: 
         cursor.execute(
             sql.SQL("CREATE TABLE {} (LIKE {} INCLUDING DEFAULTS INCLUDING CONSTRAINTS)").format(
                 tag_table,
-                sql.Identifier("LiteLLM_DailyTagSpend"),
+                sql.Identifier("HangarLLM_DailyTagSpend"),
             )
         )
         cursor.executemany(
@@ -299,7 +299,7 @@ def seed_daily_tag_float_tie_fixture(connection: psycopg.Connection, *, schema: 
 def seed_daily_team_unassigned_fixture(
     connection: psycopg.Connection, *, schema: str, ptu_sentinel_api_key: str
 ) -> None:
-    team_table: Final = sql.Identifier(schema, "LiteLLM_DailyTeamSpend")
+    team_table: Final = sql.Identifier(schema, "HangarLLM_DailyTeamSpend")
     rows: Final = (
         ("unassigned-null", None, "key-unassigned-null", 3.0, 0.0),
         ("unassigned-empty", "", "key-unassigned-empty", 7.0, 0.0),
@@ -320,11 +320,11 @@ def seed_daily_team_unassigned_fixture(
 
 
 def seed_daily_team_exclusion_fixture(connection: psycopg.Connection, *, schema: str) -> None:
-    team_table: Final = sql.Identifier(schema, "LiteLLM_DailyTeamSpend")
+    team_table: Final = sql.Identifier(schema, "HangarLLM_DailyTeamSpend")
     rows: Final = (
         ("exclusion-null", None, "key-excluded-null", 3.0),
         ("exclusion-empty", "", "key-excluded-empty", 7.0),
-        ("exclusion-dashboard", "litellm-dashboard", "key-excluded-dashboard", 11.0),
+        ("exclusion-dashboard", "hangarllm-dashboard", "key-excluded-dashboard", 11.0),
         ("exclusion-normal", "team-normal", "key-excluded-normal", 13.0),
     )
     with connection.cursor() as cursor:
@@ -352,7 +352,7 @@ _USER_PAGE_SPENDS: Final = (
 
 
 def seed_daily_user_page_fixture(connection: psycopg.Connection, *, schema: str) -> None:
-    daily_user_table: Final = sql.Identifier(schema, "LiteLLM_DailyUserSpend")
+    daily_user_table: Final = sql.Identifier(schema, "HangarLLM_DailyUserSpend")
     rows: Final = tuple(
         (
             f"user-page-{index}",

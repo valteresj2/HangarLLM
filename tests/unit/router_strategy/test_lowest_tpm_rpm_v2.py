@@ -10,8 +10,8 @@ import time
 import traceback
 from typing import Dict, Final, Iterator
 
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.utils import _invalidate_model_cost_lowercase_map
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.utils import _invalidate_model_cost_lowercase_map
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 from unittest.mock import patch
@@ -19,16 +19,16 @@ from unittest.mock import patch
 import pytest
 from PIL import Image
 
-import litellm
-from litellm import Router
-from litellm._logging import verbose_logger
-from litellm.caching.caching import DualCache
-from litellm.router_strategy.lowest_tpm_rpm_v2 import (
+import hangarllm
+from hangarllm import Router
+from hangarllm._logging import verbose_logger
+from hangarllm.caching.caching import DualCache
+from hangarllm.router_strategy.lowest_tpm_rpm_v2 import (
     LowestTPMLoggingHandler_v2 as LowestTPMLoggingHandler,
 )
-from litellm.types.router import DeploymentTypedDict, RouterRateLimitError
-from litellm.types.utils import StandardLoggingPayload
-from litellm.utils import get_utc_datetime
+from hangarllm.types.router import DeploymentTypedDict, RouterRateLimitError
+from hangarllm.types.utils import StandardLoggingPayload
+from hangarllm.utils import get_utc_datetime
 
 ### UNIT TESTS FOR TPM/RPM ROUTING ###
 
@@ -58,9 +58,9 @@ def test_tpm_rpm_updated():
     standard_logging_payload["model_group"] = model_group
     standard_logging_payload["model_id"] = deployment_id
     standard_logging_payload["total_tokens"] = total_tokens
-    standard_logging_payload["hidden_params"]["litellm_model_name"] = deployment
+    standard_logging_payload["hidden_params"]["hangarllm_model_name"] = deployment
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "model": deployment,
             "metadata": {
                 "model_group": model_group,
@@ -71,16 +71,16 @@ def test_tpm_rpm_updated():
         "standard_logging_object": standard_logging_payload,
     }
 
-    litellm_deployment_dict: DeploymentTypedDict = {
+    hangarllm_deployment_dict: DeploymentTypedDict = {
         "model_name": model_group,
-        "litellm_params": {"model": deployment},
+        "hangarllm_params": {"model": deployment},
         "model_info": {"id": deployment_id},
     }
 
     start_time = time.time()
     response_obj = {"usage": {"total_tokens": total_tokens}}
     end_time = time.time()
-    lowest_tpm_logger.pre_call_check(deployment=litellm_deployment_dict)
+    lowest_tpm_logger.pre_call_check(deployment=hangarllm_deployment_dict)
     lowest_tpm_logger.log_success_event(
         response_obj=response_obj,
         kwargs=kwargs,
@@ -107,12 +107,12 @@ def test_get_available_deployments():
     model_list = [
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {"model": "azure/gpt-4.1-mini"},
+            "hangarllm_params": {"model": "azure/gpt-4.1-mini"},
             "model_info": {"id": "1234"},
         },
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {"model": "azure/gpt-4.1-mini"},
+            "hangarllm_params": {"model": "azure/gpt-4.1-mini"},
             "model_info": {"id": "5678"},
         },
     ]
@@ -126,9 +126,9 @@ def test_get_available_deployments():
     standard_logging_payload["model_group"] = model_group
     standard_logging_payload["model_id"] = deployment_id
     standard_logging_payload["total_tokens"] = total_tokens
-    standard_logging_payload["hidden_params"]["litellm_model_name"] = deployment
+    standard_logging_payload["hidden_params"]["hangarllm_model_name"] = deployment
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": model_group,
                 "deployment": deployment,
@@ -153,9 +153,9 @@ def test_get_available_deployments():
     standard_logging_payload["model_group"] = model_group
     standard_logging_payload["model_id"] = deployment_id
     standard_logging_payload["total_tokens"] = total_tokens
-    standard_logging_payload["hidden_params"]["litellm_model_name"] = deployment
+    standard_logging_payload["hidden_params"]["hangarllm_model_name"] = deployment
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": model_group,
                 "deployment": deployment,
@@ -198,7 +198,7 @@ def test_router_get_available_deployments():
     model_list = [
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-turbo",
                 "api_key": "os.environ/AZURE_FRANCE_API_KEY",
                 "api_base": "https://openai-france-1234.openai.azure.com",
@@ -208,7 +208,7 @@ def test_router_get_available_deployments():
         },
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-35-turbo",
                 "api_key": "os.environ/AZURE_EUROPE_API_KEY",
                 "api_base": "https://my-endpoint-europe-berri-992.openai.azure.com",
@@ -232,9 +232,9 @@ def test_router_get_available_deployments():
     standard_logging_payload["model_id"] = str(deployment_id)
     total_tokens = 50
     standard_logging_payload["total_tokens"] = total_tokens
-    standard_logging_payload["hidden_params"]["litellm_model_name"] = "azure/gpt-turbo"
+    standard_logging_payload["hidden_params"]["hangarllm_model_name"] = "azure/gpt-turbo"
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "azure-model",
             },
@@ -256,9 +256,9 @@ def test_router_get_available_deployments():
     standard_logging_payload = create_standard_logging_payload()
     standard_logging_payload["model_group"] = "azure-model"
     standard_logging_payload["model_id"] = str(deployment_id)
-    standard_logging_payload["hidden_params"]["litellm_model_name"] = "azure/gpt-35-turbo"
+    standard_logging_payload["hidden_params"]["hangarllm_model_name"] = "azure/gpt-35-turbo"
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "azure-model",
             },
@@ -295,7 +295,7 @@ def test_router_skip_rate_limited_deployments():
     model_list = [
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-turbo",
                 "api_key": "os.environ/AZURE_FRANCE_API_KEY",
                 "api_base": "https://openai-france-1234.openai.azure.com",
@@ -318,9 +318,9 @@ def test_router_skip_rate_limited_deployments():
     standard_logging_payload["model_group"] = "azure-model"
     standard_logging_payload["model_id"] = str(deployment_id)
     standard_logging_payload["total_tokens"] = total_tokens
-    standard_logging_payload["hidden_params"]["litellm_model_name"] = "azure/gpt-turbo"
+    standard_logging_payload["hidden_params"]["hangarllm_model_name"] = "azure/gpt-turbo"
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "azure-model",
             },
@@ -362,7 +362,7 @@ def _embedding_image_uri() -> str:
     ["usage-based-routing", "usage-based-routing-v2", "latency-based-routing", "cost-based-routing"],
 )
 @pytest.mark.parametrize(
-    ("litellm_params", "model_info", "admitted"),
+    ("hangarllm_params", "model_info", "admitted"),
     [
         ({"model": "vertex_ai/gemini-embedding-2"}, {}, True),
         (
@@ -375,7 +375,7 @@ def _embedding_image_uri() -> str:
     ids=["image-model", "image-base-model", "text-model"],
 )
 async def test_deployment_tpm_counts_embedding_image_as_media_only_on_image_models(
-    routing_strategy: str, litellm_params: Dict[str, str], model_info: Dict[str, str], admitted: bool
+    routing_strategy: str, hangarllm_params: Dict[str, str], model_info: Dict[str, str], admitted: bool
 ) -> None:
     uri: Final = _embedding_image_uri()
     assert len(uri) // 4 > 75_000
@@ -383,7 +383,7 @@ async def test_deployment_tpm_counts_embedding_image_as_media_only_on_image_mode
         model_list=[
             {
                 "model_name": "embedder",
-                "litellm_params": {**litellm_params, "tpm": 75_000},
+                "hangarllm_params": {**hangarllm_params, "tpm": 75_000},
                 "model_info": {**model_info, "id": f"embedder-{index}"},
             }
             for index in range(2)
@@ -392,7 +392,7 @@ async def test_deployment_tpm_counts_embedding_image_as_media_only_on_image_mode
     )
 
     if not admitted:
-        with pytest.raises((litellm.RateLimitError, RouterRateLimitError)):
+        with pytest.raises((hangarllm.RateLimitError, RouterRateLimitError)):
             await router.select("embedder", {}, input=[uri])
         return
     deployment: Final = await router.select("embedder", {}, input=[uri])
@@ -413,7 +413,7 @@ async def test_multiple_potential_deployments(sync_mode):
     model_list = [
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-turbo",
                 "api_key": "os.environ/AZURE_FRANCE_API_KEY",
                 "api_base": "https://openai-france-1234.openai.azure.com",
@@ -422,7 +422,7 @@ async def test_multiple_potential_deployments(sync_mode):
         },
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-turbo-2",
                 "api_key": "os.environ/AZURE_FRANCE_API_KEY",
                 "api_base": "https://openai-france-1234.openai.azure.com",
@@ -464,7 +464,7 @@ def test_single_deployment_tpm_zero():
     model_list = [
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "gpt-3.5-turbo",
                 "api_key": os.getenv("OPENAI_API_KEY"),
                 "tpm": 0,
@@ -472,7 +472,7 @@ def test_single_deployment_tpm_zero():
         }
     ]
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=model_list,
         routing_strategy="usage-based-routing-v2",
         cache_responses=True,
@@ -497,7 +497,7 @@ async def test_router_completion_streaming():
     model_list = [
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-turbo",
                 "api_key": "os.environ/AZURE_FRANCE_API_KEY",
                 "api_base": "https://openai-france-1234.openai.azure.com",
@@ -508,7 +508,7 @@ async def test_router_completion_streaming():
         },
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-35-turbo",
                 "api_key": "os.environ/AZURE_EUROPE_API_KEY",
                 "api_base": "https://my-endpoint-europe-berri-992.openai.azure.com",
@@ -577,7 +577,7 @@ def test_return_potential_deployments():
         "healthy_deployments": [
             {
                 "model_name": "model-test",
-                "litellm_params": {
+                "hangarllm_params": {
                     "rpm": 1,
                     "api_key": "sk-9876",
                     "model": "openai/gpt-3.5-turbo",
@@ -590,7 +590,7 @@ def test_return_potential_deployments():
             },
             {
                 "model_name": "model-test",
-                "litellm_params": {
+                "hangarllm_params": {
                     "rpm": 10,
                     "api_key": "sk-9876",
                     "model": "openai/o1-mini",
@@ -629,7 +629,7 @@ def test_return_potential_deployments():
 async def test_tpm_rpm_routing_model_name_checks():
     deployment = {
         "model_name": "gpt-3.5-turbo",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "azure/gpt-4.1-mini",
             "api_key": os.getenv("AZURE_AI_API_KEY"),
             "api_base": os.getenv("AZURE_AI_API_BASE"),
@@ -653,7 +653,7 @@ async def test_tpm_rpm_routing_model_name_checks():
 
         mock_object.assert_called()
         print(f"mock_object.call_args: {mock_object.call_args[0][0]}")
-        assert mock_object.call_args[0][0]["litellm_params"]["model"] == deployment["litellm_params"]["model"]
+        assert mock_object.call_args[0][0]["hangarllm_params"]["model"] == deployment["hangarllm_params"]["model"]
 
         await asyncio.sleep(1)
 
@@ -664,7 +664,7 @@ async def test_tpm_rpm_routing_model_name_checks():
             "standard_logging_object"
         )
 
-        assert standard_logging_payload["hidden_params"]["litellm_model_name"] == "azure/gpt-4.1-mini"
+        assert standard_logging_payload["hidden_params"]["hangarllm_model_name"] == "azure/gpt-4.1-mini"
 
 
 @pytest.fixture(autouse=True)
@@ -675,11 +675,11 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -691,18 +691,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -712,60 +712,60 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception as e:
-            print(f"Error reloading litellm.proxy.proxy_server: {e}")
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+            print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield

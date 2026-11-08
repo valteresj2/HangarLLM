@@ -57,7 +57,7 @@ def readiness_failure(
             ):
                 return f"proxy {index} Redis read/write health"
         subscribers: Final = SUBSCRIBER_COUNTS.validate_python(
-            cache.pubsub_numsub("litellm_proxy.auth_cache_invalidation")
+            cache.pubsub_numsub("hangarllm_proxy.auth_cache_invalidation")
         )
         if subscribers[0][1] < len(proxies):
             return f"auth-cache subscribers {subscribers[0][1]}/{len(proxies)}"
@@ -137,7 +137,7 @@ def gateway_profile(environment: Mapping[str, str]) -> GatewayProfile:
 def cost_map_environment(upstream: str) -> Mapping[str, str]:
     return MappingProxyType(
         {
-            "LITELLM_MODEL_COST_MAP_URL": f"{upstream}/_cost_map",
+            "HANGARLLM_MODEL_COST_MAP_URL": f"{upstream}/_cost_map",
             "MODEL_COST_MAP_MIN_MODEL_COUNT": "1",
             "MODEL_COST_MAP_MAX_SHRINK_RATIO": "0",
             "GEMINI_API_BASE": upstream,
@@ -179,7 +179,7 @@ def worker_gateway(
     port: Final = urlsplit(upstream).port
     assert port is not None
     key: Final = f"sk-{uuid.uuid4().hex}"
-    removed: Final = ("LITELLM_LOCAL_MODEL_COST_MAP",) if profile.cost_map else ()
+    removed: Final = ("HANGARLLM_LOCAL_MODEL_COST_MAP",) if profile.cost_map else ()
     with worker_services(directory, replica=profile.replica, inherited=inherited) as services:
         overrides: Final = {
             **services,
@@ -187,7 +187,7 @@ def worker_gateway(
             **(
                 {"DATABASE_URL_READ_REPLICA": services["INTEGRATION_PROXY_READ_REPLICA_URL"]} if profile.replica else {}
             ),
-            "LITELLM_ENABLE_MCP_STDIO": "true",
+            "HANGARLLM_ENABLE_MCP_STDIO": "true",
             **(cost_map_environment(upstream) if profile.cost_map else {}),
         }
         with (
@@ -221,7 +221,7 @@ def worker_gateway(
                     "INTEGRATION_PROXY_URL": str(primary.client.base_url),
                     "INTEGRATION_PEER_URL": str(secondary.client.base_url) if secondary is not None else "",
                     "INTEGRATION_MASTER_KEY": key,
-                    "LITELLM_MASTER_KEY": key,
+                    "HANGARLLM_MASTER_KEY": key,
                     "INTEGRATION_UPSTREAM_URL": upstream,
                 }
             )

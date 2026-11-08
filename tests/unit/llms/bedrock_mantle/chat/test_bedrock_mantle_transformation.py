@@ -16,8 +16,8 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 MODEL = "bedrock/mantle/anthropic.claude-mythos-preview"
@@ -53,7 +53,7 @@ def test_mantle_request_url_and_body():
 
     with patch.object(client, "post", return_value=_make_fake_response(FAKE_ANTHROPIC_RESPONSE)) as mock_post:
         try:
-            litellm.completion(
+            hangarllm.completion(
                 model=MODEL,
                 messages=[{"role": "user", "content": "Hello"}],
                 max_tokens=50,
@@ -92,7 +92,7 @@ def test_mantle_request_does_not_include_mantle_prefix_in_body():
 
     with patch.object(client, "post", return_value=_make_fake_response(FAKE_ANTHROPIC_RESPONSE)) as mock_post:
         try:
-            litellm.completion(
+            hangarllm.completion(
                 model=MODEL,
                 messages=[{"role": "user", "content": "Hi"}],
                 max_tokens=10,
@@ -119,7 +119,7 @@ def test_mantle_region_reflected_in_url():
     for region in ["us-east-1", "us-west-2", "eu-west-1"]:
         with patch.object(client, "post", return_value=_make_fake_response(FAKE_ANTHROPIC_RESPONSE)) as mock_post:
             try:
-                litellm.completion(
+                hangarllm.completion(
                     model=MODEL,
                     messages=[{"role": "user", "content": "Hi"}],
                     max_tokens=10,
@@ -155,7 +155,7 @@ def event_loop():
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown(event_loop):
-    import litellm
+    import hangarllm
 
     original_state = {}
     for attr in (
@@ -165,21 +165,21 @@ def setup_and_teardown(event_loop):
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     asyncio.set_event_loop(event_loop)
     yield
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     pending = asyncio.all_tasks(event_loop)
     for task in pending:
         task.cancel()
@@ -188,15 +188,15 @@ def setup_and_teardown(event_loop):
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
-    "cohere_key": getattr(litellm, "cohere_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
+    "cohere_key": getattr(hangarllm, "cohere_key", None),
 }

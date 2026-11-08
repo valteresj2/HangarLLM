@@ -66,7 +66,7 @@ def _chat_reply(request: Request) -> Reply:
 
 def _s3_config(path: Path, sink_url: str, extra: Mapping[str, JsonValue]) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"].update(
+    config["hangarllm_settings"].update(
         {
             "callbacks": ["s3_v2"],
             "s3_callback_params": {
@@ -265,14 +265,14 @@ def test_s3_v2_upstream_failure_events_land_alongside_successes(gateway: Gateway
             for response in rejected:
                 assert response.status_code in (400, 401), response.status_code
                 assert "synthetic upstream rejection" in response.text, response.text
-            failure_call_ids: Final = frozenset(response.headers["x-litellm-call-id"] for response in rejected)
+            failure_call_ids: Final = frozenset(response.headers["x-hangarllm-call-id"] for response in rejected)
             payloads: Final = collect_payloads(sink, len(success_ids) + len(failure_ids))
     assert len(upstream.drain()) == len(success_ids) + len(failure_ids)
     delivered: Final = frozenset(payload["id"] for payload in payloads if payload["status"] == "success")
     assert delivered == frozenset(success_ids)
     failures: Final = tuple(payload for payload in payloads if payload["status"] == "failure")
     assert len(failures) == len(failure_ids)
-    assert frozenset(payload["litellm_call_id"] for payload in failures) == failure_call_ids
+    assert frozenset(payload["hangarllm_call_id"] for payload in failures) == failure_call_ids
     assert all("synthetic upstream rejection" in json.dumps(payload["error_information"]) for payload in failures)
 
 
@@ -887,7 +887,7 @@ def test_s3_v2_sigterm_mid_burst_loses_only_inflight_without_duplicates(gateway:
                 "/model/new",
                 {
                     "model_name": f"integration-{marker}",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "synthetic-provider-key",
                         "api_base": provider.url + "/v1",
@@ -1113,4 +1113,4 @@ def test_s3_v2_failure_callback_mode_logs_only_failures(gateway: Gateway, tmp_pa
     assert len(payloads) == 1
     assert payloads[0]["status"] == "failure"
     assert payloads[0]["id"] != marker
-    assert isinstance(payloads[0]["litellm_call_id"], str) and payloads[0]["litellm_call_id"]
+    assert isinstance(payloads[0]["hangarllm_call_id"], str) and payloads[0]["hangarllm_call_id"]

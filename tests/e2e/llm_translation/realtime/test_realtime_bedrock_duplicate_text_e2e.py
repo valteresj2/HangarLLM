@@ -11,7 +11,7 @@ asserts no assistant sentence reaches the client in more than one
 response.text.done.
 
 NOVA_SONIC pins a vendor-owned model id; see test_realtime_bedrock_e2e.py for
-how to re-check it before concluding litellm broke.
+how to re-check it before concluding hangarllm broke.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ import pytest
 from e2e_config import unique_marker
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from realtime_client import (
     InputAudioBufferAppend,
     RealtimeClient,
@@ -90,7 +90,7 @@ class TestNovaSonicAssistantText:
         model: Final = f"e2e-nova-sonic-dupe-{unique_marker()}"
         model_id: Final = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=NOVA_SONIC,
                 aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
                 aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",

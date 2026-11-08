@@ -1,8 +1,8 @@
-// Basic gollem agent connected to a LiteLLM proxy.
+// Basic gollem agent connected to a HangarLLM proxy.
 //
 // Usage:
 //
-//	litellm --model gpt-4o   # start proxy in another terminal
+//	hangarllm --model gpt-4o   # start proxy in another terminal
 //	go run ./basic
 package main
 
@@ -18,14 +18,14 @@ import (
 
 func main() {
 	proxyURL := "http://localhost:4000"
-	if u := os.Getenv("LITELLM_PROXY_URL"); u != "" {
+	if u := os.Getenv("HANGARLLM_PROXY_URL"); u != "" {
 		proxyURL = u
 	}
 
-	// Connect to LiteLLM proxy. NewLiteLLM creates an OpenAI-compatible
+	// Connect to HangarLLM proxy. NewHangarLLM creates an OpenAI-compatible
 	// provider pointed at the given URL.
-	model := openai.NewLiteLLM(proxyURL,
-		openai.WithModel("gpt-4o"), // any model name configured in LiteLLM
+	model := openai.NewHangarLLM(proxyURL,
+		openai.WithModel("gpt-4o"), // any model name configured in HangarLLM
 	)
 
 	// Create and run a simple agent.

@@ -1,4 +1,4 @@
-"""LiteLLM_JWTKeyMapping test doubles for the bulk key deletion paths."""
+"""HangarLLM_JWTKeyMapping test doubles for the bulk key deletion paths."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ class JWTMappingRow:
 
 
 class CascadingJWTMappingTable:
-    """Mapping rows that LiteLLM_JWTKeyMapping_token_fkey drops when their key row is deleted."""
+    """Mapping rows that HangarLLM_JWTKeyMapping_token_fkey drops when their key row is deleted."""
 
     def __init__(self, rows: Sequence[JWTMappingRow]) -> None:
         self.rows: tuple[JWTMappingRow, ...] = tuple(rows)

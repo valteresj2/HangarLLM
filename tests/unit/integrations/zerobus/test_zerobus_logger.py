@@ -4,10 +4,10 @@ from itertools import chain, repeat
 
 import pytest
 
-import litellm
-from litellm.integrations.zerobus.client import ZerobusIngestError
-from litellm.integrations.zerobus.logger import ZerobusLogger, connection_for
-from litellm.types.integrations.zerobus import ZerobusIngestFailure, ZerobusInitParams
+import hangarllm
+from hangarllm.integrations.zerobus.client import ZerobusIngestError
+from hangarllm.integrations.zerobus.logger import ZerobusLogger, connection_for
+from hangarllm.types.integrations.zerobus import ZerobusIngestFailure, ZerobusInitParams
 
 WORKSPACE_URL = "https://dbc-a1b2c3d4-e5f6.cloud.databricks.com"
 SERVER_ENDPOINT = "https://1234567890123456.zerobus.us-west-2.cloud.databricks.com"
@@ -228,7 +228,7 @@ def test_connection_comes_from_the_environment_the_proxy_ui_writes(monkeypatch):
     monkeypatch.setenv("ZEROBUS_SERVER_ENDPOINT", SERVER_ENDPOINT)
     monkeypatch.setenv("ZEROBUS_CLIENT_ID", "sp-id")
     monkeypatch.setenv("ZEROBUS_CLIENT_SECRET", "sp-secret")
-    monkeypatch.setenv("ZEROBUS_TABLE_NAME", "main.litellm.traces")
+    monkeypatch.setenv("ZEROBUS_TABLE_NAME", "main.hangarllm.traces")
 
     connection = connection_for(ZerobusInitParams())
 
@@ -237,7 +237,7 @@ def test_connection_comes_from_the_environment_the_proxy_ui_writes(monkeypatch):
     assert connection.workspace_id == "1234567890123456"
     assert connection.client_id == "sp-id"
     assert connection.client_secret == "sp-secret"
-    assert connection.table_name == "main.litellm.traces"
+    assert connection.table_name == "main.hangarllm.traces"
 
 
 def test_config_yaml_params_win_over_the_environment(monkeypatch):
@@ -267,7 +267,7 @@ def test_a_secret_reference_in_config_yaml_is_resolved(monkeypatch):
             server_endpoint=SERVER_ENDPOINT,
             client_id="sp-id",
             client_secret="os.environ/MY_SP_SECRET",
-            table_name="main.litellm.traces",
+            table_name="main.hangarllm.traces",
         )
     )
 
@@ -283,7 +283,7 @@ def test_a_missing_setting_names_the_env_var_to_set(monkeypatch):
                 workspace_url=WORKSPACE_URL,
                 server_endpoint=SERVER_ENDPOINT,
                 client_id="sp-id",
-                table_name="main.litellm.traces",
+                table_name="main.hangarllm.traces",
             )
         )
 
@@ -310,7 +310,7 @@ def test_an_endpoint_without_a_workspace_id_is_refused():
                 server_endpoint=WORKSPACE_URL,
                 client_id="sp-id",
                 client_secret="sp-secret",
-                table_name="main.litellm.traces",
+                table_name="main.hangarllm.traces",
             )
         )
 
@@ -318,22 +318,22 @@ def test_an_endpoint_without_a_workspace_id_is_refused():
 def test_a_misconfigured_logger_fails_at_startup_not_at_first_flush(monkeypatch):
     for name in ("WORKSPACE_URL", "SERVER_ENDPOINT", "CLIENT_ID", "CLIENT_SECRET", "TABLE_NAME"):
         monkeypatch.delenv(f"ZEROBUS_{name}", raising=False)
-    monkeypatch.setattr(litellm, "zerobus_params", None)
+    monkeypatch.setattr(hangarllm, "zerobus_params", None)
 
     with pytest.raises(ValueError, match="ZEROBUS_"):
         ZerobusLogger()
 
 
-def test_litellm_zerobus_params_configure_the_logger(monkeypatch):
+def test_hangarllm_zerobus_params_configure_the_logger(monkeypatch):
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "zerobus_params",
         {
             "workspace_url": WORKSPACE_URL,
             "server_endpoint": SERVER_ENDPOINT,
             "client_id": "sp-id",
             "client_secret": "sp-secret",
-            "table_name": "main.litellm.traces",
+            "table_name": "main.hangarllm.traces",
             "batch_size": 7,
             "flush_interval": 3,
         },
@@ -343,7 +343,7 @@ def test_litellm_zerobus_params_configure_the_logger(monkeypatch):
 
     assert logger.batch_size == 7
     assert logger.flush_interval == 3
-    assert logger.client.connection.table_name == "main.litellm.traces"
+    assert logger.client.connection.table_name == "main.hangarllm.traces"
 
 
 def test_the_client_is_kept_while_the_connection_is_unchanged_and_rebuilt_when_it_changes(monkeypatch):
@@ -352,30 +352,30 @@ def test_the_client_is_kept_while_the_connection_is_unchanged_and_rebuilt_when_i
     monkeypatch.setenv("ZEROBUS_SERVER_ENDPOINT", SERVER_ENDPOINT)
     monkeypatch.setenv("ZEROBUS_CLIENT_ID", "sp-id")
     monkeypatch.setenv("ZEROBUS_CLIENT_SECRET", "sp-secret")
-    monkeypatch.setenv("ZEROBUS_TABLE_NAME", "main.litellm.traces")
-    monkeypatch.setattr(litellm, "zerobus_params", None)
+    monkeypatch.setenv("ZEROBUS_TABLE_NAME", "main.hangarllm.traces")
+    monkeypatch.setattr(hangarllm, "zerobus_params", None)
     logger = ZerobusLogger()
 
     first = logger.client
     unchanged = logger.client
-    monkeypatch.setenv("ZEROBUS_TABLE_NAME", "main.litellm.traces_v2")
+    monkeypatch.setenv("ZEROBUS_TABLE_NAME", "main.hangarllm.traces_v2")
     rebuilt = logger.client
 
     assert unchanged is first
     assert rebuilt is not first
-    assert rebuilt.connection.table_name == "main.litellm.traces_v2"
+    assert rebuilt.connection.table_name == "main.hangarllm.traces_v2"
 
 
 def test_callbacks_zerobus_builds_one_logger_and_reuses_it(monkeypatch):
-    """`litellm_settings.callbacks: ["zerobus"]` goes through litellm_logging, which must hand back one instance."""
-    from litellm.litellm_core_utils import litellm_logging as logging_module
+    """`hangarllm_settings.callbacks: ["zerobus"]` goes through hangarllm_logging, which must hand back one instance."""
+    from hangarllm.hangarllm_core_utils import hangarllm_logging as logging_module
 
     monkeypatch.setenv("ZEROBUS_WORKSPACE_URL", WORKSPACE_URL)
     monkeypatch.setenv("ZEROBUS_SERVER_ENDPOINT", SERVER_ENDPOINT)
     monkeypatch.setenv("ZEROBUS_CLIENT_ID", "sp-id")
     monkeypatch.setenv("ZEROBUS_CLIENT_SECRET", "sp-secret")
-    monkeypatch.setenv("ZEROBUS_TABLE_NAME", "main.litellm.traces")
-    monkeypatch.setattr(litellm, "zerobus_params", None)
+    monkeypatch.setenv("ZEROBUS_TABLE_NAME", "main.hangarllm.traces")
+    monkeypatch.setattr(hangarllm, "zerobus_params", None)
     monkeypatch.setattr(logging_module, "_in_memory_loggers", [])
 
     assert logging_module.get_custom_logger_compatible_class("zerobus") is None

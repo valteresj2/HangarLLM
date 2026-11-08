@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from pydantic import SecretStr
 
-from litellm.proxy.mcp_server.outbound_credentials.bridge_credentials import (
+from hangarllm.proxy.mcp_server.outbound_credentials.bridge_credentials import (
     BridgeEnvelopeAdmitted,
     BridgeEnvelopeInvalid,
     BridgeRefreshInvalid,
@@ -26,7 +26,7 @@ from litellm.proxy.mcp_server.outbound_credentials.bridge_credentials import (
     open_bridge_refresh_envelope,
     resolve_bridge_envelope,
 )
-from litellm.proxy.mcp_server.outbound_credentials.envelope import (
+from hangarllm.proxy.mcp_server.outbound_credentials.envelope import (
     ENVELOPE_PREFIX,
     EnvelopeIdentity,
     EnvelopeKeys,
@@ -117,7 +117,7 @@ def test_refresh_jwt_wearing_the_access_prefix_is_rejected_at_the_edge():
     """Belt-and-suspenders against a swapped wire prefix: a refresh JWT re-prefixed as an access envelope
     opens far enough to hit the signed kind claim, which rejects it, so admission fails closed rather
     than forwarding a refresh credential's contents upstream."""
-    from litellm.proxy.mcp_server.outbound_credentials.envelope import REFRESH_ENVELOPE_PREFIX
+    from hangarllm.proxy.mcp_server.outbound_credentials.envelope import REFRESH_ENVELOPE_PREFIX
 
     keys = envelope_keys_from_master_key(_MASTER_KEY)
     swapped = ENVELOPE_PREFIX + _sealed_refresh(keys).removeprefix(REFRESH_ENVELOPE_PREFIX)
@@ -164,7 +164,7 @@ def test_derived_keys_round_trip_mint_and_open():
 
 def test_resolve_non_envelope_is_not_bridge_envelope():
     keys = envelope_keys_from_master_key(_MASTER_KEY)
-    assert isinstance(resolve_bridge_envelope("Bearer sk-some-litellm-key", keys, _NOW, _SERVER_ID), NotBridgeEnvelope)
+    assert isinstance(resolve_bridge_envelope("Bearer sk-some-hangarllm-key", keys, _NOW, _SERVER_ID), NotBridgeEnvelope)
     assert isinstance(resolve_bridge_envelope("plain-token", keys, _NOW, _SERVER_ID), NotBridgeEnvelope)
 
 
@@ -315,6 +315,6 @@ def test_is_bridge_envelope_shaped_detects_envelope_with_and_without_bearer():
 
 
 def test_is_bridge_envelope_shaped_rejects_non_envelope_bearer():
-    assert is_bridge_envelope_shaped("Bearer sk-some-litellm-key") is False
+    assert is_bridge_envelope_shaped("Bearer sk-some-hangarllm-key") is False
     assert is_bridge_envelope_shaped("plain-upstream-token") is False
     assert is_bridge_envelope_shaped("") is False

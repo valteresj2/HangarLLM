@@ -1,9 +1,9 @@
 import os
 from unittest import mock
 
-import litellm
+import hangarllm
 
-from litellm.llms.v0.chat.transformation import V0ChatConfig
+from hangarllm.llms.v0.chat.transformation import V0ChatConfig
 
 
 def test_v0_config_initialization():
@@ -31,7 +31,7 @@ def test_v0_get_openai_compatible_provider_info():
 
 def test_get_llm_provider_v0():
     """Test that get_llm_provider correctly identifies v0"""
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     model, provider, api_key, api_base = get_llm_provider("v0/gpt-4-turbo")
     assert model == "gpt-4-turbo"
@@ -44,9 +44,9 @@ def test_get_llm_provider_v0():
 
 def test_v0_in_provider_lists():
     """Test that v0 is registered in all necessary provider lists"""
-    assert "v0" in litellm.openai_compatible_providers
-    assert "v0" in litellm.provider_list
-    assert "https://api.v0.dev/v1" in litellm.openai_compatible_endpoints
+    assert "v0" in hangarllm.openai_compatible_providers
+    assert "v0" in hangarllm.provider_list
+    assert "https://api.v0.dev/v1" in hangarllm.openai_compatible_endpoints
 
 
 def test_v0_supported_params():

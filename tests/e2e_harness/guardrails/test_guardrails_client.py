@@ -20,7 +20,7 @@ class Clock:
 
 
 def _response(applied: str, status: int = 200) -> StreamingResponse:
-    return StreamingResponse(status_code=status, body="{}", headers={"x-litellm-applied-guardrails": applied})
+    return StreamingResponse(status_code=status, body="{}", headers={"x-hangarllm-applied-guardrails": applied})
 
 
 def test_waits_for_requested_guardrail_after_an_unrelated_global_guardrail() -> None:

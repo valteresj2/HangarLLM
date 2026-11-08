@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from typing import TypeVar
 from unittest.mock import MagicMock, NonCallableMock
 
-from litellm.router_api import SETTING_FIELDS, ApplyResult, ChangeSet, RouterSettings
+from hangarllm.router_api import SETTING_FIELDS, ApplyResult, ChangeSet, RouterSettings
 
 __all__ = ["route_entry_points_to_stubs"]
 
@@ -22,7 +22,7 @@ def route_entry_points_to_stubs(router: _RouterDouble) -> _RouterDouble:
     whichever entry point it reads through (``registry().deployments(...)``,
     ``registry().all()``, ``registry().group(name, field="display_name")``, ...). The
     stubs are looked up at call time, so they can be set or replaced after this call.
-    The mapping is the one in litellm/router_deprecated.py.
+    The mapping is the one in hangarllm/router_deprecated.py.
 
     A hand-written fake router (a plain class defining only the old members it needs) works
     too: it is given mock entry points that read through to those members, and a member the
@@ -76,8 +76,8 @@ def route_entry_points_to_stubs(router: _RouterDouble) -> _RouterDouble:
             return router.deployment_names
         if kind == "team_public":
             return router.team_public_model_names if team_id is None else router.team_public_model_names_of(team_id)
-        if kind == "litellm_models":
-            return router.resolved_litellm_models(model_name, **_given(team_id=team_id))
+        if kind == "hangarllm_models":
+            return router.resolved_hangarllm_models(model_name, **_given(team_id=team_id))
         if kind == "route_candidates":
             return router.get_candidate_model_ids_for_route(model_name, **_given(team_id=team_id))
         if kind == "wildcard":

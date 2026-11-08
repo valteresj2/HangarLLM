@@ -45,11 +45,11 @@ def test_rerank_response_carries_call_id_latency_and_cost_headers_like_chat_comp
             (1, 0.03),
         ], response.text
         assert len(wire.drain()) == 1, "Expected exactly one provider rerank call"
-        assert response.headers["x-litellm-model-group"] == model, response.text
-        assert uuid.UUID(response.headers["x-litellm-call-id"]).version == 4, response.headers
-        assert float(response.headers["x-litellm-response-cost"]) == 0.0, response.headers
-        assert float(response.headers["x-litellm-response-duration-ms"]) > 0, response.headers
-        assert float(response.headers["x-litellm-overhead-duration-ms"]) >= 0, response.headers
+        assert response.headers["x-hangarllm-model-group"] == model, response.text
+        assert uuid.UUID(response.headers["x-hangarllm-call-id"]).version == 4, response.headers
+        assert float(response.headers["x-hangarllm-response-cost"]) == 0.0, response.headers
+        assert float(response.headers["x-hangarllm-response-duration-ms"]) > 0, response.headers
+        assert float(response.headers["x-hangarllm-overhead-duration-ms"]) >= 0, response.headers
 
 
 COHERE_KEY: Final = "synthetic-cohere-key"

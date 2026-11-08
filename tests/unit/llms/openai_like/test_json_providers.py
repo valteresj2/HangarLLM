@@ -23,7 +23,7 @@ class TestJSONProviderLoader:
 
     def test_load_json_providers(self):
         """Test that JSON providers load correctly"""
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         # Verify publicai is loaded
         assert JSONProviderRegistry.exists("publicai")
@@ -38,8 +38,8 @@ class TestJSONProviderLoader:
 
     def test_dynamic_config_generation(self):
         """Test dynamic config class creation"""
-        from litellm.llms.openai_like.dynamic_config import create_config_class
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.dynamic_config import create_config_class
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         provider = JSONProviderRegistry.get("publicai")
         config_class = create_config_class(provider)
@@ -56,8 +56,8 @@ class TestJSONProviderLoader:
 
     def test_parameter_mapping(self):
         """Test parameter mapping works"""
-        from litellm.llms.openai_like.dynamic_config import create_config_class
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.dynamic_config import create_config_class
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         provider = JSONProviderRegistry.get("publicai")
         config_class = create_config_class(provider)
@@ -80,8 +80,8 @@ class TestJSONProviderLoader:
 
     def test_supported_params(self):
         """Test that config returns supported params"""
-        from litellm.llms.openai_like.dynamic_config import create_config_class
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.dynamic_config import create_config_class
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         provider = JSONProviderRegistry.get("publicai")
         config_class = create_config_class(provider)
@@ -96,17 +96,17 @@ class TestJSONProviderLoader:
 
     def test_tool_params_excluded_when_function_calling_not_supported(self):
         """Test that tool-related params are excluded for models that don't support
-        function calling. Regression test for https://github.com/BerriAI/litellm/issues/21125
+        function calling. Regression test for upstream issue 21125
         """
-        from litellm.llms.openai_like.dynamic_config import create_config_class
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.dynamic_config import create_config_class
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         provider = JSONProviderRegistry.get("publicai")
         config_class = create_config_class(provider)
         config = config_class()
 
         # Mock supports_function_calling to return False
-        with patch("litellm.utils.supports_function_calling", return_value=False):
+        with patch("hangarllm.utils.supports_function_calling", return_value=False):
             supported = config.get_supported_openai_params("some-model-without-fc")
 
         tool_params = [
@@ -128,15 +128,15 @@ class TestJSONProviderLoader:
 
     def test_tool_params_included_when_function_calling_supported(self):
         """Test that tool-related params are included for models that support function calling."""
-        from litellm.llms.openai_like.dynamic_config import create_config_class
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.dynamic_config import create_config_class
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         provider = JSONProviderRegistry.get("publicai")
         config_class = create_config_class(provider)
         config = config_class()
 
         # Mock supports_function_calling to return True
-        with patch("litellm.utils.supports_function_calling", return_value=True):
+        with patch("hangarllm.utils.supports_function_calling", return_value=True):
             supported = config.get_supported_openai_params("some-model-with-fc")
 
         assert "tools" in supported
@@ -144,7 +144,7 @@ class TestJSONProviderLoader:
 
     def test_provider_resolution(self):
         """Test that provider resolution finds JSON providers"""
-        from litellm.litellm_core_utils.get_llm_provider_logic import (
+        from hangarllm.hangarllm_core_utils.get_llm_provider_logic import (
             get_llm_provider,
         )
 
@@ -161,8 +161,8 @@ class TestJSONProviderLoader:
 
     def test_provider_config_manager(self):
         """Test that ProviderConfigManager returns JSON-based configs"""
-        from litellm import LlmProviders
-        from litellm.utils import ProviderConfigManager
+        from hangarllm import LlmProviders
+        from hangarllm.utils import ProviderConfigManager
 
         config = ProviderConfigManager.get_provider_chat_config(
             model="gpt-4", provider=LlmProviders.PUBLICAI
@@ -177,7 +177,7 @@ class TestPinstripes:
 
     def test_pinstripes_json_config_exists(self):
         """Test that pinstripes is configured in providers.json"""
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         assert JSONProviderRegistry.exists("pinstripes")
 
@@ -189,7 +189,7 @@ class TestPinstripes:
 
     def test_pinstripes_provider_resolution(self):
         """Test that provider resolution finds pinstripes and returns the default base URL"""
-        from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+        from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
         model, provider, api_key, api_base = get_llm_provider(
             model="pinstripes/ps/glm-4.5-air",
@@ -204,8 +204,8 @@ class TestPinstripes:
 
     def test_pinstripes_dynamic_config(self):
         """Test dynamic config class creation for pinstripes"""
-        from litellm.llms.openai_like.dynamic_config import create_config_class
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.dynamic_config import create_config_class
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         provider = JSONProviderRegistry.get("pinstripes")
         config_class = create_config_class(provider)
@@ -220,8 +220,8 @@ class TestPinstripes:
 
     def test_pinstripes_parameter_mapping(self):
         """Test that max_completion_tokens is mapped to max_tokens for pinstripes"""
-        from litellm.llms.openai_like.dynamic_config import create_config_class
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.dynamic_config import create_config_class
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         provider = JSONProviderRegistry.get("pinstripes")
         config_class = create_config_class(provider)
@@ -241,7 +241,7 @@ class TestPinstripes:
 
 class TestDarkbloom:
     def test_darkbloom_json_config_exists(self):
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         darkbloom = JSONProviderRegistry.get("darkbloom")
         assert darkbloom is not None
@@ -251,7 +251,7 @@ class TestDarkbloom:
         assert darkbloom.param_mappings.get("max_completion_tokens") == "max_tokens"
 
     def test_darkbloom_provider_resolution(self):
-        from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+        from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
         model, provider, api_key, api_base = get_llm_provider(
             model="darkbloom/gemma-4-26b",
@@ -266,8 +266,8 @@ class TestDarkbloom:
         assert api_base == "https://api.darkbloom.dev/v1"
 
     def test_darkbloom_dynamic_config(self):
-        from litellm.llms.openai_like.dynamic_config import create_config_class
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.dynamic_config import create_config_class
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         provider = JSONProviderRegistry.get("darkbloom")
         config_class = create_config_class(provider)
@@ -281,8 +281,8 @@ class TestDarkbloom:
         assert api_key == "test-key"
 
     def test_darkbloom_complete_url_appends_endpoint(self):
-        from litellm.llms.openai_like.dynamic_config import create_config_class
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.dynamic_config import create_config_class
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         provider = JSONProviderRegistry.get("darkbloom")
         config_class = create_config_class(provider)
@@ -293,15 +293,15 @@ class TestDarkbloom:
             api_key="test-key",
             model="darkbloom/gemma-4-26b",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             stream=True,
         )
 
         assert url == "https://api.darkbloom.dev/v1/chat/completions"
 
     def test_darkbloom_provider_config_manager(self):
-        from litellm import LlmProviders
-        from litellm.utils import ProviderConfigManager
+        from hangarllm import LlmProviders
+        from hangarllm.utils import ProviderConfigManager
 
         config = ProviderConfigManager.get_provider_chat_config(
             model="gemma-4-26b", provider=LlmProviders.DARKBLOOM

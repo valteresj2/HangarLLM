@@ -46,7 +46,7 @@ def test_burst_with_partial_upstream_failures_logs_each_success_once(gateway: Ga
 
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(%s)',
+                'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(%s)',
                 (list(succeeded),),
             ),
             lambda values: len(values) == len(succeeded),

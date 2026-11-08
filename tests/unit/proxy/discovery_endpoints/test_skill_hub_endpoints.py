@@ -19,20 +19,20 @@ import pytest
 from prisma import models as prisma_models
 from prisma.errors import ForeignKeyViolationError, UniqueViolationError
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LiteLLM_ObjectPermissionTable, UserAPIKeyAuth
-from litellm.proxy.deps.repositories import get_plugin_upload_repository, get_skill_submission_repository
-from litellm.proxy.discovery_endpoints.agent_skills_archive import (
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable, UserAPIKeyAuth
+from hangarllm.proxy.deps.repositories import get_plugin_upload_repository, get_skill_submission_repository
+from hangarllm.proxy.discovery_endpoints.agent_skills_archive import (
     MAX_ARCHIVE_ENTRIES,
     MAX_ARCHIVE_UNPACKED_BYTES,
 )
-from litellm.proxy.discovery_endpoints.skill_hub_endpoints import import_http_client
-from litellm.proxy.hooks.parallel_request_limiter_v3 import PROXY_MaxParallelRequestsHandler_v3
-from litellm.proxy.utils import InternalUsageCache
-from litellm.repositories.plugin_upload_repository import PluginUploadRepository
-from litellm.repositories.skill_submission_repository import SkillSubmissionRepository
+from hangarllm.proxy.discovery_endpoints.skill_hub_endpoints import import_http_client
+from hangarllm.proxy.hooks.parallel_request_limiter_v3 import PROXY_MaxParallelRequestsHandler_v3
+from hangarllm.proxy.utils import InternalUsageCache
+from hangarllm.repositories.plugin_upload_repository import PluginUploadRepository
+from hangarllm.repositories.skill_submission_repository import SkillSubmissionRepository
 from tests._master_key import MASTER_KEY
 from tests.unit.proxy.skill_submission_rows import SubmissionRows
 
@@ -88,20 +88,20 @@ async def hub(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[HubClient]:
     prisma.writer_db = prisma.db
     prisma.db.execute_raw = AsyncMock(return_value=1)
     prisma.get_data = AsyncMock(return_value=None)
-    prisma.db.litellm_skillstable.find_many = AsyncMock(return_value=[])
-    prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
-    plugins: Final = prisma.db.litellm_claudecodeplugintable
-    archives: Final = prisma.db.litellm_claudecodepluginupload
-    async def create_row(data: Mapping[str, object]) -> prisma_models.LiteLLM_ClaudeCodePluginTable:
-        return prisma_models.LiteLLM_ClaudeCodePluginTable.model_validate({"id": "hub-id", "enabled": True, "anonymous_download_count": 0, **data})
+    prisma.db.hangarllm_skillstable.find_many = AsyncMock(return_value=[])
+    prisma.db.hangarllm_usertable.find_unique = AsyncMock(return_value=None)
+    plugins: Final = prisma.db.hangarllm_claudecodeplugintable
+    archives: Final = prisma.db.hangarllm_claudecodepluginupload
+    async def create_row(data: Mapping[str, object]) -> prisma_models.HangarLLM_ClaudeCodePluginTable:
+        return prisma_models.HangarLLM_ClaudeCodePluginTable.model_validate({"id": "hub-id", "enabled": True, "anonymous_download_count": 0, **data})
 
     plugins.create = AsyncMock(side_effect=create_row)
-    downloads: Final = prisma.db.litellm_claudecodeplugindownload
+    downloads: Final = prisma.db.hangarllm_claudecodeplugindownload
     downloads.create = AsyncMock()
     plugins.find_unique = AsyncMock(return_value=None)
     plugins.find_many = AsyncMock(return_value=[])
 
-    async def update_row(where: Mapping[str, str], data: Mapping[str, object]) -> prisma_models.LiteLLM_ClaudeCodePluginTable:
+    async def update_row(where: Mapping[str, str], data: Mapping[str, object]) -> prisma_models.HangarLLM_ClaudeCodePluginTable:
         current: Final = plugins.find_unique.return_value.model_copy(update=dict(data))
         plugins.find_unique.return_value = current
         plugins.find_many.return_value = [current]
@@ -116,11 +116,11 @@ async def hub(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[HubClient]:
     archives.delete_many = AsyncMock()
     prisma.db.tx.return_value.__aenter__.return_value = prisma.db
     submissions: Final = SubmissionRows()
-    prisma.db.litellm_skillsubmission = submissions
+    prisma.db.hangarllm_skillsubmission = submissions
     prisma.db.query_raw = AsyncMock(return_value=[])
-    prisma.db.litellm_claudecodepluginversion.create = AsyncMock()
-    prisma.db.litellm_claudecodepluginversion.count = AsyncMock(return_value=0)
-    prisma.db.litellm_claudecodepluginversion.find_first = AsyncMock(return_value=None)
+    prisma.db.hangarllm_claudecodepluginversion.create = AsyncMock()
+    prisma.db.hangarllm_claudecodepluginversion.count = AsyncMock(return_value=0)
+    prisma.db.hangarllm_claudecodepluginversion.find_first = AsyncMock(return_value=None)
     upstream: Final = MagicMock(return_value=httpx.Response(404))
     clock: Final = MagicMock(return_value=datetime.now())
     limiter: Final = PROXY_MaxParallelRequestsHandler_v3(InternalUsageCache(DualCache()), time_provider=clock)
@@ -129,7 +129,7 @@ async def hub(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[HubClient]:
     monkeypatch.setattr(proxy_server, "master_key", MASTER_KEY)
     monkeypatch.setattr(proxy_server, "general_settings", {})
     monkeypatch.setattr(proxy_server, "user_api_key_cache", DualCache())
-    monkeypatch.setattr(litellm, "public_skills_index", True)
+    monkeypatch.setattr(hangarllm, "public_skills_index", True)
     monkeypatch.setenv("PROXY_BASE_URL", "http://test")
     monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
     for key, skills in ((GRANTED_KEY, [NAME]), (PLAIN_KEY, [])):
@@ -137,14 +137,14 @@ async def hub(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[HubClient]:
             key=proxy_server.hash_token(key),
             value=UserAPIKeyAuth(
                 token=proxy_server.hash_token(key),
-                user_role=proxy_server.LitellmUserRoles.INTERNAL_USER,
-                object_permission=LiteLLM_ObjectPermissionTable(object_permission_id=key, skills=skills),
+                user_role=proxy_server.HangarllmUserRoles.INTERNAL_USER,
+                object_permission=HangarLLM_ObjectPermissionTable(object_permission_id=key, skills=skills),
             ),
         )
     for key, role in (
-        (MEMBER_KEY, proxy_server.LitellmUserRoles.INTERNAL_USER),
-        (OTHER_KEY, proxy_server.LitellmUserRoles.INTERNAL_USER),
-        (VIEWER_KEY, proxy_server.LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY),
+        (MEMBER_KEY, proxy_server.HangarllmUserRoles.INTERNAL_USER),
+        (OTHER_KEY, proxy_server.HangarllmUserRoles.INTERNAL_USER),
+        (VIEWER_KEY, proxy_server.HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY),
     ):
         proxy_server.user_api_key_cache.set_cache(
             key=proxy_server.hash_token(key),
@@ -173,15 +173,15 @@ async def _upload(
     )
 
 
-def _stored_upload(hub: HubClient, enabled: bool = True) -> prisma_models.LiteLLM_ClaudeCodePluginTable:
+def _stored_upload(hub: HubClient, enabled: bool = True) -> prisma_models.HangarLLM_ClaudeCodePluginTable:
     data: Final = hub.plugins.create.await_args.kwargs["data"]
-    record: Final = prisma_models.LiteLLM_ClaudeCodePluginTable(
+    record: Final = prisma_models.HangarLLM_ClaudeCodePluginTable(
         id="hub-id", name=data["name"], version=data["version"], description=data["description"], anonymous_download_count=0,
         manifest_json=data["manifest_json"], enabled=enabled, updated_at=data["updated_at"],
     )
     hub.plugins.find_unique.return_value = record
     hub.plugins.find_many.return_value = [record]
-    hub.archives.find_first.return_value = prisma_models.LiteLLM_ClaudeCodePluginUpload(
+    hub.archives.find_first.return_value = prisma_models.HangarLLM_ClaudeCodePluginUpload(
         plugin_name=record.name, content=hub.archives.create.await_args.kwargs["data"]["content"],
     )
     hub.archives.find_unique.return_value = hub.archives.find_first.return_value
@@ -343,7 +343,7 @@ async def test_download_policy_requires_publication_or_a_valid_grant(
 ) -> None:
     assert (await _upload(hub, _zip(FILES))).status_code == 200
     _stored_upload(hub, enabled=enabled)
-    monkeypatch.setattr(litellm, "public_skills_index", public_index)
+    monkeypatch.setattr(hangarllm, "public_skills_index", public_index)
     monkeypatch.setattr(proxy_server, "general_settings", {"claude_code_marketplace_auth_required": auth_required})
     for suffix in ("archive", "content"):
         response: Final = await hub.client.get(f"{HUB}/{NAME}/{suffix}", headers=_headers(key))
@@ -468,9 +468,9 @@ async def test_stored_content_survives_duplicate_upload_and_is_hidden_after_sour
 
 
 @pytest.mark.parametrize("user_id, role, admitted", (
-    ("publisher", proxy_server.LitellmUserRoles.PROXY_ADMIN, 10),
-    (None, proxy_server.LitellmUserRoles.PROXY_ADMIN, 20),
-    ("publisher", proxy_server.LitellmUserRoles.INTERNAL_USER, 10),
+    ("publisher", proxy_server.HangarllmUserRoles.PROXY_ADMIN, 10),
+    (None, proxy_server.HangarllmUserRoles.PROXY_ADMIN, 20),
+    ("publisher", proxy_server.HangarllmUserRoles.INTERNAL_USER, 10),
 ), ids=("admin-user", "admin-key", "member-user"))
 async def test_publication_limit_is_shared_by_user_and_route_and_resets(
     hub: HubClient, monkeypatch: pytest.MonkeyPatch, user_id: str | None, role: str, admitted: int,
@@ -526,12 +526,12 @@ async def test_neutral_metadata_publication_pairs_version_and_preserved_skill_sn
     assert (await hub.client.get(f"{HUB}/{NAME}", headers=_headers(MASTER_KEY))).status_code == 200
     monkeypatch.delenv("PROXY_BASE_URL")
     hub.client.base_url = httpx.URL("https://public.example")
-    first: Final = hub.database.litellm_claudecodepluginversion.create.await_args.kwargs["data"]
-    hub.database.litellm_claudecodepluginversion.count.return_value = 1
+    first: Final = hub.database.hangarllm_claudecodepluginversion.create.await_args.kwargs["data"]
+    hub.database.hangarllm_claudecodepluginversion.count.return_value = 1
 
     async def replace_row(
         where: Mapping[str, str], data: Mapping[str, object],
-    ) -> prisma_models.LiteLLM_ClaudeCodePluginTable:
+    ) -> prisma_models.HangarLLM_ClaudeCodePluginTable:
         current: Final = original.model_copy(update=dict(data))
         hub.plugins.find_unique.return_value = current
         return current
@@ -544,7 +544,7 @@ async def test_neutral_metadata_publication_pairs_version_and_preserved_skill_sn
     assert updated.status_code == 200, updated.text
     assert updated.json()["version"] == "1.0.1"
     assert updated.json()["download_url"] == f"https://public.example{HUB}/{NAME}/archive"
-    latest: Final = hub.database.litellm_claudecodepluginversion.create.await_args.kwargs["data"]
+    latest: Final = hub.database.hangarllm_claudecodepluginversion.create.await_args.kwargs["data"]
     manifest: Final = json.loads(latest["manifest_json"])
     assert latest["version"] == manifest["version"] == updated.json()["version"]
     assert latest["manifest_json"] == hub.plugins.find_unique.return_value.manifest_json
@@ -562,10 +562,10 @@ async def test_neutral_history_list_detail_and_portable_download_share_current_v
 ) -> None:
     assert (await _upload(hub, _zip(FILES), version=None)).status_code == 200
     original: Final = _stored_upload(hub, enabled=False)
-    data: Final = hub.database.litellm_claudecodepluginversion.create.await_args.kwargs["data"]
-    version: Final = prisma_models.LiteLLM_ClaudeCodePluginVersion.model_validate({"id": "retained", **data})
+    data: Final = hub.database.hangarllm_claudecodepluginversion.create.await_args.kwargs["data"]
+    version: Final = prisma_models.HangarLLM_ClaudeCodePluginVersion.model_validate({"id": "retained", **data})
     hub.plugins.find_unique.return_value = original.model_copy(update={"version": "3.0.0"})
-    hub.database.litellm_claudecodepluginversion.find_first.return_value = version
+    hub.database.hangarllm_claudecodepluginversion.find_first.return_value = version
     hub.database.query_raw.return_value = [{
         "id": version.id, "version": version.version, "description": version.description,
         "manifest": json.loads(version.manifest_json), "published_at": version.published_at,
@@ -587,7 +587,7 @@ async def test_neutral_history_list_detail_and_portable_download_share_current_v
         assert downloaded.headers["etag"] == f'"sha256:{hashlib.sha256(downloaded.content).hexdigest()}"'
         hub.database.query_raw.return_value = []
         assert (await hub.client.get(f"{HUB}/{NAME}/versions/missing", headers=_headers(key))).status_code == 404
-        hub.database.litellm_claudecodepluginversion.find_first.return_value = None
+        hub.database.hangarllm_claudecodepluginversion.find_first.return_value = None
         assert (await hub.client.get(
             f"{HUB}/{NAME}/versions/missing/archive", headers=_headers(key),
         )).status_code == 404
@@ -616,7 +616,7 @@ async def test_neutral_history_labels_external_sources_and_bounds_pagination(hub
 
 @pytest.fixture
 async def pending_hub(hub: HubClient) -> HubClient:
-    hub.database.query_raw.side_effect = hub.database.litellm_skillsubmission.query_raw
+    hub.database.query_raw.side_effect = hub.database.hangarllm_skillsubmission.query_raw
     return hub
 
 
@@ -639,7 +639,7 @@ async def test_member_archive_stays_private_until_admin_review(
     assert receipt["status"] == "pending_review" and receipt["proposal"]["version"] is None
     assert receipt["proposal"]["agent_skill"]["name"] == NAME
     hub.plugins.create.assert_not_awaited()
-    hub.database.litellm_claudecodepluginversion.create.assert_not_awaited()
+    hub.database.hangarllm_claudecodepluginversion.create.assert_not_awaited()
     path: Final = f"/skill-hub/submissions/{receipt['submission_id']}"
     assert receipt["proposal"]["source"]["url"] == f"http://test{path}/archive"
     own: Final = await hub.client.get(path, headers=_headers(MEMBER_KEY))
@@ -684,7 +684,7 @@ async def test_member_updates_preserve_manifest_and_original_editor_base(pending
         "keywords": ["notes"], "extension": {"retained": True}, "author": "legacy author",
     }
     hub.plugins.find_unique.return_value = original.model_copy(update={"manifest_json": json.dumps(manifest)})
-    before: Final = hub.database.litellm_claudecodepluginversion.create.await_count
+    before: Final = hub.database.hangarllm_claudecodepluginversion.create.await_count
     updated_files: Final = {**FILES, "references/guide.md": b"Updated supporting instructions.\n"}
     expected: Final = original.updated_at.isoformat()
     response: Final = (
@@ -704,7 +704,7 @@ async def test_member_updates_preserve_manifest_and_original_editor_base(pending
     assert detail["submission"]["proposal"]["domain"] == "Tools"
     assert detail["submission"]["proposal"]["keywords"] == ["notes"]
     assert detail["current_skill"]["namespace"] == "research"
-    assert hub.database.litellm_claudecodepluginversion.create.await_count == before
+    assert hub.database.hangarllm_claudecodepluginversion.create.await_count == before
     hub.plugins.update.assert_not_awaited()
     approved: Final = await hub.client.put(path + "/approve", headers=_headers(MASTER_KEY))
     assert approved.status_code == 200, approved.text
@@ -734,7 +734,7 @@ async def test_replacement_rejections_do_not_stage_or_change_files(pending_hub: 
         files={"file": ("new.zip", _zip({"SKILL.md": MANIFEST.replace(NAME.encode(), b"different-name")}), "application/zip")},
     )
     assert response.status_code == status, response.text
-    assert hub.database.litellm_skillsubmission.rows == ()
+    assert hub.database.hangarllm_skillsubmission.rows == ()
     hub.plugins.update.assert_not_awaited()
     hub.archives.upsert.assert_not_awaited()
 
@@ -764,8 +764,8 @@ async def test_unconfigured_scanning_preserves_manual_approval(pending_hub: HubC
 async def test_configured_scan_persists_result_without_changing_manual_approval(
     pending_hub: HubClient, monkeypatch: pytest.MonkeyPatch, scanner_status: int,
 ) -> None:
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-    from litellm.proxy.discovery_endpoints import skill_scanning
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.proxy.discovery_endpoints import skill_scanning
 
     hub: Final = pending_hub
     report: Final = {
@@ -810,14 +810,14 @@ async def test_configured_scan_persists_result_without_changing_manual_approval(
 
 async def test_catalog_filters_metadata_before_pagination_and_preserves_tag_facets(hub: HubClient) -> None:
     hub.plugins.find_many.return_value = [
-        prisma_models.LiteLLM_ClaudeCodePluginTable(
+        prisma_models.HangarLLM_ClaudeCodePluginTable(
             id=name, name=name, enabled=True, anonymous_download_count=0, created_by="author@example.test",
             created_at=datetime(2026, 1, 2), updated_at=datetime(2026, 2, 3),
             manifest_json=json.dumps({
                 "source": {"source": "github", "repo": "example/skills"},
                 "keywords": tags,
-                "_litellm_published_by": "publisher@example.test",
-                **({"_litellm_review": {"approved_by": "reviewer@example.test", "security_scan_passed": scanned}} if approved else {}),
+                "_hangarllm_published_by": "publisher@example.test",
+                **({"_hangarllm_review": {"approved_by": "reviewer@example.test", "security_scan_passed": scanned}} if approved else {}),
             }),
         )
         for name, tags, approved, scanned in (
@@ -853,9 +853,9 @@ async def test_admin_approval_does_not_override_scan_result(pending_hub: HubClie
     hub: Final = pending_hub
     pending: Final = await _upload(hub, _zip(FILES), MEMBER_KEY, version=None)
     receipt: Final = pending.json()
-    submission: Final = hub.database.litellm_skillsubmission.rows[0]
+    submission: Final = hub.database.hangarllm_skillsubmission.rows[0]
     digest: Final = hashlib.sha256(submission.archive_content.decode()).hexdigest()
-    await hub.database.litellm_skillsubmission.update(
+    await hub.database.hangarllm_skillsubmission.update(
         where={"id": submission.id}, data={"scan_json": json.dumps({
             "id": "scan", "requested_by": "admin", "started_at": "2026-01-01T00:00:00Z",
             "expires_at": "2026-01-01T00:03:00Z", "status": "completed", "archive_sha256": digest,
@@ -888,7 +888,7 @@ async def test_catalog_sorts_all_matches_before_pagination(
     hub: HubClient, field: str, order: str, expected: str,
 ) -> None:
     hub.plugins.find_many.return_value = [
-        prisma_models.LiteLLM_ClaudeCodePluginTable(
+        prisma_models.HangarLLM_ClaudeCodePluginTable(
             id=name, name=name, enabled=True, anonymous_download_count=0, updated_at=datetime(2026, 1, day),
             manifest_json=json.dumps({"source": {"source": "github", "repo": "example/skills"}}),
         ) for name, day in (("a", 2), ("b", 1), ("c", 3))

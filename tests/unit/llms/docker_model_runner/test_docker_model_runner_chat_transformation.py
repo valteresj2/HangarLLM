@@ -12,10 +12,10 @@ from typing import cast
 
 import pytest
 
-from litellm.llms.docker_model_runner.chat.transformation import (
+from hangarllm.llms.docker_model_runner.chat.transformation import (
     DockerModelRunnerChatConfig,
 )
-from litellm.types.llms.openai import AllMessageValues
+from hangarllm.types.llms.openai import AllMessageValues
 
 
 class TestDockerModelRunnerTransformation:
@@ -34,7 +34,7 @@ class TestDockerModelRunnerTransformation:
             api_key=None,
             model="llama-3.1",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             stream=False,
         )
 
@@ -51,7 +51,7 @@ class TestDockerModelRunnerTransformation:
             api_key=None,
             model="llama-3.1",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             stream=False,
         )
 
@@ -70,7 +70,7 @@ class TestDockerModelRunnerTransformation:
             api_key=None,
             model="mistral-7b",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             stream=False,
         )
 
@@ -92,7 +92,7 @@ class TestDockerModelRunnerTransformation:
             api_key=None,
             model="llama-3.1",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             stream=False,
         )
 
@@ -115,7 +115,7 @@ class TestDockerModelRunnerTransformation:
             model="llama-3.1",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -145,7 +145,7 @@ class TestDockerModelRunnerTransformation:
                 list[AllMessageValues], [{"role": "user", "content": "Hello"}]
             ),
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="test-key",
             api_base="http://localhost:22088/engines/llama.cpp",
         )

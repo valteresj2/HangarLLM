@@ -10,17 +10,17 @@ import pytest
 from fastapi import HTTPException
 
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms import get_guardrail_translation_mapping
-from litellm.llms.openai.completion.guardrail_translation.handler import (
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms import get_guardrail_translation_mapping
+from hangarllm.llms.openai.completion.guardrail_translation.handler import (
     OpenAITextCompletionHandler,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import ContentFilterGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
-from litellm.types.guardrails import BlockedWord, ContentFilterAction, GuardrailEventHooks
-from litellm.types.utils import CallTypes, GenericGuardrailAPIInputs, TextChoices, TextCompletionResponse, Usage
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.content_filter import ContentFilterGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
+from hangarllm.types.guardrails import BlockedWord, ContentFilterAction, GuardrailEventHooks
+from hangarllm.types.utils import CallTypes, GenericGuardrailAPIInputs, TextChoices, TextCompletionResponse, Usage
 
 
 class MockGuardrail(CustomGuardrail):
@@ -369,7 +369,7 @@ class _RecordingKeywordFilter(ContentFilterGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: HangarLLMLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         self.scanned_texts = (*self.scanned_texts, tuple(inputs.get("texts") or ()))
         return await super().apply_guardrail(inputs, request_data, input_type, logging_obj)
@@ -381,7 +381,7 @@ class _PassthroughReplaceGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: HangarLLMLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         if any("kumquat" in text for text in inputs.get("texts") or []):
             self.raise_passthrough_exception(violation_message="replaced kumquat", request_data=request_data)

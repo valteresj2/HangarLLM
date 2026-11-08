@@ -6,8 +6,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from litellm.proxy.discovery_endpoints.ui_discovery_endpoints import router
-from litellm.types.proxy.control_plane_endpoints import WorkerRegistryEntry
+from hangarllm.proxy.discovery_endpoints.ui_discovery_endpoints import router
+from hangarllm.types.proxy.control_plane_endpoints import WorkerRegistryEntry
 
 
 def test_ui_discovery_endpoints_with_defaults():
@@ -16,12 +16,12 @@ def test_ui_discovery_endpoints_with_defaults():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -38,16 +38,16 @@ def test_ui_discovery_endpoints_with_custom_server_root_path():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/hangarllm"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["server_root_path"] == "/litellm"
+        assert data["server_root_path"] == "/hangarllm"
         assert data["proxy_base_url"] is None
         assert data["auto_redirect_to_sso"] is False
         assert data["sso_configured"] is False
@@ -59,15 +59,15 @@ def test_ui_discovery_endpoints_with_proxy_base_url_when_set():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
         patch(
-            "litellm.proxy.utils.get_proxy_base_url",
+            "hangarllm.proxy.utils.get_proxy_base_url",
             return_value="https://proxy.example.com",
         ),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
-        response = client.get("/litellm/.well-known/litellm-ui-config")
+        response = client.get("/hangarllm/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -95,17 +95,17 @@ def test_ui_discovery_endpoints_normalizes_gateway_base_url(
     client: Final[TestClient] = TestClient(app)
 
     if gateway_url is None:
-        monkeypatch.delenv("LITELLM_GATEWAY_URL", raising=False)
+        monkeypatch.delenv("HANGARLLM_GATEWAY_URL", raising=False)
     else:
-        monkeypatch.setenv("LITELLM_GATEWAY_URL", gateway_url)
+        monkeypatch.setenv("HANGARLLM_GATEWAY_URL", gateway_url)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value="https://proxy.example.com"),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value="https://proxy.example.com"),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
-        response: Final = client.get("/.well-known/litellm-ui-config")
+        response: Final = client.get("/.well-known/hangarllm-ui-config")
 
     assert response.status_code == 200
     assert response.json()["proxy_base_url"] == "https://proxy.example.com"
@@ -118,23 +118,23 @@ def test_ui_discovery_endpoints_with_sso_configured_and_auto_redirect_enabled():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/hangarllm"),
         patch(
-            "litellm.proxy.utils.get_proxy_base_url",
+            "hangarllm.proxy.utils.get_proxy_base_url",
             return_value="https://proxy.example.com",
         ),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
         patch.dict(
             os.environ,
             {"AUTO_REDIRECT_UI_LOGIN_TO_SSO": "true", "DISABLE_ADMIN_UI": "false"},
             clear=False,
         ),
     ):
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["server_root_path"] == "/litellm"
+        assert data["server_root_path"] == "/hangarllm"
         assert data["proxy_base_url"] == "https://proxy.example.com"
         assert data["auto_redirect_to_sso"] is True
         assert data["sso_configured"] is True
@@ -147,22 +147,22 @@ def test_ui_discovery_endpoints_with_sso_configured_and_auto_redirect_not_set_de
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/hangarllm"),
         patch(
-            "litellm.proxy.utils.get_proxy_base_url",
+            "hangarllm.proxy.utils.get_proxy_base_url",
             return_value="https://proxy.example.com",
         ),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
         # Ensure AUTO_REDIRECT_UI_LOGIN_TO_SSO is not set (simulate default)
         os.environ.pop("AUTO_REDIRECT_UI_LOGIN_TO_SSO", None)
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["server_root_path"] == "/litellm"
+        assert data["server_root_path"] == "/hangarllm"
         assert data["proxy_base_url"] == "https://proxy.example.com"
         assert data["auto_redirect_to_sso"] is False
         assert data["sso_configured"] is True
@@ -174,23 +174,23 @@ def test_ui_discovery_endpoints_with_sso_configured_but_auto_redirect_disabled()
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/hangarllm"),
         patch(
-            "litellm.proxy.utils.get_proxy_base_url",
+            "hangarllm.proxy.utils.get_proxy_base_url",
             return_value="https://proxy.example.com",
         ),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
         patch.dict(
             os.environ,
             {"AUTO_REDIRECT_UI_LOGIN_TO_SSO": "false", "DISABLE_ADMIN_UI": "false"},
             clear=False,
         ),
     ):
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["server_root_path"] == "/litellm"
+        assert data["server_root_path"] == "/hangarllm"
         assert data["proxy_base_url"] == "https://proxy.example.com"
         assert data["auto_redirect_to_sso"] is False
         assert data["sso_configured"] is True
@@ -202,16 +202,16 @@ def test_ui_discovery_endpoints_with_sso_not_configured_but_auto_redirect_enable
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(
             os.environ,
             {"AUTO_REDIRECT_UI_LOGIN_TO_SSO": "true", "DISABLE_ADMIN_UI": "false"},
             clear=False,
         ),
     ):
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -227,20 +227,20 @@ def test_ui_discovery_endpoints_both_routes_return_same_data():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/hangarllm"),
         patch(
-            "litellm.proxy.utils.get_proxy_base_url",
+            "hangarllm.proxy.utils.get_proxy_base_url",
             return_value="https://proxy.example.com",
         ),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
         patch.dict(
             os.environ,
             {"AUTO_REDIRECT_UI_LOGIN_TO_SSO": "true", "DISABLE_ADMIN_UI": "false"},
             clear=False,
         ),
     ):
-        response1 = client.get("/.well-known/litellm-ui-config")
-        response2 = client.get("/litellm/.well-known/litellm-ui-config")
+        response1 = client.get("/.well-known/hangarllm-ui-config")
+        response2 = client.get("/hangarllm/.well-known/hangarllm-ui-config")
 
         assert response1.status_code == 200
         assert response2.status_code == 200
@@ -254,18 +254,18 @@ def test_ui_discovery_endpoints_with_auto_redirect_via_general_settings():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"auto_redirect_ui_login_to_sso": True},
         ),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
         os.environ.pop("AUTO_REDIRECT_UI_LOGIN_TO_SSO", None)
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -280,11 +280,11 @@ def test_ui_discovery_endpoints_with_auto_redirect_env_var_overrides_general_set
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"auto_redirect_ui_login_to_sso": False},
         ),
         patch.dict(
@@ -293,7 +293,7 @@ def test_ui_discovery_endpoints_with_auto_redirect_env_var_overrides_general_set
             clear=False,
         ),
     ):
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -306,12 +306,12 @@ def test_ui_discovery_endpoints_with_admin_ui_disabled():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "true"}, clear=False),
     ):
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -333,13 +333,13 @@ def test_ui_discovery_endpoints_is_control_plane_true_when_workers_configured():
     ]
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
-        patch("litellm.proxy.proxy_server.proxy_config", mock_config),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("hangarllm.proxy.proxy_server.proxy_config", mock_config),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -357,15 +357,15 @@ def test_ui_discovery_endpoints_hide_default_credentials_hint_default_false():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
-        os.environ.pop("LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
+        os.environ.pop("HANGARLLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
         os.environ.pop("UI_PASSWORD", None)
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -378,9 +378,9 @@ def test_ui_discovery_endpoints_hide_default_credentials_hint_when_ui_password_s
     client = TestClient(app)
 
     with patch.dict(os.environ, {"UI_PASSWORD": "s3cret-pass", "DISABLE_ADMIN_UI": "false"}, clear=False):
-        os.environ.pop("LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
+        os.environ.pop("HANGARLLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         assert response.json()["hide_default_credentials_hint"] is True
@@ -399,36 +399,36 @@ def test_ui_discovery_endpoints_keeps_default_credentials_hint_without_real_ui_p
     client = TestClient(app)
 
     with patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false", **env_overrides}, clear=False):
-        os.environ.pop("LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
+        os.environ.pop("HANGARLLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
         if "UI_PASSWORD" not in env_overrides:
             os.environ.pop("UI_PASSWORD", None)
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         assert response.json()["hide_default_credentials_hint"] is False
 
 
 def test_ui_discovery_endpoints_hide_default_credentials_hint_via_env_var():
-    """LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT=true hides the login-page credentials card."""
+    """HANGARLLM_HIDE_DEFAULT_CREDENTIALS_HINT=true hides the login-page credentials card."""
     app = FastAPI()
     app.include_router(router)
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(
             os.environ,
             {
-                "LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT": "true",
+                "HANGARLLM_HIDE_DEFAULT_CREDENTIALS_HINT": "true",
                 "DISABLE_ADMIN_UI": "false",
             },
             clear=False,
         ),
     ):
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -442,18 +442,18 @@ def test_ui_discovery_endpoints_hide_default_credentials_hint_via_general_settin
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"hide_default_credentials_hint": True},
         ),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
-        os.environ.pop("LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
+        os.environ.pop("HANGARLLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -469,13 +469,13 @@ def test_ui_discovery_endpoints_is_control_plane_false_when_no_workers():
     mock_config.worker_registry = []
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
-        patch("litellm.proxy.proxy_server.proxy_config", mock_config),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("hangarllm.proxy.proxy_server.proxy_config", mock_config),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/hangarllm-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -486,18 +486,18 @@ def test_ui_discovery_endpoints_is_control_plane_false_when_no_workers():
 @pytest.mark.parametrize(("flag", "expected"), [(None, False), ("false", False), ("true", True)])
 def test_ui_config_tells_the_dashboard_whether_stdio_mcp_servers_are_enabled(monkeypatch, flag, expected):
     if flag is None:
-        monkeypatch.delenv("LITELLM_ENABLE_MCP_STDIO", raising=False)
+        monkeypatch.delenv("HANGARLLM_ENABLE_MCP_STDIO", raising=False)
     else:
-        monkeypatch.setenv("LITELLM_ENABLE_MCP_STDIO", flag)
+        monkeypatch.setenv("HANGARLLM_ENABLE_MCP_STDIO", flag)
     app = FastAPI()
     app.include_router(router)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
     ):
-        response = TestClient(app).get("/.well-known/litellm-ui-config")
+        response = TestClient(app).get("/.well-known/hangarllm-ui-config")
 
     assert response.status_code == 200
     assert response.json()["mcp_stdio_enabled"] is expected
@@ -508,18 +508,18 @@ def test_ui_config_tells_the_dashboard_whether_to_use_si_terminology(
     monkeypatch: pytest.MonkeyPatch, flag: str | None, expected: bool
 ) -> None:
     if flag is None:
-        monkeypatch.delenv("LITELLM_UI_USE_SI_TERMINOLOGY", raising=False)
+        monkeypatch.delenv("HANGARLLM_UI_USE_SI_TERMINOLOGY", raising=False)
     else:
-        monkeypatch.setenv("LITELLM_UI_USE_SI_TERMINOLOGY", flag)
+        monkeypatch.setenv("HANGARLLM_UI_USE_SI_TERMINOLOGY", flag)
     app: Final[FastAPI] = FastAPI()
     app.include_router(router)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
     ):
-        response: Final = TestClient(app).get("/.well-known/litellm-ui-config")
+        response: Final = TestClient(app).get("/.well-known/hangarllm-ui-config")
 
     assert response.status_code == 200
     assert response.json()["use_si_terminology"] is expected
@@ -538,18 +538,18 @@ def test_ui_config_tells_the_dashboard_whether_to_use_si_terminology(
 def test_ui_config_reports_whether_the_marketplace_requires_a_key_as_the_marketplace_reads_it(
     monkeypatch: pytest.MonkeyPatch, settings: dict[str, object], expected: bool
 ) -> None:
-    import litellm.proxy.proxy_server
+    import hangarllm.proxy.proxy_server
 
-    monkeypatch.setattr(litellm.proxy.proxy_server, "general_settings", settings)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "general_settings", settings)
     app: Final[FastAPI] = FastAPI()
     app.include_router(router)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
     ):
-        response: Final = TestClient(app).get("/.well-known/litellm-ui-config")
+        response: Final = TestClient(app).get("/.well-known/hangarllm-ui-config")
 
     assert response.status_code == 200
     assert response.json()["claude_code_marketplace_auth_required"] is expected

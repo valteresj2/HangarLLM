@@ -15,15 +15,15 @@ import pytest
 from pydantic import TypeAdapter
 from unittest.mock import MagicMock
 
-import litellm
-from litellm.llms.base_llm.files.transformation import BaseFileUploadStream
-from litellm.llms.vertex_ai.files.transformation import (
+import hangarllm
+from hangarllm.llms.base_llm.files.transformation import BaseFileUploadStream
+from hangarllm.llms.vertex_ai.files.transformation import (
     VertexAIFilesConfig,
-    _get_litellm_batch_custom_id_from_labels,
+    _get_hangarllm_batch_custom_id_from_labels,
     _openai_batch_jsonl_entry_to_vertex_rows,
     _sanitize_gcp_label_value,
 )
-from litellm.types.llms.openai import OpenAIFileObject, HttpxBinaryResponseContent
+from hangarllm.types.llms.openai import OpenAIFileObject, HttpxBinaryResponseContent
 from openai.types.file_deleted import FileDeleted
 
 
@@ -36,46 +36,46 @@ class TestParseGcsUri:
     """Tests for the _parse_gcs_uri helper used by retrieve / content / delete."""
 
     def test_should_parse_standard_gs_uri(self, config):
-        file_id = "gs://my-bucket/litellm-vertex-files/path/to/object.jsonl"
-        bucket, encoded = config._parse_gcs_uri(file_id, litellm_params={"gcs_bucket_name": "my-bucket"})
+        file_id = "gs://my-bucket/hangarllm-vertex-files/path/to/object.jsonl"
+        bucket, encoded = config._parse_gcs_uri(file_id, hangarllm_params={"gcs_bucket_name": "my-bucket"})
         assert bucket == "my-bucket"
-        assert encoded == urllib.parse.quote("litellm-vertex-files/path/to/object.jsonl", safe="")
+        assert encoded == urllib.parse.quote("hangarllm-vertex-files/path/to/object.jsonl", safe="")
 
     def test_should_parse_uri_with_nested_publisher_path(self, config):
-        uri = "gs://litellm-local/litellm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123"
-        bucket, encoded = config._parse_gcs_uri(uri, litellm_params={"gcs_bucket_name": "litellm-local"})
-        assert bucket == "litellm-local"
-        expected_path = "litellm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123"
+        uri = "gs://hangarllm-local/hangarllm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123"
+        bucket, encoded = config._parse_gcs_uri(uri, hangarllm_params={"gcs_bucket_name": "hangarllm-local"})
+        assert bucket == "hangarllm-local"
+        expected_path = "hangarllm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123"
         assert encoded == urllib.parse.quote(expected_path, safe="")
 
     def test_should_handle_url_encoded_input(self, config):
-        encoded_uri = urllib.parse.quote("gs://my-bucket/litellm-vertex-files/some/path", safe="")
-        bucket, encoded = config._parse_gcs_uri(encoded_uri, litellm_params={"gcs_bucket_name": "my-bucket"})
+        encoded_uri = urllib.parse.quote("gs://my-bucket/hangarllm-vertex-files/some/path", safe="")
+        bucket, encoded = config._parse_gcs_uri(encoded_uri, hangarllm_params={"gcs_bucket_name": "my-bucket"})
         assert bucket == "my-bucket"
-        assert encoded == urllib.parse.quote("litellm-vertex-files/some/path", safe="")
+        assert encoded == urllib.parse.quote("hangarllm-vertex-files/some/path", safe="")
 
     def test_should_reject_bucket_only(self, config):
         with pytest.raises(ValueError, match="object name"):
-            config._parse_gcs_uri("gs://my-bucket", litellm_params={"gcs_bucket_name": "my-bucket"})
+            config._parse_gcs_uri("gs://my-bucket", hangarllm_params={"gcs_bucket_name": "my-bucket"})
 
     def test_should_reject_no_gs_prefix(self, config):
         with pytest.raises(ValueError, match="gs://"):
             config._parse_gcs_uri(
-                "my-bucket/litellm-vertex-files/object.txt",
-                litellm_params={"gcs_bucket_name": "my-bucket"},
+                "my-bucket/hangarllm-vertex-files/object.txt",
+                hangarllm_params={"gcs_bucket_name": "my-bucket"},
             )
 
     def test_should_reject_unmanaged_object_path(self, config):
-        with pytest.raises(ValueError, match="LiteLLM-managed"):
+        with pytest.raises(ValueError, match="HangarLLM-managed"):
             config._parse_gcs_uri(
                 "gs://my-bucket/private/object.txt",
-                litellm_params={"gcs_bucket_name": "my-bucket"},
+                hangarllm_params={"gcs_bucket_name": "my-bucket"},
             )
 
     def test_should_allow_legacy_object_path_when_the_call_sets_the_flag(self, config):
         bucket, encoded = config._parse_gcs_uri(
             "gs://my-bucket/private/object.txt",
-            litellm_params={
+            hangarllm_params={
                 "gcs_bucket_name": "my-bucket",
                 "allow_legacy_cloud_file_ids": True,
             },
@@ -87,7 +87,7 @@ class TestParseGcsUri:
     def test_should_keep_configured_prefix_for_legacy_object_path(self, config):
         bucket, encoded = config._parse_gcs_uri(
             "gs://my-bucket/team-a/private/object.txt",
-            litellm_params={
+            hangarllm_params={
                 "gcs_bucket_name": "my-bucket/team-a",
                 "allow_legacy_cloud_file_ids": True,
             },
@@ -100,7 +100,7 @@ class TestParseGcsUri:
         with pytest.raises(ValueError, match="configured storage prefix"):
             config._parse_gcs_uri(
                 "gs://my-bucket/team-b/private/object.txt",
-                litellm_params={
+                hangarllm_params={
                     "gcs_bucket_name": "my-bucket/team-a",
                     "allow_legacy_cloud_file_ids": True,
                 },
@@ -109,8 +109,8 @@ class TestParseGcsUri:
     def test_should_reject_unconfigured_bucket(self, config):
         with pytest.raises(ValueError, match="configured storage bucket"):
             config._parse_gcs_uri(
-                "gs://other-bucket/litellm-vertex-files/object.txt",
-                litellm_params={"gcs_bucket_name": "my-bucket"},
+                "gs://other-bucket/hangarllm-vertex-files/object.txt",
+                hangarllm_params={"gcs_bucket_name": "my-bucket"},
             )
 
 
@@ -121,9 +121,9 @@ class TestCreateFileUrl:
             api_key=None,
             model="",
             optional_params={},
-            litellm_params={
+            hangarllm_params={
                 "gcs_bucket_name": "safe-bucket",
-                "litellm_metadata": {"gcs_bucket_name": "attacker-bucket"},
+                "hangarllm_metadata": {"gcs_bucket_name": "attacker-bucket"},
             },
             data={
                 "file": ("../../owned.jsonl?alt=media", b"{}", "application/jsonl"),
@@ -135,7 +135,7 @@ class TestCreateFileUrl:
         object_name = parse_qs(parsed_url.query)["name"][0]
         assert "/b/safe-bucket/" in parsed_url.path
         assert "attacker-bucket" not in url
-        assert object_name.startswith("litellm-vertex-files/uploads/")
+        assert object_name.startswith("hangarllm-vertex-files/uploads/")
         assert object_name.endswith("-owned.jsonl_alt_media")
         assert ".." not in object_name
         assert "?" not in object_name
@@ -144,7 +144,7 @@ class TestCreateFileUrl:
 class TestBatchObjectNaming:
     def test_should_store_publisher_model_under_publishers_path(self, config):
         object_name = config._get_gcs_object_name_from_batch_jsonl([{"body": {"model": "gemini-2.5-flash"}}])
-        assert object_name.startswith("litellm-vertex-files/publishers/google/models/gemini-2.5-flash/")
+        assert object_name.startswith("hangarllm-vertex-files/publishers/google/models/gemini-2.5-flash/")
 
     @pytest.mark.parametrize(
         ("model", "stored_model"),
@@ -155,7 +155,7 @@ class TestBatchObjectNaming:
     )
     def test_only_claude_models_keep_the_at_version_in_their_object_name(self, config, model, stored_model):
         object_name: Final = config._get_gcs_object_name_from_batch_jsonl([{"body": {"model": model}}])
-        assert object_name.startswith(f"litellm-vertex-files/{stored_model}")
+        assert object_name.startswith(f"hangarllm-vertex-files/{stored_model}")
 
     def test_should_store_fine_tuned_endpoint_under_endpoints_path(self, config):
         """A numeric endpoint id must not be filed under publishers/google/models/gemini/<id>,
@@ -163,12 +163,12 @@ class TestBatchObjectNaming:
         object_name = config._get_gcs_object_name_from_batch_jsonl(
             [{"body": {"model": "gemini/7768560373388541952"}}]
         )
-        assert object_name.startswith("litellm-vertex-files/endpoints/7768560373388541952/")
+        assert object_name.startswith("hangarllm-vertex-files/endpoints/7768560373388541952/")
         assert "publishers" not in object_name
 
     def test_should_store_bare_numeric_endpoint_under_endpoints_path(self, config):
         object_name = config._get_gcs_object_name_from_batch_jsonl([{"body": {"model": "7768560373388541952"}}])
-        assert object_name.startswith("litellm-vertex-files/endpoints/7768560373388541952/")
+        assert object_name.startswith("hangarllm-vertex-files/endpoints/7768560373388541952/")
 
     def test_deployment_model_overrides_jsonl_body_model(self, config):
         """The stored path decides which Vertex model the batch later runs against with the
@@ -178,7 +178,7 @@ class TestBatchObjectNaming:
             [{"body": {"model": "9999999999999999999"}}],
             deployment_model="vertex_ai/gemini/7768560373388541952",
         )
-        assert object_name.startswith("litellm-vertex-files/endpoints/7768560373388541952/")
+        assert object_name.startswith("hangarllm-vertex-files/endpoints/7768560373388541952/")
         assert "9999999999999999999" not in object_name
 
     def test_url_derives_object_path_from_configured_model(self, config):
@@ -187,7 +187,7 @@ class TestBatchObjectNaming:
             api_key=None,
             model="",
             optional_params={},
-            litellm_params={
+            hangarllm_params={
                 "gcs_bucket_name": "my-bucket",
                 "model": "vertex_ai/gemini/7768560373388541952",
             },
@@ -197,7 +197,7 @@ class TestBatchObjectNaming:
             },
         )
         object_name = parse_qs(urlparse(url).query)["name"][0]
-        assert object_name.startswith("litellm-vertex-files/endpoints/7768560373388541952/")
+        assert object_name.startswith("hangarllm-vertex-files/endpoints/7768560373388541952/")
         assert "9999999999999999999" not in object_name
 
 
@@ -205,7 +205,7 @@ class TestCustomEndpointBatchUpload:
     def test_should_reject_batch_upload_for_custom_endpoint_deployment(self, config):
         """custom_endpoint deployments have no Vertex batch surface; the upload must 400 instead
         of staging a file that can only produce a doomed batch job (LIT-6899)."""
-        from litellm.llms.vertex_ai.common_utils import VertexAIError
+        from hangarllm.llms.vertex_ai.common_utils import VertexAIError
 
         with pytest.raises(VertexAIError) as exc_info:
             config.get_complete_file_url(
@@ -213,7 +213,7 @@ class TestCustomEndpointBatchUpload:
                 api_key=None,
                 model="",
                 optional_params={},
-                litellm_params={"gcs_bucket_name": "my-bucket", "custom_endpoint": True},
+                hangarllm_params={"gcs_bucket_name": "my-bucket", "custom_endpoint": True},
                 data={
                     "file": ("batch.jsonl", b'{"body": {"model": "openai/gemma-2-2b-it"}}', "application/jsonl"),
                     "purpose": "batch",
@@ -228,7 +228,7 @@ class TestCustomEndpointBatchUpload:
             api_key=None,
             model="",
             optional_params={},
-            litellm_params={"gcs_bucket_name": "my-bucket", "custom_endpoint": True},
+            hangarllm_params={"gcs_bucket_name": "my-bucket", "custom_endpoint": True},
             data={
                 "file": ("notes.txt", b"hello", "text/plain"),
                 "purpose": "assistants",
@@ -239,13 +239,13 @@ class TestCustomEndpointBatchUpload:
 
 class TestTransformRetrieveFile:
     def test_should_build_correct_gcs_metadata_url(self, config):
-        file_id = "gs://my-bucket/litellm-vertex-files/path/to/file.jsonl"
+        file_id = "gs://my-bucket/hangarllm-vertex-files/path/to/file.jsonl"
         url, params = config.transform_retrieve_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params={"gcs_bucket_name": "my-bucket"},
+            hangarllm_params={"gcs_bucket_name": "my-bucket"},
         )
-        expected_encoded = urllib.parse.quote("litellm-vertex-files/path/to/file.jsonl", safe="")
+        expected_encoded = urllib.parse.quote("hangarllm-vertex-files/path/to/file.jsonl", safe="")
         assert url == f"https://storage.googleapis.com/storage/v1/b/my-bucket/o/{expected_encoded}"
         assert params == {}
 
@@ -263,7 +263,7 @@ class TestTransformRetrieveFile:
         result = config.transform_retrieve_file_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert isinstance(result, OpenAIFileObject)
@@ -287,20 +287,20 @@ class TestTransformRetrieveFile:
         result = config.transform_retrieve_file_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            hangarllm_params={},
         )
         assert result.purpose == "batch"
 
 
 class TestTransformFileContent:
     def test_should_build_gcs_media_download_url(self, config):
-        file_id = "gs://my-bucket/litellm-vertex-files/path/to/file.jsonl"
+        file_id = "gs://my-bucket/hangarllm-vertex-files/path/to/file.jsonl"
         url, params = config.transform_file_content_request(
             file_content_request={"file_id": file_id},
             optional_params={},
-            litellm_params={"gcs_bucket_name": "my-bucket"},
+            hangarllm_params={"gcs_bucket_name": "my-bucket"},
         )
-        encoded = urllib.parse.quote("litellm-vertex-files/path/to/file.jsonl", safe="")
+        encoded = urllib.parse.quote("hangarllm-vertex-files/path/to/file.jsonl", safe="")
         assert url == f"https://storage.googleapis.com/storage/v1/b/my-bucket/o/{encoded}?alt=media"
         assert params == {}
 
@@ -315,7 +315,7 @@ class TestTransformFileContent:
         result = config.transform_file_content_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert isinstance(result, HttpxBinaryResponseContent)
@@ -331,7 +331,7 @@ class TestTransformFileContent:
                 {
                     "status": "",
                     "processed_time": "2024-11-01T18:13:16.826+00:00",
-                    "request": {"labels": {"litellm_custom_id": "request-1"}},
+                    "request": {"labels": {"hangarllm_custom_id": "request-1"}},
                     "response": {
                         "candidates": [{"content": {"parts": [{"text": "ok"}], "role": "model"}}],
                         "modelVersion": "gemini-2.0-flash-001@default",
@@ -356,7 +356,7 @@ class TestTransformFileContent:
             captured["logging_obj"] = logging_obj
             logging_obj.model = "gemini-2.0-flash-001"
             logging_obj.start_time = 789.0
-            return {"custom_id": vertex_output["request"]["labels"]["litellm_custom_id"]}
+            return {"custom_id": vertex_output["request"]["labels"]["hangarllm_custom_id"]}
 
         monkeypatch.setattr(
             config,
@@ -367,7 +367,7 @@ class TestTransformFileContent:
         result = config.transform_file_content_response(
             raw_response=raw_response,
             logging_obj=logging_obj,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert captured["logging_obj"] is not logging_obj
@@ -377,16 +377,16 @@ class TestTransformFileContent:
         assert result.response is not raw_response
 
     def test_should_skip_batch_output_transformation_when_opt_out_flag_set(self, config, monkeypatch):
-        """When `litellm.disable_vertex_batch_output_transformation` is True the
+        """When `hangarllm.disable_vertex_batch_output_transformation` is True the
         Vertex predictions.jsonl content must be returned untouched, so callers
         that parse raw `candidates`/`modelVersion` keep working."""
-        import litellm
+        import hangarllm
 
         raw_jsonl = json.dumps(
             {
                 "status": "",
                 "processed_time": "2024-11-01T18:13:16.826+00:00",
-                "request": {"labels": {"litellm_custom_id": "request-1"}},
+                "request": {"labels": {"hangarllm_custom_id": "request-1"}},
                 "response": {
                     "candidates": [{"content": {"parts": [{"text": "ok"}], "role": "model"}}],
                     "modelVersion": "gemini-2.0-flash-001@default",
@@ -400,12 +400,12 @@ class TestTransformFileContent:
             request=httpx.Request("GET", "https://example.com"),
         )
 
-        monkeypatch.setattr(litellm, "disable_vertex_batch_output_transformation", True, raising=False)
+        monkeypatch.setattr(hangarllm, "disable_vertex_batch_output_transformation", True, raising=False)
 
         result = config.transform_file_content_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert isinstance(result, HttpxBinaryResponseContent)
@@ -414,13 +414,13 @@ class TestTransformFileContent:
 
 class TestTransformDeleteFile:
     def test_should_build_correct_gcs_delete_url(self, config):
-        file_id = "gs://my-bucket/litellm-vertex-files/path/to/file.jsonl"
+        file_id = "gs://my-bucket/hangarllm-vertex-files/path/to/file.jsonl"
         url, params = config.transform_delete_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params={"gcs_bucket_name": "my-bucket"},
+            hangarllm_params={"gcs_bucket_name": "my-bucket"},
         )
-        encoded = urllib.parse.quote("litellm-vertex-files/path/to/file.jsonl", safe="")
+        encoded = urllib.parse.quote("hangarllm-vertex-files/path/to/file.jsonl", safe="")
         assert url == f"https://storage.googleapis.com/storage/v1/b/my-bucket/o/{encoded}"
         assert params == {}
 
@@ -428,7 +428,7 @@ class TestTransformDeleteFile:
         raw_response = MagicMock(spec=httpx.Response)
         mock_request = MagicMock()
         encoded_name = urllib.parse.quote(
-            "litellm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc",
+            "hangarllm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc",
             safe="",
         )
         mock_request.url = f"https://storage.googleapis.com/storage/v1/b/my-bucket/o/{encoded_name}"
@@ -437,13 +437,13 @@ class TestTransformDeleteFile:
         result = config.transform_delete_file_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert isinstance(result, FileDeleted)
         assert result.deleted is True
         assert result.object == "file"
-        assert result.id == "gs://my-bucket/litellm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc"
+        assert result.id == "gs://my-bucket/hangarllm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc"
 
     def test_should_fallback_to_deleted_id_when_no_request(self, config):
         raw_response = MagicMock(spec=httpx.Response)
@@ -452,7 +452,7 @@ class TestTransformDeleteFile:
         result = config.transform_delete_file_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert isinstance(result, FileDeleted)
@@ -474,7 +474,7 @@ class TestTransformDeleteFile:
         result = config.transform_delete_file_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert result.id == "gs://my-bucket/path/to/file.jsonl"
@@ -484,7 +484,7 @@ class TestTransformDeleteFile:
         raw_response = MagicMock(spec=httpx.Response)
         mock_request = MagicMock()
         encoded_object = urllib.parse.quote(
-            "litellm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123",
+            "hangarllm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123",
             safe="",
         )
         mock_request.url = f"https://storage.googleapis.com/storage/v1/b/prod-bucket/o/{encoded_object}"
@@ -493,11 +493,11 @@ class TestTransformDeleteFile:
         result = config.transform_delete_file_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert result.id == (
-            "gs://prod-bucket/litellm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123"
+            "gs://prod-bucket/hangarllm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123"
         )
 
 
@@ -512,7 +512,7 @@ class TestVertexBatchOutputTransformation:
             "processed_time": "2024-11-01T18:13:16.826+00:00",
             "request": {
                 "contents": [{"role": "user", "parts": [{"text": "Hello world!"}]}],
-                "labels": {"litellm_custom_id": "request-1"},
+                "labels": {"hangarllm_custom_id": "request-1"},
             },
             "response": {
                 "candidates": [
@@ -570,7 +570,7 @@ class TestVertexBatchOutputTransformation:
             "processed_time": "2024-11-01T18:13:16.826+00:00",
             "request": {
                 "contents": [{"role": "user", "parts": [{"text": "Hello world!"}]}],
-                "labels": {"litellm_custom_id": "request-error"},
+                "labels": {"hangarllm_custom_id": "request-error"},
             },
             "response": {},
         }
@@ -595,7 +595,7 @@ class TestVertexBatchOutputTransformation:
         so this test invokes the single-line transformer directly with a vertex_gemini_config
         stub that raises during transformation.
         """
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             VertexGeminiConfig,
         )
 
@@ -604,7 +604,7 @@ class TestVertexBatchOutputTransformation:
             "processed_time": "2024-11-01T18:13:16.826+00:00",
             "request": {
                 "contents": [{"role": "user", "parts": [{"text": "Hello world!"}]}],
-                "labels": {"litellm_custom_id": "request-boom"},
+                "labels": {"hangarllm_custom_id": "request-boom"},
             },
             "response": {"modelVersion": "gemini-2.0-flash-001@default"},
         }
@@ -633,13 +633,13 @@ class TestVertexBatchOutputTransformation:
         assert result["custom_id"] == "request-boom"
 
     def test_transform_vertex_batch_output_legacy_labels_only_sanitized(self, config):
-        """Older LiteLLM batches only stored litellm_custom_id (sanitized); read path still works."""
+        """Older HangarLLM batches only stored hangarllm_custom_id (sanitized); read path still works."""
         vertex_output = {
             "status": "",
             "processed_time": "2024-11-01T18:13:16.826+00:00",
             "request": {
                 "contents": [{"role": "user", "parts": [{"text": "Hello world!"}]}],
-                "labels": {"litellm_custom_id": "myrequest-1"},
+                "labels": {"hangarllm_custom_id": "myrequest-1"},
             },
             "response": {
                 "candidates": [
@@ -674,7 +674,7 @@ class TestVertexBatchOutputTransformation:
                 "processed_time": "2024-11-01T18:13:16.826+00:00",
                 "request": {
                     "contents": [{"role": "user", "parts": [{"text": "First request"}]}],
-                    "labels": {"litellm_custom_id": "request-1"},
+                    "labels": {"hangarllm_custom_id": "request-1"},
                 },
                 "response": {
                     "candidates": [
@@ -699,7 +699,7 @@ class TestVertexBatchOutputTransformation:
                 "processed_time": "2024-11-01T18:13:17.826+00:00",
                 "request": {
                     "contents": [{"role": "user", "parts": [{"text": "Second request"}]}],
-                    "labels": {"litellm_custom_id": "request-2"},
+                    "labels": {"hangarllm_custom_id": "request-2"},
                 },
                 "response": {
                     "candidates": [
@@ -743,7 +743,7 @@ class TestVertexBatchOutputTransformation:
             {
                 "status": "",
                 "processed_time": "2024-11-01T18:13:16.826+00:00",
-                "request": {"labels": {"litellm_custom_id": "blocked-request"}},
+                "request": {"labels": {"hangarllm_custom_id": "blocked-request"}},
                 "response": {
                     "promptFeedback": {"blockReason": "SAFETY"},
                     "modelVersion": "gemini-2.0-flash-001@default",
@@ -752,7 +752,7 @@ class TestVertexBatchOutputTransformation:
             {
                 "status": "",
                 "processed_time": "2024-11-01T18:13:17.826+00:00",
-                "request": {"labels": {"litellm_custom_id": "request-2"}},
+                "request": {"labels": {"hangarllm_custom_id": "request-2"}},
                 "response": {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]},
             },
         ]
@@ -763,7 +763,7 @@ class TestVertexBatchOutputTransformation:
             logging_obj,
             mock_httpx_response,
         ):
-            return {"custom_id": vertex_output["request"]["labels"]["litellm_custom_id"]}
+            return {"custom_id": vertex_output["request"]["labels"]["hangarllm_custom_id"]}
 
         monkeypatch.setattr(
             config,
@@ -800,7 +800,7 @@ class TestVertexBatchOutputTransformation:
             {
                 "status": "",
                 "processed_time": "2024-11-01T18:13:16.826+00:00",
-                "request": {"labels": {"litellm_custom_id": f"request-{i}"}},
+                "request": {"labels": {"hangarllm_custom_id": f"request-{i}"}},
                 "response": {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]},
             }
             for i in range(2)
@@ -820,7 +820,7 @@ class TestVertexBatchOutputTransformation:
                     id(mock_httpx_response),
                 )
             )
-            return {"custom_id": vertex_output["request"]["labels"]["litellm_custom_id"]}
+            return {"custom_id": vertex_output["request"]["labels"]["hangarllm_custom_id"]}
 
         monkeypatch.setattr(
             config,
@@ -866,7 +866,7 @@ class TestTryTransformDoesNotMutateCallerLoggingObj:
                 "processed_time": "2024-11-01T18:13:16.826+00:00",
                 "request": {
                     "contents": [{"role": "user", "parts": [{"text": "Hello world!"}]}],
-                    "labels": {"litellm_custom_id": "request-1"},
+                    "labels": {"hangarllm_custom_id": "request-1"},
                 },
                 "response": {
                     "candidates": [
@@ -990,9 +990,9 @@ class TestVertexBatchCustomIdLabels:
 
         # Verify labels were added
         assert "labels" in vertex_request["request"]
-        assert "litellm_custom_id" in vertex_request["request"]["labels"]
-        assert vertex_request["request"]["labels"]["litellm_custom_id"] == "request-1"
-        raw_label = vertex_request["request"]["labels"]["litellm_custom_id_raw"]
+        assert "hangarllm_custom_id" in vertex_request["request"]["labels"]
+        assert vertex_request["request"]["labels"]["hangarllm_custom_id"] == "request-1"
+        raw_label = vertex_request["request"]["labels"]["hangarllm_custom_id_raw"]
         assert raw_label != "request-1"
         assert _sanitize_gcp_label_value(raw_label) == raw_label
 
@@ -1018,12 +1018,12 @@ class TestVertexBatchCustomIdLabels:
         labels_a = vertex_jsonl_content[0]["request"]["labels"]
         labels_b = vertex_jsonl_content[1]["request"]["labels"]
 
-        assert "litellm_custom_id_raw_1" in labels_a
-        assert "litellm_custom_id_raw_1" in labels_b
-        assert labels_a["litellm_custom_id_raw"] == labels_b["litellm_custom_id_raw"]
-        assert labels_a["litellm_custom_id_raw_1"] != labels_b["litellm_custom_id_raw_1"]
-        assert _get_litellm_batch_custom_id_from_labels(labels_a) == custom_id_a
-        assert _get_litellm_batch_custom_id_from_labels(labels_b) == custom_id_b
+        assert "hangarllm_custom_id_raw_1" in labels_a
+        assert "hangarllm_custom_id_raw_1" in labels_b
+        assert labels_a["hangarllm_custom_id_raw"] == labels_b["hangarllm_custom_id_raw"]
+        assert labels_a["hangarllm_custom_id_raw_1"] != labels_b["hangarllm_custom_id_raw_1"]
+        assert _get_hangarllm_batch_custom_id_from_labels(labels_a) == custom_id_a
+        assert _get_hangarllm_batch_custom_id_from_labels(labels_b) == custom_id_b
 
     def test_multiple_requests_each_get_their_own_label(self):
         """Test that multiple requests each get their own custom_id label"""
@@ -1047,8 +1047,8 @@ class TestVertexBatchCustomIdLabels:
 
         for i, vertex_request in enumerate(vertex_jsonl_content):
             expected_custom_id = f"request-{i + 1}"
-            assert vertex_request["request"]["labels"]["litellm_custom_id"] == expected_custom_id
-            raw_label = vertex_request["request"]["labels"]["litellm_custom_id_raw"]
+            assert vertex_request["request"]["labels"]["hangarllm_custom_id"] == expected_custom_id
+            raw_label = vertex_request["request"]["labels"]["hangarllm_custom_id_raw"]
             assert raw_label != expected_custom_id
             assert _sanitize_gcp_label_value(raw_label) == raw_label
 
@@ -1094,8 +1094,8 @@ class TestVertexBatchCustomIdLabels:
         vertex_input = _wrap_entries(openai_input)
 
         # Verify both labels are GCP-safe and encoded raw preserves round-trip.
-        assert vertex_input[0]["request"]["labels"]["litellm_custom_id"] == "myrequest-1"
-        raw_label = vertex_input[0]["request"]["labels"]["litellm_custom_id_raw"]
+        assert vertex_input[0]["request"]["labels"]["hangarllm_custom_id"] == "myrequest-1"
+        raw_label = vertex_input[0]["request"]["labels"]["hangarllm_custom_id_raw"]
         assert raw_label != "MyRequest-1"
         assert _sanitize_gcp_label_value(raw_label) == raw_label
 
@@ -1158,8 +1158,8 @@ class TestVertexBatchCustomIdLabels:
         vertex_input = _wrap_entries(openai_input)
 
         # Verify both labels are safe for GCP labels.
-        assert vertex_input[0]["request"]["labels"]["litellm_custom_id"] == "myrequest-1"
-        raw_label = vertex_input[0]["request"]["labels"]["litellm_custom_id_raw"]
+        assert vertex_input[0]["request"]["labels"]["hangarllm_custom_id"] == "myrequest-1"
+        raw_label = vertex_input[0]["request"]["labels"]["hangarllm_custom_id_raw"]
         assert raw_label != "MyRequest-1"
         assert _sanitize_gcp_label_value(raw_label) == raw_label
 
@@ -1187,7 +1187,7 @@ class TestConfiguredBucketNameResolution:
         monkeypatch.setenv("GCS_BUCKET_NAME", "logging-bucket")
         assert config._get_configured_bucket_name({}) == "batch-bucket"
 
-    def test_should_prefer_litellm_params_over_batch_env(self, config, monkeypatch):
+    def test_should_prefer_hangarllm_params_over_batch_env(self, config, monkeypatch):
         monkeypatch.setenv("GCS_BATCH_BUCKET_NAME", "batch-bucket")
         assert config._get_configured_bucket_name({"gcs_bucket_name": "per-model-bucket"}) == "per-model-bucket"
 
@@ -1197,14 +1197,14 @@ class TestConfiguredBucketNameResolution:
         with pytest.raises(ValueError, match="GCS bucket_name is required"):
             config._get_configured_bucket_name({})
 
-    def test_legacy_kwarg_survives_get_litellm_params(self):
-        from litellm.litellm_core_utils.get_litellm_params import (
+    def test_legacy_kwarg_survives_get_hangarllm_params(self):
+        from hangarllm.hangarllm_core_utils.get_hangarllm_params import (
             OPTIONAL_KWARGS_KEYS,
-            get_litellm_params,
+            get_hangarllm_params,
         )
 
         assert "bucket_name" in OPTIONAL_KWARGS_KEYS
-        params = get_litellm_params(bucket_name="my-legacy-bucket")
+        params = get_hangarllm_params(bucket_name="my-legacy-bucket")
         assert params.get("bucket_name") == "my-legacy-bucket"
 
 
@@ -1440,11 +1440,11 @@ class TestVertexEmbeddingsBatchInputTranslation:
         )
 
         assert row["request"]["contents"] == [{"role": "user", "parts": [{"text": "Hello"}]}]
-        assert row["request"]["labels"]["litellm_custom_id"] == "request-1"
+        assert row["request"]["labels"]["hangarllm_custom_id"] == "request-1"
         assert "key" not in row
 
     def test_should_keep_lines_without_a_url_on_generate_content_path(self):
-        """`url` is optional on a batch line, and chat is the shape LiteLLM has always assumed."""
+        """`url` is optional on a batch line, and chat is the shape HangarLLM has always assumed."""
         (row,) = _wrap_entries(
             [
                 {
@@ -1506,7 +1506,7 @@ class TestVertexResponsesBatchInputTranslation:
         assert row["request"]["contents"] == [
             {"role": "user", "parts": [{"text": "What was the top headline in world news yesterday?"}]}
         ]
-        assert row["request"]["labels"]["litellm_custom_id"] == "resp-1"
+        assert row["request"]["labels"]["hangarllm_custom_id"] == "resp-1"
 
     def test_instructions_and_input_items_map_like_real_time(self):
         (row,) = _wrap_entries(
@@ -1694,7 +1694,7 @@ class TestVertexEmbeddingsBatchOutputTranslation:
                 request=httpx.Request("GET", url),
             ),
             logging_obj=MagicMock(),
-            litellm_params={},
+            hangarllm_params={},
         )
         return [json.loads(line) for line in result.response.content.decode("utf-8").split("\n")]
 
@@ -1727,7 +1727,7 @@ class TestVertexEmbeddingsBatchOutputTranslation:
 
     def test_should_resolve_model_from_managed_gcs_object_path(self, config):
         object_path = urllib.parse.quote(
-            "litellm-vertex-files/publishers/google/models/gemini-embedding-2/"
+            "hangarllm-vertex-files/publishers/google/models/gemini-embedding-2/"
             "prediction-model-2026-07-29T05:55:52Z/predictions.jsonl",
             safe="",
         )
@@ -1994,7 +1994,7 @@ def _claude_chat_entry(custom_id: str | None, content: str, **body: object) -> d
 
 
 def _uploaded_rows(
-    config: VertexAIFilesConfig, litellm_params: Mapping[str, object], entries: Sequence[Mapping[str, object]]
+    config: VertexAIFilesConfig, hangarllm_params: Mapping[str, object], entries: Sequence[Mapping[str, object]]
 ) -> list:
     upload: Final = config.transform_create_file_request(
         model="",
@@ -2003,7 +2003,7 @@ def _uploaded_rows(
             "purpose": "batch",
         },
         optional_params={},
-        litellm_params=dict(litellm_params),
+        hangarllm_params=dict(hangarllm_params),
     )
     match upload:
         case {"streaming_media_upload": {"body_stream": BaseFileUploadStream() as stream}}:
@@ -2032,18 +2032,18 @@ def _claude_output_row(custom_id: str, text: str, content: object = None) -> dic
 
 class TestVertexClaudeBatch:
     """Claude on Vertex batches only as `publishers/anthropic/models/<model>` with Anthropic Messages rows
-    (https://github.com/BerriAI/litellm/issues/45671)"""
+    (upstream issue 45671)"""
 
     @pytest.mark.parametrize("claude_model", ["claude-sonnet-4-6", "claude-haiku-4-5@20251001"])
     def test_claude_upload_creates_a_batch_job_for_the_anthropic_publisher_model(self, config, claude_model):
-        from litellm.llms.vertex_ai.batches.transformation import VertexAIBatchTransformation
+        from hangarllm.llms.vertex_ai.batches.transformation import VertexAIBatchTransformation
 
         url: Final = config.get_complete_file_url(
             api_base=None,
             api_key=None,
             model="",
             optional_params={},
-            litellm_params={**CLAUDE_DEPLOYMENT, "model": f"vertex_ai/{claude_model}"},
+            hangarllm_params={**CLAUDE_DEPLOYMENT, "model": f"vertex_ai/{claude_model}"},
             data={"file": ("batch.jsonl", json.dumps(_claude_chat_entry("r1", "hi")).encode()), "purpose": "batch"},
         )
         object_name: Final = parse_qs(urlparse(url).query)["name"][0]
@@ -2056,13 +2056,13 @@ class TestVertexClaudeBatch:
 
     def test_claude_body_model_without_deployment_is_filed_under_anthropic_publisher(self, config):
         object_name: Final = config._get_gcs_object_name_from_batch_jsonl([{"body": {"model": "claude-haiku-4-5"}}])
-        assert object_name.startswith("litellm-vertex-files/publishers/anthropic/models/claude-haiku-4-5/")
+        assert object_name.startswith("hangarllm-vertex-files/publishers/anthropic/models/claude-haiku-4-5/")
 
     def test_publisher_path_model_is_not_nested_under_google(self, config):
         object_name: Final = config._get_gcs_object_name_from_batch_jsonl(
             [{"body": {}}], deployment_model="vertex_ai/publishers/anthropic/models/claude-sonnet-4-6"
         )
-        assert object_name.startswith("litellm-vertex-files/publishers/anthropic/models/claude-sonnet-4-6/")
+        assert object_name.startswith("hangarllm-vertex-files/publishers/anthropic/models/claude-sonnet-4-6/")
 
     def test_claude_rows_are_uploaded_in_anthropic_messages_shape(self, config):
         rows: Final = _uploaded_rows(
@@ -2097,8 +2097,8 @@ class TestVertexClaudeBatch:
         assert [message["role"] for message in row["request"]["messages"]] == ["user"]
 
     def test_claude_row_drops_an_unsupported_param_under_deployment_drop_params(self, config, monkeypatch):
-        monkeypatch.setitem(litellm.model_cost, "claude-zeta-9", {"supports_sampling_params": False})
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setitem(hangarllm.model_cost, "claude-zeta-9", {"supports_sampling_params": False})
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         entry: Final = _claude_chat_entry("r1", "hi", max_tokens=10, top_p=0.5)
 
         (row,) = _uploaded_rows(
@@ -2109,8 +2109,8 @@ class TestVertexClaudeBatch:
         assert "top_p" not in row["request"]
 
     def test_claude_row_drops_a_param_the_deployment_lists_in_additional_drop_params(self, config, monkeypatch):
-        monkeypatch.setitem(litellm.model_cost, "claude-zeta-9", {"supports_sampling_params": False})
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setitem(hangarllm.model_cost, "claude-zeta-9", {"supports_sampling_params": False})
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         entry: Final = _claude_chat_entry("r1", "hi", max_tokens=10, top_p=0.5)
 
         (row,) = _uploaded_rows(
@@ -2132,10 +2132,10 @@ class TestVertexClaudeBatch:
         assert [(row["request"]["max_tokens"], row["request"]["temperature"]) for row in rows] == [(64, 0.3), (10, 0.3)]
 
     def test_claude_row_with_an_unsupported_param_is_refused_without_drop_params(self, config, monkeypatch):
-        from litellm.llms.vertex_ai.common_utils import VertexAIError
+        from hangarllm.llms.vertex_ai.common_utils import VertexAIError
 
-        monkeypatch.setitem(litellm.model_cost, "claude-zeta-9", {"supports_sampling_params": False})
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setitem(hangarllm.model_cost, "claude-zeta-9", {"supports_sampling_params": False})
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         entry: Final = _claude_chat_entry("r1", "hi", max_tokens=10, top_p=0.5)
 
         with pytest.raises(VertexAIError, match=r"line 1 .*top_p.*drop_params") as exc_info:
@@ -2160,7 +2160,7 @@ class TestVertexClaudeBatch:
         assert "custom_id" not in row
 
     def test_claude_embeddings_batch_line_is_rejected_with_400(self):
-        from litellm.llms.vertex_ai.common_utils import VertexAIError
+        from hangarllm.llms.vertex_ai.common_utils import VertexAIError
 
         entry: Final = {
             "custom_id": "e1",
@@ -2214,7 +2214,7 @@ class TestVertexClaudeBatch:
         assert rows_out["bad"]["error"]["code"] == "vertex_ai_error"
         assert "too long" in rows_out["bad"]["error"]["message"]
 
-    def test_claude_row_keeps_provider_only_params_and_leaves_out_litellm_ones(self, config):
+    def test_claude_row_keeps_provider_only_params_and_leaves_out_hangarllm_ones(self, config):
         (row,) = _uploaded_rows(
             config,
             CLAUDE_DEPLOYMENT,
@@ -2225,10 +2225,10 @@ class TestVertexClaudeBatch:
         assert not {"drop_params", "metadata", "extra_body"} & set(row["request"])
 
     def test_claude_row_top_k_follows_drop_params_on_a_model_without_sampling_params(self, config, monkeypatch):
-        from litellm.llms.vertex_ai.common_utils import VertexAIError
+        from hangarllm.llms.vertex_ai.common_utils import VertexAIError
 
-        monkeypatch.setitem(litellm.model_cost, "claude-zeta-9", {"supports_sampling_params": False})
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setitem(hangarllm.model_cost, "claude-zeta-9", {"supports_sampling_params": False})
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         deployment: Final = {**CLAUDE_DEPLOYMENT, "model": "vertex_ai/claude-zeta-9"}
         entry: Final = _claude_chat_entry("r1", "hi", max_tokens=10, top_k=5)
 
@@ -2241,9 +2241,9 @@ class TestVertexClaudeBatch:
 
     @pytest.mark.parametrize("param", [{"n": 2}, {"seed": 7}, {"presence_penalty": 0.5}, {"logprobs": True}])
     def test_claude_row_param_claude_does_not_support_follows_drop_params(self, config, monkeypatch, param):
-        from litellm.llms.vertex_ai.common_utils import VertexAIError
+        from hangarllm.llms.vertex_ai.common_utils import VertexAIError
 
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         (name,) = param
         entry: Final = _claude_chat_entry("r1", "hi", max_tokens=10, **param)
 
@@ -2255,7 +2255,7 @@ class TestVertexClaudeBatch:
         assert name not in row["request"]
 
     def test_claude_row_refuses_a_tool_name_claude_would_rename(self, config):
-        from litellm.llms.vertex_ai.common_utils import VertexAIError
+        from hangarllm.llms.vertex_ai.common_utils import VertexAIError
 
         def tool(name: str) -> dict[str, object]:
             return {"type": "function", "function": {"name": name, "parameters": {"type": "object", "properties": {}}}}
@@ -2271,7 +2271,7 @@ class TestVertexClaudeBatch:
         assert [t["name"] for t in row["request"]["tools"]] == ["get_weather"]
 
     def test_claude_row_refuses_a_user_tool_named_like_the_response_format_tool(self, config):
-        from litellm.llms.vertex_ai.common_utils import VertexAIError
+        from hangarllm.llms.vertex_ai.common_utils import VertexAIError
 
         tool: Final = {"type": "function", "function": {"name": "json_tool_call", "parameters": {"type": "object"}}}
         entry: Final = _claude_chat_entry("r1", "hi", max_tokens=10, tools=[tool])
@@ -2370,7 +2370,7 @@ class TestVertexClaudeBatch:
         assert bad_row["error"]["code"] == "transformation_error"
 
     def test_claude_line_without_custom_id_is_a_400_at_upload(self, config):
-        from litellm.llms.vertex_ai.common_utils import VertexAIError
+        from hangarllm.llms.vertex_ai.common_utils import VertexAIError
 
         with pytest.raises(VertexAIError, match=r"line 2 .*custom_id") as exc_info:
             _uploaded_rows(
@@ -2389,7 +2389,7 @@ class TestVertexClaudeBatch:
             headers={},
             request_url="https://storage.googleapis.com/storage/v1/b/my-bucket/o/x?alt=media",
             logging_obj=MagicMock(),
-            litellm_params={},
+            hangarllm_params={},
         )
         body: Final = b"".join([chunk async for chunk in result.stream_iterator])
 
@@ -2418,22 +2418,22 @@ def _generation_config(row: Mapping[str, object]) -> object:
 
 
 def _flag_model_as_no_sampling(monkeypatch: pytest.MonkeyPatch, model: str) -> None:
-    monkeypatch.setitem(litellm.model_cost, model, {"supports_sampling_params": False})
+    monkeypatch.setitem(hangarllm.model_cost, model, {"supports_sampling_params": False})
 
 
 def test_batch_row_for_a_flagged_gemini_model_raises_a_400_naming_drop_params(monkeypatch: pytest.MonkeyPatch) -> None:
     """A batch file row gets the same contract as a real-time call: the knobs Google ignores are refused
     with a 400 that names drop_params instead of silently vanishing from the uploaded row"""
     _flag_model_as_no_sampling(monkeypatch, "gemini-zeta-9")
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.UnsupportedParamsError, match=r"temperature, top_p, top_k.*drop_params"):
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=r"temperature, top_p, top_k.*drop_params"):
         _wrap_entries([_chat_entry("gemini-zeta-9", _SAMPLING_KNOBS)])
 
 
 def test_batch_row_with_null_knobs_for_a_flagged_gemini_model_is_not_refused(monkeypatch: pytest.MonkeyPatch) -> None:
     """A null knob means no override, the same as on a real-time call, so it must not fail the upload"""
     _flag_model_as_no_sampling(monkeypatch, "gemini-zeta-9")
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     (row,) = _wrap_entries([_chat_entry("gemini-zeta-9", {"temperature": None, "top_p": None, "top_k": None})])
     assert _generation_config(row) == {"max_output_tokens": 5}
 
@@ -2442,12 +2442,12 @@ def test_batch_row_for_a_flagged_gemini_model_drops_the_knobs_under_global_drop_
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _flag_model_as_no_sampling(monkeypatch, "gemini-zeta-9")
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     (row,) = _wrap_entries([_chat_entry("gemini-zeta-9", _SAMPLING_KNOBS)])
     assert _generation_config(row) == {"max_output_tokens": 5}
 
 
 def test_batch_row_for_an_unflagged_gemini_model_keeps_the_knobs(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     (row,) = _wrap_entries([_chat_entry("gemini-2.5-flash", _SAMPLING_KNOBS)])
     assert _generation_config(row) == {"max_output_tokens": 5, **_SAMPLING_KNOBS}

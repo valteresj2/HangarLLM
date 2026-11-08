@@ -7,8 +7,8 @@ from itertools import chain, repeat
 import httpx
 import pytest
 
-from litellm.integrations.zerobus.client import ZerobusIngestClient
-from litellm.types.integrations.zerobus import ZerobusAccessToken, ZerobusConnection, ZerobusIngestFailure
+from hangarllm.integrations.zerobus.client import ZerobusIngestClient
+from hangarllm.types.integrations.zerobus import ZerobusAccessToken, ZerobusConnection, ZerobusIngestFailure
 
 CONNECTION = ZerobusConnection(
     workspace_url="https://dbc-a1b2c3d4-e5f6.cloud.databricks.com/",
@@ -16,7 +16,7 @@ CONNECTION = ZerobusConnection(
     server_endpoint="https://1234567890123456.zerobus.us-west-2.cloud.databricks.com",
     client_id="sp-client-id",
     client_secret="sp-client-secret",
-    table_name="main.litellm.traces",
+    table_name="main.hangarllm.traces",
 )
 ROWS = ({"id": "a", "model": "gpt-4o"}, {"id": "b", "model": "gpt-4o"})
 
@@ -110,7 +110,7 @@ async def test_rows_are_posted_as_one_json_list_to_the_table_insert_endpoint():
     # Insert endpoint per the Zerobus Ingest docs, read 2026-09-19:
     # https://docs.databricks.com/aws/en/ingestion/lakeflow-connect/zerobus-ingest
     assert call.url == (
-        "https://1234567890123456.zerobus.us-west-2.cloud.databricks.com/zerobus/v1/tables/main.litellm.traces/insert"
+        "https://1234567890123456.zerobus.us-west-2.cloud.databricks.com/zerobus/v1/tables/main.hangarllm.traces/insert"
     )
     assert json.loads(call.content) == [{"id": "a", "model": "gpt-4o"}, {"id": "b", "model": "gpt-4o"}]
     assert call.headers["Content-Type"] == "application/json"
@@ -134,8 +134,8 @@ async def test_the_token_is_minted_for_the_zerobus_resource_with_the_table_privi
     details = json.loads(call.data["authorization_details"])
     assert [(d["object_type"], d["object_full_path"], d["privileges"]) for d in details] == [
         ("CATALOG", "main", ["USE CATALOG"]),
-        ("SCHEMA", "main.litellm", ["USE SCHEMA"]),
-        ("TABLE", "main.litellm.traces", ["SELECT", "MODIFY"]),
+        ("SCHEMA", "main.hangarllm", ["USE SCHEMA"]),
+        ("TABLE", "main.hangarllm.traces", ["SELECT", "MODIFY"]),
     ]
     assert all(d["type"] == "unity_catalog_privileges" for d in details)
 

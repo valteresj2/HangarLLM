@@ -8,7 +8,7 @@ def _exit_on_reraised_term(signum: int, frame: FrameType | None) -> None:
 
 
 def main() -> None:
-    from litellm import run_server
+    from hangarllm import run_server
 
     signal.signal(signal.SIGTERM, _exit_on_reraised_term)
     run_server()

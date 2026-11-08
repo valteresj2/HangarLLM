@@ -6,10 +6,10 @@ import pytest
 import respx
 from google.oauth2.credentials import Credentials
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler import GoogleBatchEmbeddings
-from litellm.main import google_batch_embeddings
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler import GoogleBatchEmbeddings
+from hangarllm.main import google_batch_embeddings
 
 FILES_URI: Final = "https://generativelanguage.googleapis.com/v1beta/files/clip123"
 FILE_METADATA_URL: Final = "https://generativelanguage.googleapis.com/v1beta/files/clip123"
@@ -35,7 +35,7 @@ def test_resolve_file_references_fetches_the_file_metadata_for_both_reference_fo
 
 
 @pytest.mark.parametrize("sync_mode", [True, False])
-@pytest.mark.parametrize("embedding_input", ["good morning from litellm", ["good morning from litellm"]])
+@pytest.mark.parametrize("embedding_input", ["good morning from hangarllm", ["good morning from hangarllm"]])
 @pytest.mark.parametrize("model", ["gemini/gemini-embedding-001", "vertex_ai/gemini-embedding-2"])
 @pytest.mark.asyncio
 async def test_google_embedding_applies_timeout_and_parses_vectors(
@@ -61,7 +61,7 @@ async def test_google_embedding_applies_timeout_and_parses_vectors(
         ("embedding-timeout-test-credentials", "embedding-timeout-tests"),
         (Credentials(token="test-vertex-token"), "embedding-timeout-tests"),
     )
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     url: Final = (
         "https://us-central1-aiplatform.googleapis.com/v1/projects/embedding-timeout-tests/"
         "locations/us-central1/publishers/google/models/gemini-embedding-2:embedContent"
@@ -76,25 +76,25 @@ async def test_google_embedding_applies_timeout_and_parses_vectors(
     )
 
     response: Final = (
-        litellm.embedding(
+        hangarllm.embedding(
             model=model, input=embedding_input, api_key="gemini-test-key", timeout=timeout, **vertex_params
         )
         if sync_mode
-        else await litellm.aembedding(
+        else await hangarllm.aembedding(
             model=model, input=embedding_input, api_key="gemini-test-key", timeout=timeout, **vertex_params
         )
     )
 
     assert route.call_count == 1
-    content: Final = {"parts": [{"text": "good morning from litellm"}]}
+    content: Final = {"parts": [{"text": "good morning from hangarllm"}]}
     expected_body: Final = (
         {"content": content}
         if is_vertex else {"requests": [{"model": f"models/{model_name}", "content": content}]}
     )
     assert json.loads(route.calls[0].request.content) == expected_body
     assert [item["embedding"] for item in response.data] == [[0.1, 0.2, 0.3]]
-    local_token_count: Final = litellm.token_counter(
-        model=model_name, text="good morning from litellm"
+    local_token_count: Final = hangarllm.token_counter(
+        model=model_name, text="good morning from hangarllm"
     )
     assert local_token_count > 0
     assert (response.usage.prompt_tokens, response.usage.total_tokens) == (

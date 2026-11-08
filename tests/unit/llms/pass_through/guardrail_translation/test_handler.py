@@ -4,8 +4,8 @@ from typing import Final, Literal
 import pytest
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.constants import SERVER_STREAMING_CLASSIFICATION_KEY, SERVER_STREAMING_CLASSIFICATION_MARKER
-from litellm.llms.pass_through.guardrail_translation.handler import PassThroughEndpointHandler
+from hangarllm.constants import SERVER_STREAMING_CLASSIFICATION_KEY, SERVER_STREAMING_CLASSIFICATION_MARKER
+from hangarllm.llms.pass_through.guardrail_translation.handler import PassThroughEndpointHandler
 
 
 def test_full_payload_guardrail_text_excludes_the_server_streaming_marker():
@@ -19,16 +19,16 @@ def test_full_payload_guardrail_text_excludes_the_server_streaming_marker():
     assert json.loads(text) == body, text
 
 
-def test_full_payload_guardrail_text_excludes_the_injected_litellm_metadata():
+def test_full_payload_guardrail_text_excludes_the_injected_hangarllm_metadata():
     body: Final = {"model": "m", "messages": [{"role": "user", "content": "hi"}], "guardrails": ["g"]}
-    litellm_metadata: Final = {
+    hangarllm_metadata: Final = {
         "user_api_key_token": "hashed-key",
         "user_api_key_user_email": "someone@example.com",
         "user_api_key_user_role": "proxy_admin",
     }
 
     text: Final = PassThroughEndpointHandler()._extract_text_for_guardrail(
-        {**body, "litellm_metadata": litellm_metadata},
+        {**body, "hangarllm_metadata": hangarllm_metadata},
         None,
     )
 
@@ -88,7 +88,7 @@ def _converse_frame(event_type: str, payload: dict) -> bytes:
 
 
 async def _frames(*raw: bytes) -> list[object]:
-    from litellm.llms.bedrock.passthrough.guardrail_translation.handler import BedrockPassthroughGuardrailHandler
+    from hangarllm.llms.bedrock.passthrough.guardrail_translation.handler import BedrockPassthroughGuardrailHandler
 
     async def chunks():
         for chunk in raw:
@@ -99,7 +99,7 @@ async def _frames(*raw: bytes) -> list[object]:
 
 @pytest.mark.asyncio
 async def test_passthrough_route_scans_converse_frames_with_the_bedrock_translation():
-    from litellm.llms.pass_through.guardrail_translation.handler import LlmPassthroughRouteHandler
+    from hangarllm.llms.pass_through.guardrail_translation.handler import LlmPassthroughRouteHandler
 
     frames: Final = await _frames(
         _converse_frame("contentBlockDelta", {"contentBlockIndex": 0, "delta": {"text": "Hello "}}),
@@ -115,7 +115,7 @@ async def test_passthrough_route_scans_converse_frames_with_the_bedrock_translat
 
 
 def test_passthrough_route_has_no_stream_translation_for_items_no_provider_owns():
-    from litellm.llms.pass_through.guardrail_translation.handler import LlmPassthroughRouteHandler
+    from hangarllm.llms.pass_through.guardrail_translation.handler import LlmPassthroughRouteHandler
 
     assert LlmPassthroughRouteHandler().get_streaming_scan_key([b"raw", {"chunk": 1}]) is None
     assert LlmPassthroughRouteHandler()._check_streaming_has_ended([b"raw"]) is False
@@ -123,8 +123,8 @@ def test_passthrough_route_has_no_stream_translation_for_items_no_provider_owns(
 
 @pytest.mark.parametrize(("provider", "ends_message"), [("bedrock", True), ("vertex_ai", False)])
 def test_passthrough_route_block_before_any_frame_uses_the_request_provider(provider: str, ends_message: bool):
-    from litellm.exceptions import ModifyResponseException
-    from litellm.llms.pass_through.guardrail_translation.handler import LlmPassthroughRouteHandler
+    from hangarllm.exceptions import ModifyResponseException
+    from hangarllm.llms.pass_through.guardrail_translation.handler import LlmPassthroughRouteHandler
 
     chunks: Final = LlmPassthroughRouteHandler().build_block_sse_chunks(
         ModifyResponseException(message="blocked", model="m", request_data={"custom_llm_provider": provider}),
@@ -170,7 +170,7 @@ def _invoke_frame(event: _TextDeltaEvent) -> bytes:
 def test_passthrough_route_relays_and_buffers_the_streams_its_provider_translation_scans(
     provider: str, endpoint: str | None, model: str | None, body: object, relayable: bool
 ):
-    from litellm.llms.pass_through.guardrail_translation.handler import LlmPassthroughRouteHandler
+    from hangarllm.llms.pass_through.guardrail_translation.handler import LlmPassthroughRouteHandler
 
     assert LlmPassthroughRouteHandler.supports_event_stream_relay(provider, endpoint, model, body) is relayable
     assert (
@@ -180,7 +180,7 @@ def test_passthrough_route_relays_and_buffers_the_streams_its_provider_translati
 
 @pytest.mark.asyncio
 async def test_passthrough_route_frames_an_invoke_stream_for_the_bedrock_translation():
-    from litellm.llms.pass_through.guardrail_translation.handler import LlmPassthroughRouteHandler
+    from hangarllm.llms.pass_through.guardrail_translation.handler import LlmPassthroughRouteHandler
 
     async def chunks():
         yield _invoke_frame({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Hi "}})
@@ -202,8 +202,8 @@ def test_passthrough_route_block_before_any_invoke_frame_is_a_whole_message_in_c
 
     from botocore.eventstream import EventStreamBuffer
 
-    from litellm.exceptions import ModifyResponseException
-    from litellm.llms.pass_through.guardrail_translation.handler import LlmPassthroughRouteHandler
+    from hangarllm.exceptions import ModifyResponseException
+    from hangarllm.llms.pass_through.guardrail_translation.handler import LlmPassthroughRouteHandler
 
     chunks: Final = LlmPassthroughRouteHandler().build_block_sse_chunks(
         ModifyResponseException(

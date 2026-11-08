@@ -7,15 +7,15 @@ import pytest
 from botocore.credentials import Credentials
 from pydantic import TypeAdapter
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.decisions.transformation import systemone_request_to_ir
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.strands_decider.decisions.transformation import (
+from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
+from hangarllm.llms.base_llm.decisions.transformation import systemone_request_to_ir
+from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
+from hangarllm.llms.strands_decider.decisions.transformation import (
     AGENTCORE_SESSION_HEADER,
     StrandsDeciderDecisionsConfig,
 )
-from litellm.types.decisions import DecisionsIRResponse, DecisionsRequestBody
-from litellm.types.llms.bedrock import AwsAuthParams
+from hangarllm.types.decisions import DecisionsIRResponse, DecisionsRequestBody
+from hangarllm.types.llms.bedrock import AwsAuthParams
 
 _ARN: Final = "arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/qa_decider-AbC123xyz0"
 _BODY: Final[Mapping[str, object]] = {
@@ -43,7 +43,7 @@ def _sign(
     api_base: str,
     headers: Mapping[str, str],
     api_key: str | None = None,
-    litellm_params: Mapping[str, object] | None = None,
+    hangarllm_params: Mapping[str, object] | None = None,
 ) -> tuple[Mapping[str, str], bytes | None]:
     return config.sign_request(
         headers=headers,
@@ -51,7 +51,7 @@ def _sign(
         api_base=api_base,
         body=_BODY,
         api_key=api_key,
-        litellm_params=litellm_params or {},
+        hangarllm_params=hangarllm_params or {},
     )
 
 
@@ -108,7 +108,7 @@ def test_sign_request_signs_the_body_for_the_arn_region_with_deployment_credenti
         config,
         _ARN,
         {"Content-Type": "application/json"},
-        litellm_params={"aws_profile_name": "qa", "aws_role_name": "decider-role", "aws_region_name": "us-east-1"},
+        hangarllm_params={"aws_profile_name": "qa", "aws_role_name": "decider-role", "aws_region_name": "us-east-1"},
     )
 
     assert signed_body == json.dumps(_BODY).encode()
@@ -167,7 +167,7 @@ def test_deployment_session_param_picks_the_session_over_the_default_and_any_cal
         StrandsDeciderDecisionsConfig(aws=_RecordingAWS()),
         _ARN,
         _CALLER_RESERVED_HEADERS,
-        litellm_params={"agentcore_runtime_session_id": replica_session},
+        hangarllm_params={"agentcore_runtime_session_id": replica_session},
     )
 
     session_headers: Final = [

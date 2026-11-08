@@ -52,7 +52,7 @@ def _make_mock_logging_obj():
 @pytest.mark.asyncio
 async def test_async_streaming_429_raises():
     """429 from upstream should raise HTTPStatusError, not yield error bytes."""
-    from litellm.passthrough.main import AsyncPassthroughStreamingResponse
+    from hangarllm.passthrough.main import AsyncPassthroughStreamingResponse
 
     error_body = json.dumps({"error": {"code": "429", "message": "Rate limit exceeded."}}).encode()
     mock_response = _make_mock_response(429, error_body)
@@ -65,7 +65,7 @@ async def test_async_streaming_429_raises():
     async def _drain():
         async for chunk in AsyncPassthroughStreamingResponse(
             response=response_coro(),
-            litellm_logging_obj=_make_mock_logging_obj(),
+            hangarllm_logging_obj=_make_mock_logging_obj(),
             provider_config=MagicMock(),
         ):
             chunks.append(chunk)
@@ -80,7 +80,7 @@ async def test_async_streaming_429_raises():
 @pytest.mark.asyncio
 async def test_async_streaming_500_raises():
     """500 from upstream should also raise, not yield error bytes."""
-    from litellm.passthrough.main import AsyncPassthroughStreamingResponse
+    from hangarllm.passthrough.main import AsyncPassthroughStreamingResponse
 
     error_body = json.dumps({"error": {"code": "500", "message": "Internal server error"}}).encode()
     mock_response = _make_mock_response(500, error_body)
@@ -91,7 +91,7 @@ async def test_async_streaming_500_raises():
     with pytest.raises(httpx.HTTPStatusError) as exc_info:
         async for _ in AsyncPassthroughStreamingResponse(
             response=response_coro(),
-            litellm_logging_obj=_make_mock_logging_obj(),
+            hangarllm_logging_obj=_make_mock_logging_obj(),
             provider_config=MagicMock(),
         ):
             pass
@@ -102,7 +102,7 @@ async def test_async_streaming_500_raises():
 @pytest.mark.asyncio
 async def test_async_passthrough_wrapper_200_yields_chunks():
     """Successful 200 streaming responses should continue to work normally."""
-    from litellm.passthrough.main import AsyncPassthroughStreamingResponse
+    from hangarllm.passthrough.main import AsyncPassthroughStreamingResponse
 
     sse_data = b'data: {"type":"response.created"}\n\ndata: [DONE]\n\n'
     mock_response = _make_mock_response(200, sse_data)
@@ -113,7 +113,7 @@ async def test_async_passthrough_wrapper_200_yields_chunks():
 
     async_stream = AsyncPassthroughStreamingResponse(
         response=response_coro(),
-        litellm_logging_obj=mock_logging_obj,
+        hangarllm_logging_obj=mock_logging_obj,
         provider_config=MagicMock(),
     )
 
@@ -131,7 +131,7 @@ async def test_async_passthrough_wrapper_200_yields_chunks():
 @pytest.mark.asyncio
 async def test_error_body_readable_after_failed_await():
     """The upstream error body must stay readable so the proxy can map the real status and message."""
-    from litellm.passthrough.main import AsyncPassthroughStreamingResponse
+    from hangarllm.passthrough.main import AsyncPassthroughStreamingResponse
 
     error_body = b'{"message":"model not found"}'
 
@@ -147,7 +147,7 @@ async def test_error_body_readable_after_failed_await():
     with pytest.raises(httpx.HTTPStatusError) as exc_info:
         await AsyncPassthroughStreamingResponse(
             response=response_coro(),
-            litellm_logging_obj=_make_mock_logging_obj(),
+            hangarllm_logging_obj=_make_mock_logging_obj(),
             provider_config=MagicMock(),
         )
 

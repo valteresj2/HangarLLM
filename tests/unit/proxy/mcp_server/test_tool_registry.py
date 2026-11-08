@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from litellm.proxy.mcp_server.tool_registry import MCPToolRegistry
+from hangarllm.proxy.mcp_server.tool_registry import MCPToolRegistry
 
 
 # Test handler function

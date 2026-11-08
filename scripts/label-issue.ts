@@ -27,11 +27,11 @@ export type ParsedVerdict =
   | { readonly kind: "verdict"; readonly verdict: Verdict }
   | { readonly kind: "invalid"; readonly reason: string };
 
-export const TEMPLATE_MARKER = "<!-- litellm:needs-template -->";
+export const TEMPLATE_MARKER = "<!-- hangarllm:needs-template -->";
 export const BOT_LOGIN = "github-actions[bot]";
 const TEMPLATE_URLS: Readonly<Record<GateVerdict["template"], string>> = {
-  bug: "https://github.com/BerriAI/litellm/issues/new?template=bug_report.yml",
-  feature: "https://github.com/BerriAI/litellm/issues/new?template=feature_request.yml",
+  bug: "https://github.com/valteresj2/HangarLLM/issues/new?template=bug_report.yml",
+  feature: "https://github.com/valteresj2/HangarLLM/issues/new?template=feature_request.yml",
 };
 
 export function desiredLabels(verdict: Verdict): readonly string[] {

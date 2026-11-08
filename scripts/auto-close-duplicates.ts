@@ -46,11 +46,11 @@ export type ReopenVerdict =
   | { readonly kind: "skip"; readonly reason: string };
 
 export const FLAG_LABEL = "potential-duplicate";
-export const CLOSED_MARKER = "<!-- litellm:closed-as-duplicate -->";
+export const CLOSED_MARKER = "<!-- hangarllm:closed-as-duplicate -->";
 export const DEFAULT_GRACE_DAYS = 3;
 export const REOPEN_COMMENT =
   "Reopened automatically: the reporter replied after the duplicate close, so this needs a human look.";
-const NOTICE_MARKER = /<!-- litellm:potential-duplicate candidates=([\d,]*) -->/;
+const NOTICE_MARKER = /<!-- hangarllm:potential-duplicate candidates=([\d,]*) -->/;
 const MIN_TITLE_WORDS = 3;
 const PAGE_SIZE = 100;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -274,7 +274,7 @@ export function githubApi(token: string): GitHubApi {
           Authorization: `Bearer ${token}`,
           Accept: "application/vnd.github+json",
           "X-GitHub-Api-Version": "2022-11-28",
-          "User-Agent": "litellm-auto-close-duplicates",
+          "User-Agent": "hangarllm-auto-close-duplicates",
           ...(body === undefined ? {} : { "Content-Type": "application/json" }),
         },
         body: body === undefined ? undefined : JSON.stringify(body),

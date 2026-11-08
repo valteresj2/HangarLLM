@@ -3,29 +3,29 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
+import hangarllm
+from hangarllm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
     VectorStorePreCallHook,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.vector_stores import (
+from hangarllm.types.llms.openai import AllMessageValues
+from hangarllm.types.vector_stores import (
     VectorStoreResultContent,
     VectorStoreSearchResponse,
     VectorStoreSearchResult,
 )
-from litellm.vector_stores.vector_store_registry import (
-    LiteLLM_ManagedVectorStore,
+from hangarllm.vector_stores.vector_store_registry import (
+    HangarLLM_ManagedVectorStore,
     VectorStoreRegistry,
 )
 import json
 from unittest.mock import patch, Mock
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
 
 @dataclass(slots=True)
 class _LoggingObject:
     model_call_details: dict[str, object] = field(
-        default_factory=lambda: {"litellm_params": {"metadata": {}}}
+        default_factory=lambda: {"hangarllm_params": {"metadata": {}}}
     )
 
 
@@ -61,10 +61,10 @@ class _RecordingRouter:
 @pytest.fixture
 def setup_vector_store_registry(monkeypatch):
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "vector_store_registry",
         VectorStoreRegistry(
-            vector_stores=[LiteLLM_ManagedVectorStore(vector_store_id="T37J8R4WTM", custom_llm_provider="bedrock")]
+            vector_stores=[HangarLLM_ManagedVectorStore(vector_store_id="T37J8R4WTM", custom_llm_provider="bedrock")]
         ),
         raising=False,
     )
@@ -75,9 +75,9 @@ def setup_vector_store_registry(monkeypatch):
 async def test_e2e_bedrock_knowledgebase_retrieval_without_vector_store_registry(
     setup_vector_store_registry,
 ):
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
     client = AsyncHTTPHandler()
-    litellm.vector_store_registry = None
+    hangarllm.vector_store_registry = None
 
     with patch.object(client, "post") as mock_post:
         # Mock the response for the LLM call
@@ -93,7 +93,7 @@ async def test_e2e_bedrock_knowledgebase_retrieval_without_vector_store_registry
                 "content": [
                     {
                         "type": "text",
-                        "text": "LiteLLM is a library that simplifies LLM API access.",
+                        "text": "HangarLLM is a library that simplifies LLM API access.",
                     }
                 ],
                 "model": "claude-3.5-sonnet",
@@ -105,9 +105,9 @@ async def test_e2e_bedrock_knowledgebase_retrieval_without_vector_store_registry
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
         try:
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model="anthropic/claude-3.5-sonnet",
-                messages=[{"role": "user", "content": "what is litellm?"}],
+                messages=[{"role": "user", "content": "what is hangarllm?"}],
                 vector_store_ids=["T37J8R4WTM"],
                 client=client,
             )
@@ -141,11 +141,11 @@ async def test_e2e_bedrock_knowledgebase_retrieval_with_vector_store_not_in_regi
 
     In this test newUnknownVectorStoreId is not in the registry, so no vector store request is made
     """
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
     client = AsyncHTTPHandler()
 
-    if litellm.vector_store_registry is not None:
-        print("Registry iniitalized:", litellm.vector_store_registry.vector_stores)
+    if hangarllm.vector_store_registry is not None:
+        print("Registry iniitalized:", hangarllm.vector_store_registry.vector_stores)
     else:
         print("Registry is None")
 
@@ -163,7 +163,7 @@ async def test_e2e_bedrock_knowledgebase_retrieval_with_vector_store_not_in_regi
                 "content": [
                     {
                         "type": "text",
-                        "text": "LiteLLM is a library that simplifies LLM API access.",
+                        "text": "HangarLLM is a library that simplifies LLM API access.",
                     }
                 ],
                 "model": "claude-3.5-sonnet",
@@ -175,9 +175,9 @@ async def test_e2e_bedrock_knowledgebase_retrieval_with_vector_store_not_in_regi
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
         try:
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model="anthropic/claude-3.5-sonnet",
-                messages=[{"role": "user", "content": "what is litellm?"}],
+                messages=[{"role": "user", "content": "what is hangarllm?"}],
                 vector_store_ids=["newUnknownVectorStoreId"],
                 client=client,
             )

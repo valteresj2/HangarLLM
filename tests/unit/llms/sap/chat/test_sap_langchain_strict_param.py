@@ -15,7 +15,7 @@ These tests verify that:
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 
-from litellm.llms.sap.chat.transformation import GenAIHubOrchestrationConfig
+from hangarllm.llms.sap.chat.transformation import GenAIHubOrchestrationConfig
 
 
 class TestLangChainAgentCompatibility:
@@ -66,7 +66,7 @@ class TestLangChainAgentCompatibility:
             model="gpt-4o",
             messages=[{"role": "user", "content": "What is 2+2?"}],
             optional_params=langchain_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -124,7 +124,7 @@ class TestLangChainAgentCompatibility:
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "Search for Python tutorials"}],
             optional_params=structured_output_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -176,7 +176,7 @@ class TestLangChainAgentCompatibility:
             model="gpt-4o",
             messages=[{"role": "user", "content": "Search for weather"}],
             optional_params=tool_agent_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -203,7 +203,7 @@ class TestLangChainAgentCompatibility:
             model="gpt-4",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={"strict": True, "temperature": 0.5},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -237,7 +237,7 @@ class TestLangChainAgentCompatibility:
             model="anthropic--claude-3-5-sonnet",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params=langchain_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -283,7 +283,7 @@ class TestLangChainRequestPayloadStructure:
                     },
                 },
             },
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -332,7 +332,7 @@ class TestLangChainRequestPayloadStructure:
                 model="gpt-4o",
                 messages=[{"role": "user", "content": "Test"}],
                 optional_params=params.copy(),
-                litellm_params={},
+                hangarllm_params={},
                 headers={},
             )
 
@@ -355,7 +355,7 @@ class TestEdgeCases:
             model="gpt-4o",
             messages=[{"role": "user", "content": "Test"}],
             optional_params={"strict": False, "temperature": 0.5},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -372,7 +372,7 @@ class TestEdgeCases:
             model="gpt-4o",
             messages=[{"role": "user", "content": "Test"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -389,7 +389,7 @@ class TestEdgeCases:
             model="gpt-4o",
             messages=[{"role": "user", "content": "Test"}],
             optional_params={"strict": True},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -416,7 +416,7 @@ class TestEdgeCases:
                 model=model,
                 messages=[{"role": "user", "content": "Test"}],
                 optional_params={"strict": True, "temperature": 0.5},
-                litellm_params={},
+                hangarllm_params={},
                 headers={},
             )
 
@@ -446,7 +446,7 @@ class TestEdgeCases:
                 model=model,
                 messages=[{"role": "user", "content": "Test"}],
                 optional_params={"strict": True, "temperature": 0.5},
-                litellm_params={},
+                hangarllm_params={},
                 headers={},
             )
 

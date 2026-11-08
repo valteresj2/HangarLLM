@@ -22,16 +22,16 @@ from botocore.awsrequest import AWSRequest
 from botocore.credentials import Credentials
 from respx.models import Call
 
-import litellm
-from litellm.constants import AWS_SIGNING_MAX_THREADS
-from litellm.cost_calculator import get_response_cost_from_hidden_params
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.get_model_cost_map import ModelCostMapReloaded, refetch_model_cost_map
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.azure_ai.common_utils import get_azure_ai_auth_headers
-from litellm.llms.bedrock.base_aws_llm import AWS_SIGNING_EXECUTOR
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.types.decisions import (
+import hangarllm
+from hangarllm.constants import AWS_SIGNING_MAX_THREADS
+from hangarllm.cost_calculator import get_response_cost_from_hidden_params
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.get_model_cost_map import ModelCostMapReloaded, refetch_model_cost_map
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.llms.azure_ai.common_utils import get_azure_ai_auth_headers
+from hangarllm.llms.bedrock.base_aws_llm import AWS_SIGNING_EXECUTOR
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.types.decisions import (
     ChoiceAnswer,
     DecisionsResponse,
     DecisionsUsage,
@@ -39,9 +39,9 @@ from litellm.types.decisions import (
     OpenAIDecisionResponse,
     ScoreAnswer,
 )
-from litellm.types.router import ModelInfo
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.types.router import ModelInfo
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 from tests.unit.conftest import AsyncOnlyImageFetch
 
 _QUESTIONS: Final[Mapping[str, object]] = MappingProxyType(
@@ -178,8 +178,8 @@ async def _drain_logging_worker() -> None:
 
 @pytest.fixture(autouse=True)
 def _httpx_transport(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 _GPT_6_LUNA_DECISIONS_INPUT_RATE: Final = 1e-07
@@ -198,7 +198,7 @@ _DECISIONS_PRICING_FIELDS: Final[dict[str, dict[str, object]]] = {
 @pytest.fixture
 def decisions_pricing_fields(monkeypatch: pytest.MonkeyPatch) -> None:
     for key, fields in _DECISIONS_PRICING_FIELDS.items():
-        monkeypatch.setitem(litellm.model_cost, key, {**litellm.model_cost[key], **fields})
+        monkeypatch.setitem(hangarllm.model_cost, key, {**hangarllm.model_cost[key], **fields})
 
 
 @pytest.mark.asyncio
@@ -212,7 +212,7 @@ async def test_adecisions_sends_the_provider_wire_contract(
 ) -> None:
     route: Final = respx_mock.post(url).respond(json=_RESPONSE)
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model=model,
         state={"source": "unit-test"},
         questions=_QUESTIONS,
@@ -257,15 +257,15 @@ async def test_router_dispatches_typesafe_decisions_without_api_base(
 ) -> None:
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
     monkeypatch.delenv("TYPESAFE_API_BASE", raising=False)
-    provider_resolution: Final = litellm.get_llm_provider("typesafe/jev-latest")
+    provider_resolution: Final = hangarllm.get_llm_provider("typesafe/jev-latest")
 
     assert provider_resolution[:2] == ("jev-latest", "typesafe")
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "jev",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "typesafe/jev-latest",
                     "api_key": "k",
                 },
@@ -307,11 +307,11 @@ async def test_least_busy_frees_a_decisions_deployment_once_a_proxy_logged_call_
     respx_mock: respx.MockRouter,
 ) -> None:
     respx_mock.post("https://api.typesafe.ai/v1/systemone").respond(json=_RESPONSE)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "jev",
-                "litellm_params": {"model": "typesafe/jev-latest", "api_key": "k"},
+                "hangarllm_params": {"model": "typesafe/jev-latest", "api_key": "k"},
                 "model_info": {"id": deployment_id},
             }
             for deployment_id in ("jev-a", "jev-b")
@@ -320,18 +320,18 @@ async def test_least_busy_frees_a_decisions_deployment_once_a_proxy_logged_call_
     )
 
     async def call_through_proxy_logging() -> object:
-        logging_obj, _ = litellm.utils.function_setup(
+        logging_obj, _ = hangarllm.utils.function_setup(
             original_function="adecisions",
-            rules_obj=litellm.utils.Rules(),
+            rules_obj=hangarllm.utils.Rules(),
             start_time=datetime(2026, 1, 1),
             model="jev",
-            litellm_call_id=str(uuid.uuid4()),
+            hangarllm_call_id=str(uuid.uuid4()),
         )
         response: Final = await router.adecisions(
             model="jev",
             input="Is this a defect?",
             questions=[{"type": "predicate", "name": "is_defect", "instructions": "Is this a defect?"}],
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
         )
         await _drain_logging_worker()
         return response._hidden_params["model_id"]
@@ -342,7 +342,7 @@ async def test_least_busy_frees_a_decisions_deployment_once_a_proxy_logged_call_
 def test_decisions_uses_the_same_wire_contract_for_sync_calls(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post("https://api.perplexity.ai/v1/decisions").respond(json=_RESPONSE)
 
-    response: Final = litellm.systemone(
+    response: Final = hangarllm.systemone(
         model="perplexity/pplx-decider-v1-27b",
         state="review",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -362,7 +362,7 @@ def test_openrouter_response_keeps_provider_fields(respx_mock: respx.MockRouter)
     }
     respx_mock.post("https://openrouter.ai/api/alpha/decisions").respond(json=payload)
 
-    response: Final = litellm.systemone(
+    response: Final = hangarllm.systemone(
         model="openrouter/typesafe/jev-1.13",
         state="review",
         questions=_QUESTIONS,
@@ -375,7 +375,7 @@ def test_openrouter_response_keeps_provider_fields(respx_mock: respx.MockRouter)
     assert response.usage.model_extra["cost"] == 0.25
 
 
-def test_decisions_cost_uses_litellm_token_pricing() -> None:
+def test_decisions_cost_uses_hangarllm_token_pricing() -> None:
     response: Final = DecisionsResponse(
         model="pplx-decider-v1-27b",
         answers={},
@@ -383,8 +383,8 @@ def test_decisions_cost_uses_litellm_token_pricing() -> None:
     )
     response.set_hidden_params({"model": "perplexity/pplx-decider-v1-27b", "custom_llm_provider": "perplexity"})
 
-    cost: Final = litellm.completion_cost(completion_response=response)
-    perplexity_cost: Final = litellm.model_cost["perplexity/pplx-decider-v1-27b"]
+    cost: Final = hangarllm.completion_cost(completion_response=response)
+    perplexity_cost: Final = hangarllm.model_cost["perplexity/pplx-decider-v1-27b"]
     expected_cost: Final = _INPUT_TOKENS * float(perplexity_cost["input_cost_per_token"]) + _OUTPUT_TOKENS * float(
         perplexity_cost["output_cost_per_token"]
     )
@@ -399,14 +399,14 @@ async def test_openai_decisions_uses_evaluation_pricing_and_explicit_base_model(
     decisions_pricing_fields: None,
 ) -> None:
     route: Final = respx_mock.post("https://api.openai.com/v1/decisions").respond(json=_OPENAI_RESPONSE)
-    response: Final = await litellm.adecisions(
+    response: Final = await hangarllm.adecisions(
         model="openai/gpt-6-luna",
         input="The package arrived broken.",
         questions=[{"type": "predicate", "name": "is_defect", "instructions": "Is this a defect?"}],
         api_key="caller-key",
         api_base="https://api.openai.com/v1",
     )
-    chat_cost: Mapping[str, object] = litellm.model_cost["gpt-6-luna"]
+    chat_cost: Mapping[str, object] = hangarllm.model_cost["gpt-6-luna"]
     expected_chat_cost: Final = (
         (_INPUT_TOKENS - _CACHED_TOKENS - _CACHE_WRITE_TOKENS) * float(chat_cost["input_cost_per_token"])
         + _CACHED_TOKENS * float(chat_cost["cache_read_input_token_cost"])
@@ -417,10 +417,10 @@ async def test_openai_decisions_uses_evaluation_pricing_and_explicit_base_model(
     assert route.called
     assert response._hidden_params["model"] == "openai/gpt-6-luna"
     assert response._hidden_params["provider_response_model"] == "openai/gpt-6-luna"
-    assert litellm.completion_cost(completion_response=response) == pytest.approx(
+    assert hangarllm.completion_cost(completion_response=response) == pytest.approx(
         _INPUT_TOKENS * _GPT_6_LUNA_DECISIONS_INPUT_RATE
     )
-    assert litellm.completion_cost(completion_response=response, call_type="acompletion") == pytest.approx(
+    assert hangarllm.completion_cost(completion_response=response, call_type="acompletion") == pytest.approx(
         expected_chat_cost
     )
 
@@ -428,7 +428,7 @@ async def test_openai_decisions_uses_evaluation_pricing_and_explicit_base_model(
 @pytest.mark.asyncio
 async def test_systemone_uses_evaluation_pricing(respx_mock: respx.MockRouter, decisions_pricing_fields: None) -> None:
     route: Final = respx_mock.post("https://api.openai.com/v1/decisions").respond(json=_OPENAI_RESPONSE)
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model="openai/gpt-6-luna",
         state="The package arrived broken.",
         questions=_QUESTIONS,
@@ -439,7 +439,7 @@ async def test_systemone_uses_evaluation_pricing(respx_mock: respx.MockRouter, d
     assert route.called
     assert response._hidden_params["model"] == "openai/gpt-6-luna"
     assert response._hidden_params["provider_response_model"] == "openai/gpt-6-luna"
-    assert litellm.completion_cost(completion_response=response) == pytest.approx(
+    assert hangarllm.completion_cost(completion_response=response) == pytest.approx(
         _INPUT_TOKENS * _GPT_6_LUNA_DECISIONS_INPUT_RATE
     )
 
@@ -462,7 +462,7 @@ async def test_openai_decisions_honors_base_url_alias(
 ) -> None:
     monkeypatch.setenv("OPENAI_BASE_URL", "https://fallback.example/v1")
     route: Final = respx_mock.post(f"{expected_api_base}/decisions").respond(json=_OPENAI_RESPONSE)
-    response: Final = await litellm.adecisions(
+    response: Final = await hangarllm.adecisions(
         model="openai/gpt-6-luna",
         input="The package arrived broken.",
         questions=[{"type": "predicate", "name": "is_defect", "instructions": "Is this a defect?"}],
@@ -478,7 +478,7 @@ async def test_openai_decisions_honors_base_url_alias(
 @pytest.mark.asyncio
 async def test_openai_systemone_honors_base_url_alias(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post("https://onprem.example/v1/decisions").respond(json=_OPENAI_RESPONSE)
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model="openai/gpt-6-luna",
         state="The package arrived broken.",
         questions=_QUESTIONS,
@@ -494,7 +494,7 @@ async def test_openai_systemone_honors_base_url_alias(respx_mock: respx.MockRout
 @pytest.mark.asyncio
 async def test_openai_decisions_api_base_wins_over_base_url_alias(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post("https://api.openai.com/v1/decisions").respond(json=_OPENAI_RESPONSE)
-    await litellm.adecisions(
+    await hangarllm.adecisions(
         model="openai/gpt-6-luna",
         input="The package arrived broken.",
         questions=[{"type": "predicate", "name": "is_defect", "instructions": "Is this a defect?"}],
@@ -511,18 +511,18 @@ async def test_systemone_falls_back_to_plain_pricing_without_decisions_row(
     respx_mock: respx.MockRouter,
 ) -> None:
     route: Final = respx_mock.post("https://decisions.example/v1/decisions").respond(json=_RESPONSE)
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model="perplexity/sonar",
         state="review",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
         api_key="caller-key",
         api_base="https://decisions.example/v1",
     )
-    plain_cost: Mapping[str, object] = litellm.model_cost["perplexity/sonar"]
+    plain_cost: Mapping[str, object] = hangarllm.model_cost["perplexity/sonar"]
 
     assert route.called
     assert response._hidden_params["provider_response_model"] == "perplexity/sonar"
-    assert litellm.completion_cost(completion_response=response) == pytest.approx(
+    assert hangarllm.completion_cost(completion_response=response) == pytest.approx(
         _INPUT_TOKENS * float(plain_cost["input_cost_per_token"])
         + _OUTPUT_TOKENS * float(plain_cost["output_cost_per_token"])
     )
@@ -548,7 +548,7 @@ async def test_systemone_falls_back_to_plain_pricing_without_decisions_row(
 def test_custom_token_pricing_bills_cached_decisions_input_tokens_once(
     response: DecisionsResponse | OpenAIDecisionResponse,
 ) -> None:
-    cost: Final = litellm.completion_cost(
+    cost: Final = hangarllm.completion_cost(
         completion_response=response,
         model="gpt-6-luna",
         custom_llm_provider="openai",
@@ -581,11 +581,11 @@ def test_decisions_response_hidden_params_getter_preserves_mutable_identity() ->
 async def test_decisions_cost_is_in_standard_logging_object(respx_mock: respx.MockRouter) -> None:
     respx_mock.post("https://api.perplexity.ai/v1/decisions").respond(json=_RESPONSE)
     recording_logger: Final = _RecordingLogger()
-    original_callbacks: Final = litellm.callbacks
-    litellm.callbacks = [recording_logger]
+    original_callbacks: Final = hangarllm.callbacks
+    hangarllm.callbacks = [recording_logger]
 
     try:
-        await litellm.asystemone(
+        await hangarllm.asystemone(
             model="perplexity/pplx-decider-v1-27b",
             state="review",
             questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -593,10 +593,10 @@ async def test_decisions_cost_is_in_standard_logging_object(respx_mock: respx.Mo
         )
         await _drain_logging_worker()
     finally:
-        litellm.callbacks = original_callbacks
+        hangarllm.callbacks = original_callbacks
 
     assert recording_logger.standard_logging_object is not None
-    perplexity_cost: Final = litellm.model_cost["perplexity/pplx-decider-v1-27b"]
+    perplexity_cost: Final = hangarllm.model_cost["perplexity/pplx-decider-v1-27b"]
     expected_cost: Final = _INPUT_TOKENS * float(perplexity_cost["input_cost_per_token"]) + _OUTPUT_TOKENS * float(
         perplexity_cost["output_cost_per_token"]
     )
@@ -609,8 +609,8 @@ async def test_decisions_cost_is_in_standard_logging_object(respx_mock: respx.Mo
 
 @pytest.mark.asyncio
 async def test_unknown_provider_is_rejected_before_http(respx_mock: respx.MockRouter) -> None:
-    with pytest.raises(litellm.BadRequestError, match="LLM Provider NOT provided"):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.BadRequestError, match="LLM Provider NOT provided"):
+        await hangarllm.asystemone(
             model="unknown/jev-1.13",
             state="review",
             questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -627,9 +627,9 @@ async def test_provider_without_decisions_support_is_rejected_before_http(
     monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
     monkeypatch.delenv("OLLAMA_API_BASE", raising=False)
     with pytest.raises(
-        litellm.BadRequestError, match=r"Unknown Decisions provider 'anthropic'\. Supported providers"
+        hangarllm.BadRequestError, match=r"Unknown Decisions provider 'anthropic'\. Supported providers"
     ) as error:
-        await litellm.asystemone(
+        await hangarllm.asystemone(
             model="anthropic/claude-sonnet-4-5",
             state="review",
             questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -645,7 +645,7 @@ async def test_provider_without_decisions_support_is_rejected_before_http(
 async def test_empty_custom_provider_falls_back_to_the_model_prefix(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post("https://api.perplexity.ai/v1/decisions").respond(json=_RESPONSE)
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model="perplexity/pplx-decider-v1-27b",
         state="review",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -676,15 +676,15 @@ async def test_oss_classifier_env_key_goes_only_to_its_env_api_base(
     )
     questions: Final = {"is_defect": {"type": "noul", "instructions": "Is this a defect?"}}
 
-    await litellm.asystemone(model=f"{provider}/{model}", state="review", questions=questions)
-    await litellm.asystemone(
+    await hangarllm.asystemone(model=f"{provider}/{model}", state="review", questions=questions)
+    await hangarllm.asystemone(
         model=f"{provider}/{model}",
         state="review",
         questions=questions,
         api_base="https://deployment-chosen.example",
         api_key="",
     )
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model=f"{provider}/{model}",
         state="review",
         questions=questions,
@@ -715,8 +715,8 @@ async def test_oss_classifier_rejects_unknown_models_and_ambiguous_bases_before_
     api_base: str,
     error: str,
 ) -> None:
-    with pytest.raises(litellm.BadRequestError, match=re.escape(error)):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.BadRequestError, match=re.escape(error)):
+        await hangarllm.asystemone(
             model=model,
             state="review",
             questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -758,8 +758,8 @@ async def test_a_malformed_upstream_reply_is_a_server_error_whatever_its_text(
 ) -> None:
     respx_mock.post("https://api.perplexity.ai/v1/decisions").respond(json=reply)
 
-    with pytest.raises(litellm.InternalServerError, match=re.escape(f"unexpected response: {detail}")):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.InternalServerError, match=re.escape(f"unexpected response: {detail}")):
+        await hangarllm.asystemone(
             model="perplexity/pplx-decider-v1-27b",
             state="review",
             questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -773,11 +773,11 @@ async def test_router_sends_the_openrouter_deployment_key_when_the_provider_is_a
     respx_mock: respx.MockRouter,
 ) -> None:
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "jev",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openrouter/typesafe/jev-1.13",
                     "api_key": "deployment-key",
                     "api_base": "https://egress.example/openrouter",
@@ -800,8 +800,8 @@ async def test_router_sends_the_openrouter_deployment_key_when_the_provider_is_a
 
 @pytest.mark.asyncio
 async def test_invalid_question_is_rejected_before_http(respx_mock: respx.MockRouter) -> None:
-    with pytest.raises(litellm.BadRequestError, match="Invalid Decisions request"):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.BadRequestError, match="Invalid Decisions request"):
+        await hangarllm.asystemone(
             model="perplexity/pplx-decider-v1-27b",
             state="review",
             questions={"sentiment": {"type": "choice"}},
@@ -811,14 +811,14 @@ async def test_invalid_question_is_rejected_before_http(respx_mock: respx.MockRo
     assert len(respx_mock.calls) == 0
 
 
-def test_upstream_bad_request_maps_to_litellm_error(respx_mock: respx.MockRouter) -> None:
+def test_upstream_bad_request_maps_to_hangarllm_error(respx_mock: respx.MockRouter) -> None:
     respx_mock.post("https://api.perplexity.ai/v1/decisions").respond(
         status_code=400,
         json={"error": {"message": "invalid decision"}},
     )
 
-    with pytest.raises(litellm.BadRequestError):
-        litellm.systemone(
+    with pytest.raises(hangarllm.BadRequestError):
+        hangarllm.systemone(
             model="perplexity/pplx-decider-v1-27b",
             state="review",
             questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -831,8 +831,8 @@ def test_unreachable_upstream_maps_to_a_connection_error(respx_mock: respx.MockR
         side_effect=httpx.ConnectError("Cannot connect to host api.perplexity.ai:443")
     )
 
-    with pytest.raises(litellm.APIConnectionError, match="PerplexityException - Cannot connect to host"):
-        litellm.systemone(
+    with pytest.raises(hangarllm.APIConnectionError, match="PerplexityException - Cannot connect to host"):
+        hangarllm.systemone(
             model="perplexity/pplx-decider-v1-27b",
             state="review",
             questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -848,7 +848,7 @@ def test_server_key_is_sent_to_an_explicit_api_base(
     monkeypatch.delenv("PERPLEXITY_API_KEY", raising=False)
     route: Final = respx_mock.post("https://egress.example/perplexity/v1/decisions").respond(json=_RESPONSE)
 
-    litellm.systemone(
+    hangarllm.systemone(
         model="perplexity/pplx-decider-v1-27b",
         state="review",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -878,7 +878,7 @@ async def test_cloudflare_clef_resolves_model_and_response_envelope(
         "https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/cloudflare/clef"
     ).respond(json=response_body)
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model=model,
         state="review",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -908,7 +908,7 @@ async def test_cloudflare_clef_flash_uses_flash_endpoint_and_request_model(
         "https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/cloudflare/clef-flash"
     ).respond(json=_RESPONSE)
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="cloudflare/clef-flash",
         state="review",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -930,7 +930,7 @@ async def test_cloudflare_api_base_from_env_uses_workers_ai_run_path(
         "https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/cloudflare/clef"
     ).respond(json=_RESPONSE)
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="cloudflare/clef",
         state="review",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -948,8 +948,8 @@ async def test_cloudflare_requires_account_id_or_api_base_before_http(
     monkeypatch.delenv("CLOUDFLARE_API_BASE", raising=False)
     monkeypatch.setenv("CLOUDFLARE_API_KEY", "cloudflare-key")
 
-    with pytest.raises(litellm.BadRequestError, match="Missing CLOUDFLARE_ACCOUNT_ID - set CLOUDFLARE_ACCOUNT_ID"):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.BadRequestError, match="Missing CLOUDFLARE_ACCOUNT_ID - set CLOUDFLARE_ACCOUNT_ID"):
+        await hangarllm.asystemone(
             model="cloudflare/clef",
             state="review",
             questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -970,14 +970,14 @@ async def test_cloudflare_clef_cost_uses_the_model_cost_map(
         json=_RESPONSE
     )
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model="cloudflare/clef",
         state="review",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
     )
 
-    cost: Final = litellm.completion_cost(completion_response=response)
-    clef_cost: Final = litellm.model_cost["cloudflare/@cf/cloudflare/clef"]
+    cost: Final = hangarllm.completion_cost(completion_response=response)
+    clef_cost: Final = hangarllm.model_cost["cloudflare/@cf/cloudflare/clef"]
     expected_cost: Final = _INPUT_TOKENS * float(clef_cost["input_cost_per_token"]) + _OUTPUT_TOKENS * float(
         clef_cost["output_cost_per_token"]
     )
@@ -994,8 +994,8 @@ async def test_strands_decider_requires_api_base_before_http(
     monkeypatch.delenv("STRANDS_DECIDER_API_BASE", raising=False)
     monkeypatch.delenv("STRANDS_DECIDER_API_KEY", raising=False)
 
-    with pytest.raises(litellm.BadRequestError, match="api_base is required"):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.BadRequestError, match="api_base is required"):
+        await hangarllm.asystemone(
             model="strands_decider/strands-decider-2B-hobson-v19",
             state="review",
             questions={"severity": {"type": "score", "criteria": ["none", "low", "high"]}},
@@ -1013,7 +1013,7 @@ async def test_strands_decider_without_key_preserves_response_extras(
     monkeypatch.delenv("STRANDS_DECIDER_API_KEY", raising=False)
     route: Final = respx_mock.post("https://strands.example/v1/systemone").respond(json=_STRANDS_RESPONSE)
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model="strands_decider/strands-decider-2B-hobson-v19",
         state="review",
         questions={"severity": {"type": "score", "criteria": ["none", "low", "high"]}},
@@ -1040,7 +1040,7 @@ async def test_strands_decider_plain_api_base_answers_while_every_aws_signing_th
 
     try:
         response: Final = await asyncio.wait_for(
-            litellm.asystemone(
+            hangarllm.asystemone(
                 model="strands_decider/strands-decider-2B-hobson-v19",
                 state="review",
                 questions={"severity": {"type": "score", "criteria": ["none", "low", "high"]}},
@@ -1064,7 +1064,7 @@ async def test_strands_decider_uses_key_from_matching_environment_base(
     monkeypatch.setenv("STRANDS_DECIDER_API_KEY", "strands-key")
     route: Final = respx_mock.post("https://strands.example/v1/systemone").respond(json=_STRANDS_RESPONSE)
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="strands_decider/strands-decider-2B-hobson-v19",
         state="review",
         questions={"severity": {"type": "score", "criteria": ["none", "low", "high"]}},
@@ -1082,12 +1082,12 @@ async def test_strands_decider_provider_resolution_and_router_dispatch(
 ) -> None:
     monkeypatch.delenv("STRANDS_DECIDER_API_BASE", raising=False)
     monkeypatch.delenv("STRANDS_DECIDER_API_KEY", raising=False)
-    provider_resolution: Final = litellm.get_llm_provider("strands_decider/strands-decider-2B-hobson-v19")
-    router: Final = litellm.Router(
+    provider_resolution: Final = hangarllm.get_llm_provider("strands_decider/strands-decider-2B-hobson-v19")
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "strands",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "strands_decider/strands-decider-2B-hobson-v19",
                     "api_base": "https://strands.example",
                 },
@@ -1150,13 +1150,13 @@ async def test_strands_decider_runtime_arn_sends_a_sigv4_signed_invoke_agent_run
         "aws_secret_access_key": _RUNTIME_CREDENTIALS.secret_key,
     }
 
-    response: Final = await litellm.asystemone(**call_args) if use_async else litellm.systemone(**call_args)
+    response: Final = await hangarllm.asystemone(**call_args) if use_async else hangarllm.systemone(**call_args)
 
     assert route.call_count == 1
     sent: Final = route.calls[0].request
     assert _sigv4_verifies(sent)
     assert json.loads(sent.content)["model"] == "strands-decider-2B-hobson-v19"
-    assert sent.headers[_SESSION_HEADER].startswith("litellm-decider-")
+    assert sent.headers[_SESSION_HEADER].startswith("hangarllm-decider-")
     assert response.model == _STRANDS_RESPONSE["model"]
 
 
@@ -1166,11 +1166,11 @@ async def test_strands_decider_runtime_arn_router_deployment_answers_openai_form
     respx_mock: respx.MockRouter,
 ) -> None:
     monkeypatch.delenv("STRANDS_DECIDER_API_KEY", raising=False)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "strands",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "strands_decider/strands-decider-2B-hobson-v19",
                     "api_base": _RUNTIME_ARN,
                     "aws_access_key_id": _RUNTIME_CREDENTIALS.access_key,
@@ -1211,7 +1211,7 @@ async def test_strands_decider_runtime_arn_with_api_key_sends_the_bearer_token_u
     monkeypatch.delenv("STRANDS_DECIDER_API_KEY", raising=False)
     route: Final = respx_mock.post(_RUNTIME_URL).respond(json=_STRANDS_RESPONSE)
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="strands_decider/strands-decider-2B-hobson-v19",
         state="review",
         questions={"severity": {"type": "score", "criteria": ["none", "low", "high"]}},
@@ -1228,9 +1228,9 @@ async def test_strands_decider_runtime_arn_with_api_key_sends_the_bearer_token_u
 @pytest.mark.parametrize(
     ("code", "error_class"),
     [
-        ("bad_request", litellm.BadRequestError),
-        ("loading", litellm.ServiceUnavailableError),
-        ("inference_error", litellm.InternalServerError),
+        ("bad_request", hangarllm.BadRequestError),
+        ("loading", hangarllm.ServiceUnavailableError),
+        ("inference_error", hangarllm.InternalServerError),
     ],
 )
 @pytest.mark.asyncio
@@ -1244,7 +1244,7 @@ async def test_strands_decider_runtime_error_envelope_raises_instead_of_answerin
     respx_mock.post(_RUNTIME_URL).respond(json={"error": {"code": code, "message": "at most 16 questions"}})
 
     with pytest.raises(error_class, match="at most 16 questions"):
-        await litellm.asystemone(
+        await hangarllm.asystemone(
             model="strands_decider/strands-decider-2B-hobson-v19",
             state="review",
             questions={"severity": {"type": "score", "criteria": ["none", "low", "high"]}},
@@ -1264,8 +1264,8 @@ async def test_strands_decider_plain_api_base_error_envelope_stays_an_unexpected
         json={"error": {"code": "bad_request", "message": "at most 16 questions"}}
     )
 
-    with pytest.raises(litellm.InternalServerError, match="returned an unexpected response"):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.InternalServerError, match="returned an unexpected response"):
+        await hangarllm.asystemone(
             model="strands_decider/strands-decider-2B-hobson-v19",
             state="review",
             questions={"severity": {"type": "score", "criteria": ["none", "low", "high"]}},
@@ -1299,8 +1299,8 @@ async def test_hosted_vllm_requires_api_base_before_http(
     monkeypatch.delenv("HOSTED_VLLM_API_BASE", raising=False)
     monkeypatch.delenv("HOSTED_VLLM_API_KEY", raising=False)
 
-    with pytest.raises(litellm.BadRequestError, match="api_base is required"):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.BadRequestError, match="api_base is required"):
+        await hangarllm.asystemone(
             model="hosted_vllm/Qwen/Qwen3-0.6B",
             state="review",
             questions={"is_defect": {"type": "choice", "criteria": {"yes": None, "no": None}}},
@@ -1318,7 +1318,7 @@ async def test_hosted_vllm_without_key_sends_no_authorization_and_preserves_resp
     monkeypatch.delenv("HOSTED_VLLM_API_KEY", raising=False)
     route: Final = respx_mock.post("http://vllm.local:8000/v1/systemone").respond(json=_VLLM_RESPONSE)
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model="hosted_vllm/Qwen/Qwen3-0.6B",
         state="The package arrived broken.",
         questions={"is_defect": {"type": "choice", "criteria": {"yes": None, "no": None}}},
@@ -1341,7 +1341,7 @@ async def test_hosted_vllm_uses_key_and_base_from_environment(
     monkeypatch.setenv("HOSTED_VLLM_API_KEY", "vllm-key")
     route: Final = respx_mock.post("http://vllm.local:8000/v1/systemone").respond(json=_VLLM_RESPONSE)
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="hosted_vllm/Qwen/Qwen3-0.6B",
         state="The package arrived broken.",
         questions={"is_defect": {"type": "choice", "criteria": {"yes": None, "no": None}}},
@@ -1360,7 +1360,7 @@ async def test_hosted_vllm_api_base_with_v1_suffix_posts_to_v1_systemone(
     monkeypatch.delenv("HOSTED_VLLM_API_KEY", raising=False)
     route: Final = respx_mock.post("http://vllm.local:8000/v1/systemone").respond(json=_VLLM_RESPONSE)
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="hosted_vllm/Qwen/Qwen3-0.6B",
         state="The package arrived broken.",
         questions={"is_defect": {"type": "choice", "criteria": {"yes": None, "no": None}}},
@@ -1379,7 +1379,7 @@ async def test_hosted_vllm_choice_question_goes_out_as_a_jev_choice_with_the_ser
     monkeypatch.delenv("HOSTED_VLLM_API_KEY", raising=False)
     route: Final = respx_mock.post("http://vllm.local:8000/v1/systemone").respond(json=_VLLM_RESPONSE)
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="hosted_vllm/Qwen/Qwen3-0.6B",
         state="The package arrived broken.",
         questions={
@@ -1414,8 +1414,8 @@ async def test_databricks_requires_api_base_before_http(
     monkeypatch.delenv("DATABRICKS_API_BASE", raising=False)
     monkeypatch.setenv("DATABRICKS_API_KEY", "dapi-key")
 
-    with pytest.raises(litellm.BadRequestError, match="DATABRICKS_API_BASE"):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.BadRequestError, match="DATABRICKS_API_BASE"):
+        await hangarllm.asystemone(
             model="databricks/ai_decide",
             state="review",
             questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -1436,8 +1436,8 @@ async def test_databricks_rejects_a_serving_endpoint_name_that_would_rewrite_the
     monkeypatch.setenv("DATABRICKS_API_BASE", "https://workspace.example/serving-endpoints")
     monkeypatch.setenv("DATABRICKS_API_KEY", "dapi-key")
 
-    with pytest.raises(litellm.BadRequestError, match="bare serving endpoint name"):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.BadRequestError, match="bare serving endpoint name"):
+        await hangarllm.asystemone(
             model=f"databricks/{endpoint_name}",
             state="review",
             questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -1455,8 +1455,8 @@ async def test_databricks_requires_a_key_before_http(
     monkeypatch.delenv("DATABRICKS_API_KEY", raising=False)
     monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
 
-    with pytest.raises(litellm.AuthenticationError, match="Missing API key for Decisions provider 'databricks'"):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.AuthenticationError, match="Missing API key for Decisions provider 'databricks'"):
+        await hangarllm.asystemone(
             model="databricks/ai_decide",
             state="review",
             questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -1485,7 +1485,7 @@ async def test_databricks_posts_the_jev_body_to_the_serving_endpoint_invocations
         "sentiment": {"type": "choice", "criteria": {"positive": None, "negative": "unhappy"}},
     }
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model=f"databricks/{_DATABRICKS_ENDPOINT}",
         state={"ticket": "export hangs"},
         questions=questions,
@@ -1530,7 +1530,7 @@ async def test_databricks_posts_the_systemone_body_without_model_to_the_ai_decid
         "sentiment": {"type": "choice", "criteria": {"positive": None, "negative": "unhappy"}},
     }
 
-    response: Final = await litellm.adecisions(
+    response: Final = await hangarllm.adecisions(
         model="databricks/ai_decide",
         state={"ticket": "export hangs"},
         questions=questions,
@@ -1555,11 +1555,11 @@ async def test_databricks_router_deployment_sends_its_own_key_to_its_own_base(
 ) -> None:
     monkeypatch.setenv("DATABRICKS_API_BASE", "https://other-workspace.example")
     monkeypatch.setenv("DATABRICKS_API_KEY", "env-key-stays-home")
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "decider",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "databricks/ai_decide",
                     "api_base": "https://workspace.example",
                     "api_key": "deployment-key",
@@ -1606,8 +1606,8 @@ _DEDICATED_DECIDER_PROVIDERS: Final[tuple[str, ...]] = tuple(
 def test_every_dedicated_decider_provider_ships_an_evaluation_mode_cost_map_entry(provider: str) -> None:
     evaluation_entries: Final = tuple(
         name
-        for name, info in litellm.model_cost.items()
-        if isinstance(info, Mapping) and info.get("litellm_provider") == provider and info.get("mode") == "evaluation"
+        for name, info in hangarllm.model_cost.items()
+        if isinstance(info, Mapping) and info.get("hangarllm_provider") == provider and info.get("mode") == "evaluation"
     )
 
     assert evaluation_entries, f"a {provider} decider would be health-checked as chat without a mode: evaluation entry"
@@ -1628,12 +1628,12 @@ async def test_openai_decisions_translate_systemone_to_the_openai_wire_contract_
     respx_mock: respx.MockRouter,
     decisions_pricing_fields: None,
 ) -> None:
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     route: Final = respx_mock.post(url).respond(json=_OPENAI_RESPONSE)
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model="openai/gpt-6-luna",
         state="The package arrived broken.",
         questions={
@@ -1668,7 +1668,7 @@ async def test_openai_decisions_translate_systemone_to_the_openai_wire_contract_
     assert response.hidden_params["custom_llm_provider"] == "openai"
     expected_cost: Final = _INPUT_TOKENS * _GPT_6_LUNA_DECISIONS_INPUT_RATE
     assert expected_cost > 0
-    assert litellm.completion_cost(completion_response=response) == pytest.approx(expected_cost)
+    assert hangarllm.completion_cost(completion_response=response) == pytest.approx(expected_cost)
 
 
 @pytest.mark.parametrize(
@@ -1705,14 +1705,14 @@ def test_openai_decisions_use_the_same_settings_as_other_openai_calls(
     respx_mock: respx.MockRouter,
 ) -> None:
     for name in ("api_key", "openai_key", "api_base"):
-        monkeypatch.setattr(litellm, name, settings.get(name))
+        monkeypatch.setattr(hangarllm, name, settings.get(name))
     for name in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_API_BASE"):
         monkeypatch.delenv(name, raising=False)
     for name, value in env.items():
         monkeypatch.setenv(name, value)
     route: Final = respx_mock.post(url).respond(json=_OPENAI_RESPONSE)
 
-    litellm.systemone(
+    hangarllm.systemone(
         model="openai/gpt-6-luna",
         state="review",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -1728,7 +1728,7 @@ async def test_openai_format_calls_to_a_systemone_provider_get_openai_format_ans
 ) -> None:
     route: Final = respx_mock.post("https://api.typesafe.ai/v1/systemone").respond(json=_RESPONSE)
 
-    response: Final = await litellm.adecisions(
+    response: Final = await hangarllm.adecisions(
         model="typesafe/jev-1.13",
         input="review",
         questions=[
@@ -1780,8 +1780,8 @@ async def test_requests_a_provider_cannot_serve_are_rejected_before_http(
     request_kwargs: Mapping[str, object],
     message: str,
 ) -> None:
-    with pytest.raises(litellm.BadRequestError, match=message):
-        await litellm.adecisions(model=model, api_key="caller-key", **request_kwargs)
+    with pytest.raises(hangarllm.BadRequestError, match=message):
+        await hangarllm.adecisions(model=model, api_key="caller-key", **request_kwargs)
 
     assert len(respx_mock.calls) == 0
 
@@ -1791,7 +1791,7 @@ async def test_openrouter_decisions_uses_provider_reported_cost_without_cost_map
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delitem(litellm.model_cost, "openrouter/typesafe/jev-1.13", raising=False)
+    monkeypatch.delitem(hangarllm.model_cost, "openrouter/typesafe/jev-1.13", raising=False)
     cost: Final = 1.1802e-5
     route: Final = respx_mock.post("https://openrouter.ai/api/alpha/decisions").respond(
         json={
@@ -1805,7 +1805,7 @@ async def test_openrouter_decisions_uses_provider_reported_cost_without_cost_map
         }
     )
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model="openrouter/typesafe/jev-1.13",
         state={"source": "unit-test"},
         questions=_QUESTIONS,
@@ -1836,11 +1836,11 @@ _PREDICATE_REQUEST_IDS: Final = ("decisions", "systemone")
 def test_safety_identifier_is_refused_before_http_when_the_provider_cannot_take_it(
     api: str, request_kwargs: Mapping[str, object], respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post("https://api.perplexity.ai/v1/decisions").respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=r"safety_identifier.*drop_params") as caught:
-        getattr(litellm, api)(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=r"safety_identifier.*drop_params") as caught:
+        getattr(hangarllm, api)(
             model="perplexity/pplx-decider-v1-27b",
             safety_identifier=_SAFETY_IDENTIFIER,
             api_key="caller-key",
@@ -1856,10 +1856,10 @@ def test_safety_identifier_is_refused_before_http_when_the_provider_cannot_take_
 async def test_safety_identifier_is_dropped_from_the_wire_under_drop_params(
     scope: str, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", scope == "global")
+    monkeypatch.setattr(hangarllm, "drop_params", scope == "global")
     route: Final = respx_mock.post("https://api.perplexity.ai/v1/decisions").respond(json=_RESPONSE)
 
-    response: Final = await litellm.adecisions(
+    response: Final = await hangarllm.adecisions(
         model="perplexity/pplx-decider-v1-27b",
         input="review",
         questions=_PREDICATE_QUESTIONS,
@@ -1890,13 +1890,13 @@ async def test_safety_identifier_reaches_openai_whether_or_not_params_are_droppe
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", drop_params)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "drop_params", drop_params)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     route: Final = respx_mock.post("https://api.openai.com/v1/decisions").respond(json=_OPENAI_RESPONSE)
 
-    await getattr(litellm, f"a{api}")(
+    await getattr(hangarllm, f"a{api}")(
         model="openai/gpt-6-luna",
         safety_identifier=_SAFETY_IDENTIFIER,
         api_key="caller-key",
@@ -1917,12 +1917,12 @@ async def test_safety_identifier_reaches_openai_whether_or_not_params_are_droppe
 async def test_non_string_safety_identifier_is_rejected_before_http(
     api: str, request_kwargs: Mapping[str, object], respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post("https://api.openai.com/v1/decisions").respond(json=_OPENAI_RESPONSE)
     invalid_safety_identifier: Final[Mapping[str, object]] = MappingProxyType({"safety_identifier": 7})
 
-    with pytest.raises(litellm.BadRequestError, match=r"(?s)Invalid Decisions request.*safety_identifier"):
-        await getattr(litellm, f"a{api}")(
+    with pytest.raises(hangarllm.BadRequestError, match=r"(?s)Invalid Decisions request.*safety_identifier"):
+        await getattr(hangarllm, f"a{api}")(
             model="openai/gpt-6-luna", api_key="caller-key", **request_kwargs, **invalid_safety_identifier
         )
 
@@ -1934,8 +1934,8 @@ async def test_non_string_safety_identifier_is_rejected_before_http(
 async def test_non_string_safety_identifier_is_dropped_from_the_wire_under_drop_params(
     api: str, request_kwargs: Mapping[str, object], respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     route: Final = respx_mock.post("https://api.openai.com/v1/decisions").respond(json=_OPENAI_RESPONSE)
@@ -1943,7 +1943,7 @@ async def test_non_string_safety_identifier_is_dropped_from_the_wire_under_drop_
         {"safety_identifier": 7, "drop_params": True}
     )
 
-    await getattr(litellm, f"a{api}")(
+    await getattr(hangarllm, f"a{api}")(
         model="openai/gpt-6-luna", api_key="caller-key", **request_kwargs, **dropped_safety_identifier
     )
 
@@ -2000,7 +2000,7 @@ def cloudflare_account(monkeypatch: pytest.MonkeyPatch) -> None:
 async def test_input_images_reach_cloudflare_clef_as_its_images_field(model: str, respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/{model}").respond(json=_RESPONSE)
 
-    response: Final = await litellm.adecisions(
+    response: Final = await hangarllm.adecisions(
         model=f"cloudflare/{model}",
         input=(
             *_screen_messages(_PNG_DATA_URL),
@@ -2023,7 +2023,7 @@ async def test_input_images_reach_cloudflare_clef_as_its_images_field(model: str
 def test_systemone_images_reach_cloudflare_clef_in_the_callers_form(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    response: Final = litellm.systemone(
+    response: Final = hangarllm.systemone(
         model="cloudflare/clef",
         state={"ticket": 1234},
         questions=_SYSTEMONE_PREDICATE,
@@ -2063,9 +2063,9 @@ async def test_logging_callbacks_get_the_image_url_the_caller_sent_while_cloudfl
 ) -> None:
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
     recording_logger: Final = _InputRecordingLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recording_logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [recording_logger])
 
-    await getattr(litellm, f"a{api}")(model="cloudflare/clef", **request_kwargs)
+    await getattr(hangarllm, f"a{api}")(model="cloudflare/clef", **request_kwargs)
     await _drain_logging_worker()
 
     wire_body: Final = json.loads(route.calls[0].request.content)
@@ -2080,7 +2080,7 @@ async def test_remote_images_are_fetched_off_the_event_loop_and_inlined_for_clou
 ) -> None:
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    await getattr(litellm, f"a{api}")(model="cloudflare/clef", **request_kwargs)
+    await getattr(hangarllm, f"a{api}")(model="cloudflare/clef", **request_kwargs)
 
     assert async_only_image_fetch.fetched == [_REMOTE_IMAGE_URL]
     assert json.loads(route.calls[0].request.content)["images"] == [async_only_image_fetch.data_url]
@@ -2091,12 +2091,12 @@ async def test_remote_images_are_fetched_off_the_event_loop_and_inlined_for_clou
 def test_sync_decisions_fetch_and_inline_remote_images_for_cloudflare(
     api: str, request_kwargs: Mapping[str, object], respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "user_url_validation", False)
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
     png: Final = b"\x89PNG\r\n\x1a\n"
     image_route: Final = respx_mock.get(_REMOTE_IMAGE_URL).respond(content=png, headers={"content-type": "image/png"})
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    getattr(litellm, api)(model="cloudflare/clef", **request_kwargs)
+    getattr(hangarllm, api)(model="cloudflare/clef", **request_kwargs)
 
     assert image_route.call_count == 1
     assert json.loads(route.calls[0].request.content)["images"] == [
@@ -2110,8 +2110,8 @@ def test_sync_decisions_fetch_and_inline_remote_images_for_cloudflare(
 async def test_remote_image_downloads_use_the_callers_timeout(
     sync: bool, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "user_url_validation", False)
-    monkeypatch.setattr(litellm, "module_level_aclient", AsyncHTTPHandler(transport=httpx.AsyncHTTPTransport()))
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
+    monkeypatch.setattr(hangarllm, "module_level_aclient", AsyncHTTPHandler(transport=httpx.AsyncHTTPTransport()))
     image_route: Final = respx_mock.get(_REMOTE_IMAGE_URL).respond(
         content=b"\x89PNG\r\n\x1a\n", headers={"content-type": "image/png"}
     )
@@ -2119,9 +2119,9 @@ async def test_remote_image_downloads_use_the_callers_timeout(
     request_kwargs: Final = {**_image_requests(_REMOTE_IMAGE_URL)[1][1], "model": "cloudflare/clef", "timeout": 7.0}
 
     if sync:
-        litellm.systemone(**request_kwargs)
+        hangarllm.systemone(**request_kwargs)
     else:
-        await litellm.asystemone(**request_kwargs)
+        await hangarllm.asystemone(**request_kwargs)
 
     sent_timeout: Final = image_route.calls.last.request.extensions["timeout"]
     assert sent_timeout.keys() == httpx.Timeout(7.0).as_dict().keys()
@@ -2132,12 +2132,12 @@ async def test_remote_image_downloads_use_the_callers_timeout(
 async def test_remote_input_images_reach_openai_unfetched(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, async_only_image_fetch
 ) -> None:
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     route: Final = respx_mock.post("https://api.openai.com/v1/decisions").respond(json=_OPENAI_RESPONSE)
 
-    await litellm.adecisions(
+    await hangarllm.adecisions(
         model="openai/gpt-6-luna",
         input=_screen_messages(_REMOTE_IMAGE_URL),
         questions=_PREDICATE_QUESTIONS,
@@ -2162,11 +2162,11 @@ def test_images_are_refused_before_http_when_the_provider_cannot_take_them(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(_PERPLEXITY_DECISIONS_URL).respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=rf"\['{param}'\].*drop_params") as caught:
-        getattr(litellm, api)(model="perplexity/pplx-decider-v1-27b", api_key="caller-key", **request_kwargs)
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=rf"\['{param}'\].*drop_params") as caught:
+        getattr(hangarllm, api)(model="perplexity/pplx-decider-v1-27b", api_key="caller-key", **request_kwargs)
 
     assert caught.value.status_code == 400
     assert not route.called
@@ -2177,10 +2177,10 @@ def test_images_are_refused_before_http_when_the_provider_cannot_take_them(
 async def test_images_are_dropped_from_the_wire_under_drop_params(
     api: str, request_kwargs: Mapping[str, object], respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(_PERPLEXITY_DECISIONS_URL).respond(json=_RESPONSE)
 
-    await getattr(litellm, f"a{api}")(
+    await getattr(hangarllm, f"a{api}")(
         model="perplexity/pplx-decider-v1-27b", api_key="caller-key", drop_params=True, **request_kwargs
     )
 
@@ -2218,11 +2218,11 @@ _MALFORMED_IMAGE_IDS: Final = ("bare_string", *_MALFORMED_IMAGE_ENTRY_IDS)
 def test_malformed_images_are_rejected_before_http(
     images: object, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.BadRequestError, match=r"(?s)Invalid Decisions request.*images"):
-        litellm.systemone(model="cloudflare/clef", state=_SCREEN_TEXT, questions=_SYSTEMONE_PREDICATE, images=images)
+    with pytest.raises(hangarllm.BadRequestError, match=r"(?s)Invalid Decisions request.*images"):
+        hangarllm.systemone(model="cloudflare/clef", state=_SCREEN_TEXT, questions=_SYSTEMONE_PREDICATE, images=images)
 
     assert not route.called
 
@@ -2233,10 +2233,10 @@ def test_malformed_images_are_rejected_before_http(
 async def test_malformed_images_are_dropped_from_the_wire_under_drop_params(
     images: object, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="cloudflare/clef", state=_SCREEN_TEXT, questions=_SYSTEMONE_PREDICATE, images=images, drop_params=True
     )
 
@@ -2253,10 +2253,10 @@ async def test_malformed_images_are_dropped_from_the_wire_under_drop_params(
 async def test_a_malformed_image_under_drop_params_keeps_the_well_formed_ones(
     entry: Mapping[str, object] | str, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="cloudflare/clef",
         state=_SCREEN_TEXT,
         questions=_SYSTEMONE_PREDICATE,
@@ -2274,13 +2274,13 @@ async def test_a_malformed_image_under_drop_params_keeps_the_well_formed_ones(
 async def test_empty_images_next_to_input_are_ignored(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     route: Final = respx_mock.post("https://api.openai.com/v1/decisions").respond(json=_OPENAI_RESPONSE)
 
-    await litellm.adecisions(
+    await hangarllm.adecisions(
         model="openai/gpt-6-luna",
         api_key="caller-key",
         input="review",
@@ -2299,13 +2299,13 @@ async def test_empty_images_next_to_input_are_ignored(
 async def test_images_next_to_input_are_dropped_under_drop_params(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     route: Final = respx_mock.post("https://api.openai.com/v1/decisions").respond(json=_OPENAI_RESPONSE)
 
-    await litellm.adecisions(
+    await hangarllm.adecisions(
         model="openai/gpt-6-luna",
         api_key="caller-key",
         input="review",
@@ -2351,11 +2351,11 @@ def _cloudflare_image_requests(count: int) -> tuple[tuple[str, Mapping[str, obje
 def test_more_images_than_cloudflare_takes_are_refused_before_any_download_or_http(
     api: str, request_kwargs: Mapping[str, object], respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.BadRequestError, match="at most 4 images per request, got 5") as caught:
-        getattr(litellm, api)(model="cloudflare/clef", **request_kwargs)
+    with pytest.raises(hangarllm.BadRequestError, match="at most 4 images per request, got 5") as caught:
+        getattr(hangarllm, api)(model="cloudflare/clef", **request_kwargs)
 
     assert caught.value.status_code == 400
     assert not route.called
@@ -2368,7 +2368,7 @@ def test_the_four_images_cloudflare_takes_reach_it(
 ) -> None:
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    getattr(litellm, api)(model="cloudflare/clef", **request_kwargs)
+    getattr(hangarllm, api)(model="cloudflare/clef", **request_kwargs)
 
     assert json.loads(route.calls[0].request.content)["images"] == [_PNG_DATA_URL] * 4
 
@@ -2377,11 +2377,11 @@ def test_the_four_images_cloudflare_takes_reach_it(
 async def test_dropping_the_only_input_images_is_rejected_before_http(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(_PERPLEXITY_DECISIONS_URL).respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.BadRequestError, match=r"\['input_image'\].*leaves no input") as caught:
-        await litellm.adecisions(
+    with pytest.raises(hangarllm.BadRequestError, match=r"\['input_image'\].*leaves no input") as caught:
+        await hangarllm.adecisions(
             model="perplexity/pplx-decider-v1-27b",
             api_key="caller-key",
             input=[{"role": "user", "content": [{"type": "input_image", "image_url": _PNG_DATA_URL}]}],
@@ -2400,7 +2400,7 @@ _OPENAI_DECISIONS_URL: Final = "https://api.openai.com/v1/decisions"
 
 @pytest.fixture
 def openai_default_base(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
 
@@ -2415,11 +2415,11 @@ def openai_default_base(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_malformed_input_image_urls_are_rejected_before_http(
     model: str, upstream: str, image_url: str, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(upstream).respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.BadRequestError, match=r"Invalid Decisions request: 1 input_image") as caught:
-        litellm.decisions(
+    with pytest.raises(hangarllm.BadRequestError, match=r"Invalid Decisions request: 1 input_image") as caught:
+        hangarllm.decisions(
             model=model, api_key="caller-key", input=_screen_messages(image_url), questions=_PREDICATE_QUESTIONS
         )
 
@@ -2433,10 +2433,10 @@ def test_malformed_input_image_urls_are_rejected_before_http(
 async def test_a_malformed_input_image_under_drop_params_keeps_the_text_and_well_formed_images(
     image_url: str, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    await litellm.adecisions(
+    await hangarllm.adecisions(
         model="cloudflare/clef",
         input=(
             *_screen_messages(image_url),
@@ -2460,11 +2460,11 @@ async def test_a_malformed_input_image_under_drop_params_keeps_the_text_and_well
 async def test_dropping_the_only_malformed_input_images_is_rejected_before_http(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.BadRequestError, match=r"Invalid Decisions request: 2 input_image") as caught:
-        await litellm.adecisions(
+    with pytest.raises(hangarllm.BadRequestError, match=r"Invalid Decisions request: 2 input_image") as caught:
+        await hangarllm.adecisions(
             model="cloudflare/clef",
             input=[
                 {"role": "user", "content": [{"type": "input_image", "image_url": url}]}
@@ -2509,8 +2509,8 @@ def test_images_over_cloudflares_size_limits_are_refused_before_http(
 ) -> None:
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.BadRequestError, match=re.escape(f"cloudflare takes {refusal}")) as caught:
-        litellm.systemone(
+    with pytest.raises(hangarllm.BadRequestError, match=re.escape(f"cloudflare takes {refusal}")) as caught:
+        hangarllm.systemone(
             model="cloudflare/clef",
             state=_SCREEN_TEXT,
             questions=_SYSTEMONE_PREDICATE,
@@ -2528,12 +2528,12 @@ async def test_images_at_cloudflares_size_limits_reach_it(respx_mock: respx.Mock
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
     at_limits: Final = (_png_data_url(4 * _MIB), _png_object(4 * _MIB))
 
-    await litellm.adecisions(
+    await hangarllm.adecisions(
         model="cloudflare/clef",
         input=[{"role": "user", "content": [{"type": "input_image", "image_url": _png_data_url(4 * _MIB)}]}],
         questions=_PREDICATE_QUESTIONS,
     )
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="cloudflare/clef", state=_SCREEN_TEXT, questions=_SYSTEMONE_PREDICATE, images=at_limits
     )
 
@@ -2545,14 +2545,14 @@ async def test_images_at_cloudflares_size_limits_reach_it(respx_mock: respx.Mock
 def test_a_downloaded_image_over_cloudflares_limit_is_refused_before_the_cloudflare_call(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "user_url_validation", False)
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
     image_route: Final = respx_mock.get(_REMOTE_IMAGE_URL).respond(
         content=bytes(4 * _MIB + 1), headers={"content-type": "image/png"}
     )
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.BadRequestError, match="got one of 4,194,305 bytes") as caught:
-        litellm.systemone(
+    with pytest.raises(hangarllm.BadRequestError, match="got one of 4,194,305 bytes") as caught:
+        hangarllm.systemone(
             model="cloudflare/clef", state=_SCREEN_TEXT, questions=_SYSTEMONE_PREDICATE, images=[_REMOTE_IMAGE_URL]
         )
 
@@ -2565,12 +2565,12 @@ def test_a_downloaded_image_over_cloudflares_limit_is_refused_before_the_cloudfl
 def test_remote_image_urls_with_an_uppercase_scheme_are_inlined_for_cloudflare(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "user_url_validation", False)
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
     png: Final = b"\x89PNG\r\n\x1a\n"
     image_route: Final = respx_mock.get(_REMOTE_IMAGE_URL).respond(content=png, headers={"content-type": "image/png"})
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    litellm.systemone(
+    hangarllm.systemone(
         model="cloudflare/clef",
         state=_SCREEN_TEXT,
         questions=_SYSTEMONE_PREDICATE,
@@ -2592,7 +2592,7 @@ _CLOUDFLARE_TYPE_REFUSAL: Final = "cloudflare takes only image/jpeg, image/jpg, 
 def test_a_data_url_with_media_type_parameters_reaches_openai_unchanged(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(_OPENAI_DECISIONS_URL).respond(json=_OPENAI_RESPONSE)
 
-    litellm.decisions(
+    hangarllm.decisions(
         model="openai/gpt-6-luna",
         api_key="caller-key",
         input=_screen_messages(_PNG_DATA_URL_WITH_NAME),
@@ -2606,7 +2606,7 @@ def test_a_data_url_with_media_type_parameters_reaches_openai_unchanged(respx_mo
 def test_cloudflare_gets_images_without_media_type_parameters(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    litellm.systemone(
+    hangarllm.systemone(
         model="cloudflare/clef",
         state=_SCREEN_TEXT,
         questions=_SYSTEMONE_PREDICATE,
@@ -2640,11 +2640,11 @@ _REFUSED_TYPE_REQUESTS: Final[tuple[tuple[str, Mapping[str, object]], ...]] = (
 def test_an_image_type_cloudflare_refuses_is_rejected_before_http(
     api: str, request_kwargs: Mapping[str, object], respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.BadRequestError, match=re.escape(f"{_CLOUDFLARE_TYPE_REFUSAL}image/gif")) as caught:
-        getattr(litellm, api)(model="cloudflare/clef", **request_kwargs)
+    with pytest.raises(hangarllm.BadRequestError, match=re.escape(f"{_CLOUDFLARE_TYPE_REFUSAL}image/gif")) as caught:
+        getattr(hangarllm, api)(model="cloudflare/clef", **request_kwargs)
 
     assert caught.value.status_code == 400
     assert not route.called
@@ -2655,10 +2655,10 @@ def test_an_image_type_cloudflare_refuses_is_rejected_before_http(
 async def test_an_image_type_cloudflare_refuses_is_dropped_under_drop_params(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    await litellm.adecisions(
+    await hangarllm.adecisions(
         model="cloudflare/clef",
         input=(
             *_screen_messages(_GIF_DATA_URL),
@@ -2667,8 +2667,8 @@ async def test_an_image_type_cloudflare_refuses_is_dropped_under_drop_params(
         questions=_PREDICATE_QUESTIONS,
         drop_params=True,
     )
-    with pytest.raises(litellm.BadRequestError, match=re.escape(f"{_CLOUDFLARE_TYPE_REFUSAL}image/gif")):
-        await litellm.adecisions(
+    with pytest.raises(hangarllm.BadRequestError, match=re.escape(f"{_CLOUDFLARE_TYPE_REFUSAL}image/gif")):
+        await hangarllm.adecisions(
             model="cloudflare/clef",
             input=[{"role": "user", "content": [{"type": "input_image", "image_url": _GIF_DATA_URL}]}],
             questions=_PREDICATE_QUESTIONS,
@@ -2695,10 +2695,10 @@ async def test_an_image_dropped_under_drop_params_does_not_count_toward_the_clou
         },
     )
 
-    litellm.decisions(
+    hangarllm.decisions(
         model="cloudflare/clef", input=gif_then_four_pngs, questions=_PREDICATE_QUESTIONS, drop_params=True
     )
-    await litellm.adecisions(
+    await hangarllm.adecisions(
         model="cloudflare/clef", input=gif_then_four_pngs, questions=_PREDICATE_QUESTIONS, drop_params=True
     )
 
@@ -2709,14 +2709,14 @@ async def test_an_image_dropped_under_drop_params_does_not_count_toward_the_clou
 def test_a_downloaded_page_that_is_not_an_image_is_refused_before_the_cloudflare_call(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "user_url_validation", False)
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
     image_route: Final = respx_mock.get(_REMOTE_IMAGE_URL).respond(
         content=b"<html></html>", headers={"content-type": "text/html; charset=utf-8"}
     )
     route: Final = respx_mock.post(f"{_CLOUDFLARE_RUN_URL}/clef").respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.BadRequestError, match=re.escape(f"{_CLOUDFLARE_TYPE_REFUSAL}text/html")) as caught:
-        litellm.systemone(
+    with pytest.raises(hangarllm.BadRequestError, match=re.escape(f"{_CLOUDFLARE_TYPE_REFUSAL}text/html")) as caught:
+        hangarllm.systemone(
             model="cloudflare/clef", state=_SCREEN_TEXT, questions=_SYSTEMONE_PREDICATE, images=[_REMOTE_IMAGE_URL]
         )
 
@@ -2750,7 +2750,7 @@ async def test_azure_ai_decision_posts_deployment_to_foundry_systemone_route(
         json={**_RESPONSE, "model": "microsoft-decision-1"}
     )
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model="azure_ai/decision-1",
         state="review",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -2778,7 +2778,7 @@ async def test_azure_ai_systemone_uses_its_decisions_pricing_fields(
     route: Final = respx_mock.post("https://res.services.ai.azure.com/providers/microsoft/v1/systemone").respond(
         json={**_RESPONSE, "model": "microsoft-decision-1"}
     )
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model="azure_ai/Microsoft-Decision-1",
         state="review",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -2788,7 +2788,7 @@ async def test_azure_ai_systemone_uses_its_decisions_pricing_fields(
 
     assert route.called
     assert response._hidden_params["provider_response_model"] == "azure_ai/Microsoft-Decision-1"
-    assert litellm.completion_cost(completion_response=response) == pytest.approx(
+    assert hangarllm.completion_cost(completion_response=response) == pytest.approx(
         _INPUT_TOKENS * _MICROSOFT_DECISION_1_DECISIONS_INPUT_RATE
     )
 
@@ -2804,7 +2804,7 @@ async def test_azure_ai_decision_reads_foundry_env_and_keeps_gateway_path_prefix
         json=_RESPONSE
     )
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="azure_ai/decision-1",
         state="review",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -2822,8 +2822,8 @@ async def test_azure_ai_decision_requires_api_base_before_http(
     monkeypatch.delenv("AZURE_AI_API_BASE", raising=False)
     monkeypatch.setenv("AZURE_AI_API_KEY", "foundry-key")
 
-    with pytest.raises(litellm.BadRequestError, match="Missing AZURE_AI_API_BASE"):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.BadRequestError, match="Missing AZURE_AI_API_BASE"):
+        await hangarllm.asystemone(
             model="azure_ai/decision-1",
             state="review",
             questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -2841,7 +2841,7 @@ def _clear_azure_ai_auth_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("AZURE_USERNAME", raising=False)
     monkeypatch.delenv("AZURE_PASSWORD", raising=False)
     monkeypatch.delenv("AZURE_AI_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "enable_azure_ad_token_refresh", False)
+    monkeypatch.setattr(hangarllm, "enable_azure_ad_token_refresh", False)
 
 
 def test_azure_ai_systemone_uses_entra_token_without_api_key(
@@ -2853,7 +2853,7 @@ def test_azure_ai_systemone_uses_entra_token_without_api_key(
         json={**_RESPONSE, "model": "microsoft-decision-1"}
     )
 
-    litellm.systemone(
+    hangarllm.systemone(
         model="azure_ai/decision-1",
         state="review",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -2875,7 +2875,7 @@ async def test_azure_ai_decisions_use_entra_token_without_api_key(
         json={**_RESPONSE, "model": "microsoft-decision-1"}
     )
 
-    await litellm.adecisions(
+    await hangarllm.adecisions(
         model="azure_ai/decision-1",
         input="review",
         questions=_PREDICATE_QUESTIONS,
@@ -2897,7 +2897,7 @@ def test_azure_ai_systemone_environment_api_key_wins_over_deployment_entra(
         json={**_RESPONSE, "model": "microsoft-decision-1"}
     )
 
-    litellm.systemone(
+    hangarllm.systemone(
         model="azure_ai/decision-1",
         state="review",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -2920,7 +2920,7 @@ async def test_azure_ai_decisions_environment_api_key_wins_over_deployment_entra
         json={**_RESPONSE, "model": "microsoft-decision-1"}
     )
 
-    await litellm.adecisions(
+    await hangarllm.adecisions(
         model="azure_ai/decision-1",
         input="review",
         questions=_PREDICATE_QUESTIONS,
@@ -2942,7 +2942,7 @@ def test_azure_ai_decisions_uses_environment_api_key_without_entra_credentials(
         json={**_RESPONSE, "model": "microsoft-decision-1"}
     )
 
-    litellm.decisions(
+    hangarllm.decisions(
         model="azure_ai/decision-1",
         input="review",
         questions=_PREDICATE_QUESTIONS,
@@ -2963,7 +2963,7 @@ def test_azure_ai_decisions_explicit_api_key_precedes_entra_and_environment(
         json={**_RESPONSE, "model": "microsoft-decision-1"}
     )
 
-    litellm.decisions(
+    hangarllm.decisions(
         model="azure_ai/decision-1",
         input="review",
         questions=_PREDICATE_QUESTIONS,
@@ -2985,7 +2985,7 @@ def test_azure_ai_decisions_does_not_validate_noncredential_params_as_auth(
         json={**_RESPONSE, "model": "microsoft-decision-1"}
     )
 
-    litellm.decisions(
+    hangarllm.decisions(
         model="azure_ai/decision-1",
         input="review",
         questions=_PREDICATE_QUESTIONS,
@@ -3007,8 +3007,8 @@ def test_azure_ai_decisions_malformed_credential_is_a_sanitized_bad_request(
         json={**_RESPONSE, "model": "microsoft-decision-1"}
     )
 
-    with pytest.raises(litellm.BadRequestError) as caught:
-        litellm.decisions(
+    with pytest.raises(hangarllm.BadRequestError) as caught:
+        hangarllm.decisions(
             model="azure_ai/decision-1",
             input="review",
             questions=_PREDICATE_QUESTIONS,
@@ -3033,7 +3033,7 @@ def test_azure_ai_decisions_prefer_api_key_when_both_are_set(
         json={**_RESPONSE, "model": "microsoft-decision-1"}
     )
 
-    litellm.decisions(
+    hangarllm.decisions(
         model="azure_ai/decision-1",
         input="review",
         questions=_PREDICATE_QUESTIONS,
@@ -3057,8 +3057,8 @@ def test_azure_ai_decisions_without_credentials_raise_authentication_error(
         json={**_RESPONSE, "model": "microsoft-decision-1"}
     )
 
-    with pytest.raises(litellm.AuthenticationError) as caught:
-        litellm.decisions(
+    with pytest.raises(hangarllm.AuthenticationError) as caught:
+        hangarllm.decisions(
             model="azure_ai/decision-1",
             input="review",
             questions=_PREDICATE_QUESTIONS,
@@ -3082,8 +3082,8 @@ async def test_azure_ai_systemone_without_credentials_raises_authentication_erro
         json={**_RESPONSE, "model": "microsoft-decision-1"}
     )
 
-    with pytest.raises(litellm.AuthenticationError) as caught:
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.AuthenticationError) as caught:
+        await hangarllm.asystemone(
             model="azure_ai/decision-1",
             state="review",
             questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -3140,7 +3140,7 @@ async def test_clef_omni_media_reaches_upstream_in_both_formats(
     ]
     videos: Final = ["data:video/mp4;base64,Yw==", {"content_type": "video/webm;codecs=vp9", "base64": "ZA=="}]
     route: Final = respx_mock.post(_CLEF_OMNI_UPSTREAM).respond(200, json=dict(_CLEF_OMNI_RESPONSE))
-    call: Final = getattr(litellm, f"a{api}" if async_mode else api)
+    call: Final = getattr(hangarllm, f"a{api}" if async_mode else api)
 
     response: Final = (
         await call(
@@ -3187,13 +3187,13 @@ async def test_clef_omni_media_reaches_upstream_in_both_formats(
 async def test_clips_for_a_model_without_media_support_are_refused_before_http(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, model: str, media: Mapping[str, object]
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     named_params: Final = str(list(media))
 
     with pytest.raises(
-        litellm.UnsupportedParamsError, match=rf"does not support parameters: {re.escape(named_params)}, .*drop_params"
+        hangarllm.UnsupportedParamsError, match=rf"does not support parameters: {re.escape(named_params)}, .*drop_params"
     ):
-        await litellm.asystemone(
+        await hangarllm.asystemone(
             model=model,
             state="test",
             questions=_QUESTIONS,
@@ -3221,9 +3221,9 @@ async def test_clips_are_dropped_from_the_wire_for_a_model_without_media_support
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post("https://api.perplexity.ai/v1/decisions").respond(json=_RESPONSE)
-    call: Final = getattr(litellm, f"a{api}")
+    call: Final = getattr(hangarllm, f"a{api}")
 
     await call(model="perplexity/pplx-decider-v1-27b", api_key="caller-key", **request_kwargs)
     await call(
@@ -3253,8 +3253,8 @@ async def test_clips_are_dropped_from_the_wire_for_a_model_without_media_support
 )
 @pytest.mark.asyncio
 async def test_systemone_validates_media_before_http(respx_mock: respx.MockRouter, media: Mapping[str, object]) -> None:
-    with pytest.raises(litellm.BadRequestError, match="Invalid Decisions request"):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.BadRequestError, match="Invalid Decisions request"):
+        await hangarllm.asystemone(
             model="cloudflare/clef-omni",
             state="test",
             questions=_QUESTIONS,
@@ -3273,7 +3273,7 @@ async def test_empty_or_null_media_keeps_text_only_request_unchanged(
     respx_mock: respx.MockRouter, media: Mapping[str, object]
 ) -> None:
     route: Final = respx_mock.post("https://example.com/v1/systemone").respond(200, json=dict(_RESPONSE))
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="typesafe/jev-latest",
         state="test",
         questions=_QUESTIONS,
@@ -3292,8 +3292,8 @@ async def test_empty_or_null_media_keeps_text_only_request_unchanged(
 async def test_a_malformed_clip_for_a_model_that_takes_media_is_refused_even_under_drop_params(
     respx_mock: respx.MockRouter,
 ) -> None:
-    with pytest.raises(litellm.BadRequestError, match="Invalid Decisions request"):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.BadRequestError, match="Invalid Decisions request"):
+        await hangarllm.asystemone(
             model="cloudflare/clef-omni",
             state="test",
             questions=_QUESTIONS,
@@ -3310,16 +3310,16 @@ async def test_a_malformed_clip_for_a_model_that_takes_media_is_refused_even_und
 async def test_media_support_is_read_per_kind_from_the_cost_map(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, local_model_cost_map: None, mode: str
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "typesafe/jev-hears",
-        {"litellm_provider": "typesafe", "mode": mode, "supports_audio_input": True},
+        {"hangarllm_provider": "typesafe", "mode": mode, "supports_audio_input": True},
     )
     route: Final = respx_mock.post("https://example.com/v1/systemone").respond(200, json=dict(_RESPONSE))
     audio: Final = ["data:audio/wav;base64,YQ=="]
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="typesafe/jev-hears",
         state="test",
         questions=_QUESTIONS,
@@ -3327,8 +3327,8 @@ async def test_media_support_is_read_per_kind_from_the_cost_map(
         api_key="test",
         audio=audio,
     )
-    with pytest.raises(litellm.UnsupportedParamsError, match=re.escape("does not support parameters: ['videos']")):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=re.escape("does not support parameters: ['videos']")):
+        await hangarllm.asystemone(
             model="typesafe/jev-hears",
             state="test",
             questions=_QUESTIONS,
@@ -3355,7 +3355,7 @@ async def test_media_support_is_read_per_kind_from_the_cost_map(
             "typesafe/jev-chatty",
             "https://example.com/v1/systemone",
             {
-                "litellm_provider": "typesafe",
+                "hangarllm_provider": "typesafe",
                 "mode": "chat",
                 "supports_audio_input": True,
                 "supports_video_input": True,
@@ -3372,19 +3372,19 @@ async def test_a_chat_models_media_flags_do_not_count_for_decisions(
     url: str,
     cost_map_entry: Mapping[str, object] | None,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     if cost_map_entry is not None:
-        monkeypatch.setitem(litellm.model_cost, model, cost_map_entry)
-    assert litellm.supports_audio_input(model) is True
+        monkeypatch.setitem(hangarllm.model_cost, model, cost_map_entry)
+    assert hangarllm.supports_audio_input(model) is True
     route: Final = respx_mock.post(url).respond(200, json=dict(_RESPONSE if "systemone" in url else _OPENAI_RESPONSE))
     questions: Final = {"is_defect": {"type": "noul", "instructions": "Is this a defect?"}}
     audio: Final = ["data:audio/wav;base64,YQ=="]
     videos: Final = ["data:video/mp4;base64,YQ=="]
 
     with pytest.raises(
-        litellm.UnsupportedParamsError, match=re.escape("does not support parameters: ['audio', 'videos']")
+        hangarllm.UnsupportedParamsError, match=re.escape("does not support parameters: ['audio', 'videos']")
     ):
-        await litellm.asystemone(
+        await hangarllm.asystemone(
             model=model,
             state="test",
             questions=questions,
@@ -3395,7 +3395,7 @@ async def test_a_chat_models_media_flags_do_not_count_for_decisions(
         )
     assert not route.calls
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model=model,
         state="test",
         questions=questions,
@@ -3417,8 +3417,8 @@ def test_positional_arguments_keep_the_order_the_sdk_had_before_media(respx_mock
     openai_questions: Final = [{"type": "predicate", "name": "is_defect", "instructions": "Is this a defect?"}]
     systemone_questions: Final = {"is_defect": {"type": "noul", "instructions": "Is this a defect?"}}
 
-    litellm.decisions("openai/gpt-6-luna", "review", openai_questions, None, "positional-key", "https://example.com")
-    litellm.systemone("typesafe/jev-1.13", "review", systemone_questions, "positional-key", "https://example.com")
+    hangarllm.decisions("openai/gpt-6-luna", "review", openai_questions, None, "positional-key", "https://example.com")
+    hangarllm.systemone("typesafe/jev-1.13", "review", systemone_questions, "positional-key", "https://example.com")
 
     assert decisions_route.calls[0].request.headers["authorization"] == "Bearer positional-key"
     assert systemone_route.calls[0].request.headers["authorization"] == "Bearer positional-key"
@@ -3445,7 +3445,7 @@ async def test_fireworks_ai_posts_the_jev_body_to_systemone_with_the_account_mod
     monkeypatch.setenv("FIREWORKS_AI_API_KEY", "fireworks-key")
     route: Final = respx_mock.post(_FIREWORKS_URL).respond(json=_FIREWORKS_RESPONSE)
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model=_FIREWORKS_MODEL,
         state="The package arrived broken.",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -3469,13 +3469,13 @@ async def test_fireworks_ai_bills_cached_input_tokens_at_the_cache_read_rate(
 ) -> None:
     monkeypatch.delenv("FIREWORKS_API_BASE", raising=False)
     respx_mock.post(_FIREWORKS_URL).respond(json=_FIREWORKS_RESPONSE)
-    prices: Final = litellm.model_cost[_FIREWORKS_MODEL]
+    prices: Final = hangarllm.model_cost[_FIREWORKS_MODEL]
     uncached: Final = 100 * float(prices["input_cost_per_token"])
     cached: Final = 200 * float(prices["cache_read_input_token_cost"])
     recording_logger: Final = _RecordingLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recording_logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [recording_logger])
 
-    response: Final = await litellm.adecisions(
+    response: Final = await hangarllm.adecisions(
         model=_FIREWORKS_MODEL,
         input="The package arrived broken.",
         questions=[{"type": "predicate", "name": "is_defect", "instructions": "Is this a defect?"}],
@@ -3529,7 +3529,7 @@ def test_empiriolabs_posts_the_systemone_body_to_v1_decisions_on_the_resolved_ba
         monkeypatch.setenv("EMPIRIOLABS_API_BASE", environment_api_base)
     route: Final = respx_mock.post(url).respond(json=_EMPIRIOLABS_RESPONSE)
 
-    response: Final = litellm.systemone(
+    response: Final = hangarllm.systemone(
         model=_EMPIRIOLABS_MODEL,
         state=_EMPIRIOLABS_STATE,
         questions=_EMPIRIOLABS_QUESTIONS,
@@ -3563,7 +3563,7 @@ async def test_empiriolabs_sends_the_caller_key_or_else_the_environment_key(
     monkeypatch.setenv("EMPIRIOLABS_API_KEY", "environment-key")
     route: Final = respx_mock.post(_EMPIRIOLABS_DEFAULT_URL).respond(json=_EMPIRIOLABS_RESPONSE)
 
-    response: Final = await litellm.adecisions(
+    response: Final = await hangarllm.adecisions(
         model=_EMPIRIOLABS_MODEL,
         input=_EMPIRIOLABS_STATE,
         questions=[{"type": "predicate", "name": "is_refund", "instructions": "Is the customer asking for a refund?"}],
@@ -3585,8 +3585,8 @@ def test_empiriolabs_without_a_key_is_refused_before_http(
     monkeypatch.delenv("EMPIRIOLABS_API_KEY", raising=False)
     monkeypatch.delenv("EMPIRIOLABS_API_BASE", raising=False)
 
-    with pytest.raises(litellm.AuthenticationError, match="Missing API key for Decisions provider 'empiriolabs'"):
-        litellm.systemone(model=_EMPIRIOLABS_MODEL, state=_EMPIRIOLABS_STATE, questions=_EMPIRIOLABS_QUESTIONS)
+    with pytest.raises(hangarllm.AuthenticationError, match="Missing API key for Decisions provider 'empiriolabs'"):
+        hangarllm.systemone(model=_EMPIRIOLABS_MODEL, state=_EMPIRIOLABS_STATE, questions=_EMPIRIOLABS_QUESTIONS)
 
     assert len(respx_mock.calls) == 0
 
@@ -3594,12 +3594,12 @@ def test_empiriolabs_without_a_key_is_refused_before_http(
 @pytest.mark.parametrize(
     ("status", "error_type", "code", "exception"),
     (
-        (401, "authentication_error", "invalid_api_key", litellm.AuthenticationError),
-        (402, "insufficient_credits", "insufficient_credits", litellm.PaymentRequiredError),
-        (404, "not_found_error", "model_not_found", litellm.NotFoundError),
-        (422, "invalid_request_error", "invalid_request", litellm.BadRequestError),
-        (429, "rate_limit_error", "rate_limit_exceeded", litellm.RateLimitError),
-        (503, "service_unavailable", "model_unavailable", litellm.ServiceUnavailableError),
+        (401, "authentication_error", "invalid_api_key", hangarllm.AuthenticationError),
+        (402, "insufficient_credits", "insufficient_credits", hangarllm.PaymentRequiredError),
+        (404, "not_found_error", "model_not_found", hangarllm.NotFoundError),
+        (422, "invalid_request_error", "invalid_request", hangarllm.BadRequestError),
+        (429, "rate_limit_error", "rate_limit_exceeded", hangarllm.RateLimitError),
+        (503, "service_unavailable", "model_unavailable", hangarllm.ServiceUnavailableError),
     ),
 )
 def test_empiriolabs_upstream_errors_keep_their_status_and_message(
@@ -3619,7 +3619,7 @@ def test_empiriolabs_upstream_errors_keep_their_status_and_message(
     )
 
     with pytest.raises(exception, match=message) as caught:
-        litellm.systemone(
+        hangarllm.systemone(
             model=_EMPIRIOLABS_MODEL,
             state=_EMPIRIOLABS_STATE,
             questions=_EMPIRIOLABS_QUESTIONS,
@@ -3685,11 +3685,11 @@ def test_assets_and_box_questions_are_refused_before_http_when_the_provider_cann
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(_PERPLEXITY_DECISIONS_URL).respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=rf"\['{param}'\].*drop_params") as caught:
-        getattr(litellm, api)(model="perplexity/pplx-decider-v1-27b", api_key="caller-key", **request_kwargs)
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=rf"\['{param}'\].*drop_params") as caught:
+        getattr(hangarllm, api)(model="perplexity/pplx-decider-v1-27b", api_key="caller-key", **request_kwargs)
 
     assert caught.value.status_code == 400
     assert not route.called
@@ -3699,7 +3699,7 @@ def test_assets_and_box_questions_are_refused_before_http_when_the_provider_cann
 async def test_assets_are_dropped_from_the_wire_under_drop_params(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(_PERPLEXITY_DECISIONS_URL).respond(json=_RESPONSE)
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="perplexity/pplx-decider-v1-27b",
         state="review photo-1",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
@@ -3734,7 +3734,7 @@ async def test_box_questions_are_dropped_under_drop_params_and_answered_as_refus
 ) -> None:
     route: Final = respx_mock.post(_PERPLEXITY_DECISIONS_URL).respond(json=_RESPONSE)
 
-    response: Final = await getattr(litellm, f"a{api}")(
+    response: Final = await getattr(hangarllm, f"a{api}")(
         model="perplexity/pplx-decider-v1-27b", api_key="caller-key", drop_params=True, **request_kwargs
     )
 
@@ -3761,7 +3761,7 @@ async def test_a_deployment_that_advertises_box_questions_gets_box_answers_from_
         json={**_OPENAI_RESPONSE, "answers": [dict(_CRACK_BOX_ANSWER)]}
     )
 
-    response: Final = await litellm.adecisions(
+    response: Final = await hangarllm.adecisions(
         model="openai/gpt-6-luna",
         input="review",
         questions=[_CRACK_BOX_QUESTION],
@@ -3777,11 +3777,11 @@ async def test_a_deployment_that_advertises_box_questions_gets_box_answers_from_
 async def test_a_deployment_that_turns_box_questions_off_is_refused_even_when_the_cost_map_allows_them(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post("https://api.typesafe.ai/v1/systemone").respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=r"\['box questions'\]"):
-        await litellm.adecisions(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=r"\['box questions'\]"):
+        await hangarllm.adecisions(
             model="typesafe/jev-1.14.0",
             input="review",
             questions=[_CRACK_BOX_QUESTION],
@@ -3797,11 +3797,11 @@ async def test_a_deployment_that_turns_box_questions_off_is_refused_even_when_th
 async def test_a_typesafe_deployment_that_advertises_box_questions_still_needs_the_images_header(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post("https://api.typesafe.ai/v1/systemone").respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=r"\['box questions'\]"):
-        await litellm.adecisions(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=r"\['box questions'\]"):
+        await hangarllm.adecisions(
             model="typesafe/jev-1.14.0",
             input="review",
             questions=[_CRACK_BOX_QUESTION],
@@ -3816,11 +3816,11 @@ async def test_a_typesafe_deployment_that_advertises_box_questions_still_needs_t
 async def test_a_deployment_flag_that_is_not_a_boolean_leaves_the_cost_map_in_charge(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post("https://api.openai.com/v1/decisions").respond(json=_OPENAI_RESPONSE)
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=r"\['box questions'\]"):
-        await litellm.adecisions(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=r"\['box questions'\]"):
+        await hangarllm.adecisions(
             model="openai/gpt-6-luna",
             input="review",
             questions=[_CRACK_BOX_QUESTION],
@@ -3835,11 +3835,11 @@ async def test_a_deployment_flag_that_is_not_a_boolean_leaves_the_cost_map_in_ch
 async def test_an_unflagged_deployment_keeps_box_questions_a_same_model_deployment_advertises(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     backend: Final = "perplexity/pplx-decider-v1-27b"
-    monkeypatch.setitem(litellm.model_cost, backend, copy.deepcopy(litellm.model_cost[backend]))
+    monkeypatch.setitem(hangarllm.model_cost, backend, copy.deepcopy(hangarllm.model_cost[backend]))
     for deployment_id in ("box-flagged", "box-sibling"):
-        monkeypatch.setitem(litellm.model_cost, deployment_id, {})
+        monkeypatch.setitem(hangarllm.model_cost, deployment_id, {})
     route: Final = respx_mock.post(_PERPLEXITY_DECISIONS_URL).respond(
         json={
             "model": "pplx-decider-v1-27b",
@@ -3847,16 +3847,16 @@ async def test_an_unflagged_deployment_keeps_box_questions_a_same_model_deployme
             "usage": {"input_tokens": _INPUT_TOKENS, "output_tokens": _OUTPUT_TOKENS},
         }
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "flagged",
-                "litellm_params": {"model": backend, "api_key": "k"},
+                "hangarllm_params": {"model": backend, "api_key": "k"},
                 "model_info": {"id": "box-flagged", "supports_box_questions": True},
             },
             {
                 "model_name": "sibling",
-                "litellm_params": {"model": backend, "api_key": "k"},
+                "hangarllm_params": {"model": backend, "api_key": "k"},
                 "model_info": {"id": "box-sibling"},
             },
         ]
@@ -3874,7 +3874,7 @@ async def test_a_model_info_object_instead_of_a_dict_still_reaches_the_provider(
 ) -> None:
     route: Final = respx_mock.post("https://api.openai.com/v1/decisions").respond(json=_OPENAI_RESPONSE)
 
-    response: Final = await litellm.adecisions(
+    response: Final = await hangarllm.adecisions(
         model="openai/gpt-6-luna",
         input="review",
         questions=[{"type": "predicate", "name": "is_defect", "instructions": "Is this a defect?"}],
@@ -3894,19 +3894,19 @@ _VIDEO_CLIPS: Final = ("data:video/mp4;base64,YQ==",)
 async def test_a_deployment_that_advertises_media_sends_it_for_a_model_the_cost_map_does_not_list(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, local_model_cost_map: None
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     backend: Final = "openrouter/example/omni-preview"
     route: Final = respx_mock.post("https://openrouter.ai/api/alpha/decisions").respond(json=_RESPONSE)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "hears",
-                "litellm_params": {"model": backend, "api_key": "k"},
+                "hangarllm_params": {"model": backend, "api_key": "k"},
                 "model_info": {"id": "media-hears", "supports_audio_input": True},
             },
             {
                 "model_name": "hears-and-sees",
-                "litellm_params": {"model": backend, "api_key": "k"},
+                "hangarllm_params": {"model": backend, "api_key": "k"},
                 "model_info": {"id": "media-both", "supports_audio_input": True, "supports_video_input": True},
             },
         ]
@@ -3915,7 +3915,7 @@ async def test_a_deployment_that_advertises_media_sends_it_for_a_model_the_cost_
         router.adecisions, input="review", questions=_PREDICATE_QUESTIONS, audio=_AUDIO_CLIPS, videos=_VIDEO_CLIPS
     )
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=re.escape("['videos']")):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=re.escape("['videos']")):
         await send(model="hears")
     assert not route.called
 
@@ -3929,14 +3929,14 @@ async def test_a_deployment_that_advertises_media_sends_it_for_a_model_the_cost_
 async def test_media_flags_on_a_deployment_whose_own_mode_is_not_decisions_never_send_clips(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, local_model_cost_map: None
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post("https://openrouter.ai/api/alpha/decisions").respond(json=_RESPONSE)
     advertised: Final = {"supports_audio_input": True, "supports_video_input": True}
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": mode,
-                "litellm_params": {"model": f"openrouter/example/omni-{mode}-preview", "api_key": "k"},
+                "hangarllm_params": {"model": f"openrouter/example/omni-{mode}-preview", "api_key": "k"},
                 "model_info": {"id": f"media-{mode}", "mode": mode, **advertised},
             }
             for mode in ("chat", "decisions")
@@ -3946,7 +3946,7 @@ async def test_media_flags_on_a_deployment_whose_own_mode_is_not_decisions_never
         router.adecisions, input="review", questions=_PREDICATE_QUESTIONS, audio=_AUDIO_CLIPS, videos=_VIDEO_CLIPS
     )
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=re.escape("['audio', 'videos']")):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=re.escape("['audio', 'videos']")):
         await send(model="chat")
     assert not route.called
 
@@ -3962,37 +3962,37 @@ CatalogLoader: TypeAlias = Callable[[Mapping[str, Mapping[str, object]]], Awaita
 @pytest.fixture
 def load_catalog_with(monkeypatch: pytest.MonkeyPatch, local_model_cost_map: None) -> Iterator[CatalogLoader]:
     async def load(rows: Mapping[str, Mapping[str, object]]) -> None:
-        catalog: Final = {**litellm.get_model_cost_map(url=""), **rows}
+        catalog: Final = {**hangarllm.get_model_cost_map(url=""), **rows}
         transport: Final = httpx.MockTransport(lambda _: httpx.Response(200, json=catalog))
-        monkeypatch.delenv("LITELLM_LOCAL_MODEL_COST_MAP")
+        monkeypatch.delenv("HANGARLLM_LOCAL_MODEL_COST_MAP")
         async with httpx.AsyncClient(transport=transport) as client:
             loaded: Final = await refetch_model_cost_map(url="https://catalog.example/prices.json", client=client)
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+        monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
         assert isinstance(loaded, ModelCostMapReloaded)
-        monkeypatch.setattr(litellm, "model_cost", loaded.model_cost_map)
-        litellm.get_model_info.cache_clear()
+        monkeypatch.setattr(hangarllm, "model_cost", loaded.model_cost_map)
+        hangarllm.get_model_info.cache_clear()
 
     yield load
-    litellm.get_model_cost_map(url="")
+    hangarllm.get_model_cost_map(url="")
 
 
 @pytest.mark.asyncio
 async def test_media_flags_on_a_deployment_without_its_own_mode_follow_the_mode_the_catalog_lists(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, load_catalog_with: CatalogLoader
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     await load_catalog_with(
         {
-            f"openrouter/example/omni-{mode}": {"litellm_provider": "openrouter", "mode": mode}
+            f"openrouter/example/omni-{mode}": {"hangarllm_provider": "openrouter", "mode": mode}
             for mode in ("chat", "decisions")
         }
     )
     route: Final = respx_mock.post("https://openrouter.ai/api/alpha/decisions").respond(json=_RESPONSE)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": mode,
-                "litellm_params": {"model": f"openrouter/example/omni-{mode}", "api_key": "k"},
+                "hangarllm_params": {"model": f"openrouter/example/omni-{mode}", "api_key": "k"},
                 "model_info": {"id": f"listed-{mode}", "supports_audio_input": True, "supports_video_input": True},
             }
             for mode in ("chat", "decisions")
@@ -4002,11 +4002,11 @@ async def test_media_flags_on_a_deployment_without_its_own_mode_follow_the_mode_
         router.adecisions, input="review", questions=_PREDICATE_QUESTIONS, audio=_AUDIO_CLIPS, videos=_VIDEO_CLIPS
     )
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=re.escape("['audio', 'videos']")):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=re.escape("['audio', 'videos']")):
         await send(model="chat")
     assert not route.called
 
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     await send(model="chat")
     dropped: Final = json.loads(route.calls.last.request.content)
     assert ("audio" in dropped, "videos" in dropped) == (False, False)
@@ -4021,15 +4021,15 @@ async def test_media_flags_on_a_deployment_without_its_own_mode_follow_the_mode_
 async def test_another_deployments_mode_never_switches_off_a_deployments_own_media_flags(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, local_model_cost_map: None, sibling_mode: str
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post("https://openrouter.ai/api/alpha/decisions").respond(json=_RESPONSE)
     shared_params: Final = {"model": "openrouter/example/omni-shared", "api_key": "k"}
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
-            {"model_name": "sibling", "litellm_params": shared_params, "model_info": {"id": "s", "mode": sibling_mode}},
+            {"model_name": "sibling", "hangarllm_params": shared_params, "model_info": {"id": "s", "mode": sibling_mode}},
             {
                 "model_name": "flagged",
-                "litellm_params": shared_params,
+                "hangarllm_params": shared_params,
                 "model_info": {"id": "f", "supports_audio_input": True, "supports_video_input": True},
             },
         ]
@@ -4057,7 +4057,7 @@ def _group_member(
 ) -> dict[str, object]:
     return {
         "model_name": group,
-        "litellm_params": {"model": model, "api_key": key, "weight": weight, **params},
+        "hangarllm_params": {"model": model, "api_key": key, "weight": weight, **params},
         "model_info": {"id": f"{group}-{key}", **model_info},
     }
 
@@ -4067,13 +4067,13 @@ def _group_member(
 async def test_a_group_sends_clips_to_a_deployment_that_takes_them_and_refuses_only_when_none_does(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, local_model_cost_map: None, surface: str
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "acct")
     monkeypatch.delenv("CLOUDFLARE_API_BASE", raising=False)
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "cloudflare/@cf/cloudflare/clef-omni",
-        {"litellm_provider": "cloudflare", "mode": "evaluation", "supports_audio_input": True},
+        {"hangarllm_provider": "cloudflare", "mode": "evaluation", "supports_audio_input": True},
     )
     respx_mock.post("https://openrouter.ai/api/alpha/decisions").respond(json=_RESPONSE)
     respx_mock.post("https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/cloudflare/clef-omni").respond(
@@ -4081,7 +4081,7 @@ async def test_a_group_sends_clips_to_a_deployment_that_takes_them_and_refuses_o
     )
     unlisted: Final = "openrouter/example/omni-preview"
     listed: Final = "cloudflare/clef-omni"
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _group_member("unlisted", unlisted, "refuses", 1, {}),
             _group_member("unlisted", unlisted, "takes", 0, {"supports_audio_input": True}),
@@ -4114,7 +4114,7 @@ async def test_a_group_sends_clips_to_a_deployment_that_takes_them_and_refuses_o
     assert respx_mock.calls.last.request.headers["authorization"] == "Bearer refuses"
 
     sent_before_refusal: Final = len(respx_mock.calls)
-    with pytest.raises(litellm.UnsupportedParamsError, match=re.escape("['audio']")):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=re.escape("['audio']")):
         await send("none", audio=_AUDIO_CLIPS)
     assert len(respx_mock.calls) == sent_before_refusal
 
@@ -4132,12 +4132,12 @@ def _answer_unless_key_is(rejected_key: str) -> Callable[[httpx.Request], httpx.
 async def test_clips_to_a_group_whose_only_taker_is_cooling_down_are_refused_rather_than_rate_limited(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, local_model_cost_map: None
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post("https://openrouter.ai/api/alpha/decisions").mock(
         side_effect=_answer_unless_key_is("takes")
     )
     unlisted: Final = "openrouter/example/omni-preview"
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _group_member("g", unlisted, "refuses", 1, {}),
             _group_member("g", unlisted, "takes", 1, {"supports_audio_input": True}),
@@ -4145,11 +4145,11 @@ async def test_clips_to_a_group_whose_only_taker_is_cooling_down_are_refused_rat
         num_retries=0,
         cooldown_time=120,
     )
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await router.adecisions(model="g-takes", input="review", questions=_PREDICATE_QUESTIONS)
     sent_before_clips: Final = len(route.calls)
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=re.escape("['audio']")):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=re.escape("['audio']")):
         await router.adecisions(model="g", input="review", questions=_PREDICATE_QUESTIONS, audio=_AUDIO_CLIPS)
 
     assert len(route.calls) == sent_before_clips
@@ -4160,15 +4160,15 @@ async def test_clips_to_a_group_whose_only_taker_is_cooling_down_are_refused_rat
 async def test_a_router_default_drop_params_overrides_a_deployment_when_choosing_who_takes_clips(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, local_model_cost_map: None, surface: str
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     respx_mock.post("https://openrouter.ai/api/alpha/decisions").respond(json=_RESPONSE)
     unlisted: Final = "openrouter/example/omni-preview"
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _group_member("g", unlisted, "drops", 1, {}, drop_params=True),
             _group_member("g", unlisted, "takes", 0, {"supports_audio_input": True}),
         ],
-        default_litellm_params={"drop_params": False},
+        default_hangarllm_params={"drop_params": False},
     )
     call: Final = getattr(router, surface)
 
@@ -4189,12 +4189,12 @@ async def test_a_router_default_drop_params_overrides_a_deployment_when_choosing
 async def test_a_deployment_that_turns_audio_off_is_refused_or_dropped_even_when_the_cost_map_allows_it(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, local_model_cost_map: None
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "typesafe/jev-omni",
         {
-            "litellm_provider": "typesafe",
+            "hangarllm_provider": "typesafe",
             "mode": "decisions",
             "supports_audio_input": True,
             "supports_video_input": True,
@@ -4202,7 +4202,7 @@ async def test_a_deployment_that_turns_audio_off_is_refused_or_dropped_even_when
     )
     route: Final = respx_mock.post("https://example.com/v1/systemone").respond(json=_RESPONSE)
     send: Final = partial(
-        litellm.asystemone,
+        hangarllm.asystemone,
         model="typesafe/jev-omni",
         state="test",
         questions=_QUESTIONS,
@@ -4213,7 +4213,7 @@ async def test_a_deployment_that_turns_audio_off_is_refused_or_dropped_even_when
         model_info={"supports_audio_input": False},
     )
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=re.escape("does not support parameters: ['audio']")):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=re.escape("does not support parameters: ['audio']")):
         await send()
     assert not route.called
 
@@ -4228,11 +4228,11 @@ async def test_a_deployment_that_turns_audio_off_is_refused_or_dropped_even_when
 async def test_a_media_flag_that_is_not_a_boolean_leaves_the_cost_map_in_charge_of_that_kind_only(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post("https://example.com/v1/systemone").respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=re.escape("does not support parameters: ['audio']")):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=re.escape("does not support parameters: ['audio']")):
+        await hangarllm.asystemone(
             model="typesafe/jev-unlisted",
             state="test",
             questions=_QUESTIONS,
@@ -4250,11 +4250,11 @@ async def test_a_media_flag_that_is_not_a_boolean_leaves_the_cost_map_in_charge_
 async def test_an_openai_format_deployment_that_advertises_media_is_still_refused_it(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post("https://api.openai.com/v1/decisions").respond(json=_OPENAI_RESPONSE)
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=re.escape("['audio', 'videos']")):
-        await litellm.adecisions(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=re.escape("['audio', 'videos']")):
+        await hangarllm.adecisions(
             model="openai/gpt-6-luna",
             input="review",
             questions=_PREDICATE_QUESTIONS,
@@ -4270,8 +4270,8 @@ async def test_an_openai_format_deployment_that_advertises_media_is_still_refuse
 def test_dropping_every_question_answers_400_before_http(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(_PERPLEXITY_DECISIONS_URL).respond(json=_RESPONSE)
 
-    with pytest.raises(litellm.BadRequestError, match="leaves no questions to answer") as caught:
-        litellm.decisions(
+    with pytest.raises(hangarllm.BadRequestError, match="leaves no questions to answer") as caught:
+        hangarllm.decisions(
             model="perplexity/pplx-decider-v1-27b",
             input="review",
             questions=[{"type": "box", "name": "crack", "instructions": "the crack on the screen"}],
@@ -4313,20 +4313,20 @@ async def test_decision_hosts_preserve_drex_model_routing_credentials_and_return
     monkeypatch.delenv("OPENROUTER_API_BASE", raising=False)
     monkeypatch.delenv("FIREWORKS_API_BASE", raising=False)
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         f"{provider}/{model}",
         {
-            "litellm_provider": provider,
+            "hangarllm_provider": provider,
             "mode": "evaluation",
             "input_cost_per_token": 0.001,
             "output_cost_per_token": 0,
         },
     )
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         f"{provider}/drex-test-resolved",
         {
-            "litellm_provider": provider,
+            "hangarllm_provider": provider,
             "mode": "evaluation",
             "input_cost_per_token": 0.002,
             "output_cost_per_token": 0,
@@ -4335,7 +4335,7 @@ async def test_decision_hosts_preserve_drex_model_routing_credentials_and_return
     payload: Final = {**_RESPONSE, "model": "drex-test-resolved", "request_id": "request-test"}
     upstream: Final = respx_mock.post(url).respond(json=payload)
     if openai_format:
-        response: Final = await litellm.adecisions(
+        response: Final = await hangarllm.adecisions(
             model=f"{provider}/{model}",
             input="damaged order",
             questions=[{"type": "predicate", "name": "is_defect", "instructions": "Is this a defect?"}],
@@ -4343,13 +4343,13 @@ async def test_decision_hosts_preserve_drex_model_routing_credentials_and_return
         assert isinstance(response, OpenAIDecisionResponse)
         assert response.answers[0].model_dump() == {"type": "predicate", "name": "is_defect", "probability": 0.9}
     else:
-        systemone_response: Final = await litellm.asystemone(
+        systemone_response: Final = await hangarllm.asystemone(
             model=f"{provider}/{model}",
             state="damaged order",
             questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
         )
         assert systemone_response.answers["is_defect"] == NoulAnswer(type="noul", noul=0.9)
-        assert litellm.completion_cost(completion_response=systemone_response, call_type="asystemone") == pytest.approx(
+        assert hangarllm.completion_cost(completion_response=systemone_response, call_type="asystemone") == pytest.approx(
             _INPUT_TOKENS * 0.002
         )
     assert upstream.call_count == 1
@@ -4366,7 +4366,7 @@ async def test_decision_hosts_preserve_drex_model_routing_credentials_and_return
     (
         pytest.param({}, id="empty"),
         pytest.param(
-            {"litellm_provider": "typesafe", "mode": "evaluation", "input_cost_per_token": None},
+            {"hangarllm_provider": "typesafe", "mode": "evaluation", "input_cost_per_token": None},
             id="metadata_and_null_rate",
         ),
     ),
@@ -4376,25 +4376,25 @@ async def test_a_returned_model_registered_without_prices_is_billed_at_the_reque
 ) -> None:
     monkeypatch.setenv("TYPESAFE_API_KEY", "typesafe-test-key")
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "typesafe/jev-test-alias",
         {
-            "litellm_provider": "typesafe",
+            "hangarllm_provider": "typesafe",
             "mode": "evaluation",
             "input_cost_per_token": 0.001,
             "output_cost_per_token": 0,
         },
     )
-    monkeypatch.setitem(litellm.model_cost, "typesafe/jev-test-unpriced", unpriced_row)
+    monkeypatch.setitem(hangarllm.model_cost, "typesafe/jev-test-unpriced", unpriced_row)
     respx_mock.post("https://api.typesafe.ai/v1/systemone").respond(json={**_RESPONSE, "model": "jev-test-unpriced"})
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model="typesafe/jev-test-alias",
         state="damaged order",
         questions={"is_defect": {"type": "noul", "instructions": "Is this a defect?"}},
     )
 
-    assert litellm.completion_cost(completion_response=response, call_type="asystemone") == pytest.approx(
+    assert hangarllm.completion_cost(completion_response=response, call_type="asystemone") == pytest.approx(
         _INPUT_TOKENS * 0.001
     )
 
@@ -4408,7 +4408,7 @@ def test_nace_sync_call_uses_environment_base_and_explicit_credentials(
     monkeypatch.setenv(base_env, "https://nace.example/v1/")
     monkeypatch.setenv("NACE_API_KEY", "environment-key")
     upstream: Final = respx_mock.post("https://nace.example/v1/systemone").respond(json=_RESPONSE)
-    response: Final = litellm.systemone(
+    response: Final = hangarllm.systemone(
         model="nace/drex-v2.0",
         state={"message": "damaged order"},
         api_key="explicit-key",
@@ -4426,11 +4426,11 @@ def test_nace_sync_call_uses_environment_base_and_explicit_credentials(
 @pytest.mark.parametrize(
     ("status", "exception"),
     (
-        (401, litellm.AuthenticationError),
-        (402, litellm.PaymentRequiredError),
-        (422, litellm.BadRequestError),
-        (429, litellm.RateLimitError),
-        (529, litellm.APIError),
+        (401, hangarllm.AuthenticationError),
+        (402, hangarllm.PaymentRequiredError),
+        (422, hangarllm.BadRequestError),
+        (429, hangarllm.RateLimitError),
+        (529, hangarllm.APIError),
     ),
 )
 def test_nace_upstream_failures_preserve_status_and_message(
@@ -4444,7 +4444,7 @@ def test_nace_upstream_failures_preserve_status_and_message(
         headers={"retry-after": "1"},
     )
     with pytest.raises(exception, match="decision rejected") as error:
-        litellm.systemone(
+        hangarllm.systemone(
             model="nace/drex-v2.0",
             state="text",
             api_key="test-key",
@@ -4470,19 +4470,19 @@ async def test_native_decisions_distinguishes_missing_usage_from_reported_zero(
     }
     respx_mock.post("https://api.typesafe.ai/v1/systemone").respond(json=body)
     params = {"model": "typesafe/jev-1.13.0", "state": "review", "questions": _QUESTIONS, "api_key": "synthetic-key"}
-    response = await litellm.adecisions(**params) if is_async else litellm.decisions(**params)
+    response = await hangarllm.adecisions(**params) if is_async else hangarllm.decisions(**params)
 
     assert isinstance(response, DecisionsResponse)
     if usage is None:
         assert response.usage is None
         assert response._hidden_params.get("response_cost") is None
         with pytest.raises(ValueError, match="provider did not report usage"):
-            litellm.completion_cost(completion_response=response)
+            hangarllm.completion_cost(completion_response=response)
     else:
         assert response.usage is not None
         assert response.usage.input_tokens == usage["input_tokens"]
         assert response.usage.output_tokens == usage["output_tokens"]
-        expected = litellm.completion_cost(completion_response=response)
+        expected = hangarllm.completion_cost(completion_response=response)
         assert response._hidden_params["response_cost"] == pytest.approx(expected)
         assert (expected == 0) == (usage["input_tokens"] == usage["output_tokens"] == 0)
 
@@ -4503,8 +4503,8 @@ async def test_ollama_systemone_preserves_questions_without_unrelated_or_placeho
     monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
     monkeypatch.delenv("OLLAMA_API_BASE", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "unrelated-openai-key")
-    monkeypatch.setattr(litellm, "api_key", "unrelated-global-key")
-    monkeypatch.setattr(litellm, "openai_key", "unrelated-global-openai-key")
+    monkeypatch.setattr(hangarllm, "api_key", "unrelated-global-key")
+    monkeypatch.setattr(hangarllm, "openai_key", "unrelated-global-openai-key")
     route: Final = respx_mock.post("http://ollama.local:11434/v1/systemone").respond(json=_RESPONSE)
     kwargs: Final = {
         "model": f"{provider}/d3:4b",
@@ -4514,7 +4514,7 @@ async def test_ollama_systemone_preserves_questions_without_unrelated_or_placeho
         "api_key": api_key,
     }
 
-    response: Final = await litellm.asystemone(**kwargs) if use_async else litellm.systemone(**kwargs)
+    response: Final = await hangarllm.asystemone(**kwargs) if use_async else hangarllm.systemone(**kwargs)
 
     assert json.loads(route.calls.last.request.content) == {
         "model": "d3:4b",
@@ -4544,7 +4544,7 @@ async def test_ollama_decisions_translates_openai_questions_and_answers(
         "api_base": "http://ollama.local:11434/v1",
     }
 
-    response: Final = await litellm.adecisions(**kwargs) if use_async else litellm.decisions(**kwargs)
+    response: Final = await hangarllm.adecisions(**kwargs) if use_async else hangarllm.decisions(**kwargs)
 
     assert json.loads(route.calls.last.request.content) == {
         "model": "d3:4b",
@@ -4572,7 +4572,7 @@ async def test_ollama_decisions_resolves_environment_base_or_localhost_default(
     url: Final = f"{environment_base or 'http://localhost:11434/v1'}/systemone"
     route: Final = respx_mock.post(url).respond(json=_RESPONSE)
 
-    response: Final = await litellm.asystemone(model=f"{provider}/d3:4b", state="review", questions=_QUESTIONS)
+    response: Final = await hangarllm.asystemone(model=f"{provider}/d3:4b", state="review", questions=_QUESTIONS)
 
     assert route.call_count == 1
     assert "authorization" not in route.calls.last.request.headers
@@ -4591,7 +4591,7 @@ async def test_ollama_decisions_resolves_environment_key_and_explicit_connection
     monkeypatch.setenv("OLLAMA_API_KEY", "environment-key")
     route: Final = respx_mock.post("http://ollama.local:11434/v1/systemone").respond(json=_RESPONSE)
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model=f"{provider}/d3:4b",
         state="review",
         questions=_QUESTIONS,
@@ -4614,8 +4614,8 @@ async def test_ollama_decisions_maps_upstream_bad_requests(
         400, json={"error": "decision rejected"}
     )
 
-    with pytest.raises(litellm.BadRequestError, match="decision rejected") as error:
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.BadRequestError, match="decision rejected") as error:
+        await hangarllm.asystemone(
             model=f"{provider}/d3:4b",
             state="review",
             questions=_QUESTIONS,
@@ -4636,7 +4636,7 @@ async def test_ollama_decisions_rejects_input_images_before_http_or_drops_them(
 ) -> None:
     monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
     monkeypatch.delenv("OLLAMA_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     kwargs: Final = {
         "model": f"{provider}/d3:4b",
         "input": [
@@ -4650,13 +4650,13 @@ async def test_ollama_decisions_rejects_input_images_before_http_or_drops_them(
         "drop_params": drop_params,
     }
     if not drop_params:
-        with pytest.raises(litellm.UnsupportedParamsError, match=r"\['input_image'\].*drop_params"):
-            await litellm.adecisions(**kwargs)
+        with pytest.raises(hangarllm.UnsupportedParamsError, match=r"\['input_image'\].*drop_params"):
+            await hangarllm.adecisions(**kwargs)
         assert len(respx_mock.calls) == 0
         return
     route: Final = respx_mock.post("http://ollama.local:11434/v1/systemone").respond(json=_RESPONSE)
 
-    response: Final = await litellm.adecisions(**kwargs)
+    response: Final = await hangarllm.adecisions(**kwargs)
 
     assert json.loads(route.calls.last.request.content) == {
         "model": "d3:4b",
@@ -4682,7 +4682,7 @@ async def test_lm_studio_systemone_preserves_questions_and_omits_placeholder_aut
         "api_base": api_base,
     }
 
-    response: Final = await litellm.asystemone(**kwargs) if use_async else litellm.systemone(**kwargs)
+    response: Final = await hangarllm.asystemone(**kwargs) if use_async else hangarllm.systemone(**kwargs)
 
     assert json.loads(route.calls.last.request.content) == {
         "model": "local-decision",
@@ -4710,7 +4710,7 @@ async def test_lm_studio_decisions_translates_openai_questions_and_answers(
         "api_base": "http://lmstudio.local:1234/v1",
     }
 
-    response: Final = await litellm.adecisions(**kwargs) if use_async else litellm.decisions(**kwargs)
+    response: Final = await hangarllm.adecisions(**kwargs) if use_async else hangarllm.decisions(**kwargs)
 
     assert json.loads(route.calls.last.request.content) == {
         "model": "local-decision",
@@ -4731,7 +4731,7 @@ async def test_lm_studio_decisions_resolves_environment_connection_and_explicit_
     monkeypatch.setenv("LM_STUDIO_API_KEY", "environment-key")
     route: Final = respx_mock.post("http://lmstudio.local:1234/v1/systemone").respond(json=_RESPONSE)
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model="lm_studio/local-decision", state="review", questions=_QUESTIONS, api_key=explicit_key
     )
 
@@ -4744,8 +4744,8 @@ async def test_lm_studio_decisions_requires_a_server_before_http(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
     monkeypatch.delenv("LM_STUDIO_API_BASE", raising=False)
-    with pytest.raises(litellm.BadRequestError, match="api_base is required"):
-        await litellm.asystemone(model="lm_studio/local-decision", state="review", questions=_QUESTIONS)
+    with pytest.raises(hangarllm.BadRequestError, match="api_base is required"):
+        await hangarllm.asystemone(model="lm_studio/local-decision", state="review", questions=_QUESTIONS)
     assert len(respx_mock.calls) == 0
 
 
@@ -4762,7 +4762,7 @@ async def test_lm_studio_decisions_sends_inline_images_to_systemone(
     expected_image: Final = async_only_image_fetch.data_url if remote_image else image
     route: Final = respx_mock.post("http://lmstudio.local:1234/v1/systemone").respond(json=_RESPONSE)
 
-    response: Final = await litellm.adecisions(
+    response: Final = await hangarllm.adecisions(
         model="lm_studio/local-decision",
         input=[
             {
@@ -4797,7 +4797,7 @@ async def test_hosted_vllm_decisions_sends_input_images_to_systemone(
     expected_image: Final[str] = async_only_image_fetch.data_url if remote_image else image
     route: Final = respx_mock.post("http://vllm.local:8000/v1/systemone").respond(json=_RESPONSE)
 
-    response: Final = await litellm.adecisions(
+    response: Final = await hangarllm.adecisions(
         model="hosted_vllm/Qwen/Qwen3-0.6B",
         input=[
             {
@@ -4828,7 +4828,7 @@ def test_hosted_vllm_systemone_forwards_images(
     image: Final[str] = "data:image/png;base64,AA=="
     route: Final = respx_mock.post("http://vllm.local:8000/v1/systemone").respond(json=_RESPONSE)
 
-    litellm.systemone(
+    hangarllm.systemone(
         model="hosted_vllm/Qwen/Qwen3-0.6B",
         state="review",
         images=[image],
@@ -4866,7 +4866,7 @@ async def test_hosted_vllm_decisions_sends_image_only_input_to_systemone(
     image: Final[str] = "data:image/png;base64,AA=="
     route: Final = respx_mock.post("http://vllm.local:8000/v1/systemone").respond(json=_RESPONSE)
 
-    await litellm.adecisions(
+    await hangarllm.adecisions(
         model="hosted_vllm/Qwen/Qwen3-0.6B",
         input=[{"role": "user", "content": [{"type": "input_image", "image_url": image}]}],
         questions=[{"type": "predicate", "name": "is_defect", "instructions": "Is this a defect?"}],
@@ -4893,8 +4893,8 @@ def test_hosted_vllm_systemone_maps_image_rejection_to_bad_request(
         json={"error": {"message": message, "type": "BadRequestError", "code": 400}},
     )
 
-    with pytest.raises(litellm.BadRequestError, match=re.escape(message)) as caught:
-        litellm.systemone(
+    with pytest.raises(hangarllm.BadRequestError, match=re.escape(message)) as caught:
+        hangarllm.systemone(
             model="hosted_vllm/Qwen/Qwen3-0.6B",
             state="review",
             images=["data:image/png;base64,AA=="],

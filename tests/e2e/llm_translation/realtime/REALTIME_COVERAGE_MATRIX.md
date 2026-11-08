@@ -42,7 +42,7 @@ The suite registers every provider's realtime deployment through `/model/new` at
 session start (the `realtime_models` fixture) and deletes them on teardown, so it
 never depends on a static or misconfigured gateway `model_list`. Each deployment
 is created with `model_info.mode: realtime` and marker-unique names, and its
-`litellm_params` point the credentials at `os.environ/*` refs the gateway resolves
+`hangarllm_params` point the credentials at `os.environ/*` refs the gateway resolves
 at call time. The provider table below is the source of truth; edit `PROVIDERS` in
 `realtime_client.py` to change a model or add one.
 
@@ -74,4 +74,4 @@ uv run pytest tests/e2e/llm_translation/realtime/ -v
 ```
 
 The whole suite hard-fails at setup when no proxy answers `GET /health/liveliness` at
-`LITELLM_PROXY_URL` (default `http://localhost:4000`).
+`HANGARLLM_PROXY_URL` (default `http://localhost:4000`).

@@ -8,15 +8,15 @@ import pytest
 import respx
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.gemini.common_utils import (
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.gemini.common_utils import (
     GeminiModelInfo,
     GoogleAIStudioTokenCounter,
     map_openai_image_params_to_gemini,
 )
-from litellm.llms.gemini.count_tokens import handler as gemini_count_tokens_handler
-from litellm.llms.gemini.count_tokens.handler import GoogleAIStudioTokenCounter as GeminiCountTokensHandler
+from hangarllm.llms.gemini.count_tokens import handler as gemini_count_tokens_handler
+from hangarllm.llms.gemini.count_tokens.handler import GoogleAIStudioTokenCounter as GeminiCountTokensHandler
 from tests.unit.conftest import in_operator_error
 
 _JSON_BODY: Final = TypeAdapter(dict[str, JsonValue])
@@ -42,7 +42,7 @@ async def test_google_ai_studio_count_tokens_forwards_system_and_tools() -> None
             messages=None,
             contents=[{"role": "user", "parts": [{"text": "hello"}]}],
             deployment={
-                "litellm_params": {
+                "hangarllm_params": {
                     "api_key": "test-key",
                     "api_base": "https://count-tokens.test",
                     "system_instruction": {"parts": [{"text": "deployment-level"}]},
@@ -92,7 +92,7 @@ async def test_google_ai_studio_count_tokens_rejects_image_system_without_reques
             model_to_use="gemini-2.5-flash",
             messages=None,
             contents=[{"role": "user", "parts": [{"text": "hello"}]}],
-            deployment={"litellm_params": {"api_key": "test-key", "api_base": "https://count-tokens.test"}},
+            deployment={"hangarllm_params": {"api_key": "test-key", "api_base": "https://count-tokens.test"}},
             request_model="gemini/gemini-2.5-flash",
             system=[
                 {"type": "text", "text": "You are terse."},
@@ -113,7 +113,7 @@ async def test_google_ai_studio_count_tokens_rejects_image_system_without_reques
 async def test_google_ai_studio_count_tokens_rejects_an_image_url_it_refuses_to_fetch_without_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "user_url_validation", True)
+    monkeypatch.setattr(hangarllm, "user_url_validation", True)
     peer: Final = _GeminiCountTokensPeer()
     client: Final = AsyncHTTPHandler(transport=httpx.MockTransport(peer))
 
@@ -127,7 +127,7 @@ async def test_google_ai_studio_count_tokens_rejects_an_image_url_it_refuses_to_
                 }
             ],
             contents=None,
-            deployment={"litellm_params": {"api_key": "test-key", "api_base": "https://count-tokens.test"}},
+            deployment={"hangarllm_params": {"api_key": "test-key", "api_base": "https://count-tokens.test"}},
             request_model="gemini/gemini-2.5-flash",
             messages_format="anthropic",
         )
@@ -151,7 +151,7 @@ async def test_google_ai_studio_count_tokens_answers_with_the_status_google_reje
             model_to_use="gemini-2.5-flash",
             messages=None,
             contents=[{"role": "user", "parts": [{"text": "hello"}]}],
-            deployment={"litellm_params": {"api_key": "test-key", "api_base": "https://count-tokens.test"}},
+            deployment={"hangarllm_params": {"api_key": "test-key", "api_base": "https://count-tokens.test"}},
             request_model="gemini/gemini-2.5-flash",
         )
 
@@ -195,7 +195,7 @@ async def test_google_ai_studio_count_tokens_rejects_a_non_string_tool_result_te
         model_to_use="gemini-2.5-flash",
         messages=_weather_tool_result_messages(text),
         contents=None,
-        deployment={"litellm_params": {"api_key": "test-key", "api_base": "https://count-tokens.test"}},
+        deployment={"hangarllm_params": {"api_key": "test-key", "api_base": "https://count-tokens.test"}},
         request_model="gemini/gemini-2.5-flash",
         messages_format="anthropic",
     )
@@ -211,7 +211,7 @@ async def test_google_ai_studio_count_tokens_rejects_a_non_string_tool_result_te
 async def test_google_ai_studio_count_tokens_leaves_out_a_numeric_tool_result_text_under_drop_params(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     count_route: Final = respx_mock.post(_COUNT_TOKENS_URL).respond(200, json={"totalTokens": 11})
 
     result: Final = await GoogleAIStudioTokenCounter().count_tokens(
@@ -219,7 +219,7 @@ async def test_google_ai_studio_count_tokens_leaves_out_a_numeric_tool_result_te
         messages=_weather_tool_result_messages(5),
         contents=None,
         deployment={
-            "litellm_params": {"api_key": "test-key", "api_base": "https://count-tokens.test", "drop_params": True}
+            "hangarllm_params": {"api_key": "test-key", "api_base": "https://count-tokens.test", "drop_params": True}
         },
         request_model="gemini/gemini-2.5-flash",
         messages_format="anthropic",
@@ -381,7 +381,7 @@ class TestGoogleAIStudioTokenCounter:
 
     def test_should_use_token_counting_api(self):
         """Test should_use_token_counting_api method with different provider values"""
-        from litellm.types.utils import LlmProviders
+        from hangarllm.types.utils import LlmProviders
 
         token_counter = GoogleAIStudioTokenCounter()
 
@@ -399,7 +399,7 @@ class TestGoogleAIStudioTokenCounter:
     @pytest.mark.asyncio
     async def test_count_tokens(self):
         """Test count_tokens method with mocked API response"""
-        from litellm.types.utils import TokenCountResponse
+        from hangarllm.types.utils import TokenCountResponse
 
         token_counter = GoogleAIStudioTokenCounter()
 
@@ -411,7 +411,7 @@ class TestGoogleAIStudioTokenCounter:
         }
 
         with patch(
-            "litellm.llms.gemini.count_tokens.handler.GoogleAIStudioTokenCounter.acount_tokens",
+            "hangarllm.llms.gemini.count_tokens.handler.GoogleAIStudioTokenCounter.acount_tokens",
             new_callable=AsyncMock,
         ) as mock_acount_tokens:
             mock_acount_tokens.return_value = mock_response
@@ -448,7 +448,7 @@ class TestGoogleAIStudioTokenCounter:
 
     def test_clean_contents_for_gemini_api_removes_id_field(self):
         """Test that _clean_contents_for_gemini_api removes unsupported 'id' field from function responses"""
-        from litellm.llms.gemini.count_tokens.handler import GoogleAIStudioTokenCounter
+        from hangarllm.llms.gemini.count_tokens.handler import GoogleAIStudioTokenCounter
 
         token_counter = GoogleAIStudioTokenCounter()
 
@@ -484,7 +484,7 @@ class TestGoogleAIStudioTokenCounter:
 
     def test_clean_contents_for_gemini_api_preserves_other_fields(self):
         """Test that _clean_contents_for_gemini_api preserves other fields and structure"""
-        from litellm.llms.gemini.count_tokens.handler import GoogleAIStudioTokenCounter
+        from hangarllm.llms.gemini.count_tokens.handler import GoogleAIStudioTokenCounter
 
         token_counter = GoogleAIStudioTokenCounter()
 
@@ -562,5 +562,5 @@ def test_size_mapping_respects_model_image_limits(
 
 @pytest.mark.parametrize("raw_image_config", ["[1, 2]", '"16:9"', "null"])
 def test_map_openai_image_params_to_gemini_drops_or_refuses_a_non_object_image_config(raw_image_config: str):
-    with contextlib.suppress(litellm.UnsupportedParamsError):
+    with contextlib.suppress(hangarllm.UnsupportedParamsError):
         assert "imageConfig" not in _map_image_config(raw_image_config)

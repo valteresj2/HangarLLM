@@ -16,10 +16,10 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.exceptions import BadRequestError
-from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
-from litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation import (
+import hangarllm
+from hangarllm.exceptions import BadRequestError
+from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import generic_cost_per_token
+from hangarllm.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation import (
     _build_part_for_input,
     file_reference_name,
     _is_multimodal_input,
@@ -28,8 +28,8 @@ from litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation
     transform_openai_input_gemini_content,
     transform_openai_input_gemini_embed_content,
 )
-from litellm.types.llms.vertex_ai import VertexAIBatchEmbeddingsResponseObject
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.types.llms.vertex_ai import VertexAIBatchEmbeddingsResponseObject
+from hangarllm.types.utils import EmbeddingResponse
 
 IMAGE_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAQMAAAD+wSzIAAAABlBMVEX///+/v7+jQ3Y5AAAADklEQVQI12P4AIX8EAgALgAD/aNpbtEAAAAASUVORK5CYII"
 GCS_URL = "gs://my-bucket/image.png"
@@ -43,11 +43,11 @@ def _file_block(**file: object) -> dict[str, object]:
 
 @pytest.fixture(autouse=True)
 def _local_model_cost_map(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 class TestIsMultimodalInput:
@@ -638,7 +638,7 @@ def test_gemini_embedding(respx_mock: respx.MockRouter) -> None:
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents"
     ).mock(return_value=httpx.Response(200, json={"embeddings": [{"values": [0.0123, -0.0456, 0.0789]}]}))
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="gemini/gemini-embedding-001",
         input="Hello, world!",
         api_key="gemini-test-key",
@@ -649,6 +649,6 @@ def test_gemini_embedding(respx_mock: respx.MockRouter) -> None:
     }
     assert response.model == "gemini-embedding-001"
     assert [(item.index, item.embedding) for item in response.data] == [(0, [0.0123, -0.0456, 0.0789])]
-    expected_prompt_tokens: Final = litellm.token_counter(model="gemini/gemini-embedding-001", text="Hello, world!")
+    expected_prompt_tokens: Final = hangarllm.token_counter(model="gemini/gemini-embedding-001", text="Hello, world!")
     assert response.usage.prompt_tokens == expected_prompt_tokens
     assert response.usage.total_tokens == expected_prompt_tokens

@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.constants import MAX_S3_OBJECT_DOWNLOAD_FILENAME_BYTES, MAX_S3_OBJECT_KEY_BYTES
-from litellm.integrations.s3 import S3Logger, prompts_only_payload, resolve_s3_log_prompts_only
+import hangarllm
+from hangarllm.constants import MAX_S3_OBJECT_DOWNLOAD_FILENAME_BYTES, MAX_S3_OBJECT_KEY_BYTES
+from hangarllm.integrations.s3 import S3Logger, prompts_only_payload, resolve_s3_log_prompts_only
 
 TEST_KMS_KEY_ARN = "arn:aws:kms:us-east-1:111122223333:key/test-key-id"
 TEST_MESSAGES = [{"role": "user", "content": "Reply with exactly the word PINEAPPLE."}]
@@ -25,7 +25,7 @@ def _standard_logging_payload(response_id: str = "chatcmpl-test-id") -> dict:
 
 def _log_event_kwargs(response_id: str = "chatcmpl-test-id") -> dict:
     return {
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
         "standard_logging_object": _standard_logging_payload(response_id),
     }
 
@@ -33,8 +33,8 @@ def _log_event_kwargs(response_id: str = "chatcmpl-test-id") -> dict:
 def _run_log_event(
     callback_params: dict, response_id: str = "chatcmpl-test-id", log_kwargs: dict[str, object] | None = None
 ) -> MagicMock:
-    original = litellm.s3_callback_params
-    litellm.s3_callback_params = callback_params
+    original = hangarllm.s3_callback_params
+    hangarllm.s3_callback_params = callback_params
     try:
         with patch("boto3.client") as mock_boto3_client:
             mock_s3_client = MagicMock()
@@ -49,7 +49,7 @@ def _run_log_event(
             )
         return mock_s3_client
     finally:
-        litellm.s3_callback_params = original
+        hangarllm.s3_callback_params = original
 
 
 def test_put_object_includes_sse_kms_params_when_configured():
@@ -183,7 +183,7 @@ def test_put_object_key_and_filename_are_bounded_for_an_oversized_response_id():
 
 def test_put_object_keeps_the_configured_path_intact_when_only_the_id_has_to_shrink():
     """A long configured s3_path survives whole when the id can be shortened instead."""
-    long_path = "litellm-prod-logs/" + "t" * 921
+    long_path = "hangarllm-prod-logs/" + "t" * 921
     mock_s3_client = _run_log_event(
         {"s3_bucket_name": "test-bucket", "s3_region_name": "us-west-2", "s3_path": long_path},
         response_id="resp_" + "B" * 100,
@@ -227,8 +227,8 @@ def test_log_event_default_keeps_response(monkeypatch: pytest.MonkeyPatch):
 
 def test_log_event_reads_prompts_only_env_var_at_log_time(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("S3_LOG_PROMPTS_ONLY", raising=False)
-    original = litellm.s3_callback_params
-    litellm.s3_callback_params = {"s3_bucket_name": "test-bucket", "s3_region_name": "us-east-1"}
+    original = hangarllm.s3_callback_params
+    hangarllm.s3_callback_params = {"s3_bucket_name": "test-bucket", "s3_region_name": "us-east-1"}
     try:
         with patch("boto3.client") as mock_boto3_client:
             mock_s3_client = MagicMock()
@@ -243,7 +243,7 @@ def test_log_event_reads_prompts_only_env_var_at_log_time(monkeypatch: pytest.Mo
                 print_verbose=lambda *args, **kwargs: None,
             )
     finally:
-        litellm.s3_callback_params = original
+        hangarllm.s3_callback_params = original
 
     body = _uploaded_body(mock_s3_client)
     assert body["response"] is None
@@ -264,13 +264,13 @@ def test_s3_logger_init_does_not_mutate_global_callback_params(monkeypatch: pyte
     monkeypatch.setenv("MY_S3_BUCKET", "resolved-bucket")
     callback_params = {"s3_bucket_name": "os.environ/MY_S3_BUCKET", "s3_region_name": "us-east-1"}
     snapshot = copy.deepcopy(callback_params)
-    original = litellm.s3_callback_params
-    litellm.s3_callback_params = callback_params
+    original = hangarllm.s3_callback_params
+    hangarllm.s3_callback_params = callback_params
     try:
         with patch("boto3.client"):
             logger = S3Logger()
     finally:
-        litellm.s3_callback_params = original
+        hangarllm.s3_callback_params = original
 
     assert logger.bucket_name == "resolved-bucket"
     assert callback_params == snapshot

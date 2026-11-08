@@ -9,7 +9,7 @@ from e2e_config import provider_edge_base, unique_marker
 from e2e_http import unwrap
 from lifecycle import ResourceManager
 from mcp_client import McpClient, McpToolSearchSettings
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 
 pytestmark = pytest.mark.e2e
@@ -41,7 +41,7 @@ class TestMcpToolSearch:
         embedding_api_base: Final = provider_edge_base("openai")
         model_id: Final = proxy.create_model(
             model_name,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model="openai/text-embedding-3-large",
                 api_key="os.environ/OPENAI_API_KEY",
                 api_base=None if embedding_api_base is None else f"{embedding_api_base}/v1",

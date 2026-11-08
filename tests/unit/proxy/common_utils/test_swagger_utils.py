@@ -1,7 +1,7 @@
 import inspect
 
-from litellm.exceptions import RateLimitError
-from litellm.proxy.common_utils.swagger_utils import ERROR_RESPONSES, _error_description
+from hangarllm.exceptions import RateLimitError
+from hangarllm.proxy.common_utils.swagger_utils import ERROR_RESPONSES, _error_description
 
 
 class _ChildWithoutDoc(RateLimitError):

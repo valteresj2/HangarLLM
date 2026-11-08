@@ -12,17 +12,17 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.integrations.sqs import SQSLogger
-from litellm.types.utils import StandardLoggingPayload
+import hangarllm
+from hangarllm.integrations.sqs import SQSLogger
+from hangarllm.types.utils import StandardLoggingPayload
 
 
 @pytest.fixture(autouse=True)
 def _httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 def _fixed_signing_time() -> datetime:
@@ -34,7 +34,7 @@ async def test_async_send_batch_dispatches_queued_payload(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
     monkeypatch.setattr("botocore.auth.get_current_datetime", _fixed_signing_time)
-    monkeypatch.setattr("litellm.aws_sqs_callback_params", {})
+    monkeypatch.setattr("hangarllm.aws_sqs_callback_params", {})
     queue_url: Final = "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue"
     sent: Final = asyncio.Event()
     payload: Final = cast(
@@ -66,7 +66,7 @@ async def test_async_send_batch_dispatches_queued_payload(
 
 
 def test_sqs_logger_init_without_encryption(monkeypatch):
-    monkeypatch.setattr("litellm.aws_sqs_callback_params", {})
+    monkeypatch.setattr("hangarllm.aws_sqs_callback_params", {})
     monkeypatch.setattr(asyncio, "create_task", MagicMock())
     logger = SQSLogger(sqs_queue_url="https://example.com", sqs_region_name="us-west-2")
     assert logger.sqs_queue_url == "https://example.com"
@@ -74,7 +74,7 @@ def test_sqs_logger_init_without_encryption(monkeypatch):
 
 
 def test_sqs_logger_init_with_encryption(monkeypatch):
-    monkeypatch.setattr("litellm.aws_sqs_callback_params", {})
+    monkeypatch.setattr("hangarllm.aws_sqs_callback_params", {})
     monkeypatch.setattr(asyncio, "create_task", MagicMock())
     key_b64 = base64.b64encode(os.urandom(32)).decode()
 
@@ -90,7 +90,7 @@ def test_sqs_logger_init_with_encryption(monkeypatch):
 
 
 def test_sqs_logger_init_with_encryption_missing_key(monkeypatch):
-    monkeypatch.setattr("litellm.aws_sqs_callback_params", {})
+    monkeypatch.setattr("hangarllm.aws_sqs_callback_params", {})
     monkeypatch.setattr(asyncio, "create_task", MagicMock())
     with pytest.raises(ValueError, match="required when encryption is enabled"):
         SQSLogger(
@@ -102,7 +102,7 @@ def test_sqs_logger_init_with_encryption_missing_key(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_log_success_event_adds_to_queue(monkeypatch):
-    monkeypatch.setattr("litellm.aws_sqs_callback_params", {})
+    monkeypatch.setattr("hangarllm.aws_sqs_callback_params", {})
     monkeypatch.setattr(asyncio, "create_task", MagicMock())
     logger = SQSLogger(sqs_queue_url="https://example.com", sqs_region_name="us-west-2")
 
@@ -113,7 +113,7 @@ async def test_async_log_success_event_adds_to_queue(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_log_failure_event_adds_to_queue(monkeypatch):
-    monkeypatch.setattr("litellm.aws_sqs_callback_params", {})
+    monkeypatch.setattr("hangarllm.aws_sqs_callback_params", {})
     monkeypatch.setattr(asyncio, "create_task", MagicMock())
     logger = SQSLogger(sqs_queue_url="https://example.com", sqs_region_name="us-west-2")
 
@@ -174,7 +174,7 @@ async def test_async_send_message_posts_the_queue_url_and_encoded_payload(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
     monkeypatch.setattr("botocore.auth.get_current_datetime", _fixed_signing_time)
-    monkeypatch.setattr("litellm.aws_sqs_callback_params", {})
+    monkeypatch.setattr("hangarllm.aws_sqs_callback_params", {})
     monkeypatch.setattr(asyncio, "create_task", MagicMock())
     queue_url: Final = "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue"
     payload: Final = cast(
@@ -207,7 +207,7 @@ async def test_async_send_message_handles_a_rejected_queue_request(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
     monkeypatch.setattr("botocore.auth.get_current_datetime", _fixed_signing_time)
-    monkeypatch.setattr("litellm.aws_sqs_callback_params", {})
+    monkeypatch.setattr("hangarllm.aws_sqs_callback_params", {})
     monkeypatch.setattr(asyncio, "create_task", MagicMock())
     queue_url: Final = "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue"
     payload: Final = cast(

@@ -77,7 +77,7 @@ def _override_values(candidate: Gateway, path: str, config_type: str) -> dict[st
 
 def _stored_override(database_url: str, config_type: str) -> dict[str, JsonValue]:
     rows: Final = read_rows(
-        'SELECT config_value FROM "LiteLLM_ConfigOverrides" WHERE config_type = %s',
+        'SELECT config_value FROM "HangarLLM_ConfigOverrides" WHERE config_type = %s',
         (config_type,),
         database_url=database_url,
     )
@@ -127,7 +127,7 @@ def _new_model(candidate: Gateway, name: str, provider: str, secret_name: str) -
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": f"os.environ/{secret_name}",
                 "api_base": provider + "/v1",
@@ -283,7 +283,7 @@ def test_saved_vault_config_reads_back_masked_and_refuses_non_admins(
         with _config_proxy(gateway, tmp_path, monkeypatch, env_values) as (candidate, database_url):
             assert (
                 read_rows(
-                    'SELECT config_type FROM "LiteLLM_ConfigOverrides" WHERE config_type = %s',
+                    'SELECT config_type FROM "HangarLLM_ConfigOverrides" WHERE config_type = %s',
                     ("hashicorp_vault",),
                     database_url=database_url,
                 )
@@ -415,7 +415,7 @@ def test_saved_cyberark_config_reads_back_masked_and_refuses_non_admins(
         with _config_proxy(gateway, tmp_path, monkeypatch, env_values) as (env_candidate, env_database_url):
             assert (
                 read_rows(
-                    'SELECT config_type FROM "LiteLLM_ConfigOverrides" WHERE config_type = %s',
+                    'SELECT config_type FROM "HangarLLM_ConfigOverrides" WHERE config_type = %s',
                     ("cyberark",),
                     database_url=env_database_url,
                 )
@@ -583,7 +583,7 @@ def test_vault_partial_update_keeps_omitted_fields_encrypts_and_drives_secret_re
                 vault_wire.drain()
                 assert (
                     read_rows(
-                        'SELECT config_type FROM "LiteLLM_ConfigOverrides" WHERE config_type = %s',
+                        'SELECT config_type FROM "HangarLLM_ConfigOverrides" WHERE config_type = %s',
                         ("hashicorp_vault",),
                         database_url=database_url,
                     )
@@ -613,7 +613,7 @@ def test_vault_partial_update_keeps_omitted_fields_encrypts_and_drives_secret_re
                     )
                 }, empty_readback.text
                 model_after_delete: Final = scenario.model(
-                    api_key="os.environ/LITELLM_MASTER_KEY",
+                    api_key="os.environ/HANGARLLM_MASTER_KEY",
                     api_base=provider_wire.url + "/v1",
                 )
                 response_after_delete: Final = candidate.request(
@@ -832,7 +832,7 @@ def test_cyberark_incremental_update_encrypts_reloads_on_restart_and_delete_clea
             }, deleted.text
             assert (
                 read_rows(
-                    'SELECT config_type FROM "LiteLLM_ConfigOverrides" WHERE config_type = %s',
+                    'SELECT config_type FROM "HangarLLM_ConfigOverrides" WHERE config_type = %s',
                     ("cyberark",),
                     database_url=database_url,
                 )
@@ -847,7 +847,7 @@ def test_cyberark_incremental_update_encrypts_reloads_on_restart_and_delete_clea
             )
             assert deleted_secret_reads == ()
             model_after_delete: Final = "integration-cyberark-" + uuid.uuid4().hex
-            _new_model(restarted, model_after_delete, provider_wire.url, "LITELLM_MASTER_KEY")
+            _new_model(restarted, model_after_delete, provider_wire.url, "HANGARLLM_MASTER_KEY")
             _chat(restarted, model_after_delete, "after-delete")
             requests_after_delete: Final = cyberark_wire.drain()
             assert requests_after_delete == (), requests_after_delete
@@ -1071,14 +1071,14 @@ def test_vault_approle_and_cert_logins_use_login_namespace_and_drive_secret_read
                 vault_tls_wire.drain()
                 assert (
                     read_rows(
-                        'SELECT config_type FROM "LiteLLM_ConfigOverrides" WHERE config_type = %s',
+                        'SELECT config_type FROM "HangarLLM_ConfigOverrides" WHERE config_type = %s',
                         ("hashicorp_vault",),
                         database_url=database_url,
                     )
                     == []
                 )
                 model_after_delete: Final = scenario.model(
-                    api_key="os.environ/LITELLM_MASTER_KEY",
+                    api_key="os.environ/HANGARLLM_MASTER_KEY",
                     api_base=provider_wire.url + "/v1",
                 )
                 response_after_delete: Final = candidate.request(

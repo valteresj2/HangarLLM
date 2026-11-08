@@ -8,9 +8,9 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.types.llms.openai import OpenAIFileObject
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.types.llms.openai import OpenAIFileObject
 
 NATIVE_VERTEX_ROWS: Final = (
     b'{"request": {"contents": [{"role": "user", "parts": [{"text": "Who won the 2024 Tour de France?"}]}],'
@@ -26,8 +26,8 @@ NATIVE_VERTEX_ROWS: Final = (
     ids=["non-vertex-provider", "non-batch-purpose"],
 )
 def test_create_file_passthrough_is_rejected_outside_a_vertex_batch(custom_llm_provider, purpose):
-    with pytest.raises(litellm.BadRequestError) as exc_info:
-        litellm.create_file(
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
+        hangarllm.create_file(
             file=("batch.jsonl", b'{"request": {"contents": []}}\n', "application/jsonl"),
             purpose=purpose,
             custom_llm_provider=custom_llm_provider,
@@ -59,7 +59,7 @@ def _gcs_upload_transport(uploads: list[httpx.Request]) -> httpx.MockTransport:
 
 def test_create_file_passthrough_kwarg_ships_native_rows_byte_for_byte_under_the_passthrough_prefix():
     uploads: Final[list[httpx.Request]] = []
-    file_object = litellm.create_file(
+    file_object = hangarllm.create_file(
         file=("batch.jsonl", NATIVE_VERTEX_ROWS, "application/jsonl"),
         purpose="batch",
         custom_llm_provider="vertex_ai",
@@ -72,7 +72,7 @@ def test_create_file_passthrough_kwarg_ships_native_rows_byte_for_byte_under_the
     (upload,) = uploads
     object_name: Final = parse_qs(urlparse(str(upload.url)).query)["name"][0]
     assert upload.read() == NATIVE_VERTEX_ROWS
-    assert object_name.startswith("litellm-vertex-files/passthrough/publishers/google/models/gemini-2.5-flash/")
+    assert object_name.startswith("hangarllm-vertex-files/passthrough/publishers/google/models/gemini-2.5-flash/")
     assert file_object.id == f"gs://my-bucket/{object_name}"
 
 
@@ -103,7 +103,7 @@ UNSET_OPTIONAL_FIELDS: Final = {"status": None, "expires_at": None, "status_deta
 async def test_afile_retrieve_returns_the_provider_file_as_an_openai_file_object(provider_extras, expected):
     respx.get(f"{OPENAI_FILES_API_BASE}/files/file-abc123").respond(200, json={**PROVIDER_FILE, **provider_extras})
 
-    file_object: Final = await litellm.afile_retrieve(
+    file_object: Final = await hangarllm.afile_retrieve(
         file_id="file-abc123", custom_llm_provider="openai", api_key="sk-test", api_base=OPENAI_FILES_API_BASE
     )
 
@@ -117,7 +117,7 @@ async def test_afile_retrieve_rejects_a_provider_file_without_its_size():
     respx.get(f"{OPENAI_FILES_API_BASE}/files/file-abc123").respond(200, json=provider_file)
 
     with pytest.raises(ValidationError) as exc_info:
-        await litellm.afile_retrieve(
+        await hangarllm.afile_retrieve(
             file_id="file-abc123", custom_llm_provider="openai", api_key="sk-test", api_base=OPENAI_FILES_API_BASE
         )
 
@@ -132,7 +132,7 @@ VLLM_ROUTER_FILE: Final = MappingProxyType(
 
 
 async def _upload_to_vllm_router() -> OpenAIFileObject:
-    return await litellm.acreate_file(
+    return await hangarllm.acreate_file(
         file=("batch_requests.jsonl", b'{"custom_id": "request-1"}'),
         purpose="batch",
         custom_llm_provider="hosted_vllm",
@@ -142,7 +142,7 @@ async def _upload_to_vllm_router() -> OpenAIFileObject:
 
 
 async def _retrieve_from_vllm_router() -> OpenAIFileObject:
-    return await litellm.afile_retrieve(
+    return await hangarllm.afile_retrieve(
         file_id="file-b73f4c", custom_llm_provider="hosted_vllm", api_key="sk-test", api_base=VLLM_ROUTER_API_BASE
     )
 
@@ -195,7 +195,7 @@ _FINE_TUNE_FILE_JSON: Final = MappingProxyType(
 
 @pytest.mark.asyncio
 async def test_openai_file_operations_roundtrip(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     files_route: Final = respx_mock.post("https://api.openai.com/v1/files").mock(
         return_value=httpx.Response(200, json=dict(_FINE_TUNE_FILE_JSON))
     )
@@ -212,7 +212,7 @@ async def test_openai_file_operations_roundtrip(respx_mock: respx.MockRouter, mo
         return_value=httpx.Response(200, json={"id": "file-abc123", "object": "file", "deleted": True})
     )
 
-    uploaded: Final = await litellm.acreate_file(
+    uploaded: Final = await hangarllm.acreate_file(
         file=("mydata.jsonl", _FILE_BODY), purpose="fine-tune", custom_llm_provider="openai", api_key="fake-key"
     )
     assert files_route.call_count == 1
@@ -222,24 +222,24 @@ async def test_openai_file_operations_roundtrip(respx_mock: respx.MockRouter, mo
     assert _FILE_BODY in upload_body
     assert uploaded.id == "file-abc123"
 
-    listed: Final = await litellm.afile_list(custom_llm_provider="openai", api_key="fake-key")
+    listed: Final = await hangarllm.afile_list(custom_llm_provider="openai", api_key="fake-key")
     assert list_route.call_count == 1
     assert [file.id for file in listed.data] == ["file-abc123"]
 
-    retrieved: Final = await litellm.afile_retrieve(
+    retrieved: Final = await hangarllm.afile_retrieve(
         file_id="file-abc123", custom_llm_provider="openai", api_key="fake-key"
     )
     assert retrieve_route.call_count == 1
     assert retrieved.filename == "mydata.jsonl"
     assert retrieved.purpose == "fine-tune"
 
-    content: Final = await litellm.afile_content(
+    content: Final = await hangarllm.afile_content(
         file_id="file-abc123", custom_llm_provider="openai", api_key="fake-key"
     )
     assert content_route.call_count == 1
     assert content.content == _FILE_BODY
 
-    deleted: Final = await litellm.afile_delete(file_id="file-abc123", custom_llm_provider="openai", api_key="fake-key")
+    deleted: Final = await hangarllm.afile_delete(file_id="file-abc123", custom_llm_provider="openai", api_key="fake-key")
     assert delete_route.call_count == 1
     assert deleted.id == "file-abc123"
     assert deleted.deleted is True

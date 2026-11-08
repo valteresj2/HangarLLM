@@ -3,11 +3,11 @@ import os
 
 ALLOWED_FILES = [
     # local files
-    "../../litellm/litellm_core_utils/litellm.logging_callback_manager.py",
-    "../../litellm/proxy/common_utils/callback_utils.py",
+    "../../hangarllm/hangarllm_core_utils/hangarllm.logging_callback_manager.py",
+    "../../hangarllm/proxy/common_utils/callback_utils.py",
     # when running on ci/cd
-    "./litellm/litellm_core_utils/litellm.logging_callback_manager.py",
-    "./litellm/proxy/common_utils/callback_utils.py",
+    "./hangarllm/hangarllm_core_utils/hangarllm.logging_callback_manager.py",
+    "./hangarllm/proxy/common_utils/callback_utils.py",
 ]
 
 warning_msg = "this is a serious violation. Callbacks must only be modified through LoggingCallbackManager"
@@ -15,7 +15,7 @@ warning_msg = "this is a serious violation. Callbacks must only be modified thro
 
 def check_for_callback_modifications(file_path):
     """
-    Checks if any direct modifications to specific litellm callback lists are made in the given file.
+    Checks if any direct modifications to specific hangarllm callback lists are made in the given file.
     Also prints the violating line of code.
     """
     print("..checking file=", file_path)
@@ -42,7 +42,7 @@ def check_for_callback_modifications(file_path):
     forbidden_operations = ["append", "extend", "insert"]
 
     for node in ast.walk(tree):
-        # Check for attribute calls like litellm.callbacks.append()
+        # Check for attribute calls like hangarllm.callbacks.append()
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
             # Get the full attribute chain
             attr_chain = []
@@ -56,10 +56,10 @@ def check_for_callback_modifications(file_path):
             # Reverse to get the chain from root to leaf
             attr_chain = attr_chain[::-1]
 
-            # Check if the attribute chain starts with 'litellm' and modifies a protected list
+            # Check if the attribute chain starts with 'hangarllm' and modifies a protected list
             if (
                 len(attr_chain) >= 3
-                and attr_chain[0] == "litellm"
+                and attr_chain[0] == "hangarllm"
                 and attr_chain[2] in forbidden_operations
             ):
                 protected_list = attr_chain[1]
@@ -71,7 +71,7 @@ def check_for_callback_modifications(file_path):
                     violating_line = lines[node.lineno - 1].strip()
                     violations.append(
                         f"Found violation in file {file_path} line {node.lineno}: '{violating_line}'. "
-                        f"Direct modification of 'litellm.{protected_list}' using '{operation}' is not allowed. "
+                        f"Direct modification of 'hangarllm.{protected_list}' using '{operation}' is not allowed. "
                         f"Please use LoggingCallbackManager instead. {warning_msg}"
                     )
 
@@ -96,8 +96,8 @@ def test_no_unauthorized_callback_modifications():
     """
     Test to ensure callback lists are not modified directly anywhere in the codebase.
     """
-    base_dir = "./litellm"  # Adjust this path as needed
-    # base_dir = "../../litellm"  # LOCAL TESTING
+    base_dir = "./hangarllm"  # Adjust this path as needed
+    # base_dir = "../../hangarllm"  # LOCAL TESTING
 
     violations = scan_directory_for_callback_modifications(base_dir)
     if violations:

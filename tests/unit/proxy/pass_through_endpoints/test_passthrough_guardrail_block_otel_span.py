@@ -26,22 +26,22 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (  # noqa: E4
     InMemorySpanExporter,
 )
 
-import litellm  # noqa: E402
-from litellm.caching.dual_cache import DualCache  # noqa: E402
-from litellm.integrations.custom_guardrail import (  # noqa: E402
+import hangarllm  # noqa: E402
+from hangarllm.caching.dual_cache import DualCache  # noqa: E402
+from hangarllm.integrations.custom_guardrail import (  # noqa: E402
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.integrations.otel.logger import OpenTelemetryV2  # noqa: E402
-from litellm.integrations.otel.model.config import OpenTelemetryV2Config  # noqa: E402
-from litellm.integrations.otel.plumbing import providers  # noqa: E402
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache  # noqa: E402
-from litellm.proxy.utils import ProxyLogging  # noqa: E402
-from litellm.types.guardrails import GuardrailEventHooks  # noqa: E402
+from hangarllm.integrations.otel.logger import OpenTelemetryV2  # noqa: E402
+from hangarllm.integrations.otel.model.config import OpenTelemetryV2Config  # noqa: E402
+from hangarllm.integrations.otel.plumbing import providers  # noqa: E402
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache  # noqa: E402
+from hangarllm.proxy.utils import ProxyLogging  # noqa: E402
+from hangarllm.types.guardrails import GuardrailEventHooks  # noqa: E402
 
-_PT_MOD = "litellm.proxy.pass_through_endpoints.pass_through_endpoints"
+_PT_MOD = "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints"
 _COLLECT = (
-    "litellm.proxy.pass_through_endpoints.passthrough_guardrails."
+    "hangarllm.proxy.pass_through_endpoints.passthrough_guardrails."
     "PassthroughGuardrailHandler.collect_guardrails"
 )
 _GUARDRAIL_SPAN = "execute_guardrail block-demo"
@@ -50,7 +50,7 @@ _TRIGGER = "BLOCKME"
 # pass_through_endpoints imports proxy_server lazily (inside the request
 # function), so importing this at module scope does not require the real
 # proxy_server and does not mutate sys.modules.
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (  # noqa: E402
+from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (  # noqa: E402
     pass_through_request,
 )
 
@@ -127,8 +127,8 @@ async def _drive(response_text: str):
     )
     proxy_logging = ProxyLogging(user_api_key_cache=UserApiKeyCache(DualCache()))
 
-    saved_callbacks = list(litellm.callbacks)
-    litellm.callbacks = [guardrail, otel]
+    saved_callbacks = list(hangarllm.callbacks)
+    hangarllm.callbacks = [guardrail, otel]
 
     mock_async_client_obj = MagicMock()
     mock_async_client_obj.client = AsyncMock()
@@ -142,9 +142,9 @@ async def _drive(response_text: str):
             return_value=_httpx_response(response_text),
         ),
         patch(f"{_PT_MOD}._is_streaming_response", return_value=False),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
-        patch("litellm.proxy.proxy_server.open_telemetry_logger", otel),
-        patch("litellm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
+        patch("hangarllm.proxy.proxy_server.open_telemetry_logger", otel),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
         patch(f"{_PT_MOD}.pass_through_endpoint_logging", mock_pt_logging),
         patch(f"{_PT_MOD}.get_async_httpx_client", return_value=mock_async_client_obj),
         patch(f"{_PT_MOD}.read_request_body", new_callable=AsyncMock, return_value={}),
@@ -172,7 +172,7 @@ async def _drive(response_text: str):
                 )
         return int(status_code), _guardrail_span_names(exporter)
     finally:
-        litellm.callbacks = saved_callbacks
+        hangarllm.callbacks = saved_callbacks
 
 
 @pytest.mark.asyncio

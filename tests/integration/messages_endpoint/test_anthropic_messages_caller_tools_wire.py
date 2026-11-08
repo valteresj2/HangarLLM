@@ -191,7 +191,7 @@ def respond(request: Request) -> Reply:
 def deployment(name: str, model: str, api_base: str) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {"model": model, "api_base": api_base, "api_key": f"synthetic-{name}-key"},
+        "hangarllm_params": {"model": model, "api_base": api_base, "api_key": f"synthetic-{name}-key"},
     }
 
 
@@ -211,8 +211,8 @@ def write_config(directory: Path, wire_url: str) -> Path:
                 "guardrails": [
                     {
                         "guardrail_name": TOOL_RESULTS_GUARDRAIL,
-                        "litellm_params": {
-                            "guardrail": "litellm_content_filter",
+                        "hangarllm_params": {
+                            "guardrail": "hangarllm_content_filter",
                             "mode": "pre_call",
                             "default_on": False,
                             "scan_only_tool_results": True,
@@ -221,7 +221,7 @@ def write_config(directory: Path, wire_url: str) -> Path:
                     }
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_prompts_in_spend_logs": True,
                     "proxy_batch_write_at": 1,
@@ -357,7 +357,7 @@ def test_spend_log_keeps_the_tools_the_caller_sent(rig: Rig, model: str, guardra
     assert len(rig.received(request_nonce)) == 1
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT proxy_server_request FROM "LiteLLM_SpendLogs" WHERE strpos(proxy_server_request::text, %s) > 0',
+            'SELECT proxy_server_request FROM "HangarLLM_SpendLogs" WHERE strpos(proxy_server_request::text, %s) > 0',
             (request_nonce,),
         ),
         lambda values: len(values) == 1,

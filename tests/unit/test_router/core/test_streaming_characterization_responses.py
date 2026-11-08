@@ -14,11 +14,11 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
-from litellm.router_core import RouterCore
-from litellm.types.llms.openai import (
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
+from hangarllm.router_core import RouterCore
+from hangarllm.types.llms.openai import (
     OutputTextDeltaEvent,
     ResponseAPIUsage,
     ResponseCompletedEvent,
@@ -166,7 +166,7 @@ async def test_a_mid_stream_error_before_output_without_fallbacks_flushes_held_e
     core = make_core(model_list=GROUPS_AB, num_retries=0)
     stream = await open_stream(core)
     seen: list[object] = []
-    with pytest.raises(litellm.RateLimitError, match="stream cut") as raised:
+    with pytest.raises(hangarllm.RateLimitError, match="stream cut") as raised:
         await drain_into(stream, seen)
     assert not isinstance(raised.value, MidStreamFallbackError)
     assert [getattr(event, "type") for event in seen] == [CREATED, IN_PROGRESS]
@@ -180,7 +180,7 @@ async def test_disable_fallbacks_raises_a_mid_stream_error_before_output(
     host.answer("openai/b", fallback_ok())
     core = build(make_core)
     stream = await open_stream(core, disable_fallbacks=True)
-    with pytest.raises(litellm.RateLimitError, match="stream cut"):
+    with pytest.raises(hangarllm.RateLimitError, match="stream cut"):
         await collect_event_types(stream)
     assert host.deployments_called() == ["a"]
 
@@ -193,7 +193,7 @@ async def test_when_the_fallback_fails_the_held_events_are_replayed_before_the_p
     core = build(make_core)
     stream = await open_stream(core)
     seen: list[object] = []
-    with pytest.raises(litellm.RateLimitError, match="stream cut"):
+    with pytest.raises(hangarllm.RateLimitError, match="stream cut"):
         await drain_into(stream, seen)
     assert [getattr(event, "type") for event in seen] == [CREATED]
     assert host.deployments_called() == ["a", "b"]
@@ -224,7 +224,7 @@ async def test_a_context_window_error_after_output_is_raised(make_core: MakeCore
     host.answer("openai/b", fallback_ok())
     core = build(make_core, context_window_fallbacks=[{"a": ["b"]}])
     stream = await open_stream(core)
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         await collect_event_types(stream)
     assert host.deployments_called() == ["a"]
 
@@ -274,7 +274,7 @@ async def test_after_text_a_spent_output_ceiling_raises_the_primary_error(
     host.answer("openai/b", fallback_ok())
     core = build(make_core)
     stream = await open_stream(core, max_output_tokens=1)
-    with pytest.raises(litellm.RateLimitError, match="stream cut"):
+    with pytest.raises(hangarllm.RateLimitError, match="stream cut"):
         await collect_event_types(stream)
     assert host.deployments_called() == ["a"]
 
@@ -286,7 +286,7 @@ async def test_after_text_a_content_policy_cut_raises_instead_of_continuing(
     host.answer("openai/b", fallback_ok())
     core = build(make_core, content_policy_fallbacks=[{"a": ["b"]}])
     stream = await open_stream(core)
-    with pytest.raises(litellm.ContentPolicyViolationError):
+    with pytest.raises(hangarllm.ContentPolicyViolationError):
         await collect_event_types(stream)
     assert host.deployments_called() == ["a"]
 
@@ -299,7 +299,7 @@ async def test_after_a_tool_call_began_the_primary_error_is_raised(make_core: Ma
     host.answer("openai/b", fallback_ok())
     core = build(make_core)
     stream = await open_stream(core)
-    with pytest.raises(litellm.RateLimitError, match="stream cut"):
+    with pytest.raises(hangarllm.RateLimitError, match="stream cut"):
         await collect_event_types(stream)
     assert host.deployments_called() == ["a"]
 
@@ -311,7 +311,7 @@ async def test_after_text_a_json_schema_output_format_raises_the_primary_error(
     host.answer("openai/b", fallback_ok())
     core = build(make_core)
     stream = await open_stream(core, text={"format": {"type": "json_schema", "name": "x", "schema": {}}})
-    with pytest.raises(litellm.RateLimitError, match="stream cut"):
+    with pytest.raises(hangarllm.RateLimitError, match="stream cut"):
         await collect_event_types(stream)
     assert host.deployments_called() == ["a"]
 
@@ -418,9 +418,9 @@ async def test_after_a_stream_fallback_the_stream_carries_the_fallbacks_hidden_p
     assert hidden(stream)["model_id"] == "b-stream"
     assert hidden(stream)["additional_headers"] == {
         "x-provider-request-id": "req-b",
-        "x-litellm-model-group": "b",
-        "x-litellm-attempted-retries": 0,
-        "x-litellm-attempted-fallbacks": 1,
+        "x-hangarllm-model-group": "b",
+        "x-hangarllm-attempted-retries": 0,
+        "x-hangarllm-attempted-fallbacks": 1,
     }
 
 
@@ -433,7 +433,7 @@ async def test_after_a_stream_fallback_each_fallback_event_carries_the_fallbacks
     stream = await open_stream(core)
     events = [event async for event in stream]  # pyright: ignore[reportGeneralTypeIssues]  # an async stream
     assert all(event._hidden_params["model_id"] == "b-stream" for event in events)
-    assert all(event._hidden_params["additional_headers"]["x-litellm-model-group"] == "b" for event in events)
+    assert all(event._hidden_params["additional_headers"]["x-hangarllm-model-group"] == "b" for event in events)
 
 
 async def test_when_the_stream_fallback_fails_the_stream_still_reports_the_primary(
@@ -443,10 +443,10 @@ async def test_when_the_stream_fallback_fails_the_stream_still_reports_the_prima
     host.answer("openai/b", server_error())
     core = build(make_core)
     stream = await open_stream(core)
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await collect_event_types(stream)
     assert hidden(stream)["model_id"] == "a"
-    assert hidden(stream)["additional_headers"]["x-litellm-model-group"] == "a"
+    assert hidden(stream)["additional_headers"]["x-hangarllm-model-group"] == "a"
 
 
 async def test_the_primary_and_fallback_streams_are_closed(make_core: MakeCore, host: ScriptedHost) -> None:

@@ -1,5 +1,5 @@
 include:
   - included_models.yaml
 
-litellm_settings:
+hangarllm_settings:
   callbacks: ["prometheus"]

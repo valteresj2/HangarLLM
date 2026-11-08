@@ -129,27 +129,27 @@ def test_report_separates_successful_execution_from_incomplete_coverage() -> Non
 def test_harness_output_filter_suppresses_expected_harness_warnings() -> None:
     output_filter: Final = HarnessOutputFilter()
     ocr_cost_warning: Final = logging.LogRecord(
-        "LiteLLM",
+        "HangarLLM",
         logging.WARNING,
-        "/repo/litellm/cost_calculator.py",
+        "/repo/hangarllm/cost_calculator.py",
         1953,
         "OCR cost: model=%s has no pricing",
         ("example",),
         None,
     )
     other_warning: Final = logging.LogRecord(
-        "LiteLLM",
+        "HangarLLM",
         logging.WARNING,
-        "/repo/litellm/main.py",
+        "/repo/hangarllm/main.py",
         1,
         "Provider warning",
         (),
         None,
     )
     loop_warning: Final = logging.LogRecord(
-        "LiteLLM",
+        "HangarLLM",
         logging.WARNING,
-        "/repo/litellm/litellm_core_utils/logging_worker.py",
+        "/repo/hangarllm/hangarllm_core_utils/logging_worker.py",
         129,
         "LoggingWorker: event loop changed; carried %d pending and revived %d dequeued logging task(s) onto the new loop",
         (1, 0),

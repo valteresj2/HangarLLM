@@ -11,8 +11,8 @@ usage() {
 
 action=${1:-}
 system=${2:-}
-dir=${E2E_SECRET_MANAGER_DIR:-$HOME/.cache/litellm-e2e-secret-manager}/$system
-name=litellm-e2e-$system
+dir=${E2E_SECRET_MANAGER_DIR:-$HOME/.cache/hangarllm-e2e-secret-manager}/$system
+name=hangarllm-e2e-$system
 
 wait_for() {
   local url=$1

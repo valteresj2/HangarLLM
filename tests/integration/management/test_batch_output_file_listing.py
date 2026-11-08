@@ -28,7 +28,7 @@ from integration._support.wire import Reply, Request, Wire, wire_server
 from integration.cost_calculation.cost_tracking_case import JsonResponse, RoutedResponse, TextResponse
 from pydantic import JsonValue
 
-from litellm.litellm_core_utils.cloud_storage_security import BEDROCK_MANAGED_S3_OUTPUT_PREFIX
+from hangarllm.hangarllm_core_utils.cloud_storage_security import BEDROCK_MANAGED_S3_OUTPUT_PREFIX
 
 OUTPUT_BYTES: Final = 4096
 ERROR_BYTES: Final = 512
@@ -41,7 +41,7 @@ BEDROCK_ROLE_ARN: Final = "arn:aws:iam::123456789012:role/integration-batch-role
 BEDROCK_JOB_ARN_PREFIX: Final = f"arn:aws:bedrock:{BEDROCK_REGION}:123456789012:model-invocation-job/"
 BEDROCK_LAST_MODIFIED: Final = "Thu, 02 Oct 2025 12:00:00 GMT"
 BEDROCK_OUTPUT_CONTENT: Final = b'{"recordId":"req-1","modelOutput":{}}\n'
-_BATCH_PROCESSED_SQL: Final = 'SELECT batch_processed FROM "LiteLLM_ManagedObjectTable" WHERE unified_object_id=%s'
+_BATCH_PROCESSED_SQL: Final = 'SELECT batch_processed FROM "HangarLLM_ManagedObjectTable" WHERE unified_object_id=%s'
 
 
 @dataclass(frozen=True, slots=True)
@@ -348,7 +348,7 @@ def test_output_file_lists_with_basic_details_when_provider_file_lookup_fails(ga
         assert (output["purpose"], output["filename"]) == ("batch_output", f"file-out-{batch.scenario.scenario_id}"), (
             output
         )
-        assert "litellm_details_fallback" not in output, output
+        assert "hangarllm_details_fallback" not in output, output
 
 
 def test_fallback_output_file_details_refresh_once_provider_recovers(gateway: Gateway) -> None:
@@ -368,7 +368,7 @@ def test_fallback_output_file_details_refresh_once_provider_recovers(gateway: Ga
             f"file-out-{batch.scenario.scenario_id}",
         ), basic_output
         assert basic_output["bytes"] != OUTPUT_BYTES, basic_output
-        assert "litellm_details_fallback" not in basic_output, basic_output
+        assert "hangarllm_details_fallback" not in basic_output, basic_output
 
         processed_batch_rows: Final = eventually(
             lambda: read_rows(_BATCH_PROCESSED_SQL, (string_value(retrieved["id"]),)),
@@ -388,7 +388,7 @@ def test_fallback_output_file_details_refresh_once_provider_recovers(gateway: Ga
         details: Final = JSON_OBJECT.validate_json(details_response.content)
         assert details["bytes"] == OUTPUT_BYTES, details
         assert (details["filename"], details["purpose"]) == ("output.jsonl", "batch_output"), details
-        assert "litellm_details_fallback" not in details, details
+        assert "hangarllm_details_fallback" not in details, details
         assert _metadata_hit_count(gateway, batch.scenario) - metadata_hits_before_recovery == 1
 
         refreshed_files: Final = _list_files(gateway, batch.owner_key, purpose="batch_output")
@@ -397,7 +397,7 @@ def test_fallback_output_file_details_refresh_once_provider_recovers(gateway: Ga
         assert (refreshed_output["bytes"], refreshed_output["filename"]) == (OUTPUT_BYTES, "output.jsonl"), (
             refreshed_output
         )
-        assert "litellm_details_fallback" not in refreshed_output, refreshed_output
+        assert "hangarllm_details_fallback" not in refreshed_output, refreshed_output
 
         assert batch.unrelated_key is not None
         unrelated_details: Final = gateway.request("GET", f"/v1/files/{output_id}", key=batch.unrelated_key)

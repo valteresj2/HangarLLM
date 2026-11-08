@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from litellm.llms.datarobot.chat.transformation import DataRobotConfig
+from hangarllm.llms.datarobot.chat.transformation import DataRobotConfig
 
 
 @patch.dict(os.environ, {}, clear=True)
@@ -65,7 +65,7 @@ class TestDataRobotConfig:
                 api_key="PASSTHROUGH_KEY",
                 model="datarobot/vertex_ai/gemini-1.5-flash-002",
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
             )
             == expected_url
         )
@@ -78,7 +78,7 @@ class TestDataRobotConfig:
                     api_key="PASSTHROUGH_KEY",
                     model="datarobot/vertex_ai/gemini-1.5-flash-002",
                     optional_params={},
-                    litellm_params={},
+                    hangarllm_params={},
                 )
                 == api_base
             )

@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from litellm.types.proxy.policy_engine.policy_types import PolicyAttachment
+from hangarllm.types.proxy.policy_engine.policy_types import PolicyAttachment
 
 
 @pytest.mark.parametrize("priority", [-2147483648, 2147483647])

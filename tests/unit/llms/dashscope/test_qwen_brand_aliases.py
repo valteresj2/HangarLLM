@@ -7,18 +7,18 @@ from typing import Final, Literal
 import pytest
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm import completion, get_llm_provider
-from litellm.llms.dashscope.chat.transformation import DashScopeChatConfig
-from litellm.llms.dashscope.common_utils import missing_dashscope_family_key_message
-from litellm.llms.dashscope.cost_calculator import (
+import hangarllm
+from hangarllm import completion, get_llm_provider
+from hangarllm.llms.dashscope.chat.transformation import DashScopeChatConfig
+from hangarllm.llms.dashscope.common_utils import missing_dashscope_family_key_message
+from hangarllm.llms.dashscope.cost_calculator import (
     cost_per_token as dashscope_cost_per_token,
 )
-from litellm.llms.dashscope.embed.transformation import DashScopeEmbeddingConfig
-from litellm.llms.dashscope.image_generation.transformation import (
+from hangarllm.llms.dashscope.embed.transformation import DashScopeEmbeddingConfig
+from hangarllm.llms.dashscope.image_generation.transformation import (
     DashScopeImageGenerationConfig,
 )
-from litellm.llms.dashscope.qwen_ai_platform import (
+from hangarllm.llms.dashscope.qwen_ai_platform import (
     QWEN_AI_PLATFORM_API_BASE,
     QWEN_AI_PLATFORM_IMAGE_API_BASE,
     QWEN_AI_PLATFORM_RERANK_API_BASE,
@@ -27,7 +27,7 @@ from litellm.llms.dashscope.qwen_ai_platform import (
     QwenAIPlatformImageGenerationConfig,
     QwenAIPlatformRerankConfig,
 )
-from litellm.llms.dashscope.qwencloud import (
+from hangarllm.llms.dashscope.qwencloud import (
     QWENCLOUD_API_BASE,
     QWENCLOUD_IMAGE_API_BASE,
     QWENCLOUD_RERANK_API_BASE,
@@ -36,9 +36,9 @@ from litellm.llms.dashscope.qwencloud import (
     QwenCloudImageGenerationConfig,
     QwenCloudRerankConfig,
 )
-from litellm.llms.dashscope.rerank.transformation import DashScopeRerankConfig
-from litellm.types.utils import LlmProviders, Usage
-from litellm.utils import ProviderConfigManager
+from hangarllm.llms.dashscope.rerank.transformation import DashScopeRerankConfig
+from hangarllm.types.utils import LlmProviders, Usage
+from hangarllm.utils import ProviderConfigManager
 
 DASHSCOPE_FAMILY_ENV_VARS = [
     "DASHSCOPE_API_KEY",
@@ -114,12 +114,12 @@ BRAND_CASES = [
 def clear_dashscope_family_env(monkeypatch):
     for env_var in DASHSCOPE_FAMILY_ENV_VARS:
         monkeypatch.delenv(env_var, raising=False)
-    monkeypatch.setattr(litellm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
 
 
 @pytest.fixture
 def no_provider_traffic(respx_mock, monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     return respx_mock
 
 
@@ -203,7 +203,7 @@ class TestQwenBrandDefaultUrls:
             api_key="sk-test",
             model="qwen-max",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == f"{brand['default_base']}/chat/completions"
 
@@ -214,7 +214,7 @@ class TestQwenBrandDefaultUrls:
             api_key="sk-test",
             model="text-embedding-v3",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == f"{brand['default_base']}/embeddings"
 
@@ -226,7 +226,7 @@ class TestQwenBrandDefaultUrls:
             api_key="sk-test",
             model="text-embedding-v3",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == f"{brand['default_base']}/embeddings"
 
@@ -240,7 +240,7 @@ class TestQwenBrandDefaultUrls:
             api_key="sk-test",
             model="qwen-max",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == f"https://dashscope-intl.aliyuncs.com/compatible-mode/v1/{route}"
 
@@ -267,7 +267,7 @@ class TestQwenBrandDefaultUrls:
             api_key="sk-test",
             model="qwen-image",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == brand["default_image_base"]
 
@@ -278,7 +278,7 @@ class TestQwenBrandDefaultUrls:
             api_key="sk-test",
             model="qwen-image",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == brand["default_image_base"]
 
@@ -291,7 +291,7 @@ class TestQwenBrandDefaultUrls:
             api_key="sk-test",
             model="qwen-image",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://gateway.example.com/qwen/images"
 
@@ -303,7 +303,7 @@ class TestQwenBrandDefaultUrls:
                 model="text-embedding-v3",
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
                 api_base=None,
             )
@@ -321,22 +321,22 @@ class TestQwenBrandUserFacingNames:
 
     @pytest.mark.parametrize("brand", BRAND_CASES)
     def test_embedding_without_key_names_brand(self, brand, no_provider_traffic):
-        with pytest.raises(litellm.APIConnectionError, match=re.escape(brand["display_name"])) as exc_info:
-            litellm.embedding(model=f"{brand['provider']}/text-embedding-v4", input=["hello"])
+        with pytest.raises(hangarllm.APIConnectionError, match=re.escape(brand["display_name"])) as exc_info:
+            hangarllm.embedding(model=f"{brand['provider']}/text-embedding-v4", input=["hello"])
         assert self.RETIRED_MAINLAND_NAME not in str(exc_info.value)
         assert no_provider_traffic.calls.call_count == 0
 
     @pytest.mark.parametrize("brand", BRAND_CASES)
     def test_rerank_without_key_names_brand(self, brand, no_provider_traffic):
-        with pytest.raises(litellm.APIConnectionError, match=re.escape(brand["display_name"])) as exc_info:
-            litellm.rerank(model=f"{brand['provider']}/gte-rerank-v2", query="q", documents=["a", "b"])
+        with pytest.raises(hangarllm.APIConnectionError, match=re.escape(brand["display_name"])) as exc_info:
+            hangarllm.rerank(model=f"{brand['provider']}/gte-rerank-v2", query="q", documents=["a", "b"])
         assert self.RETIRED_MAINLAND_NAME not in str(exc_info.value)
         assert no_provider_traffic.calls.call_count == 0
 
     @pytest.mark.parametrize("brand", BRAND_CASES)
     def test_image_generation_without_key_names_brand(self, brand, no_provider_traffic):
-        with pytest.raises(litellm.APIConnectionError, match=re.escape(brand["display_name"])) as exc_info:
-            litellm.image_generation(model=f"{brand['provider']}/qwen-image", prompt="a cup of coffee")
+        with pytest.raises(hangarllm.APIConnectionError, match=re.escape(brand["display_name"])) as exc_info:
+            hangarllm.image_generation(model=f"{brand['provider']}/qwen-image", prompt="a cup of coffee")
         assert self.RETIRED_MAINLAND_NAME not in str(exc_info.value)
         assert no_provider_traffic.calls.call_count == 0
 
@@ -344,8 +344,8 @@ class TestQwenBrandUserFacingNames:
     @pytest.mark.parametrize(
         "matrix_path",
         [
-            Path(litellm.__file__).parent / "provider_endpoints_support_backup.json",
-            Path(litellm.__file__).parent.parent / "provider_endpoints_support.json",
+            Path(hangarllm.__file__).parent / "provider_endpoints_support_backup.json",
+            Path(hangarllm.__file__).parent.parent / "provider_endpoints_support.json",
         ],
         ids=["backup", "root"],
     )
@@ -357,14 +357,14 @@ class TestQwenBrandUserFacingNames:
 class TestQwenBrandCostParity:
     @pytest.fixture(autouse=True)
     def setup_model_cost_map(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-        monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+        monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+        monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
 
     @pytest.mark.parametrize("brand", BRAND_CASES)
     def test_get_model_info(self, brand):
-        model_info = litellm.get_model_info(f"{brand['provider']}/qwen-max")
-        dashscope_info = litellm.get_model_info("dashscope/qwen-max")
-        assert model_info["litellm_provider"] == brand["provider"]
+        model_info = hangarllm.get_model_info(f"{brand['provider']}/qwen-max")
+        dashscope_info = hangarllm.get_model_info("dashscope/qwen-max")
+        assert model_info["hangarllm_provider"] == brand["provider"]
         assert model_info["input_cost_per_token"] == dashscope_info["input_cost_per_token"]
         assert model_info["output_cost_per_token"] == dashscope_info["output_cost_per_token"]
 
@@ -381,18 +381,18 @@ class TestQwenBrandCostParity:
         brand_costs = dashscope_cost_per_token(model="qwen-flash", usage=usage, custom_llm_provider=brand["provider"])
         dashscope_costs = dashscope_cost_per_token(model="qwen-flash", usage=usage)
         assert brand_costs == dashscope_costs
-        tier_2 = litellm.get_model_info(f"{brand['provider']}/qwen-flash")["tiered_pricing"][1]
+        tier_2 = hangarllm.get_model_info(f"{brand['provider']}/qwen-flash")["tiered_pricing"][1]
         assert math.isclose(brand_costs[0], 300000 * tier_2["input_cost_per_token"], rel_tol=1e-10)
 
     @pytest.mark.parametrize("brand", BRAND_CASES)
     def test_public_cost_per_token_routes_to_dashscope_calculator(self, brand):
-        brand_costs = litellm.cost_per_token(
+        brand_costs = hangarllm.cost_per_token(
             model=f"{brand['provider']}/qwen-max",
             prompt_tokens=1000,
             completion_tokens=500,
             custom_llm_provider=brand["provider"],
         )
-        dashscope_costs = litellm.cost_per_token(
+        dashscope_costs = hangarllm.cost_per_token(
             model="dashscope/qwen-max",
             prompt_tokens=1000,
             completion_tokens=500,
@@ -405,7 +405,7 @@ class TestQwenBrandCompletionMock:
     @pytest.mark.respx()
     @pytest.mark.parametrize("brand", BRAND_CASES)
     def test_completion_hits_brand_default_host(self, respx_mock, brand, monkeypatch):
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
         respx_mock.post(f"{brand['default_base']}/chat/completions").respond(
             json={
                 "id": "chatcmpl-123",
@@ -415,7 +415,7 @@ class TestQwenBrandCompletionMock:
                 "choices": [
                     {
                         "index": 0,
-                        "message": {"role": "assistant", "content": "Hey from LiteLLM!"},
+                        "message": {"role": "assistant", "content": "Hey from HangarLLM!"},
                         "finish_reason": "stop",
                     }
                 ],
@@ -430,11 +430,11 @@ class TestQwenBrandCompletionMock:
 
         response = completion(
             model=f"{brand['provider']}/qwen-turbo",
-            messages=[{"role": "user", "content": "say hey from LiteLLM"}],
+            messages=[{"role": "user", "content": "say hey from HangarLLM"}],
             api_key="fake-brand-key",
         )
 
-        assert response.choices[0].message.content == "Hey from LiteLLM!"
+        assert response.choices[0].message.content == "Hey from HangarLLM!"
         request = respx_mock.calls[0].request
         assert request.url == f"{brand['default_base']}/chat/completions"
         assert request.headers["Authorization"] == "Bearer fake-brand-key"

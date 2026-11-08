@@ -12,7 +12,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from litellm.proxy.utils import send_email
+from hangarllm.proxy.utils import send_email
 
 
 @pytest.fixture(autouse=True)
@@ -163,7 +163,7 @@ async def test_send_email_smtp_failure_is_swallowed(
 @pytest.mark.asyncio
 async def test_should_send_plain_text_and_html_as_multipart_alternative(monkeypatch: pytest.MonkeyPatch) -> None:
     transport = Mock()
-    monkeypatch.setattr("litellm.proxy.utils._send_smtp_message", transport)
+    monkeypatch.setattr("hangarllm.proxy.utils._send_smtp_message", transport)
     assert (
         await send_email(
             receiver_email="to@invalid", subject="Retirement", html="<p>Model retirement</p>", text="Model retirement"

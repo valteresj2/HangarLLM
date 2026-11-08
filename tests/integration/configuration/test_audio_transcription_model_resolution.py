@@ -34,7 +34,7 @@ _JSON_TRANSCRIPT: Final = {
 
 def _write_config(directory: Path, upstream_url: str, stt: str, moderation: str) -> Path:
     config: Final = directory / f"audio_transcription_{uuid.uuid4().hex}.yaml"
-    litellm_params: Final[dict[str, JsonValue]] = {
+    hangarllm_params: Final[dict[str, JsonValue]] = {
         "api_base": f"{upstream_url}/v1",
         "api_key": "synthetic-openai-key",
     }
@@ -42,14 +42,14 @@ def _write_config(directory: Path, upstream_url: str, stt: str, moderation: str)
         json.dumps(
             {
                 "model_list": [
-                    {"model_name": stt, "litellm_params": {**litellm_params, "model": "openai/whisper-1"}},
+                    {"model_name": stt, "hangarllm_params": {**hangarllm_params, "model": "openai/whisper-1"}},
                     {
                         "model_name": moderation,
-                        "litellm_params": {**litellm_params, "model": "openai/omni-moderation-latest"},
+                        "hangarllm_params": {**hangarllm_params, "model": "openai/omni-moderation-latest"},
                     },
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                     "disable_spend_logs": False,
@@ -57,7 +57,7 @@ def _write_config(directory: Path, upstream_url: str, stt: str, moderation: str)
                     "proxy_batch_polling_interval": 1,
                     "moderation_model": moderation,
                 },
-                "litellm_settings": {
+                "hangarllm_settings": {
                     "enable_redis_auth_cache": True,
                     "cache": True,
                     "cache_params": {

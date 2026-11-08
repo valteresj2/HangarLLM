@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 import pytest
 from openai._legacy_response import LegacyAPIResponse
 
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.llms.openai.openai import OpenAIChatCompletion
+from hangarllm.llms.openai.common_utils import OpenAIError
+from hangarllm.llms.openai.openai import OpenAIChatCompletion
 
 
 class TestEmptyResponseHandling:

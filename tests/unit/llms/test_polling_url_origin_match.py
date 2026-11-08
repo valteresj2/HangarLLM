@@ -18,14 +18,14 @@ import pytest
 
 # Azure DALL-E sync + async paths route through ``assert_same_origin``
 # the same way as the case below. The helper itself is unit-tested in
-# ``tests/unit/litellm_core_utils/test_url_utils.py``.
+# ``tests/unit/hangarllm_core_utils/test_url_utils.py``.
 
 
 # ── Black Forest Labs polling ─────────────────────────────────────────────────
 
 
 def test_bfl_image_generation_sync_rejects_cross_origin_polling():
-    from litellm.llms.black_forest_labs.image_generation.handler import (
+    from hangarllm.llms.black_forest_labs.image_generation.handler import (
         BlackForestLabsImageGeneration,
     )
 
@@ -54,7 +54,7 @@ def test_bfl_image_generation_sync_rejects_cross_origin_polling():
 
 @pytest.mark.asyncio
 async def test_bfl_image_generation_async_rejects_cross_origin_polling():
-    from litellm.llms.black_forest_labs.image_generation.handler import (
+    from hangarllm.llms.black_forest_labs.image_generation.handler import (
         BlackForestLabsImageGeneration,
     )
 
@@ -82,7 +82,7 @@ async def test_bfl_image_generation_async_rejects_cross_origin_polling():
 
 
 def test_bfl_image_edit_sync_rejects_cross_origin_polling():
-    from litellm.llms.black_forest_labs.image_edit.handler import (
+    from hangarllm.llms.black_forest_labs.image_edit.handler import (
         BlackForestLabsImageEdit,
     )
 
@@ -112,7 +112,7 @@ def test_bfl_image_edit_sync_rejects_cross_origin_polling():
 def test_bfl_image_generation_same_origin_polling_passes():
     """Sanity check: when the polling URL shares origin with the original
     request, the origin check passes and polling proceeds."""
-    from litellm.llms.black_forest_labs.image_generation.handler import (
+    from hangarllm.llms.black_forest_labs.image_generation.handler import (
         BlackForestLabsImageGeneration,
     )
 

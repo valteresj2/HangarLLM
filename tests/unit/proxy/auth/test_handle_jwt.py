@@ -11,27 +11,27 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-from litellm.caching.dual_cache import DualCache
-from litellm.proxy._types import (
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.proxy._types import (
     DEFAULT_JWKS_STALE_TTL,
-    JWTLiteLLMRoleMap,
+    JWTHangarLLMRoleMap,
     JWTIssuerConfig,
-    LiteLLMRoutes,
-    LiteLLM_JWTAuth,
-    LiteLLM_ModelTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
-    LitellmUserRoles,
+    HangarLLMRoutes,
+    HangarLLM_JWTAuth,
+    HangarLLM_ModelTable,
+    HangarLLM_TeamMembership,
+    HangarLLM_TeamTable,
+    HangarLLM_UserTable,
+    HangarllmUserRoles,
     Member,
     ProxyErrorTypes,
     ProxyException,
     RoleBasedPermissions,
     ScopeMapping,
 )
-from litellm.proxy.agent_endpoints.agent_registry import AgentRegistry
-from litellm.proxy.auth.auth_checks import TeamNotFoundError
-from litellm.proxy.auth.handle_jwt import (
+from hangarllm.proxy.agent_endpoints.agent_registry import AgentRegistry
+from hangarllm.proxy.auth.auth_checks import TeamNotFoundError
+from hangarllm.proxy.auth.handle_jwt import (
     ID_JAG_TYP,
     JWKS_FETCH_ATTEMPTS,
     STALE_CACHE_KEY_PREFIX,
@@ -43,24 +43,24 @@ from litellm.proxy.auth.handle_jwt import (
     JWTHandler,
     NoMatchingJWTPublicKeyError,
 )
-from litellm.proxy.auth.model_access_denied import ModelAccessDeniedHTTPException
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.types.agents import AgentResponse
+from hangarllm.proxy.auth.model_access_denied import ModelAccessDeniedHTTPException
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.types.agents import AgentResponse
 
 
 @pytest.mark.asyncio
 async def test_map_user_to_teams_user_already_in_team():
     """Test that no action is taken when user is already in team"""
     # Setup test data
-    user = LiteLLM_UserTable(user_id="test_user_1")
-    team = LiteLLM_TeamTable(
+    user = HangarLLM_UserTable(user_id="test_user_1")
+    team = HangarLLM_TeamTable(
         team_id="test_team_1",
         members_with_roles=[Member(user_id="test_user_1", role="user")],
     )
 
     # Mock team_member_add to ensure it's not called
     with patch(
-        "litellm.proxy.management_endpoints.team_endpoints.team_member_add",
+        "hangarllm.proxy.management_endpoints.team_endpoints.team_member_add",
         new_callable=AsyncMock,
     ) as mock_add:
         await JWTAuthManager.map_user_to_teams(user_object=user, team_object=team)
@@ -71,12 +71,12 @@ async def test_map_user_to_teams_user_already_in_team():
 async def test_map_user_to_teams_add_new_user():
     """Test that new user is added to team"""
     # Setup test data
-    user = LiteLLM_UserTable(user_id="test_user_1")
-    team = LiteLLM_TeamTable(team_id="test_team_1", members_with_roles=[])
+    user = HangarLLM_UserTable(user_id="test_user_1")
+    team = HangarLLM_TeamTable(team_id="test_team_1", members_with_roles=[])
 
     # Mock team_member_add
     with patch(
-        "litellm.proxy.management_endpoints.team_endpoints.team_member_add",
+        "hangarllm.proxy.management_endpoints.team_endpoints.team_member_add",
         new_callable=AsyncMock,
     ) as mock_add:
         await JWTAuthManager.map_user_to_teams(user_object=user, team_object=team)
@@ -92,8 +92,8 @@ async def test_map_user_to_teams_add_new_user():
 async def test_map_user_to_teams_handles_already_in_team_exception():
     """Test that team_member_already_in_team exception is handled gracefully"""
     # Setup test data
-    user = LiteLLM_UserTable(user_id="test_user_1")
-    team = LiteLLM_TeamTable(team_id="test_team_1", members_with_roles=[])
+    user = HangarLLM_UserTable(user_id="test_user_1")
+    team = HangarLLM_TeamTable(team_id="test_team_1", members_with_roles=[])
 
     # Create a ProxyException with team_member_already_in_team error type
     already_in_team_exception = ProxyException(
@@ -105,11 +105,11 @@ async def test_map_user_to_teams_handles_already_in_team_exception():
 
     # Mock team_member_add to raise the exception
     with patch(
-        "litellm.proxy.management_endpoints.team_endpoints.team_member_add",
+        "hangarllm.proxy.management_endpoints.team_endpoints.team_member_add",
         new_callable=AsyncMock,
         side_effect=already_in_team_exception,
     ) as mock_add:
-        with patch("litellm.proxy.auth.handle_jwt.verbose_proxy_logger") as mock_logger:
+        with patch("hangarllm.proxy.auth.handle_jwt.verbose_proxy_logger") as mock_logger:
             # This should not raise an exception
             result = await JWTAuthManager.map_user_to_teams(
                 user_object=user, team_object=team
@@ -124,8 +124,8 @@ async def test_map_user_to_teams_handles_already_in_team_exception():
 async def test_map_user_to_teams_reraises_other_proxy_exceptions():
     """Test that other ProxyException types are re-raised"""
     # Setup test data
-    user = LiteLLM_UserTable(user_id="test_user_1")
-    team = LiteLLM_TeamTable(team_id="test_team_1", members_with_roles=[])
+    user = HangarLLM_UserTable(user_id="test_user_1")
+    team = HangarLLM_TeamTable(team_id="test_team_1", members_with_roles=[])
 
     # Create a ProxyException with a different error type
     other_exception = ProxyException(
@@ -137,7 +137,7 @@ async def test_map_user_to_teams_reraises_other_proxy_exceptions():
 
     # Mock team_member_add to raise the exception
     with patch(
-        "litellm.proxy.management_endpoints.team_endpoints.team_member_add",
+        "hangarllm.proxy.management_endpoints.team_endpoints.team_member_add",
         new_callable=AsyncMock,
         side_effect=other_exception,
     ) as mock_add:
@@ -151,12 +151,12 @@ async def test_map_user_to_teams_null_inputs():
     """Test that method handles null inputs gracefully"""
     # Test with null user
     await JWTAuthManager.map_user_to_teams(
-        user_object=None, team_object=LiteLLM_TeamTable(team_id="test_team_1")
+        user_object=None, team_object=HangarLLM_TeamTable(team_id="test_team_1")
     )
 
     # Test with null team
     await JWTAuthManager.map_user_to_teams(
-        user_object=LiteLLM_UserTable(user_id="test_user_1"), team_object=None
+        user_object=HangarLLM_UserTable(user_id="test_user_1"), team_object=None
     )
 
     # Test with both null
@@ -166,8 +166,8 @@ async def test_map_user_to_teams_null_inputs():
 @pytest.mark.asyncio
 async def test_find_team_with_model_access_reports_passthrough_allowlist_denial():
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
-    team = LiteLLM_TeamTable(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
+    team = HangarLLM_TeamTable(
         team_id="team-a",
         models=["gpt-4"],
         metadata={},
@@ -175,25 +175,25 @@ async def test_find_team_with_model_access_reports_passthrough_allowlist_denial(
 
     with (
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             return_value=team,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.can_team_access_model",
+            "hangarllm.proxy.auth.handle_jwt.can_team_access_model",
             new_callable=AsyncMock,
             return_value=True,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.allowed_routes_check",
+            "hangarllm.proxy.auth.handle_jwt.allowed_routes_check",
             return_value=True,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.RouteChecks.is_auth_enforced_pass_through_route",
+            "hangarllm.proxy.auth.handle_jwt.RouteChecks.is_auth_enforced_pass_through_route",
             return_value=True,
         ) as mock_is_auth_enforced_pass_through_route,
         patch(
-            "litellm.proxy.auth.handle_jwt.RouteChecks.check_passthrough_route_access",
+            "hangarllm.proxy.auth.handle_jwt.RouteChecks.check_passthrough_route_access",
             return_value=False,
         ) as mock_passthrough_check,
     ):
@@ -225,8 +225,8 @@ async def test_find_team_with_model_access_reports_passthrough_allowlist_denial(
 @pytest.mark.asyncio
 async def test_find_team_with_model_access_uses_request_method_for_passthrough_auth():
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
-    team = LiteLLM_TeamTable(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
+    team = HangarLLM_TeamTable(
         team_id="team-a",
         models=["gpt-4"],
         metadata={},
@@ -250,20 +250,20 @@ async def test_find_team_with_model_access_uses_request_method_for_passthrough_a
 
     with (
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             return_value=team,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.allowed_routes_check",
+            "hangarllm.proxy.auth.handle_jwt.allowed_routes_check",
             return_value=True,
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             mock_registered_routes,
         ),
         patch(
-            "litellm.proxy.utils.get_server_root_path",
+            "hangarllm.proxy.utils.get_server_root_path",
             return_value="/",
         ),
     ):
@@ -312,17 +312,17 @@ class _TeamClaims(set[str]):
 @pytest.mark.parametrize("claim_order", [("team-a", "team-b"), ("team-b", "team-a")])
 async def test_a_jwt_in_two_teams_resolves_the_same_team_in_any_claim_order(claim_order: tuple[str, ...]):
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
-    teams = {team_id: LiteLLM_TeamTable(team_id=team_id, models=["gpt-4"], metadata={}) for team_id in claim_order}
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
+    teams = {team_id: HangarLLM_TeamTable(team_id=team_id, models=["gpt-4"], metadata={}) for team_id in claim_order}
 
     with (
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=lambda team_id, **_: teams[team_id],
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.can_team_access_model",
+            "hangarllm.proxy.auth.handle_jwt.can_team_access_model",
             new_callable=AsyncMock,
             return_value=True,
         ),
@@ -346,17 +346,17 @@ async def test_a_jwt_in_two_teams_resolves_the_same_team_in_any_claim_order(clai
 @pytest.mark.parametrize("stray_claim", [1, None])
 async def test_a_jwt_team_claim_with_a_non_string_entry_still_resolves_the_string_team(stray_claim: object):
     jwt_handler: Final = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_ids_jwt_field="groups")
-    team: Final = LiteLLM_TeamTable(team_id="aa-team", models=["gpt-4"], metadata={})
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_ids_jwt_field="groups")
+    team: Final = HangarLLM_TeamTable(team_id="aa-team", models=["gpt-4"], metadata={})
 
     with (
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=lambda team_id, **_: {"aa-team": team}[team_id],
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.can_team_access_model",
+            "hangarllm.proxy.auth.handle_jwt.can_team_access_model",
             new_callable=AsyncMock,
             return_value=True,
         ),
@@ -389,20 +389,20 @@ _AUTH_ENFORCED_MODEL_HOST_ROUTES: Final = {
 @pytest.mark.asyncio
 async def test_find_team_with_model_access_team_allowed_routes_wildcard_grants_auth_passthrough():
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_allowed_routes=["openai_routes", "/model-host/*"])
-    team_without_passthrough_allowlist = LiteLLM_TeamTable(team_id="team-a", models=["all-proxy-models"], metadata={})
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_allowed_routes=["openai_routes", "/model-host/*"])
+    team_without_passthrough_allowlist = HangarLLM_TeamTable(team_id="team-a", models=["all-proxy-models"], metadata={})
 
     with (
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             return_value=team_without_passthrough_allowlist,
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             _AUTH_ENFORCED_MODEL_HOST_ROUTES,
         ),
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
     ):
         team_id, team_obj = await JWTAuthManager.find_team_with_model_access(
             team_ids={"team-a"},
@@ -422,14 +422,14 @@ async def test_find_team_with_model_access_team_allowed_routes_wildcard_grants_a
 
 @pytest.mark.asyncio
 async def test_auth_builder_header_team_allows_auth_passthrough_for_team_allowed_routes_wildcard():
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_ids_jwt_field="groups",
             user_id_jwt_field="sub",
             team_allowed_routes=["openai_routes", "/model-host/*"],
@@ -441,9 +441,9 @@ async def test_auth_builder_header_team_allows_auth_passthrough_for_team_allowed
         patch.object(JWTAuthManager, "check_rbac_role", new_callable=AsyncMock),
         patch.object(JWTAuthManager, "check_admin_access", new_callable=AsyncMock, return_value=None),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
-            return_value=LiteLLM_TeamTable(team_id="team-2", metadata={}),
+            return_value=HangarLLM_TeamTable(team_id="team-2", metadata={}),
         ),
         patch.object(
             JWTAuthManager,
@@ -452,10 +452,10 @@ async def test_auth_builder_header_team_allows_auth_passthrough_for_team_allowed
             return_value=(None, None, None, None, "user-1"),
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             _AUTH_ENFORCED_MODEL_HOST_ROUTES,
         ),
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
     ):
         mock_auth_jwt.return_value = {"sub": "user-1", "scope": "", "groups": ["team-1", "team-2"]}
 
@@ -469,7 +469,7 @@ async def test_auth_builder_header_team_allows_auth_passthrough_for_team_allowed
             user_api_key_cache=user_api_key_cache,
             parent_otel_span=None,
             proxy_logging_obj=ProxyLogging(user_api_key_cache=user_api_key_cache),
-            request_headers={"x-litellm-team-id": "team-2"},
+            request_headers={"x-hangarllm-team-id": "team-2"},
             request_method="POST",
         )
 
@@ -486,13 +486,13 @@ async def test_auth_builder_proxy_admin_user_role():
     route = "/chat/completions"
 
     # Create user object with PROXY_ADMIN role
-    user_object = LiteLLM_UserTable(
-        user_id="test_user_1", user_role=LitellmUserRoles.PROXY_ADMIN
+    user_object = HangarLLM_UserTable(
+        user_id="test_user_1", user_role=HangarllmUserRoles.PROXY_ADMIN
     )
 
     # Create mock JWT handler
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
 
     # Mock all the dependencies and method calls
     with (
@@ -581,13 +581,13 @@ async def test_auth_builder_non_proxy_admin_user_role():
     route = "/chat/completions"
 
     # Create user object with regular USER role
-    user_object = LiteLLM_UserTable(
-        user_id="test_user_1", user_role=LitellmUserRoles.INTERNAL_USER
+    user_object = HangarLLM_UserTable(
+        user_id="test_user_1", user_role=HangarllmUserRoles.INTERNAL_USER
     )
 
     # Create mock JWT handler
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
 
     # Mock all the dependencies and method calls
     with (
@@ -683,14 +683,14 @@ async def test_auth_builder_result_includes_user_email(row_email, expected_email
     general_settings = {"enforce_rbac": False}
     route = "/chat/completions"
 
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="test_user_1",
         user_email=row_email,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
 
     with (
         patch.object(jwt_handler, "auth_jwt", new_callable=AsyncMock) as mock_auth_jwt,
@@ -757,14 +757,14 @@ async def test_check_admin_access_result_includes_user_email():
     """LIT-4238: the scope-based admin path has no user row, so the JWT claim
     email must ride the JWTAuthBuilderResult."""
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
-        admin_jwt_scope="litellm_proxy_admin",
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
+        admin_jwt_scope="hangarllm_proxy_admin",
         admin_allowed_routes=["/chat/completions"],
     )
 
     result = await JWTAuthManager.check_admin_access(
         jwt_handler=jwt_handler,
-        scopes=["litellm_proxy_admin"],
+        scopes=["hangarllm_proxy_admin"],
         route="/chat/completions",
         user_id="admin-user",
         user_email="admin@example.com",
@@ -790,10 +790,10 @@ async def test_sync_user_role_and_teams():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=mock_user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
-            jwt_litellm_role_map=[
-                JWTLiteLLMRoleMap(
-                    jwt_role="ADMIN", litellm_role=LitellmUserRoles.PROXY_ADMIN
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
+            jwt_hangarllm_role_map=[
+                JWTHangarLLMRoleMap(
+                    jwt_role="ADMIN", hangarllm_role=HangarllmUserRoles.PROXY_ADMIN
                 )
             ],
             roles_jwt_field="roles",
@@ -804,22 +804,22 @@ async def test_sync_user_role_and_teams():
 
     token = {"roles": ["ADMIN"], "my_id_teams": ["team1", "team2"]}
 
-    user = LiteLLM_UserTable(
-        user_id="u1", user_role=LitellmUserRoles.INTERNAL_USER.value, teams=["team2"]
+    user = HangarLLM_UserTable(
+        user_id="u1", user_role=HangarllmUserRoles.INTERNAL_USER.value, teams=["team2"]
     )
 
     prisma = AsyncMock()
-    prisma.db.litellm_usertable.update = AsyncMock()
+    prisma.db.hangarllm_usertable.update = AsyncMock()
 
     with patch(
-        "litellm.proxy.management_endpoints.scim.scim_v2.patch_team_membership",
+        "hangarllm.proxy.management_endpoints.scim.scim_v2.patch_team_membership",
         new_callable=AsyncMock,
     ) as mock_patch:
         await JWTAuthManager.sync_user_role_and_teams(jwt_handler, token, user, prisma)
 
-    prisma.db.litellm_usertable.update.assert_called_once()
+    prisma.db.hangarllm_usertable.update.assert_called_once()
     mock_patch.assert_called_once()
-    assert user.user_role == LitellmUserRoles.PROXY_ADMIN.value
+    assert user.user_role == HangarllmUserRoles.PROXY_ADMIN.value
     assert set(user.teams) == {"team1", "team2"}
 
 
@@ -832,10 +832,10 @@ async def test_sync_user_role_and_teams_cache_invalidation_on_role_change():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=AsyncMock(),
-        litellm_jwtauth=LiteLLM_JWTAuth(
-            jwt_litellm_role_map=[
-                JWTLiteLLMRoleMap(
-                    jwt_role="ADMIN", litellm_role=LitellmUserRoles.PROXY_ADMIN
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
+            jwt_hangarllm_role_map=[
+                JWTHangarLLMRoleMap(
+                    jwt_role="ADMIN", hangarllm_role=HangarllmUserRoles.PROXY_ADMIN
                 )
             ],
             roles_jwt_field="roles",
@@ -845,14 +845,14 @@ async def test_sync_user_role_and_teams_cache_invalidation_on_role_change():
     )
 
     token = {"roles": ["ADMIN"], "my_id_teams": ["team1"]}
-    user = LiteLLM_UserTable(
+    user = HangarLLM_UserTable(
         user_id="u1",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=HangarllmUserRoles.INTERNAL_USER.value,
         teams=["team1"],  # teams already match — only role differs
     )
 
     prisma = AsyncMock()
-    prisma.db.litellm_usertable.update = AsyncMock()
+    prisma.db.hangarllm_usertable.update = AsyncMock()
 
     await JWTAuthManager.sync_user_role_and_teams(
         jwt_handler, token, user, prisma, user_api_key_cache=mock_cache
@@ -861,9 +861,9 @@ async def test_sync_user_role_and_teams_cache_invalidation_on_role_change():
     mock_cache.async_set_cache.assert_called_once()
     call_kwargs = mock_cache.async_set_cache.call_args
     assert call_kwargs.kwargs["key"] == "u1"
-    assert isinstance(call_kwargs.kwargs["value"], LiteLLM_UserTable)
-    assert call_kwargs.kwargs["value"].user_role == LitellmUserRoles.PROXY_ADMIN.value
-    assert call_kwargs.kwargs["model_type"] == LiteLLM_UserTable
+    assert isinstance(call_kwargs.kwargs["value"], HangarLLM_UserTable)
+    assert call_kwargs.kwargs["value"].user_role == HangarllmUserRoles.PROXY_ADMIN.value
+    assert call_kwargs.kwargs["model_type"] == HangarLLM_UserTable
 
 
 @pytest.mark.asyncio
@@ -875,10 +875,10 @@ async def test_sync_user_role_and_teams_cache_invalidation_on_team_change():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=AsyncMock(),
-        litellm_jwtauth=LiteLLM_JWTAuth(
-            jwt_litellm_role_map=[
-                JWTLiteLLMRoleMap(
-                    jwt_role="ADMIN", litellm_role=LitellmUserRoles.PROXY_ADMIN
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
+            jwt_hangarllm_role_map=[
+                JWTHangarLLMRoleMap(
+                    jwt_role="ADMIN", hangarllm_role=HangarllmUserRoles.PROXY_ADMIN
                 )
             ],
             roles_jwt_field="roles",
@@ -888,17 +888,17 @@ async def test_sync_user_role_and_teams_cache_invalidation_on_team_change():
     )
 
     token = {"roles": ["ADMIN"], "my_id_teams": ["team1", "team2"]}
-    user = LiteLLM_UserTable(
+    user = HangarLLM_UserTable(
         user_id="u1",
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,  # role already matches
+        user_role=HangarllmUserRoles.PROXY_ADMIN.value,  # role already matches
         teams=["team2"],  # teams differ
     )
 
     prisma = AsyncMock()
-    prisma.db.litellm_usertable.update = AsyncMock()
+    prisma.db.hangarllm_usertable.update = AsyncMock()
 
     with patch(
-        "litellm.proxy.management_endpoints.scim.scim_v2.patch_team_membership",
+        "hangarllm.proxy.management_endpoints.scim.scim_v2.patch_team_membership",
         new_callable=AsyncMock,
     ):
         await JWTAuthManager.sync_user_role_and_teams(
@@ -908,9 +908,9 @@ async def test_sync_user_role_and_teams_cache_invalidation_on_team_change():
     mock_cache.async_set_cache.assert_called_once()
     call_kwargs = mock_cache.async_set_cache.call_args
     assert call_kwargs.kwargs["key"] == "u1"
-    assert isinstance(call_kwargs.kwargs["value"], LiteLLM_UserTable)
+    assert isinstance(call_kwargs.kwargs["value"], HangarLLM_UserTable)
     assert set(call_kwargs.kwargs["value"].teams) == {"team1", "team2"}
-    assert call_kwargs.kwargs["model_type"] == LiteLLM_UserTable
+    assert call_kwargs.kwargs["model_type"] == HangarLLM_UserTable
 
 
 @pytest.mark.asyncio
@@ -919,14 +919,14 @@ async def test_sync_user_role_and_teams_keeps_record_order_and_adds_claim_teams_
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=AsyncMock(),
-        litellm_jwtauth=LiteLLM_JWTAuth(team_ids_jwt_field="groups", sync_user_role_and_teams=True),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(team_ids_jwt_field="groups", sync_user_role_and_teams=True),
     )
     cache: Final = AsyncMock()
-    user: Final = LiteLLM_UserTable(user_id="u1", teams=["team-zeta", "team-kappa", "team-alpha"])
+    user: Final = HangarLLM_UserTable(user_id="u1", teams=["team-zeta", "team-kappa", "team-alpha"])
     token: Final = {"groups": ["team-mu", "team-alpha", "team-beta", "team-mu", "team-zeta", "team-omega"]}
 
     with patch(
-        "litellm.proxy.management_endpoints.scim.scim_v2.patch_team_membership",
+        "hangarllm.proxy.management_endpoints.scim.scim_v2.patch_team_membership",
         new_callable=AsyncMock,
     ) as mock_patch:
         await JWTAuthManager.sync_user_role_and_teams(jwt_handler, token, user, AsyncMock(), user_api_key_cache=cache)
@@ -947,10 +947,10 @@ async def test_sync_user_role_and_teams_no_cache_write_when_nothing_changes():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=AsyncMock(),
-        litellm_jwtauth=LiteLLM_JWTAuth(
-            jwt_litellm_role_map=[
-                JWTLiteLLMRoleMap(
-                    jwt_role="ADMIN", litellm_role=LitellmUserRoles.PROXY_ADMIN
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
+            jwt_hangarllm_role_map=[
+                JWTHangarLLMRoleMap(
+                    jwt_role="ADMIN", hangarllm_role=HangarllmUserRoles.PROXY_ADMIN
                 )
             ],
             roles_jwt_field="roles",
@@ -960,9 +960,9 @@ async def test_sync_user_role_and_teams_no_cache_write_when_nothing_changes():
     )
 
     token = {"roles": ["ADMIN"], "my_id_teams": ["team1"]}
-    user = LiteLLM_UserTable(
+    user = HangarLLM_UserTable(
         user_id="u1",
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,
+        user_role=HangarllmUserRoles.PROXY_ADMIN.value,
         teams=["team1"],
     )
 
@@ -982,7 +982,7 @@ def test_get_all_jwt_team_ids_unions_singular_and_plural():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=MagicMock(),
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_id_jwt_field="team_id",
             team_ids_jwt_field="teams",
         ),
@@ -1027,7 +1027,7 @@ def test_get_all_jwt_team_ids_does_not_use_team_id_default():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=MagicMock(),
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_id_jwt_field="team_id",
             team_ids_jwt_field="teams",
             team_id_default="default-team",
@@ -1045,7 +1045,7 @@ def test_get_all_jwt_team_ids_does_not_use_team_id_default():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=MagicMock(),
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_ids_jwt_field="teams",
             team_id_default="default-team",
         ),
@@ -1054,8 +1054,8 @@ def test_get_all_jwt_team_ids_does_not_use_team_id_default():
 
 
 @pytest.mark.asyncio
-async def test_map_jwt_role_to_litellm_role():
-    """Test JWT role mapping to LiteLLM roles with various patterns"""
+async def test_map_jwt_role_to_hangarllm_role():
+    """Test JWT role mapping to HangarLLM roles with various patterns"""
     from unittest.mock import MagicMock
 
     # Create mock objects for required types
@@ -1065,21 +1065,21 @@ async def test_map_jwt_role_to_litellm_role():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=mock_user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
-            jwt_litellm_role_map=[
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
+            jwt_hangarllm_role_map=[
                 # Exact match
-                JWTLiteLLMRoleMap(
-                    jwt_role="ADMIN", litellm_role=LitellmUserRoles.PROXY_ADMIN
+                JWTHangarLLMRoleMap(
+                    jwt_role="ADMIN", hangarllm_role=HangarllmUserRoles.PROXY_ADMIN
                 ),
                 # Wildcard patterns
-                JWTLiteLLMRoleMap(
-                    jwt_role="user_*", litellm_role=LitellmUserRoles.INTERNAL_USER
+                JWTHangarLLMRoleMap(
+                    jwt_role="user_*", hangarllm_role=HangarllmUserRoles.INTERNAL_USER
                 ),
-                JWTLiteLLMRoleMap(
-                    jwt_role="team_?", litellm_role=LitellmUserRoles.TEAM
+                JWTHangarLLMRoleMap(
+                    jwt_role="team_?", hangarllm_role=HangarllmUserRoles.TEAM
                 ),
-                JWTLiteLLMRoleMap(
-                    jwt_role="dev_[123]", litellm_role=LitellmUserRoles.INTERNAL_USER
+                JWTHangarLLMRoleMap(
+                    jwt_role="dev_[123]", hangarllm_role=HangarllmUserRoles.INTERNAL_USER
                 ),
             ],
             roles_jwt_field="roles",
@@ -1088,88 +1088,88 @@ async def test_map_jwt_role_to_litellm_role():
 
     # Test exact match
     token = {"roles": ["ADMIN"]}
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
-    assert result == LitellmUserRoles.PROXY_ADMIN
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
+    assert result == HangarllmUserRoles.PROXY_ADMIN
 
     # Test wildcard match with *
     token = {"roles": ["user_manager"]}
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
-    assert result == LitellmUserRoles.INTERNAL_USER
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
+    assert result == HangarllmUserRoles.INTERNAL_USER
 
     token = {"roles": ["user_"]}
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
-    assert result == LitellmUserRoles.INTERNAL_USER
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
+    assert result == HangarllmUserRoles.INTERNAL_USER
 
     # Test wildcard match with ?
     token = {"roles": ["team_1"]}
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
-    assert result == LitellmUserRoles.TEAM
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
+    assert result == HangarllmUserRoles.TEAM
 
     token = {"roles": ["team_a"]}
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
-    assert result == LitellmUserRoles.TEAM
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
+    assert result == HangarllmUserRoles.TEAM
 
     # Test character class match
     token = {"roles": ["dev_1"]}
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
-    assert result == LitellmUserRoles.INTERNAL_USER
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
+    assert result == HangarllmUserRoles.INTERNAL_USER
 
     token = {"roles": ["dev_2"]}
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
-    assert result == LitellmUserRoles.INTERNAL_USER
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
+    assert result == HangarllmUserRoles.INTERNAL_USER
 
     # Test no match
     token = {"roles": ["unknown_role"]}
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
     assert result is None
 
     # Test multiple roles - should return first mapping match
     token = {"roles": ["user_test", "ADMIN"]}
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
-    assert result == LitellmUserRoles.PROXY_ADMIN  # ADMIN matches first mapping
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
+    assert result == HangarllmUserRoles.PROXY_ADMIN  # ADMIN matches first mapping
 
     # Test empty roles
     token = {"roles": []}
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
     assert result is None
 
     # Test no roles field
     token = {}
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
     assert result is None
 
     # Test no role mappings configured
-    jwt_handler.litellm_jwtauth.jwt_litellm_role_map = None
+    jwt_handler.hangarllm_jwtauth.jwt_hangarllm_role_map = None
     token = {"roles": ["ADMIN"]}
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
     assert result is None
 
     # Test empty role mappings
-    jwt_handler.litellm_jwtauth.jwt_litellm_role_map = []
+    jwt_handler.hangarllm_jwtauth.jwt_hangarllm_role_map = []
     token = {"roles": ["ADMIN"]}
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
     assert result is None
 
     # Test patterns that don't match character classes
-    jwt_handler.litellm_jwtauth.jwt_litellm_role_map = [
-        JWTLiteLLMRoleMap(
-            jwt_role="dev_[123]", litellm_role=LitellmUserRoles.INTERNAL_USER
+    jwt_handler.hangarllm_jwtauth.jwt_hangarllm_role_map = [
+        JWTHangarLLMRoleMap(
+            jwt_role="dev_[123]", hangarllm_role=HangarllmUserRoles.INTERNAL_USER
         ),
     ]
     token = {"roles": ["dev_4"]}  # 4 is not in [123]
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
     assert result is None
 
     # Test ? pattern that requires exactly one character
-    jwt_handler.litellm_jwtauth.jwt_litellm_role_map = [
-        JWTLiteLLMRoleMap(jwt_role="team_?", litellm_role=LitellmUserRoles.TEAM),
+    jwt_handler.hangarllm_jwtauth.jwt_hangarllm_role_map = [
+        JWTHangarLLMRoleMap(jwt_role="team_?", hangarllm_role=HangarllmUserRoles.TEAM),
     ]
     token = {"roles": ["team_12"]}  # More than one character after underscore
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
     assert result is None
 
     token = {"roles": ["team_"]}  # No character after underscore
-    result = jwt_handler.map_jwt_role_to_litellm_role(token)
+    result = jwt_handler.map_jwt_role_to_hangarllm_role(token)
     assert result is None
 
 
@@ -1183,8 +1183,8 @@ async def test_nested_jwt_field_access():
     2. Backward compatibility is maintained for flat field names
     3. Missing nested paths return appropriate defaults
     """
-    from litellm.proxy._types import LiteLLM_JWTAuth
-    from litellm.proxy.auth.handle_jwt import JWTHandler
+    from hangarllm.proxy._types import HangarLLM_JWTAuth
+    from hangarllm.proxy.auth.handle_jwt import JWTHandler
 
     # Create JWT handler
     jwt_handler = JWTHandler()
@@ -1213,83 +1213,83 @@ async def test_nested_jwt_field_access():
     }
 
     # Test 1: user_id_jwt_field with nested access
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(user_id_jwt_field="user.sub")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(user_id_jwt_field="user.sub")
     assert jwt_handler.get_user_id(nested_token, None) == "u123"
 
     # Test 1b: user_id_jwt_field with flat access (backward compatibility)
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(user_id_jwt_field="sub")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(user_id_jwt_field="sub")
     assert jwt_handler.get_user_id(flat_token, None) == "u123"
 
     # Test 2: user_email_jwt_field with nested access
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(user_email_jwt_field="user.email")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(user_email_jwt_field="user.email")
     assert jwt_handler.get_user_email(nested_token, None) == "user@example.com"
 
     # Test 2b: user_email_jwt_field with flat access (backward compatibility)
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(user_email_jwt_field="email")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(user_email_jwt_field="email")
     assert jwt_handler.get_user_email(flat_token, None) == "user@example.com"
 
     # Test 3: team_ids_jwt_field with nested access
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_ids_jwt_field="groups")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_ids_jwt_field="groups")
     assert jwt_handler.get_team_ids_from_jwt(nested_token) == ["team1", "team2"]
 
     # Test 3b: team_ids_jwt_field with flat access (backward compatibility)
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_ids_jwt_field="groups")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_ids_jwt_field="groups")
     assert jwt_handler.get_team_ids_from_jwt(flat_token) == ["team1", "team2"]
 
     # Test 4: org_id_jwt_field with nested access
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(org_id_jwt_field="organization.id")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(org_id_jwt_field="organization.id")
     assert jwt_handler.get_org_id(nested_token, None) == "org456"
 
     # Test 4b: org_id_jwt_field with flat access (backward compatibility)
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(org_id_jwt_field="org_id")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(org_id_jwt_field="org_id")
     assert jwt_handler.get_org_id(flat_token, None) == "org456"
 
     # Test 5: object_id_jwt_field with nested access (requires role_mappings)
-    from litellm.proxy._types import LitellmUserRoles, RoleMapping
+    from hangarllm.proxy._types import HangarllmUserRoles, RoleMapping
 
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         object_id_jwt_field="profile.object_id",
         role_mappings=[
-            RoleMapping(role="admin", internal_role=LitellmUserRoles.INTERNAL_USER)
+            RoleMapping(role="admin", internal_role=HangarllmUserRoles.INTERNAL_USER)
         ],
     )
     assert jwt_handler.get_object_id(nested_token, None) == "obj789"
 
     # Test 5b: object_id_jwt_field with flat access (backward compatibility)
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         object_id_jwt_field="object_id",
         role_mappings=[
-            RoleMapping(role="admin", internal_role=LitellmUserRoles.INTERNAL_USER)
+            RoleMapping(role="admin", internal_role=HangarllmUserRoles.INTERNAL_USER)
         ],
     )
     assert jwt_handler.get_object_id(flat_token, None) == "obj789"
 
     # Test 6: end_user_id_jwt_field with nested access
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         end_user_id_jwt_field="customer.end_user_id"
     )
     assert jwt_handler.get_end_user_id(nested_token, None) == "customer123"
 
     # Test 6b: end_user_id_jwt_field with flat access (backward compatibility)
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(end_user_id_jwt_field="end_user_id")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(end_user_id_jwt_field="end_user_id")
     assert jwt_handler.get_end_user_id(flat_token, None) == "customer123"
 
     # Test 7: team_id_jwt_field with nested access
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_id_jwt_field="tenant.team_id")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_id_jwt_field="tenant.team_id")
     assert jwt_handler.get_team_id(nested_token, None) == "team456"
 
     # Test 7b: team_id_jwt_field with flat access (backward compatibility)
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_id_jwt_field="team_id")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_id_jwt_field="team_id")
     assert jwt_handler.get_team_id(flat_token, None) == "team456"
 
     # Test 8: roles_jwt_field with deeply nested access (already supported, but testing)
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         roles_jwt_field="resource_access.my-client.roles"
     )
     assert jwt_handler.get_jwt_role(nested_token, []) == ["admin", "user"]
 
     # Test 9: user_roles_jwt_field with nested access (already supported, but testing)
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         user_roles_jwt_field="resource_access.my-client.roles",
         user_allowed_roles=["admin", "user"],
     )
@@ -1306,8 +1306,8 @@ async def test_nested_jwt_field_missing_paths():
     2. Partial paths that exist but don't have the final key return defaults
     3. team_id_default fallback works with nested fields
     """
-    from litellm.proxy._types import LiteLLM_JWTAuth
-    from litellm.proxy.auth.handle_jwt import JWTHandler
+    from hangarllm.proxy._types import HangarLLM_JWTAuth
+    from hangarllm.proxy.auth.handle_jwt import JWTHandler
 
     # Create JWT handler
     jwt_handler = JWTHandler()
@@ -1326,37 +1326,37 @@ async def test_nested_jwt_field_missing_paths():
     }
 
     # Test 1: Missing user.sub should return default
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(user_id_jwt_field="user.sub")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(user_id_jwt_field="user.sub")
     assert jwt_handler.get_user_id(incomplete_token, "default_user") == "default_user"
 
     # Test 2: Missing user.email should return default
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(user_email_jwt_field="user.email")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(user_email_jwt_field="user.email")
     assert (
         jwt_handler.get_user_email(incomplete_token, "default@example.com")
         == "default@example.com"
     )
 
     # Test 3: Missing groups should return empty list
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_ids_jwt_field="groups")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_ids_jwt_field="groups")
     assert jwt_handler.get_team_ids_from_jwt(incomplete_token) == []
 
     # Test 4: Missing organization.id should return default
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(org_id_jwt_field="organization.id")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(org_id_jwt_field="organization.id")
     assert jwt_handler.get_org_id(incomplete_token, "default_org") == "default_org"
 
     # Test 5: Missing profile.object_id should return default (requires role_mappings)
-    from litellm.proxy._types import LitellmUserRoles, RoleMapping
+    from hangarllm.proxy._types import HangarllmUserRoles, RoleMapping
 
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         object_id_jwt_field="profile.object_id",
         role_mappings=[
-            RoleMapping(role="admin", internal_role=LitellmUserRoles.INTERNAL_USER)
+            RoleMapping(role="admin", internal_role=HangarllmUserRoles.INTERNAL_USER)
         ],
     )
     assert jwt_handler.get_object_id(incomplete_token, "default_obj") == "default_obj"
 
     # Test 6: Missing customer.end_user_id should return default
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         end_user_id_jwt_field="customer.end_user_id"
     )
     assert (
@@ -1365,13 +1365,13 @@ async def test_nested_jwt_field_missing_paths():
     )
 
     # Test 7: Missing tenant.team_id should use team_id_default fallback
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         team_id_jwt_field="tenant.team_id", team_id_default="fallback_team"
     )
     assert jwt_handler.get_team_id(incomplete_token, "default_team") == "fallback_team"
 
     # Test 8: Missing resource_access.my-client.roles should return default
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         roles_jwt_field="resource_access.my-client.roles"
     )
     assert jwt_handler.get_jwt_role(incomplete_token, ["default_role"]) == [
@@ -1379,7 +1379,7 @@ async def test_nested_jwt_field_missing_paths():
     ]
 
     # Test 9: Missing nested user roles should return default
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         user_roles_jwt_field="resource_access.my-client.roles",
         user_allowed_roles=["admin", "user"],
     )
@@ -1395,8 +1395,8 @@ async def test_metadata_prefix_handling_in_nested_fields():
 
     The get_nested_value function should remove metadata. prefix before traversing
     """
-    from litellm.proxy._types import LiteLLM_JWTAuth
-    from litellm.proxy.auth.handle_jwt import JWTHandler
+    from hangarllm.proxy._types import HangarLLM_JWTAuth
+    from hangarllm.proxy.auth.handle_jwt import JWTHandler
 
     # Create JWT handler
     jwt_handler = JWTHandler()
@@ -1410,28 +1410,28 @@ async def test_metadata_prefix_handling_in_nested_fields():
     }
 
     # Test 1: metadata.user.email should access user.email after prefix removal
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         user_email_jwt_field="metadata.user.email"
     )
     # The get_nested_value function removes "metadata." prefix, so "metadata.user.email" becomes "user.email"
     assert jwt_handler.get_user_email(token, None) == "user@example.com"
 
     # Test 2: user.sub should work normally without metadata prefix
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(user_id_jwt_field="sub")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(user_id_jwt_field="sub")
     assert jwt_handler.get_user_id(token, None) == "u123"
 
 
 @pytest.mark.asyncio
 async def test_find_team_with_model_access_model_group(monkeypatch):
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.router import Router
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
+    from hangarllm.router import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-4o-mini",
-                "litellm_params": {"model": "gpt-4o-mini"},
+                "hangarllm_params": {"model": "gpt-4o-mini"},
                 "model_info": {"access_groups": ["test-group"]},
             }
         ]
@@ -1441,19 +1441,19 @@ async def test_find_team_with_model_access_model_group(monkeypatch):
 
     proxy_server_module = types.ModuleType("proxy_server")
     proxy_server_module.llm_router = router
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_module)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", proxy_server_module)
 
-    team = LiteLLM_TeamTable(team_id="team-1", models=["test-group"])
+    team = HangarLLM_TeamTable(team_id="team-1", models=["test-group"])
 
     async def mock_get_team_object(*args, **kwargs):  # type: ignore
         return team
 
     monkeypatch.setattr(
-        "litellm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object
+        "hangarllm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object
     )
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
 
     user_api_key_cache = DualCache()
     proxy_logging_obj = ProxyLogging(user_api_key_cache=user_api_key_cache)
@@ -1485,28 +1485,28 @@ async def test_find_team_with_model_access_resolves_team_model_alias(monkeypatch
     import sys
     import types
 
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.router import Router
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
+    from hangarllm.router import Router
 
-    router = Router(model_list=[{"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}}])
+    router = Router(model_list=[{"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o"}}])
     proxy_server_module = types.ModuleType("proxy_server")
     proxy_server_module.llm_router = router
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_module)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", proxy_server_module)
 
-    team = LiteLLM_TeamTable(
+    team = HangarLLM_TeamTable(
         team_id="team-aliases",
         models=["gpt-4o"],
-        litellm_model_table=LiteLLM_ModelTable(model_aliases=model_aliases, created_by="admin", updated_by="admin"),
+        hangarllm_model_table=HangarLLM_ModelTable(model_aliases=model_aliases, created_by="admin", updated_by="admin"),
     )
 
     async def mock_get_team_object(*args, **kwargs):
         return team
 
-    monkeypatch.setattr("litellm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object)
+    monkeypatch.setattr("hangarllm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object)
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
     user_api_key_cache = DualCache()
 
     team_id, team_obj = await JWTAuthManager.find_team_with_model_access(
@@ -1528,20 +1528,20 @@ async def test_find_team_with_model_access_resolves_team_model_alias(monkeypatch
 async def test_find_team_with_model_access_v1_messages_default_routes(monkeypatch):
     """Regression for #31189: a single-team JWT that grants the requested model
     through an access group must resolve on /v1/messages without an explicit
-    x-litellm-team-id header. /v1/messages lives in `anthropic_routes`, so when a
+    x-hangarllm-team-id header. /v1/messages lives in `anthropic_routes`, so when a
     team has no `team_allowed_routes` configured the default allowlist must cover
     it just like /chat/completions and /v1/responses; otherwise the internal route
     check fails and surfaces a misleading "No team has access to the requested
     model" 403."""
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.router import Router
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
+    from hangarllm.router import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "claude-sonnet-4-6",
-                "litellm_params": {"model": "claude-sonnet-4-6"},
+                "hangarllm_params": {"model": "claude-sonnet-4-6"},
                 "model_info": {"access_groups": ["coding_only_models"]},
             }
         ]
@@ -1551,19 +1551,19 @@ async def test_find_team_with_model_access_v1_messages_default_routes(monkeypatc
 
     proxy_server_module = types.ModuleType("proxy_server")
     proxy_server_module.llm_router = router
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_module)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", proxy_server_module)
 
-    team = LiteLLM_TeamTable(team_id="coding-team", models=["coding_only_models"])
+    team = HangarLLM_TeamTable(team_id="coding-team", models=["coding_only_models"])
 
     async def mock_get_team_object(*args, **kwargs):  # type: ignore
         return team
 
     monkeypatch.setattr(
-        "litellm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object
+        "hangarllm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object
     )
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
 
     user_api_key_cache = DualCache()
     proxy_logging_obj = ProxyLogging(user_api_key_cache=user_api_key_cache)
@@ -1598,13 +1598,13 @@ async def test_find_team_with_model_access_v1_messages_default_routes(monkeypatc
     ],
 )
 def test_default_team_allowed_routes_cover_messages_but_not_skills(route, expected):
-    from litellm.proxy.auth.auth_checks import allowed_routes_check
+    from hangarllm.proxy.auth.auth_checks import allowed_routes_check
 
     assert (
         allowed_routes_check(
-            user_role=LitellmUserRoles.TEAM,
+            user_role=HangarllmUserRoles.TEAM,
             user_route=route,
-            litellm_proxy_roles=LiteLLM_JWTAuth(),
+            hangarllm_proxy_roles=HangarLLM_JWTAuth(),
         )
         is expected
     )
@@ -1613,17 +1613,17 @@ def test_default_team_allowed_routes_cover_messages_but_not_skills(route, expect
 @pytest.mark.asyncio
 async def test_find_team_with_model_access_reports_team_route_allowlist_denial():
     jwt_handler: Final = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_allowed_routes=["/chat/completions"])
-    team: Final = LiteLLM_TeamTable(team_id="team-route-denied", models=["gpt-4o-mini"])
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_allowed_routes=["/chat/completions"])
+    team: Final = HangarLLM_TeamTable(team_id="team-route-denied", models=["gpt-4o-mini"])
     user_api_key_cache: Final = DualCache()
     user_api_key_cache.set_cache(key="team_id:team-route-denied", value=team)
     prisma_client: Final = MagicMock()
-    prisma_team_table: Final = prisma_client.db.litellm_teamtable
+    prisma_team_table: Final = prisma_client.db.hangarllm_teamtable
     prisma_team_table.find_unique = AsyncMock()
     proxy_server_module: Final = ModuleType("proxy_server")
     proxy_server_module.llm_router = None
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": proxy_server_module}):
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": proxy_server_module}):
         with pytest.raises(HTTPException) as exc_info:
             await JWTAuthManager.find_team_with_model_access(
                 team_ids={"team-route-denied"},
@@ -1640,7 +1640,7 @@ async def test_find_team_with_model_access_reports_team_route_allowlist_denial()
     assert exc_info.value.status_code == 403
     assert (
         exc_info.value.detail == "Team team-route-denied can access model gpt-4o-mini but route /rag/query "
-        "is not in litellm_jwtauth.team_allowed_routes"
+        "is not in hangarllm_jwtauth.team_allowed_routes"
     )
 
 
@@ -1658,27 +1658,27 @@ async def test_auth_builder_returns_team_membership_object():
     _user_id = "test_user_1"
 
     # Create mock objects
-    from litellm.proxy._types import LiteLLM_BudgetTable, LiteLLM_TeamMembership
+    from hangarllm.proxy._types import HangarLLM_BudgetTable, HangarLLM_TeamMembership
 
-    mock_team_membership = LiteLLM_TeamMembership(
+    mock_team_membership = HangarLLM_TeamMembership(
         user_id=_user_id,
         team_id=_team_id,
         budget_id="budget_123",
         spend=10.5,
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             budget_id="budget_123", rpm_limit=100, tpm_limit=5000
         ),
     )
 
-    user_object = LiteLLM_UserTable(
-        user_id=_user_id, user_role=LitellmUserRoles.INTERNAL_USER
+    user_object = HangarLLM_UserTable(
+        user_id=_user_id, user_role=HangarllmUserRoles.INTERNAL_USER
     )
 
-    team_object = LiteLLM_TeamTable(team_id=_team_id)
+    team_object = HangarLLM_TeamTable(team_id=_team_id)
 
     # Create mock JWT handler
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
 
     # Mock all the dependencies and method calls
     with (
@@ -1785,8 +1785,8 @@ async def test_auth_builder_returns_team_membership_object():
 async def test_auth_builder_with_oidc_userinfo_enabled():
     """Test that auth_builder uses OIDC UserInfo endpoint when enabled"""
 
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     # Setup test data
     api_key = "test_access_token"
@@ -1794,7 +1794,7 @@ async def test_auth_builder_with_oidc_userinfo_enabled():
     general_settings = {"enforce_rbac": False}
     route = "/chat/completions"
 
-    user_object = LiteLLM_UserTable(user_id="test_user_1", user_role=LitellmUserRoles.INTERNAL_USER)
+    user_object = HangarLLM_UserTable(user_id="test_user_1", user_role=HangarllmUserRoles.INTERNAL_USER)
 
     # Create JWT handler with OIDC UserInfo enabled
     jwt_handler = JWTHandler()
@@ -1804,7 +1804,7 @@ async def test_auth_builder_with_oidc_userinfo_enabled():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             oidc_userinfo_enabled=True,
             oidc_userinfo_endpoint="https://example.com/oauth2/userinfo",
             user_id_jwt_field="sub",
@@ -1893,8 +1893,8 @@ async def test_auth_builder_with_oidc_userinfo_enabled():
 async def test_auth_builder_with_oidc_userinfo_disabled():
     """Test that auth_builder uses JWT validation when OIDC UserInfo is disabled"""
 
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     # Setup test data
     api_key = "test_jwt_token"
@@ -1902,7 +1902,7 @@ async def test_auth_builder_with_oidc_userinfo_disabled():
     general_settings = {"enforce_rbac": False}
     route = "/chat/completions"
 
-    user_object = LiteLLM_UserTable(user_id="test_user_1", user_role=LitellmUserRoles.INTERNAL_USER)
+    user_object = HangarLLM_UserTable(user_id="test_user_1", user_role=HangarllmUserRoles.INTERNAL_USER)
 
     # Create JWT handler with OIDC UserInfo disabled
     jwt_handler = JWTHandler()
@@ -1912,7 +1912,7 @@ async def test_auth_builder_with_oidc_userinfo_disabled():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             oidc_userinfo_enabled=False,  # Disabled
             user_id_jwt_field="sub",
         ),
@@ -2004,8 +2004,8 @@ async def test_auth_builder_oidc_enabled_falls_back_to_jwt_auth_for_jwt_tokens()
     get_oidc_userinfo.  Sending a standard JWT to the OIDC UserInfo endpoint
     is incorrect — the endpoint expects an opaque access token.
     """
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     # Three-part token: recognised as a JWT by is_jwt()
     api_key = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ0ZXN0X3VzZXIifQ.some_signature"
@@ -2013,8 +2013,8 @@ async def test_auth_builder_oidc_enabled_falls_back_to_jwt_auth_for_jwt_tokens()
     general_settings = {"enforce_rbac": False}
     route = "/chat/completions"
 
-    user_object = LiteLLM_UserTable(
-        user_id="test_user_1", user_role=LitellmUserRoles.INTERNAL_USER
+    user_object = HangarLLM_UserTable(
+        user_id="test_user_1", user_role=HangarllmUserRoles.INTERNAL_USER
     )
 
     jwt_handler = JWTHandler()
@@ -2024,7 +2024,7 @@ async def test_auth_builder_oidc_enabled_falls_back_to_jwt_auth_for_jwt_tokens()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             oidc_userinfo_enabled=True,
             oidc_userinfo_endpoint="https://example.com/oauth2/userinfo",
             user_id_jwt_field="sub",
@@ -2106,10 +2106,10 @@ async def test_auth_builder_oidc_enabled_falls_back_to_jwt_auth_for_jwt_tokens()
 
 @pytest.mark.asyncio
 async def test_resolve_team_from_header_returns_allowed_id_none_without_header_and_403_on_invalid():
-    """Without a DB, x-litellm-team-id resolves to the team when it names an allowed
+    """Without a DB, x-hangarllm-team-id resolves to the team when it names an allowed
     team id, to None when the header is absent, and to a 403 for any other value."""
     allowed = await JWTAuthManager.resolve_team_from_header(
-        request_headers={"x-litellm-team-id": "team-1"},
+        request_headers={"x-hangarllm-team-id": "team-1"},
         allowed_team_ids={"team-1", "team-2"},
         fallback_to_db_teams=False,
         prisma_client=None,
@@ -2132,7 +2132,7 @@ async def test_resolve_team_from_header_returns_allowed_id_none_without_header_a
 
     with pytest.raises(HTTPException) as exc_info:
         await JWTAuthManager.resolve_team_from_header(
-            request_headers={"x-litellm-team-id": "invalid-team"},
+            request_headers={"x-hangarllm-team-id": "invalid-team"},
             allowed_team_ids={"team-1", "team-2"},
             fallback_to_db_teams=False,
             prisma_client=None,
@@ -2145,24 +2145,24 @@ async def test_resolve_team_from_header_returns_allowed_id_none_without_header_a
 
 @pytest.mark.asyncio
 async def test_auth_builder_uses_team_from_header_e2e():
-    """Test auth_builder e2e flow: selects team from x-litellm-team-id header."""
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    """Test auth_builder e2e flow: selects team from x-hangarllm-team-id header."""
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_ids_jwt_field="groups",
             user_id_jwt_field="sub",
         ),
     )
 
-    team_object = LiteLLM_TeamTable(team_id="team-2")
-    user_object = LiteLLM_UserTable(
-        user_id="user-1", user_role=LitellmUserRoles.INTERNAL_USER
+    team_object = HangarLLM_TeamTable(team_id="team-2")
+    user_object = HangarLLM_UserTable(
+        user_id="user-1", user_role=HangarllmUserRoles.INTERNAL_USER
     )
 
     with (
@@ -2175,7 +2175,7 @@ async def test_auth_builder_uses_team_from_header_e2e():
             return_value=None,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
+            "hangarllm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
         ) as mock_get_team,
         patch.object(
             JWTAuthManager,
@@ -2205,7 +2205,7 @@ async def test_auth_builder_uses_team_from_header_e2e():
             user_api_key_cache=user_api_key_cache,
             parent_otel_span=None,
             proxy_logging_obj=ProxyLogging(user_api_key_cache=user_api_key_cache),
-            request_headers={"x-litellm-team-id": "team-2"},
+            request_headers={"x-hangarllm-team-id": "team-2"},
         )
 
         assert result["team_id"] == "team-2"
@@ -2215,21 +2215,21 @@ async def test_auth_builder_uses_team_from_header_e2e():
 @pytest.mark.asyncio
 async def test_auth_builder_header_team_denies_auth_passthrough_without_allowlist():
     """Header-selected JWT teams must enforce team allowed_passthrough_routes."""
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_ids_jwt_field="groups",
             user_id_jwt_field="sub",
         ),
     )
 
-    team_object = LiteLLM_TeamTable(team_id="team-2", metadata={})
+    team_object = HangarLLM_TeamTable(team_id="team-2", metadata={})
 
     with (
         patch.object(jwt_handler, "auth_jwt", new_callable=AsyncMock) as mock_auth_jwt,
@@ -2241,7 +2241,7 @@ async def test_auth_builder_header_team_denies_auth_passthrough_without_allowlis
             return_value=None,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             return_value=team_object,
         ),
@@ -2251,11 +2251,11 @@ async def test_auth_builder_header_team_denies_auth_passthrough_without_allowlis
             new_callable=AsyncMock,
         ) as mock_get_objects,
         patch(
-            "litellm.proxy.auth.handle_jwt.RouteChecks.is_auth_enforced_pass_through_route",
+            "hangarllm.proxy.auth.handle_jwt.RouteChecks.is_auth_enforced_pass_through_route",
             return_value=True,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.RouteChecks.check_passthrough_route_access",
+            "hangarllm.proxy.auth.handle_jwt.RouteChecks.check_passthrough_route_access",
             return_value=False,
         ) as mock_passthrough_check,
     ):
@@ -2276,7 +2276,7 @@ async def test_auth_builder_header_team_denies_auth_passthrough_without_allowlis
                 user_api_key_cache=user_api_key_cache,
                 parent_otel_span=None,
                 proxy_logging_obj=ProxyLogging(user_api_key_cache=user_api_key_cache),
-                request_headers={"x-litellm-team-id": "team-2"},
+                request_headers={"x-hangarllm-team-id": "team-2"},
                 request_method="POST",
             )
 
@@ -2290,21 +2290,21 @@ async def test_auth_builder_header_team_denies_auth_passthrough_without_allowlis
 @pytest.mark.asyncio
 async def test_auth_builder_specific_team_denies_auth_passthrough_without_allowlist():
     """JWT-field-selected teams must enforce team allowed_passthrough_routes."""
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_id_jwt_field="team_id",
             user_id_jwt_field="sub",
         ),
     )
 
-    team_object = LiteLLM_TeamTable(team_id="team-1", metadata={})
+    team_object = HangarLLM_TeamTable(team_id="team-1", metadata={})
 
     with (
         patch.object(jwt_handler, "auth_jwt", new_callable=AsyncMock) as mock_auth_jwt,
@@ -2316,7 +2316,7 @@ async def test_auth_builder_specific_team_denies_auth_passthrough_without_allowl
             return_value=None,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             return_value=team_object,
         ),
@@ -2326,11 +2326,11 @@ async def test_auth_builder_specific_team_denies_auth_passthrough_without_allowl
             new_callable=AsyncMock,
         ) as mock_get_objects,
         patch(
-            "litellm.proxy.auth.handle_jwt.RouteChecks.is_auth_enforced_pass_through_route",
+            "hangarllm.proxy.auth.handle_jwt.RouteChecks.is_auth_enforced_pass_through_route",
             return_value=True,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.RouteChecks.check_passthrough_route_access",
+            "hangarllm.proxy.auth.handle_jwt.RouteChecks.check_passthrough_route_access",
             return_value=False,
         ) as mock_passthrough_check,
     ):
@@ -2364,25 +2364,25 @@ async def test_auth_builder_specific_team_denies_auth_passthrough_without_allowl
 @pytest.mark.asyncio
 async def test_auth_builder_rbac_team_loads_team_for_passthrough_allowlist():
     """RBAC role-claim teams (team_object unset) must load team metadata before gating."""
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(),
     )
 
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-rbac",
         metadata={"allowed_passthrough_routes": ["/my-pass-through"]},
     )
 
     with (
         patch.object(jwt_handler, "auth_jwt", new_callable=AsyncMock) as mock_auth_jwt,
-        patch.object(jwt_handler, "get_rbac_role", return_value=LitellmUserRoles.TEAM),
+        patch.object(jwt_handler, "get_rbac_role", return_value=HangarllmUserRoles.TEAM),
         patch.object(jwt_handler, "get_object_id", return_value="team-rbac"),
         patch.object(JWTAuthManager, "check_rbac_role", new_callable=AsyncMock),
         patch.object(
@@ -2392,7 +2392,7 @@ async def test_auth_builder_rbac_team_loads_team_for_passthrough_allowlist():
             return_value=None,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             return_value=team_object,
         ) as mock_get_team,
@@ -2407,11 +2407,11 @@ async def test_auth_builder_rbac_team_loads_team_for_passthrough_allowlist():
             JWTAuthManager, "sync_user_role_and_teams", new_callable=AsyncMock
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.RouteChecks.is_auth_enforced_pass_through_route",
+            "hangarllm.proxy.auth.handle_jwt.RouteChecks.is_auth_enforced_pass_through_route",
             return_value=True,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.RouteChecks.check_passthrough_route_access",
+            "hangarllm.proxy.auth.handle_jwt.RouteChecks.check_passthrough_route_access",
             return_value=True,
         ) as mock_passthrough_check,
     ):
@@ -2442,22 +2442,22 @@ async def test_auth_builder_rbac_team_loads_team_for_passthrough_allowlist():
 @pytest.mark.asyncio
 async def test_auth_builder_rbac_team_denies_passthrough_without_allowlist():
     """RBAC role-claim teams without an allowlist are still denied for passthrough."""
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(),
     )
 
-    team_object = LiteLLM_TeamTable(team_id="team-rbac", metadata={})
+    team_object = HangarLLM_TeamTable(team_id="team-rbac", metadata={})
 
     with (
         patch.object(jwt_handler, "auth_jwt", new_callable=AsyncMock) as mock_auth_jwt,
-        patch.object(jwt_handler, "get_rbac_role", return_value=LitellmUserRoles.TEAM),
+        patch.object(jwt_handler, "get_rbac_role", return_value=HangarllmUserRoles.TEAM),
         patch.object(jwt_handler, "get_object_id", return_value="team-rbac"),
         patch.object(JWTAuthManager, "check_rbac_role", new_callable=AsyncMock),
         patch.object(
@@ -2467,16 +2467,16 @@ async def test_auth_builder_rbac_team_denies_passthrough_without_allowlist():
             return_value=None,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             return_value=team_object,
         ) as mock_get_team,
         patch(
-            "litellm.proxy.auth.handle_jwt.RouteChecks.is_auth_enforced_pass_through_route",
+            "hangarllm.proxy.auth.handle_jwt.RouteChecks.is_auth_enforced_pass_through_route",
             return_value=True,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.RouteChecks.check_passthrough_route_access",
+            "hangarllm.proxy.auth.handle_jwt.RouteChecks.check_passthrough_route_access",
             return_value=False,
         ),
     ):
@@ -2503,17 +2503,17 @@ async def test_auth_builder_rbac_team_denies_passthrough_without_allowlist():
 
 @pytest.mark.asyncio
 async def test_auth_builder_admin_on_llm_route_honors_team_header():
-    """JWT proxy_admin + x-litellm-team-id on an LLM API route -> team context is
+    """JWT proxy_admin + x-hangarllm-team-id on an LLM API route -> team context is
     attached to the admin result so team TPM/RPM limits and attribution apply."""
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_ids_jwt_field="groups",
             user_id_jwt_field="sub",
             admin_allowed_routes=[
@@ -2524,14 +2524,14 @@ async def test_auth_builder_admin_on_llm_route_honors_team_header():
         ),
     )
 
-    team_object = LiteLLM_TeamTable(team_id="team-low", tpm_limit=100, rpm_limit=2)
+    team_object = HangarLLM_TeamTable(team_id="team-low", tpm_limit=100, rpm_limit=2)
 
     with (
         patch.object(jwt_handler, "auth_jwt", new_callable=AsyncMock) as mock_auth_jwt,
         patch.object(JWTAuthManager, "check_rbac_role", new_callable=AsyncMock),
         patch.object(jwt_handler, "is_admin", return_value=True),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
+            "hangarllm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
         ) as mock_get_team,
     ):
         mock_auth_jwt.return_value = {
@@ -2551,7 +2551,7 @@ async def test_auth_builder_admin_on_llm_route_honors_team_header():
             user_api_key_cache=user_api_key_cache,
             parent_otel_span=None,
             proxy_logging_obj=ProxyLogging(user_api_key_cache=user_api_key_cache),
-            request_headers={"x-litellm-team-id": "team-low"},
+            request_headers={"x-hangarllm-team-id": "team-low"},
         )
 
         assert result["is_proxy_admin"] is True
@@ -2562,18 +2562,18 @@ async def test_auth_builder_admin_on_llm_route_honors_team_header():
 
 @pytest.mark.asyncio
 async def test_auth_builder_admin_on_mgmt_route_ignores_team_header():
-    """JWT proxy_admin + x-litellm-team-id on an admin management route -> header
+    """JWT proxy_admin + x-hangarllm-team-id on an admin management route -> header
     is ignored; no team fetch. Preserves pre-existing bypass behavior and avoids
     phantom team creation when team_id_upsert is enabled."""
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_ids_jwt_field="groups",
             user_id_jwt_field="sub",
             team_id_upsert=True,
@@ -2585,7 +2585,7 @@ async def test_auth_builder_admin_on_mgmt_route_ignores_team_header():
         patch.object(JWTAuthManager, "check_rbac_role", new_callable=AsyncMock),
         patch.object(jwt_handler, "is_admin", return_value=True),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
+            "hangarllm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
         ) as mock_get_team,
     ):
         mock_auth_jwt.return_value = {
@@ -2604,7 +2604,7 @@ async def test_auth_builder_admin_on_mgmt_route_ignores_team_header():
             user_api_key_cache=user_api_key_cache,
             parent_otel_span=None,
             proxy_logging_obj=ProxyLogging(user_api_key_cache=user_api_key_cache),
-            request_headers={"x-litellm-team-id": "totally-made-up-team"},
+            request_headers={"x-hangarllm-team-id": "totally-made-up-team"},
         )
 
         assert result["is_proxy_admin"] is True
@@ -2615,17 +2615,17 @@ async def test_auth_builder_admin_on_mgmt_route_ignores_team_header():
 
 @pytest.mark.asyncio
 async def test_auth_builder_admin_on_llm_route_without_header_unchanged():
-    """JWT proxy_admin on an LLM API route without x-litellm-team-id -> no team
+    """JWT proxy_admin on an LLM API route without x-hangarllm-team-id -> no team
     context (team limits not applied, admin keeps unrestricted access)."""
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_ids_jwt_field="groups",
             user_id_jwt_field="sub",
             admin_allowed_routes=[
@@ -2641,7 +2641,7 @@ async def test_auth_builder_admin_on_llm_route_without_header_unchanged():
         patch.object(JWTAuthManager, "check_rbac_role", new_callable=AsyncMock),
         patch.object(jwt_handler, "is_admin", return_value=True),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
+            "hangarllm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
         ) as mock_get_team,
     ):
         mock_auth_jwt.return_value = {
@@ -2674,8 +2674,8 @@ async def test_get_team_alias_with_nested_fields():
     """
     Test get_team_alias() method with nested JWT fields
     """
-    from litellm.proxy._types import LiteLLM_JWTAuth
-    from litellm.proxy.auth.handle_jwt import JWTHandler
+    from hangarllm.proxy._types import HangarLLM_JWTAuth
+    from hangarllm.proxy.auth.handle_jwt import JWTHandler
 
     jwt_handler = JWTHandler()
 
@@ -2686,23 +2686,23 @@ async def test_get_team_alias_with_nested_fields():
     }
 
     # Test nested access
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         team_alias_jwt_field="organization.team.name"
     )
     assert jwt_handler.get_team_alias(nested_token, None) == "engineering-team"
 
     # Test flat access (backward compatibility)
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_alias_jwt_field="team_name")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_alias_jwt_field="team_name")
     assert jwt_handler.get_team_alias(nested_token, None) == "flat-team"
 
     # Test missing field returns default
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         team_alias_jwt_field="nonexistent.field"
     )
     assert jwt_handler.get_team_alias(nested_token, "default-team") == "default-team"
 
     # Test with team_alias_jwt_field not configured
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()  # team_alias_jwt_field is None
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()  # team_alias_jwt_field is None
     assert jwt_handler.get_team_alias(nested_token, "default") is None
 
 
@@ -2711,25 +2711,25 @@ async def test_is_required_team_id_with_team_alias_field():
     """
     Test that is_required_team_id() returns True when team_alias_jwt_field is set
     """
-    from litellm.proxy._types import LiteLLM_JWTAuth
-    from litellm.proxy.auth.handle_jwt import JWTHandler
+    from hangarllm.proxy._types import HangarLLM_JWTAuth
+    from hangarllm.proxy.auth.handle_jwt import JWTHandler
 
     jwt_handler = JWTHandler()
 
     # Neither field set - should return False
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
     assert jwt_handler.is_required_team_id() is False
 
     # Only team_id_jwt_field set - should return True
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_id_jwt_field="team_id")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_id_jwt_field="team_id")
     assert jwt_handler.is_required_team_id() is True
 
     # Only team_alias_jwt_field set - should return True
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_alias_jwt_field="team_name")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_alias_jwt_field="team_name")
     assert jwt_handler.is_required_team_id() is True
 
     # Both fields set - should return True
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         team_id_jwt_field="team_id", team_alias_jwt_field="team_name"
     )
     assert jwt_handler.is_required_team_id() is True
@@ -2741,10 +2741,10 @@ async def test_find_and_validate_specific_team_id_with_team_alias():
     Test that find_and_validate_specific_team_id resolves team by name when team_id is not found
     """
 
-    from litellm.caching import DualCache
-    from litellm.proxy._types import LiteLLM_JWTAuth, LiteLLM_TeamTable
-    from litellm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy._types import HangarLLM_JWTAuth, HangarLLM_TeamTable
+    from hangarllm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
@@ -2753,16 +2753,16 @@ async def test_find_and_validate_specific_team_id_with_team_alias():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(team_alias_jwt_field="team_alias"),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(team_alias_jwt_field="team_alias"),
     )
 
     # Token with team name (no team_id)
     jwt_token = {"sub": "user-1", "team_alias": "my-team"}
 
     # Mock team object returned by get_team_object_by_alias
-    team_object = LiteLLM_TeamTable(team_id="resolved-team-id", team_alias="my-team")
+    team_object = HangarLLM_TeamTable(team_id="resolved-team-id", team_alias="my-team")
 
-    with patch("litellm.proxy.auth.handle_jwt.get_team_object_by_alias", new_callable=AsyncMock) as mock_get_by_alias:
+    with patch("hangarllm.proxy.auth.handle_jwt.get_team_object_by_alias", new_callable=AsyncMock) as mock_get_by_alias:
         mock_get_by_alias.return_value = team_object
 
         team_id, result_team = await JWTAuthManager.find_and_validate_specific_team_id(
@@ -2792,10 +2792,10 @@ async def test_find_and_validate_team_id_takes_precedence_over_name():
     Test that team_id_jwt_field takes precedence over team_alias_jwt_field
     """
 
-    from litellm.caching import DualCache
-    from litellm.proxy._types import LiteLLM_JWTAuth, LiteLLM_TeamTable
-    from litellm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy._types import HangarLLM_JWTAuth, HangarLLM_TeamTable
+    from hangarllm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
@@ -2804,19 +2804,19 @@ async def test_find_and_validate_team_id_takes_precedence_over_name():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(team_id_jwt_field="team_id", team_alias_jwt_field="team_alias"),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(team_id_jwt_field="team_id", team_alias_jwt_field="team_alias"),
     )
 
     # Token with both team_id and team name
     jwt_token = {"sub": "user-1", "team_id": "direct-team-id", "team_alias": "my-team"}
 
     # Mock team object returned by get_team_object (by ID)
-    team_object = LiteLLM_TeamTable(team_id="direct-team-id")
+    team_object = HangarLLM_TeamTable(team_id="direct-team-id")
 
     with (
-        patch("litellm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock) as mock_get_by_id,
+        patch("hangarllm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock) as mock_get_by_id,
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object_by_alias",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object_by_alias",
             new_callable=AsyncMock,
         ) as mock_get_by_alias,
     ):
@@ -2843,10 +2843,10 @@ async def test_find_and_validate_raises_when_required_team_not_found():
     """
     Test that an exception is raised when team is required but neither team_id nor team_name is found
     """
-    from litellm.caching import DualCache
-    from litellm.proxy._types import LiteLLM_JWTAuth
-    from litellm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy._types import HangarLLM_JWTAuth
+    from hangarllm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
@@ -2855,7 +2855,7 @@ async def test_find_and_validate_raises_when_required_team_not_found():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_alias_jwt_field="team_alias"  # Required, but not in token
         ),
     )
@@ -2882,8 +2882,8 @@ async def test_get_org_alias_with_nested_fields():
     """
     Test get_org_alias() method with nested JWT fields
     """
-    from litellm.proxy._types import LiteLLM_JWTAuth
-    from litellm.proxy.auth.handle_jwt import JWTHandler
+    from hangarllm.proxy._types import HangarLLM_JWTAuth
+    from hangarllm.proxy.auth.handle_jwt import JWTHandler
 
     jwt_handler = JWTHandler()
 
@@ -2894,23 +2894,23 @@ async def test_get_org_alias_with_nested_fields():
     }
 
     # Test nested access
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         org_alias_jwt_field="company.organization.name"
     )
     assert jwt_handler.get_org_alias(nested_token, None) == "acme-corp"
 
     # Test flat access
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(org_alias_jwt_field="org_name")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(org_alias_jwt_field="org_name")
     assert jwt_handler.get_org_alias(nested_token, None) == "flat-org"
 
     # Test missing field returns default
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         org_alias_jwt_field="nonexistent.field"
     )
     assert jwt_handler.get_org_alias(nested_token, "default-org") == "default-org"
 
     # Test with org_alias_jwt_field not configured
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
     assert jwt_handler.get_org_alias(nested_token, "default") is None
 
 
@@ -2919,10 +2919,10 @@ async def test_get_objects_resolves_org_by_name():
     """
     Test that get_objects resolves organization by name when org_id is not provided
     """
-    from litellm.caching import DualCache
-    from litellm.proxy._types import LiteLLM_JWTAuth, LiteLLM_OrganizationTable
-    from litellm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy._types import HangarLLM_JWTAuth, HangarLLM_OrganizationTable
+    from hangarllm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
@@ -2931,11 +2931,11 @@ async def test_get_objects_resolves_org_by_name():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(org_alias_jwt_field="org_alias"),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(org_alias_jwt_field="org_alias"),
     )
 
     # Mock org object returned by get_org_object_by_alias
-    org_object = LiteLLM_OrganizationTable(
+    org_object = HangarLLM_OrganizationTable(
         organization_id="resolved-org-id",
         organization_alias="my-org",
         budget_id="budget-1",
@@ -2945,7 +2945,7 @@ async def test_get_objects_resolves_org_by_name():
     )
 
     with patch(
-        "litellm.proxy.auth.handle_jwt.get_org_object_by_alias", new_callable=AsyncMock
+        "hangarllm.proxy.auth.handle_jwt.get_org_object_by_alias", new_callable=AsyncMock
     ) as mock_get_by_alias:
         mock_get_by_alias.return_value = org_object
 
@@ -2992,13 +2992,13 @@ async def test_get_objects_resolves_org_by_name():
 async def test_resolve_jwks_url_passthrough_for_direct_jwks_url():
     """Non-discovery URLs are returned unchanged."""
 
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     handler = JWTHandler()
     handler.update_environment(
         prisma_client=None,
         user_api_key_cache=DualCache(),
-        litellm_jwtauth=LiteLLM_JWTAuth(),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(),
     )
     url = "https://login.microsoftonline.com/common/discovery/keys"
     result = await handler._resolve_jwks_url(url)
@@ -3013,14 +3013,14 @@ async def test_resolve_jwks_url_resolves_oidc_discovery_document():
     """
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     handler = JWTHandler()
     cache = DualCache()
     handler.update_environment(
         prisma_client=None,
         user_api_key_cache=cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(),
     )
 
     discovery_url = (
@@ -3046,14 +3046,14 @@ async def test_resolve_jwks_url_caches_resolved_jwks_uri():
     """Resolved jwks_uri is cached — second call does not hit the network."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     handler = JWTHandler()
     cache = DualCache()
     handler.update_environment(
         prisma_client=None,
         user_api_key_cache=cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(),
     )
 
     discovery_url = (
@@ -3082,13 +3082,13 @@ async def test_resolve_jwks_url_raises_if_no_jwks_uri_in_discovery_doc():
     """Raise a helpful error if the discovery document has no jwks_uri."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     handler = JWTHandler()
     handler.update_environment(
         prisma_client=None,
         user_api_key_cache=DualCache(),
-        litellm_jwtauth=LiteLLM_JWTAuth(),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(),
     )
 
     discovery_url = "https://example.com/.well-known/openid-configuration"
@@ -3108,13 +3108,13 @@ async def test_resolve_jwks_url_raises_if_no_jwks_uri_in_discovery_doc():
 
 
 def _make_jwt_handler(team_id_jwt_field: str) -> JWTHandler:
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     handler = JWTHandler()
     handler.update_environment(
         prisma_client=None,
         user_api_key_cache=DualCache(),
-        litellm_jwtauth=LiteLLM_JWTAuth(team_id_jwt_field=team_id_jwt_field),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(team_id_jwt_field=team_id_jwt_field),
     )
     return handler
 
@@ -3179,17 +3179,17 @@ async def test_find_and_validate_specific_team_id_hints_bracket_notation():
     """
     When team_id_jwt_field is set to 'roles.0' (unsupported dot-notation for
     array indexing) and no team is found, the exception message should suggest
-    using 'roles' instead (and explain LiteLLM auto-unwraps list values).
+    using 'roles' instead (and explain HangarLLM auto-unwraps list values).
     """
     from unittest.mock import MagicMock
 
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     handler = _make_jwt_handler("roles.0")
     # token has roles as a list — dot-notation won't find anything
     token = {"roles": ["team1"]}
 
-    with pytest.raises(Exception, match="is not supported\\. Use 'roles' instead — LiteLLM") as exc_info:
+    with pytest.raises(Exception, match="is not supported\\. Use 'roles' instead — HangarLLM") as exc_info:
         await JWTAuthManager.find_and_validate_specific_team_id(
             jwt_handler=handler,
             jwt_valid_token=token,
@@ -3215,7 +3215,7 @@ async def test_find_and_validate_specific_team_id_hints_bracket_index_notation()
     """
     from unittest.mock import MagicMock
 
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     handler = _make_jwt_handler("roles[0]")
     token = {"roles": ["team1"]}
@@ -3245,7 +3245,7 @@ async def test_find_and_validate_specific_team_id_no_hint_for_valid_field():
     """
     from unittest.mock import MagicMock
 
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     handler = _make_jwt_handler("appid")
     token = {}  # no appid — triggers the "no team found" path
@@ -3343,8 +3343,8 @@ async def test_auth_builder_single_team_db_fallback_when_jwt_has_no_team(
     """
     if len(user_teams) == 1 and get_team_object_return == "resolved_row":
         only = user_teams[0]
-        team_table = LiteLLM_TeamTable(team_id=only)
-        membership = LiteLLM_TeamMembership(user_id=user_id, team_id=only, litellm_budget_table=None)
+        team_table = HangarLLM_TeamTable(team_id=only)
+        membership = HangarLLM_TeamMembership(user_id=user_id, team_id=only, hangarllm_budget_table=None)
         get_team_return_value = team_table
         membership_return_value = membership
     else:
@@ -3354,13 +3354,13 @@ async def test_auth_builder_single_team_db_fallback_when_jwt_has_no_team(
         membership_return_value = None
     # "http_404" / "http_500" use get_team_object.side_effect, not return_value
 
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id=user_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=user_teams,
     )
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
 
     with (
         patch.object(jwt_handler, "auth_jwt", new_callable=AsyncMock) as mock_auth_jwt,
@@ -3405,11 +3405,11 @@ async def test_auth_builder_single_team_db_fallback_when_jwt_has_no_team(
         patch.object(JWTAuthManager, "validate_object_id", return_value=True),
         patch.object(JWTAuthManager, "sync_user_role_and_teams", new_callable=AsyncMock),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
         ) as mock_get_team,
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_membership",
+            "hangarllm.proxy.auth.handle_jwt.get_team_membership",
             new_callable=AsyncMock,
         ) as mock_get_membership,
     ):
@@ -3460,7 +3460,7 @@ async def test_auth_builder_single_team_db_fallback_when_jwt_has_no_team(
 
 class _UnreachableMembershipPrisma:
     class db:
-        class litellm_teammembership:
+        class hangarllm_teammembership:
             @staticmethod
             async def find_unique(where: dict[str, dict[str, str]], include: dict[str, bool]) -> None:
                 raise httpx.ConnectError("All connection attempts failed")
@@ -3472,20 +3472,20 @@ async def test_auth_builder_single_team_fallback_membership_outage_raises_instea
     get_team_object succeeds but the membership read hits a database outage: the
     outage propagates (auth maps it to 503) instead of the team being dropped.
     """
-    from litellm.proxy.auth.auth_exception_handler import _as_proxy_exception
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.proxy.auth.auth_exception_handler import _as_proxy_exception
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     user_id = "u_mem_outage"
     team_id_val = "team_mem_outage"
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id=user_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=[team_id_val],
     )
-    team_table = LiteLLM_TeamTable(team_id=team_id_val)
+    team_table = HangarLLM_TeamTable(team_id=team_id_val)
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
     cache = UserApiKeyCache()
 
     with (
@@ -3533,7 +3533,7 @@ async def test_auth_builder_single_team_fallback_membership_outage_raises_instea
             JWTAuthManager, "sync_user_role_and_teams", new_callable=AsyncMock
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
         ) as mock_get_team,
     ):
@@ -3673,7 +3673,7 @@ def test_build_decode_kwargs_no_warning_when_scoped(
 
 # ---------------------------------------------------------------------------
 # Defer to single-team DB fallback (PR #26418) when JWT claims are present
-# but do not resolve to a LiteLLM team.
+# but do not resolve to a HangarLLM team.
 # ---------------------------------------------------------------------------
 
 
@@ -3686,14 +3686,14 @@ async def test_find_and_validate_specific_team_id_unresolved_claim_returns_none(
     from fastapi import HTTPException
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         team_id_jwt_field="team_id",
         team_claim_fallback=True,
     )
     token = {"sub": "user-1", "team_id": "claim-team-not-in-db"}
 
     with patch(
-        "litellm.proxy.auth.handle_jwt.get_team_object",
+        "hangarllm.proxy.auth.handle_jwt.get_team_object",
         new_callable=AsyncMock,
     ) as mock_get_team:
         mock_get_team.side_effect = HTTPException(status_code=404, detail="missing")
@@ -3723,24 +3723,24 @@ async def test_find_team_with_model_access_unresolved_group_claim_returns_none(
 
     from fastapi import HTTPException
 
-    from litellm.router import Router
+    from hangarllm.router import Router
 
     router = Router(
         model_list=[
-            {"model_name": "gpt-4o-mini", "litellm_params": {"model": "gpt-4o-mini"}}
+            {"model_name": "gpt-4o-mini", "hangarllm_params": {"model": "gpt-4o-mini"}}
         ]
     )
     proxy_server_module = types.ModuleType("proxy_server")
     proxy_server_module.llm_router = router
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_module)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", proxy_server_module)
 
     async def raise_404(*_args, **_kwargs):
         raise HTTPException(status_code=404, detail="missing")
 
-    monkeypatch.setattr("litellm.proxy.auth.handle_jwt.get_team_object", raise_404)
+    monkeypatch.setattr("hangarllm.proxy.auth.handle_jwt.get_team_object", raise_404)
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_claim_fallback=True)
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_claim_fallback=True)
 
     team_id, team_object = await JWTAuthManager.find_team_with_model_access(
         team_ids={"idp-group-a", "idp-group-b"},
@@ -3764,11 +3764,11 @@ async def test_find_and_validate_specific_team_id_non_http_exception_still_propa
     errors — e.g. "No DB Connected" — must still propagate so operator-side
     problems are loud."""
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_id_jwt_field="team_id")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_id_jwt_field="team_id")
     token = {"sub": "user-1", "team_id": "some-claim-team"}
 
     with patch(
-        "litellm.proxy.auth.handle_jwt.get_team_object",
+        "hangarllm.proxy.auth.handle_jwt.get_team_object",
         new_callable=AsyncMock,
     ) as mock_get_team:
         mock_get_team.side_effect = RuntimeError("simulated infrastructure error")
@@ -3793,12 +3793,12 @@ async def test_find_and_validate_specific_team_id_non_404_http_exception_propaga
     from fastapi import HTTPException
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_id_jwt_field="team_id")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_id_jwt_field="team_id")
     token = {"sub": "user-1", "team_id": "some-claim-team"}
 
     for status_code in (400, 403, 500):
         with patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
         ) as mock_get_team:
             mock_get_team.side_effect = HTTPException(
@@ -3826,7 +3826,7 @@ async def test_find_team_with_model_access_enforce_team_based_access_still_raise
     from fastapi import HTTPException
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(enforce_team_based_model_access=True)
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(enforce_team_based_model_access=True)
 
     with pytest.raises(HTTPException) as exc_info:
         await JWTAuthManager.find_team_with_model_access(
@@ -3849,39 +3849,39 @@ async def test_find_team_with_model_access_resolved_team_without_model_still_rai
     monkeypatch,
 ):
     """Regression guard: when the JWT group claim DOES resolve to a real
-    LiteLLM team but that team does not grant the requested model, keep the
+    HangarLLM team but that team does not grant the requested model, keep the
     original 403. Only the unresolved-claim case is softened."""
     import sys
     import types
 
     from fastapi import HTTPException
 
-    from litellm.router import Router
+    from hangarllm.router import Router
 
     router = Router(
         model_list=[
-            {"model_name": "gpt-4o-mini", "litellm_params": {"model": "gpt-4o-mini"}},
+            {"model_name": "gpt-4o-mini", "hangarllm_params": {"model": "gpt-4o-mini"}},
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             },
         ]
     )
     proxy_server_module = types.ModuleType("proxy_server")
     proxy_server_module.llm_router = router
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_module)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", proxy_server_module)
 
-    team = LiteLLM_TeamTable(team_id="real-team", models=["gpt-3.5-turbo"])
+    team = HangarLLM_TeamTable(team_id="real-team", models=["gpt-3.5-turbo"])
 
     async def mock_get_team_object(*_args, **_kwargs):
         return team
 
     monkeypatch.setattr(
-        "litellm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object
+        "hangarllm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object
     )
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
 
     with pytest.raises(HTTPException) as exc_info:
         await JWTAuthManager.find_team_with_model_access(
@@ -3907,11 +3907,11 @@ async def test_find_and_validate_specific_team_id_unresolved_claim_default_raise
     from fastapi import HTTPException
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_id_jwt_field="team_id")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_id_jwt_field="team_id")
     token = {"sub": "user-1", "team_id": "claim-team-not-in-db"}
 
     with patch(
-        "litellm.proxy.auth.handle_jwt.get_team_object",
+        "hangarllm.proxy.auth.handle_jwt.get_team_object",
         new_callable=AsyncMock,
     ) as mock_get_team:
         mock_get_team.side_effect = HTTPException(status_code=404, detail="missing")
@@ -3934,31 +3934,31 @@ async def test_find_team_with_model_access_unresolved_group_claim_default_raises
     monkeypatch,
 ):
     """Default `team_claim_fallback=False`: group claims that don't resolve
-    to any LiteLLM team must still raise 403 — preserves the strict
+    to any HangarLLM team must still raise 403 — preserves the strict
     claim-based authorization boundary."""
     import sys
     import types
 
     from fastapi import HTTPException
 
-    from litellm.router import Router
+    from hangarllm.router import Router
 
     router = Router(
         model_list=[
-            {"model_name": "gpt-4o-mini", "litellm_params": {"model": "gpt-4o-mini"}}
+            {"model_name": "gpt-4o-mini", "hangarllm_params": {"model": "gpt-4o-mini"}}
         ]
     )
     proxy_server_module = types.ModuleType("proxy_server")
     proxy_server_module.llm_router = router
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_module)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", proxy_server_module)
 
     async def raise_404(*_args, **_kwargs):
         raise HTTPException(status_code=404, detail="missing")
 
-    monkeypatch.setattr("litellm.proxy.auth.handle_jwt.get_team_object", raise_404)
+    monkeypatch.setattr("hangarllm.proxy.auth.handle_jwt.get_team_object", raise_404)
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
 
     with pytest.raises(HTTPException) as exc_info:
         await JWTAuthManager.find_team_with_model_access(
@@ -3982,7 +3982,7 @@ def test_canonical_user_id_rebinds_to_legacy_uuid():
     """JWT email resolves to a legacy UUID row -> use the UUID for attribution."""
     legacy_uuid = "bb8ab11f-09aa-47ae-b063-6e80506ac3bc"
     jwt_email = "matt@example.com"
-    user_object = LiteLLM_UserTable(user_id=legacy_uuid, user_email=jwt_email)
+    user_object = HangarLLM_UserTable(user_id=legacy_uuid, user_email=jwt_email)
 
     assert (
         JWTAuthManager._canonical_user_id_from_db(
@@ -3995,7 +3995,7 @@ def test_canonical_user_id_rebinds_to_legacy_uuid():
 def test_canonical_user_id_no_change_when_ids_match():
     """Fresh upserted user (row.user_id == claim) -> claim returned unchanged."""
     same = "alice@example.com"
-    user_object = LiteLLM_UserTable(user_id=same, user_email=same)
+    user_object = HangarLLM_UserTable(user_id=same, user_email=same)
 
     assert (
         JWTAuthManager._canonical_user_id_from_db(user_id=same, user_object=user_object)
@@ -4044,22 +4044,22 @@ async def test_auth_jwt_expired_token_raises_401_jwk_path():
     import jwt as jwt_lib
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
 
     with (
         patch.object(
             jwt_handler, "get_public_key", new_callable=AsyncMock
         ) as mock_get_public_key,
         patch(
-            "litellm.proxy.auth.handle_jwt.jwt.get_unverified_header",
+            "hangarllm.proxy.auth.handle_jwt.jwt.get_unverified_header",
             return_value={"kid": "test-kid"},
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.PyJWK.from_dict",
+            "hangarllm.proxy.auth.handle_jwt.PyJWK.from_dict",
             return_value=MagicMock(key="fake-key"),
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.jwt.decode",
+            "hangarllm.proxy.auth.handle_jwt.jwt.decode",
             side_effect=jwt_lib.ExpiredSignatureError("Signature has expired"),
         ),
     ):
@@ -4079,7 +4079,7 @@ async def test_auth_jwt_expired_token_raises_401_pem_cert_path():
     import jwt as jwt_lib
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
 
     mock_cert = MagicMock()
     mock_cert.public_key.return_value.public_bytes.return_value = b"fake-key"
@@ -4089,15 +4089,15 @@ async def test_auth_jwt_expired_token_raises_401_pem_cert_path():
             jwt_handler, "get_public_key", new_callable=AsyncMock
         ) as mock_get_public_key,
         patch(
-            "litellm.proxy.auth.handle_jwt.jwt.get_unverified_header",
+            "hangarllm.proxy.auth.handle_jwt.jwt.get_unverified_header",
             return_value={"kid": "test-kid"},
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.x509.load_pem_x509_certificate",
+            "hangarllm.proxy.auth.handle_jwt.x509.load_pem_x509_certificate",
             return_value=mock_cert,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.jwt.decode",
+            "hangarllm.proxy.auth.handle_jwt.jwt.decode",
             side_effect=jwt_lib.ExpiredSignatureError("Signature has expired"),
         ),
     ):
@@ -4173,12 +4173,12 @@ def _encode_rsa_jwt(
 
 
 def _get_jwt_handler_with_issuer_keys(issuers: list, keys_by_url: dict) -> JWTHandler:
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     cache = DualCache()
     for jwks_url, keys in keys_by_url.items():
         cache.set_cache(
-            key=f"litellm_jwt_auth_keys_{jwks_url}",
+            key=f"hangarllm_jwt_auth_keys_{jwks_url}",
             value=keys,
         )
 
@@ -4186,7 +4186,7 @@ def _get_jwt_handler_with_issuer_keys(issuers: list, keys_by_url: dict) -> JWTHa
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(issuers=issuers),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(issuers=issuers),
     )
     return jwt_handler
 
@@ -4195,14 +4195,14 @@ def _get_jwt_handler_with_issuer_keys(issuers: list, keys_by_url: dict) -> JWTHa
 async def test_get_public_key_fetches_and_caches_jwks_response():
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwt_handler = JWTHandler()
     cache = DualCache()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(public_key_ttl=123),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(public_key_ttl=123),
     )
     expected_key_id = "cached-key"
     _, jwk = _get_rsa_key_and_jwk(kid=expected_key_id)
@@ -4218,7 +4218,7 @@ async def test_get_public_key_fetches_and_caches_jwks_response():
 
     assert public_key == jwk
     cached_keys = await cache.async_get_cache(
-        key="litellm_jwt_auth_keys_https://issuer.example.com/keys"
+        key="hangarllm_jwt_auth_keys_https://issuer.example.com/keys"
     )
     assert cached_keys == [jwk]
 
@@ -4269,7 +4269,7 @@ def _get_jwt_handler_with_scripted_endpoint(
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             public_key_ttl=public_key_ttl,
             public_key_stale_ttl=public_key_stale_ttl,
         ),
@@ -4281,7 +4281,7 @@ def _get_jwt_handler_with_scripted_endpoint(
 @pytest.mark.asyncio
 async def test_get_public_key_retries_transient_jwks_fetch_failure():
     """A single connect timeout to the IdP must be retried, not surfaced to the caller."""
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     _, jwk = _get_rsa_key_and_jwk(kid="retried-key")
     endpoint = _ScriptedJWKSEndpoint((httpx.ConnectTimeout("connect timed out"), {"keys": [jwk]}))
@@ -4299,7 +4299,7 @@ async def test_get_public_key_retries_transient_jwks_fetch_failure():
 @pytest.mark.asyncio
 async def test_get_public_key_serves_stale_keys_when_jwks_refresh_fails():
     """Once the TTL lapses, an unreachable IdP must not invalidate a still-valid signing key."""
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://issuer.example.com/keys"
     _, jwk = _get_rsa_key_and_jwk(kid="stale-key")
@@ -4309,7 +4309,7 @@ async def test_get_public_key_serves_stale_keys_when_jwks_refresh_fails():
 
     assert await jwt_handler._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="stale-key") == jwk
 
-    await cache.async_delete_cache(key=f"litellm_jwt_auth_keys_{jwks_url}")
+    await cache.async_delete_cache(key=f"hangarllm_jwt_auth_keys_{jwks_url}")
     endpoint.outcomes = (httpx.ConnectTimeout("connect timed out"),)
 
     public_key = await jwt_handler._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="stale-key")
@@ -4324,7 +4324,7 @@ async def test_stale_jwks_window_is_the_configured_grace_past_a_long_public_key_
     Deriving the window from `public_key_ttl` instead would collapse it to nothing on the long TTLs that
     make the fallback worth having.
     """
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://long-ttl-issuer.example.com/keys"
     _, jwk = _get_rsa_key_and_jwk(kid="long-ttl-key")
@@ -4339,7 +4339,7 @@ async def test_stale_jwks_window_is_the_configured_grace_past_a_long_public_key_
 
     await jwt_handler._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="long-ttl-key")
 
-    active_key = f"litellm_jwt_auth_keys_{jwks_url}"
+    active_key = f"hangarllm_jwt_auth_keys_{jwks_url}"
     active_deadline = cache.in_memory_cache.ttl_dict[active_key]
     stale_deadline = cache.in_memory_cache.ttl_dict[f"{STALE_CACHE_KEY_PREFIX}{active_key}"]
 
@@ -4349,7 +4349,7 @@ async def test_stale_jwks_window_is_the_configured_grace_past_a_long_public_key_
 @pytest.mark.asyncio
 async def test_long_public_key_ttl_still_serves_stale_keys_when_the_idp_is_unreachable():
     """A long `public_key_ttl` must not leave the stale fallback inert once that TTL finally lapses."""
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://long-ttl-fallback.example.com/keys"
     _, jwk = _get_rsa_key_and_jwk(kid="long-ttl-fallback-key")
@@ -4359,7 +4359,7 @@ async def test_long_public_key_ttl_still_serves_stale_keys_when_the_idp_is_unrea
 
     assert await jwt_handler._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="long-ttl-fallback-key") == jwk
 
-    await cache.async_delete_cache(key=f"litellm_jwt_auth_keys_{jwks_url}")
+    await cache.async_delete_cache(key=f"hangarllm_jwt_auth_keys_{jwks_url}")
     endpoint.outcomes = (httpx.ConnectTimeout("connect timed out"),)
 
     assert await jwt_handler._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="long-ttl-fallback-key") == jwk
@@ -4368,7 +4368,7 @@ async def test_long_public_key_ttl_still_serves_stale_keys_when_the_idp_is_unrea
 @pytest.mark.asyncio
 async def test_removed_signing_key_stops_being_trusted_once_the_stale_window_expires(monkeypatch):
     """The stale fallback is bounded: past its window a key the IdP dropped is no longer served."""
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://revoking-issuer.example.com/keys"
     monkeypatch.setenv("JWT_PUBLIC_KEY_URL", jwks_url)
@@ -4380,7 +4380,7 @@ async def test_removed_signing_key_stops_being_trusted_once_the_stale_window_exp
 
     assert await jwt_handler.get_public_key(kid="revoked-key") == jwk
 
-    active_cache_key = f"litellm_jwt_auth_keys_{jwks_url}"
+    active_cache_key = f"hangarllm_jwt_auth_keys_{jwks_url}"
     await cache.async_delete_cache(key=active_cache_key)
     endpoint.outcomes = (httpx.ConnectTimeout("connect timed out"),)
 
@@ -4399,7 +4399,7 @@ async def test_removed_signing_key_stops_being_trusted_once_the_stale_window_exp
 @pytest.mark.asyncio
 async def test_key_removed_from_a_reachable_jwks_is_rejected_without_consulting_the_stale_copy():
     """A reachable IdP always wins: dropping a key revokes it immediately, stale copy included."""
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://rotating-issuer.example.com/keys"
     _, retired_jwk = _get_rsa_key_and_jwk(kid="retired-key")
@@ -4410,7 +4410,7 @@ async def test_key_removed_from_a_reachable_jwks_is_rejected_without_consulting_
 
     assert await jwt_handler._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="retired-key") == retired_jwk
 
-    active_cache_key = f"litellm_jwt_auth_keys_{jwks_url}"
+    active_cache_key = f"hangarllm_jwt_auth_keys_{jwks_url}"
     await cache.async_delete_cache(key=active_cache_key)
     endpoint.outcomes = ({"keys": [current_jwk]},)
 
@@ -4423,7 +4423,7 @@ async def test_key_removed_from_a_reachable_jwks_is_rejected_without_consulting_
 @pytest.mark.asyncio
 async def test_zero_public_key_stale_ttl_fails_closed_instead_of_serving_stale_keys():
     """`public_key_stale_ttl=0` is the escape hatch for deployments that cannot trust an unrefreshed key."""
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://fail-closed-issuer.example.com/keys"
     _, jwk = _get_rsa_key_and_jwk(kid="fail-closed-key")
@@ -4432,9 +4432,9 @@ async def test_zero_public_key_stale_ttl_fails_closed_instead_of_serving_stale_k
     jwt_handler = _get_jwt_handler_with_scripted_endpoint(cache, endpoint, public_key_stale_ttl=0)
 
     assert await jwt_handler._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="fail-closed-key") == jwk
-    assert await cache.async_get_cache(key=f"{STALE_CACHE_KEY_PREFIX}litellm_jwt_auth_keys_{jwks_url}") is None
+    assert await cache.async_get_cache(key=f"{STALE_CACHE_KEY_PREFIX}hangarllm_jwt_auth_keys_{jwks_url}") is None
 
-    await cache.async_delete_cache(key=f"litellm_jwt_auth_keys_{jwks_url}")
+    await cache.async_delete_cache(key=f"hangarllm_jwt_auth_keys_{jwks_url}")
     endpoint.outcomes = (httpx.ConnectTimeout("connect timed out"),)
 
     with pytest.raises(JWKSUnreachableError):
@@ -4449,7 +4449,7 @@ async def test_lowering_public_key_stale_ttl_stops_serving_a_copy_cached_under_t
     The stale entry keeps whatever expiry it was written with, so enforcing the bound only at write time would
     leave a copy taken under the old, longer setting servable until it aged out on its own.
     """
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://relaxed-then-tightened.example.com/keys"
     _, jwk = _get_rsa_key_and_jwk(kid="tightened-key")
@@ -4459,7 +4459,7 @@ async def test_lowering_public_key_stale_ttl_stops_serving_a_copy_cached_under_t
 
     assert await generous._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="tightened-key") == jwk
 
-    active_cache_key = f"litellm_jwt_auth_keys_{jwks_url}"
+    active_cache_key = f"hangarllm_jwt_auth_keys_{jwks_url}"
     await cache.async_delete_cache(key=active_cache_key)
     assert await cache.async_get_cache(key=f"{STALE_CACHE_KEY_PREFIX}{active_cache_key}") == [jwk]
 
@@ -4485,7 +4485,7 @@ async def test_zero_public_key_stale_ttl_fails_closed_even_for_a_freshly_written
     The active entry can disappear before it expires, through cache eviction or a flush, which leaves a stale
     copy younger than `public_key_ttl`. Bounding only on age would still serve it.
     """
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://evicted-active-entry.example.com/keys"
     _, jwk = _get_rsa_key_and_jwk(kid="fresh-copy-key")
@@ -4495,7 +4495,7 @@ async def test_zero_public_key_stale_ttl_fails_closed_even_for_a_freshly_written
 
     assert await generous._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="fresh-copy-key") == jwk
 
-    active_cache_key = f"litellm_jwt_auth_keys_{jwks_url}"
+    active_cache_key = f"hangarllm_jwt_auth_keys_{jwks_url}"
     await cache.async_delete_cache(key=active_cache_key)
     written_at = await cache.async_get_cache(key=f"{STALE_WRITTEN_AT_CACHE_KEY_PREFIX}{active_cache_key}")
     assert time.time() - written_at < 600
@@ -4510,7 +4510,7 @@ async def test_zero_public_key_stale_ttl_fails_closed_even_for_a_freshly_written
 @pytest.mark.asyncio
 async def test_stale_copy_with_no_recorded_write_time_is_not_served():
     """The bound is enforced from the recorded write time, so losing it must fail closed, never open."""
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://undated-copy.example.com/keys"
     _, jwk = _get_rsa_key_and_jwk(kid="undated-key")
@@ -4520,7 +4520,7 @@ async def test_stale_copy_with_no_recorded_write_time_is_not_served():
 
     assert await jwt_handler._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="undated-key") == jwk
 
-    active_cache_key = f"litellm_jwt_auth_keys_{jwks_url}"
+    active_cache_key = f"hangarllm_jwt_auth_keys_{jwks_url}"
     await cache.async_delete_cache(key=active_cache_key)
     await cache.async_delete_cache(key=f"{STALE_WRITTEN_AT_CACHE_KEY_PREFIX}{active_cache_key}")
     assert await cache.async_get_cache(key=f"{STALE_CACHE_KEY_PREFIX}{active_cache_key}") == [jwk]
@@ -4533,7 +4533,7 @@ async def test_stale_copy_with_no_recorded_write_time_is_not_served():
 @pytest.mark.asyncio
 async def test_increasing_public_key_stale_ttl_only_extends_within_the_new_bound():
     """Raising the window re-measures from the copy's refresh time; it does not bless whatever is cached."""
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://widened-window.example.com/keys"
     _, jwk = _get_rsa_key_and_jwk(kid="widened-key")
@@ -4543,7 +4543,7 @@ async def test_increasing_public_key_stale_ttl_only_extends_within_the_new_bound
 
     assert await narrow._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="widened-key") == jwk
 
-    active_cache_key = f"litellm_jwt_auth_keys_{jwks_url}"
+    active_cache_key = f"hangarllm_jwt_auth_keys_{jwks_url}"
     written_at_key = f"{STALE_WRITTEN_AT_CACHE_KEY_PREFIX}{active_cache_key}"
     await cache.async_delete_cache(key=active_cache_key)
     endpoint.outcomes = (httpx.ConnectTimeout("connect timed out"),)
@@ -4566,7 +4566,7 @@ async def test_stale_copy_written_at_survives_a_whole_number_epoch():
     Rejecting it would fail closed on a copy that is well inside the window, in the shared-cache deployment
     the stale fallback exists to serve.
     """
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://int-epoch.example.com/keys"
     _, jwk = _get_rsa_key_and_jwk(kid="int-epoch-key")
@@ -4576,7 +4576,7 @@ async def test_stale_copy_written_at_survives_a_whole_number_epoch():
 
     assert await jwt_handler._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="int-epoch-key") == jwk
 
-    active_cache_key = f"litellm_jwt_auth_keys_{jwks_url}"
+    active_cache_key = f"hangarllm_jwt_auth_keys_{jwks_url}"
     await cache.async_delete_cache(key=active_cache_key)
     await cache.async_set_cache(
         key=f"{STALE_WRITTEN_AT_CACHE_KEY_PREFIX}{active_cache_key}",
@@ -4591,7 +4591,7 @@ async def test_stale_copy_written_at_survives_a_whole_number_epoch():
 @pytest.mark.asyncio
 async def test_stale_copy_with_a_malformed_write_time_is_not_served():
     """An unreadable refresh timestamp is indistinguishable from an unbounded one, so it fails closed."""
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://malformed-timestamp.example.com/keys"
     _, jwk = _get_rsa_key_and_jwk(kid="malformed-key")
@@ -4601,7 +4601,7 @@ async def test_stale_copy_with_a_malformed_write_time_is_not_served():
 
     assert await jwt_handler._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="malformed-key") == jwk
 
-    active_cache_key = f"litellm_jwt_auth_keys_{jwks_url}"
+    active_cache_key = f"hangarllm_jwt_auth_keys_{jwks_url}"
     await cache.async_delete_cache(key=active_cache_key)
     await cache.async_set_cache(
         key=f"{STALE_WRITTEN_AT_CACHE_KEY_PREFIX}{active_cache_key}",
@@ -4617,7 +4617,7 @@ async def test_stale_copy_with_a_malformed_write_time_is_not_served():
 @pytest.mark.asyncio
 async def test_public_key_stale_ttl_defaults_to_one_hour():
     """The default is the exposure bound for a key the IdP revoked mid-outage, so it stays short deliberately."""
-    assert LiteLLM_JWTAuth().public_key_stale_ttl == 3600
+    assert HangarLLM_JWTAuth().public_key_stale_ttl == 3600
 
 
 @pytest.mark.asyncio
@@ -4625,7 +4625,7 @@ async def test_stale_fallback_warns_with_the_kid_and_how_stale_the_jwks_copy_is(
     """Serving an unrefreshed signing key is a security-relevant event, so it must be legible in the logs."""
     import logging
 
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://warned-issuer.example.com/keys"
     _, jwk = _get_rsa_key_and_jwk(kid="warned-key")
@@ -4635,7 +4635,7 @@ async def test_stale_fallback_warns_with_the_kid_and_how_stale_the_jwks_copy_is(
 
     await jwt_handler._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="warned-key")
 
-    active_cache_key = f"litellm_jwt_auth_keys_{jwks_url}"
+    active_cache_key = f"hangarllm_jwt_auth_keys_{jwks_url}"
     await cache.async_delete_cache(key=active_cache_key)
     await cache.async_set_cache(
         key=f"{STALE_WRITTEN_AT_CACHE_KEY_PREFIX}{active_cache_key}",
@@ -4663,7 +4663,7 @@ async def test_stale_fallback_warns_with_the_kid_and_how_stale_the_jwks_copy_is(
 @pytest.mark.asyncio
 async def test_unparseable_jwks_response_does_not_fall_back_to_the_stale_copy():
     """Only an unreachable IdP unlocks the stale copy. A reachable one that answers badly must surface the error."""
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://garbled-issuer.example.com/keys"
     _, jwk = _get_rsa_key_and_jwk(kid="garbled-key")
@@ -4673,7 +4673,7 @@ async def test_unparseable_jwks_response_does_not_fall_back_to_the_stale_copy():
 
     assert await jwt_handler._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="garbled-key") == jwk
 
-    await cache.async_delete_cache(key=f"litellm_jwt_auth_keys_{jwks_url}")
+    await cache.async_delete_cache(key=f"hangarllm_jwt_auth_keys_{jwks_url}")
     garbled = MagicMock()
     garbled.status_code = 200
     garbled.text = "<html>not json</html>"
@@ -4687,7 +4687,7 @@ async def test_unparseable_jwks_response_does_not_fall_back_to_the_stale_copy():
 @pytest.mark.asyncio
 async def test_jwks_error_response_is_not_cached_over_the_last_known_good_keys():
     """An IdP error body must never be stored as the key set, least of all as the stale copy."""
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://erroring-issuer.example.com/keys"
     _, jwk = _get_rsa_key_and_jwk(kid="erroring-key")
@@ -4697,7 +4697,7 @@ async def test_jwks_error_response_is_not_cached_over_the_last_known_good_keys()
 
     assert await jwt_handler._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="erroring-key") == jwk
 
-    active_cache_key = f"litellm_jwt_auth_keys_{jwks_url}"
+    active_cache_key = f"hangarllm_jwt_auth_keys_{jwks_url}"
     await cache.async_delete_cache(key=active_cache_key)
     server_error = MagicMock()
     server_error.status_code = 503
@@ -4715,7 +4715,7 @@ async def test_jwks_error_response_is_not_cached_over_the_last_known_good_keys()
 @pytest.mark.asyncio
 async def test_sustained_jwks_outage_refetches_once_per_backoff_window_not_once_per_request():
     """Without a backoff, every request during an outage pays three timeouts serialised behind the refresh lock."""
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     jwks_url = "https://flooded-issuer.example.com/keys"
     _, jwk = _get_rsa_key_and_jwk(kid="flooded-key")
@@ -4725,7 +4725,7 @@ async def test_sustained_jwks_outage_refetches_once_per_backoff_window_not_once_
 
     await jwt_handler._get_public_key_from_jwks_url(jwks_url=jwks_url, kid="flooded-key")
 
-    await cache.async_delete_cache(key=f"litellm_jwt_auth_keys_{jwks_url}")
+    await cache.async_delete_cache(key=f"hangarllm_jwt_auth_keys_{jwks_url}")
     endpoint.outcomes = (httpx.ConnectTimeout("connect timed out"),)
     calls_before_outage = endpoint.call_count
 
@@ -4740,7 +4740,7 @@ async def test_sustained_jwks_outage_refetches_once_per_backoff_window_not_once_
 @pytest.mark.asyncio
 async def test_get_public_key_raises_503_when_jwks_unreachable_and_no_cached_keys(monkeypatch):
     """An unreachable IdP is an infra failure: 503, never a 401 that clients read as bad credentials."""
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     monkeypatch.setenv("JWT_PUBLIC_KEY_URL", "https://issuer.example.com/keys")
     endpoint = _ScriptedJWKSEndpoint((httpx.ConnectTimeout("connect timed out"),))
@@ -4758,7 +4758,7 @@ async def test_get_public_key_raises_503_when_jwks_unreachable_and_no_cached_key
 @pytest.mark.asyncio
 async def test_get_public_key_coalesces_concurrent_jwks_refreshes():
     """Concurrent requests in the TTL-expiry window share one JWKS fetch."""
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     _, jwk = _get_rsa_key_and_jwk(kid="coalesced-key")
     endpoint = _ScriptedJWKSEndpoint(({"keys": [jwk]},), delay=0.05)
@@ -4780,7 +4780,7 @@ async def test_get_public_key_coalesces_concurrent_jwks_refreshes():
 
 @pytest.mark.asyncio
 async def test_get_public_key_tries_next_jwks_url_when_kid_missing(monkeypatch):
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     first_jwks_url = "https://first.example.com/keys"
     second_jwks_url = "https://second.example.com/keys"
@@ -4788,13 +4788,13 @@ async def test_get_public_key_tries_next_jwks_url_when_kid_missing(monkeypatch):
     _, first_jwk = _get_rsa_key_and_jwk(kid="first-key")
     _, second_jwk = _get_rsa_key_and_jwk(kid="second-key")
     cache = DualCache()
-    cache.set_cache(key=f"litellm_jwt_auth_keys_{first_jwks_url}", value=[first_jwk])
-    cache.set_cache(key=f"litellm_jwt_auth_keys_{second_jwks_url}", value=[second_jwk])
+    cache.set_cache(key=f"hangarllm_jwt_auth_keys_{first_jwks_url}", value=[first_jwk])
+    cache.set_cache(key=f"hangarllm_jwt_auth_keys_{second_jwks_url}", value=[second_jwk])
     jwt_handler = JWTHandler()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(),
     )
 
     public_key = await jwt_handler.get_public_key(kid="second-key")
@@ -4804,7 +4804,7 @@ async def test_get_public_key_tries_next_jwks_url_when_kid_missing(monkeypatch):
 
 def test_get_jwks_url_for_issuer_falls_back_to_discovery_document():
     jwt_handler = JWTHandler()
-    issuer_config = LiteLLM_JWTAuth(
+    issuer_config = HangarLLM_JWTAuth(
         issuers=[
             {
                 "issuer": "https://issuer.example.com/tenant/",
@@ -4823,13 +4823,13 @@ def test_get_jwks_url_for_issuer_falls_back_to_discovery_document():
 @pytest.mark.asyncio
 async def test_get_objects_team_membership_uses_rebound_user_id():
     """team_membership lookup uses resolved DB user_id, not JWT email claim."""
-    from litellm.caching.caching import DualCache
+    from hangarllm.caching.caching import DualCache
 
     legacy_uuid = "bb8ab11f-09aa-47ae-b063-6e80506ac3bc"
     jwt_email = "matt@example.com"
     team_id = "team-1"
 
-    resolved_user = LiteLLM_UserTable(user_id=legacy_uuid, user_email=jwt_email)
+    resolved_user = HangarLLM_UserTable(user_id=legacy_uuid, user_email=jwt_email)
     captured = {}
 
     async def fake_get_user_object(*args, **kwargs):
@@ -4840,15 +4840,15 @@ async def test_get_objects_team_membership_uses_rebound_user_id():
         captured["team_id"] = team_id
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(user_id_jwt_field="email", user_id_upsert=True)
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(user_id_jwt_field="email", user_id_upsert=True)
 
     with (
         patch(
-            "litellm.proxy.auth.handle_jwt.get_user_object",
+            "hangarllm.proxy.auth.handle_jwt.get_user_object",
             side_effect=fake_get_user_object,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_membership",
+            "hangarllm.proxy.auth.handle_jwt.get_team_membership",
             side_effect=fake_get_team_membership,
         ),
     ):
@@ -4928,16 +4928,16 @@ async def test_multi_issuer_jwt_validates_selected_issuer_and_maps_claims(
         kid=shared_kid,
         extra_claims={
             "repository_owner": "example-org",
-            "repository": "example-org/litellm-fork",
+            "repository": "example-org/hangarllm-fork",
         },
     )
 
     claims = await jwt_handler.auth_jwt(token=token)
 
-    assert claims[JWTHandler.LITELLM_JWT_ISSUER_CLAIM] == issuer_two
+    assert claims[JWTHandler.HANGARLLM_JWT_ISSUER_CLAIM] == issuer_two
     assert jwt_handler.get_user_id(token=claims, default_value=None) == "example-org"
     assert jwt_handler.get_team_id(token=claims, default_value=None) == (
-        "example-org/litellm-fork"
+        "example-org/hangarllm-fork"
     )
 
 
@@ -5160,9 +5160,9 @@ async def test_multi_issuer_jwt_same_kid_does_not_cross_issuer_keys(monkeypatch)
 async def test_multi_issuer_jwt_missing_mapped_claim_leaves_user_id_unset(
     monkeypatch,
 ):
-    """Mapped issuer claims behave like the global ``litellm_jwtauth`` path —
+    """Mapped issuer claims behave like the global ``hangarllm_jwtauth`` path —
     present claims override the normalised value, missing ones simply leave
-    the corresponding LiteLLM-internal claim absent (rather than failing the
+    the corresponding HangarLLM-internal claim absent (rather than failing the
     JWT outright). This keeps multi-issuer auth tolerant of tokens that omit
     optional fields like email or org id.
     """
@@ -5192,8 +5192,8 @@ async def test_multi_issuer_jwt_missing_mapped_claim_leaves_user_id_unset(
 
     claims = await jwt_handler.auth_jwt(token=token)
 
-    assert claims[jwt_handler.LITELLM_JWT_ISSUER_CLAIM] == issuer
-    assert jwt_handler.LITELLM_USER_ID_CLAIM not in claims
+    assert claims[jwt_handler.HANGARLLM_JWT_ISSUER_CLAIM] == issuer
+    assert jwt_handler.HANGARLLM_USER_ID_CLAIM not in claims
 
 
 def test_multi_issuer_jwt_requires_audience_unless_explicitly_disabled(
@@ -5206,7 +5206,7 @@ def test_multi_issuer_jwt_requires_audience_unless_explicitly_disabled(
     jwks_url = f"{issuer}/keys"
 
     with pytest.raises(Exception, match='must configure audience or set') as exc:
-        LiteLLM_JWTAuth(
+        HangarLLM_JWTAuth(
             issuers=[
                 {
                     "issuer": issuer,
@@ -5223,7 +5223,7 @@ def test_multi_issuer_jwt_rejects_audience_with_disable_audience_validation():
     jwks_url = f"{issuer}/keys"
 
     with pytest.raises(Exception, match='cannot set audience and disable_audience_validation=True') as exc:
-        LiteLLM_JWTAuth(
+        HangarLLM_JWTAuth(
             issuers=[
                 {
                     "issuer": issuer,
@@ -5241,7 +5241,7 @@ def test_multi_issuer_jwt_rejects_audience_with_disable_audience_validation():
 
 @pytest.mark.asyncio
 async def test_global_jwt_ignores_user_supplied_internal_claims(monkeypatch):
-    from litellm.caching.dual_cache import DualCache
+    from hangarllm.caching.dual_cache import DualCache
 
     monkeypatch.delenv("JWT_AUDIENCE", raising=False)
     monkeypatch.delenv("JWT_ISSUER", raising=False)
@@ -5251,13 +5251,13 @@ async def test_global_jwt_ignores_user_supplied_internal_claims(monkeypatch):
 
     private_key, jwk = _get_rsa_key_and_jwk(kid="global-key")
     cache = DualCache()
-    cache.set_cache(key=f"litellm_jwt_auth_keys_{jwks_url}", value=[jwk])
+    cache.set_cache(key=f"hangarllm_jwt_auth_keys_{jwks_url}", value=[jwk])
 
     jwt_handler = JWTHandler()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             user_id_jwt_field="email",
             user_email_jwt_field="email",
             team_id_jwt_field="team.id",
@@ -5277,13 +5277,13 @@ async def test_global_jwt_ignores_user_supplied_internal_claims(monkeypatch):
             "teams": ["real-team", "secondary-team"],
             "org": {"id": "real-org"},
             "end_user": {"id": "real-end-user"},
-            JWTHandler.LITELLM_JWT_ISSUER_CLAIM: "https://issuer.example.com",
-            JWTHandler.LITELLM_USER_ID_CLAIM: "victim-user",
-            JWTHandler.LITELLM_USER_EMAIL_CLAIM: "victim@example.com",
-            JWTHandler.LITELLM_TEAM_ID_CLAIM: "victim-team",
-            JWTHandler.LITELLM_TEAM_IDS_CLAIM: ["victim-team"],
-            JWTHandler.LITELLM_ORG_ID_CLAIM: "victim-org",
-            JWTHandler.LITELLM_END_USER_ID_CLAIM: "victim-end-user",
+            JWTHandler.HANGARLLM_JWT_ISSUER_CLAIM: "https://issuer.example.com",
+            JWTHandler.HANGARLLM_USER_ID_CLAIM: "victim-user",
+            JWTHandler.HANGARLLM_USER_EMAIL_CLAIM: "victim@example.com",
+            JWTHandler.HANGARLLM_TEAM_ID_CLAIM: "victim-team",
+            JWTHandler.HANGARLLM_TEAM_IDS_CLAIM: ["victim-team"],
+            JWTHandler.HANGARLLM_ORG_ID_CLAIM: "victim-org",
+            JWTHandler.HANGARLLM_END_USER_ID_CLAIM: "victim-end-user",
         },
     )
 
@@ -5332,15 +5332,15 @@ async def test_multi_issuer_jwt_strips_unmapped_internal_claims(monkeypatch):
         kid="issuer-key",
         extra_claims={
             "email": "real-user@example.com",
-            JWTHandler.LITELLM_USER_ID_CLAIM: "victim-user",
-            JWTHandler.LITELLM_TEAM_ID_CLAIM: "victim-team",
+            JWTHandler.HANGARLLM_USER_ID_CLAIM: "victim-user",
+            JWTHandler.HANGARLLM_TEAM_ID_CLAIM: "victim-team",
         },
     )
 
     claims = await jwt_handler.auth_jwt(token=token)
 
-    assert JWTHandler.LITELLM_USER_ID_CLAIM not in claims
-    assert JWTHandler.LITELLM_TEAM_ID_CLAIM not in claims
+    assert JWTHandler.HANGARLLM_USER_ID_CLAIM not in claims
+    assert JWTHandler.HANGARLLM_TEAM_ID_CLAIM not in claims
     assert jwt_handler.get_user_id(token=claims, default_value=None) is None
     assert jwt_handler.get_team_id(token=claims, default_value=None) is None
     assert jwt_handler.get_user_email(token=claims, default_value=None) == (
@@ -5411,13 +5411,13 @@ def test_build_decode_kwargs_warns_for_unscoped_global_fallback_in_mixed_deploym
 
 # ---------------------------------------------------------------------------
 # fallback_to_db_teams: resolve team from DB memberships when JWT has no team
-# claims (config flag on LiteLLM_JWTAuth)
+# claims (config flag on HangarLLM_JWTAuth)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_resolve_team_from_header_accepts_db_teams_provisionally_under_fallback_even_with_jwt_claims():
-    """With fallback_to_db_teams=True, an x-litellm-team-id header naming an existing
+    """With fallback_to_db_teams=True, an x-hangarllm-team-id header naming an existing
     team is accepted provisionally whether or not the JWT carries team claims; the
     union of JWT teams and DB memberships is enforced by auth_builder's later
     membership check. Unknown values still 403, and the flag-off behavior keeps
@@ -5446,7 +5446,7 @@ async def test_find_team_with_model_access_defers_no_team_403_under_db_fallback(
     enforcement is on, but defers (returns no team) so auth_builder's DB fallback
     can run when fallback_to_db_teams is enabled."""
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         enforce_team_based_model_access=True,
         fallback_to_db_teams=False,
     )
@@ -5463,7 +5463,7 @@ async def test_find_team_with_model_access_defers_no_team_403_under_db_fallback(
         )
     assert exc_info.value.status_code == 403
 
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         enforce_team_based_model_access=True,
         fallback_to_db_teams=True,
     )
@@ -5481,9 +5481,9 @@ async def test_find_team_with_model_access_defers_no_team_403_under_db_fallback(
     assert team_object is None
 
 
-def _db_fallback_handler(litellm_jwtauth: LiteLLM_JWTAuth | None = None) -> JWTHandler:
+def _db_fallback_handler(hangarllm_jwtauth: HangarLLM_JWTAuth | None = None) -> JWTHandler:
     handler = JWTHandler()
-    handler.litellm_jwtauth = litellm_jwtauth or LiteLLM_JWTAuth()
+    handler.hangarllm_jwtauth = hangarllm_jwtauth or HangarLLM_JWTAuth()
     return handler
 
 
@@ -5491,12 +5491,12 @@ def _db_fallback_handler(litellm_jwtauth: LiteLLM_JWTAuth | None = None) -> JWTH
 async def test_resolve_db_team_fallback_skips_unresolvable_membership():
     """An orphaned membership (team row missing/erroring) is skipped and the next
     resolvable DB team is selected instead of aborting the fallback."""
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="u_skip",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["ghost_team", "real_team"],
     )
-    resolved = LiteLLM_TeamTable(team_id="real_team")
+    resolved = HangarLLM_TeamTable(team_id="real_team")
 
     async def fake_get_team(team_id, **kwargs):
         if team_id == "ghost_team":
@@ -5504,7 +5504,7 @@ async def test_resolve_db_team_fallback_skips_unresolvable_membership():
         return resolved
 
     with patch(
-        "litellm.proxy.auth.handle_jwt.get_team_object",
+        "hangarllm.proxy.auth.handle_jwt.get_team_object",
         new_callable=AsyncMock,
         side_effect=fake_get_team,
     ):
@@ -5594,26 +5594,26 @@ async def test_auth_builder_db_team_fallback_when_jwt_has_no_team(
     """End-to-end auth_builder behavior with no JWT team claims.
 
     fallback_to_db_teams=True attributes usage to the user's first resolvable DB
-    team, honors a valid x-litellm-team-id header, and rejects a header team the
+    team, honors a valid x-hangarllm-team-id header, and rejects a header team the
     user does not belong to. The default (flag off) preserves the upstream
     single-team fallback: a lone DB team is resolved, multiple are ambiguous.
     """
     user_id = "u_db_fallback"
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id=user_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=user_teams,
     )
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         enforce_team_based_model_access=True,
         fallback_to_db_teams=fallback_to_db_teams,
     )
 
-    request_headers = {"x-litellm-team-id": header_team_id} if header_team_id else None
+    request_headers = {"x-hangarllm-team-id": header_team_id} if header_team_id else None
 
     async def fake_get_team(team_id, **kwargs):
-        return LiteLLM_TeamTable(team_id=team_id)
+        return HangarLLM_TeamTable(team_id=team_id)
 
     async def call_auth_builder():
         with (
@@ -5659,17 +5659,17 @@ async def test_auth_builder_db_team_fallback_when_jwt_has_no_team(
             patch.object(JWTAuthManager, "validate_object_id", return_value=True),
             patch.object(JWTAuthManager, "sync_user_role_and_teams", new_callable=AsyncMock),
             patch(
-                "litellm.proxy.auth.handle_jwt.get_team_object",
+                "hangarllm.proxy.auth.handle_jwt.get_team_object",
                 new_callable=AsyncMock,
                 side_effect=fake_get_team,
             ),
             patch(
-                "litellm.proxy.auth.handle_jwt.get_team_membership",
+                "hangarllm.proxy.auth.handle_jwt.get_team_membership",
                 new_callable=AsyncMock,
-                return_value=LiteLLM_TeamMembership(
+                return_value=HangarLLM_TeamMembership(
                     user_id=user_id,
                     team_id=user_teams[0] if user_teams else "none",
-                    litellm_budget_table=None,
+                    hangarllm_budget_table=None,
                 ),
             ),
         ):
@@ -5717,7 +5717,7 @@ async def test_sync_user_role_and_teams_no_claim_team_preservation(
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=AsyncMock(),
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_ids_jwt_field="teams",
             sync_user_role_and_teams=True,
             fallback_to_db_teams=fallback_to_db_teams,
@@ -5725,15 +5725,15 @@ async def test_sync_user_role_and_teams_no_claim_team_preservation(
     )
 
     token = {"sub": "u1"}
-    user = LiteLLM_UserTable(
+    user = HangarLLM_UserTable(
         user_id="u1",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=HangarllmUserRoles.INTERNAL_USER.value,
         teams=["team_a", "team_b"],
     )
     prisma = AsyncMock()
 
     with patch(
-        "litellm.proxy.management_endpoints.scim.scim_v2.patch_team_membership",
+        "hangarllm.proxy.management_endpoints.scim.scim_v2.patch_team_membership",
         new_callable=AsyncMock,
     ) as mock_patch:
         await JWTAuthManager.sync_user_role_and_teams(jwt_handler, token, user, prisma)
@@ -5755,16 +5755,16 @@ async def test_resolve_db_team_fallback_skips_team_without_model_access():
     """The DB-team fallback must apply the same per-team model-access check as the
     claim-based path: a DB team that cannot access the requested model is skipped
     in favor of one that can, instead of selecting the first membership blindly."""
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="u_model_access",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["restricted_team", "allowed_team"],
     )
     teams = {
-        "restricted_team": LiteLLM_TeamTable(
+        "restricted_team": HangarLLM_TeamTable(
             team_id="restricted_team", models=["claude-3"]
         ),
-        "allowed_team": LiteLLM_TeamTable(team_id="allowed_team", models=["gpt-4"]),
+        "allowed_team": HangarLLM_TeamTable(team_id="allowed_team", models=["gpt-4"]),
     }
 
     async def fake_get_team(team_id, **kwargs):
@@ -5782,12 +5782,12 @@ async def test_resolve_db_team_fallback_skips_team_without_model_access():
 
     with (
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=fake_get_team,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.can_team_access_model",
+            "hangarllm.proxy.auth.handle_jwt.can_team_access_model",
             new_callable=AsyncMock,
             side_effect=fake_can_access,
         ),
@@ -5821,13 +5821,13 @@ async def test_resolve_db_team_fallback_enforces_team_allowed_routes():
     not become reachable by selecting a DB team, even when that team can access
     the requested model. Without the gate, a teamless JWT could reach the
     info/management routes an admin narrowed team_allowed_routes to exclude."""
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="u_routes",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["team_a"],
     )
-    team = LiteLLM_TeamTable(team_id="team_a", models=["gpt-4"])
-    handler = _db_fallback_handler(LiteLLM_JWTAuth(team_allowed_routes=["openai_routes"]))
+    team = HangarLLM_TeamTable(team_id="team_a", models=["gpt-4"])
+    handler = _db_fallback_handler(HangarLLM_JWTAuth(team_allowed_routes=["openai_routes"]))
 
     async def fake_get_team(team_id, **kwargs):
         return team
@@ -5852,12 +5852,12 @@ async def test_resolve_db_team_fallback_enforces_team_allowed_routes():
 
     with (
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=fake_get_team,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.can_team_access_model",
+            "hangarllm.proxy.auth.handle_jwt.can_team_access_model",
             new_callable=AsyncMock,
             side_effect=fake_can_access,
         ),
@@ -5872,12 +5872,12 @@ async def test_resolve_db_team_fallback_enforces_team_allowed_routes():
 
 
 def test_validate_header_team_in_db_membership_does_not_leak_team_ids():
-    """The 403 raised for an x-litellm-team-id header outside the user's DB
+    """The 403 raised for an x-hangarllm-team-id header outside the user's DB
     memberships must not enumerate the user's team IDs back to the caller; any
     valid-JWT caller could otherwise probe header values to discover team IDs."""
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="u_leak",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["secret_team_alpha", "secret_team_beta"],
     )
 
@@ -5915,7 +5915,7 @@ def _teams_by_alias(aliases: Mapping[str, str]):
     async def lookup(team_alias, **kwargs):
         if team_alias not in aliases:
             return await _team_alias_lookup_404(team_alias)
-        return LiteLLM_TeamTable(team_id=aliases[team_alias], team_alias=team_alias)
+        return HangarLLM_TeamTable(team_id=aliases[team_alias], team_alias=team_alias)
 
     return lookup
 
@@ -5927,16 +5927,16 @@ def _teams_by_id(team_ids: frozenset[str]):
     async def lookup(team_id, **kwargs):
         if team_id not in team_ids:
             raise TeamNotFoundError(team_id=team_id)
-        return LiteLLM_TeamTable(team_id=team_id)
+        return HangarLLM_TeamTable(team_id=team_id)
 
     return lookup
 
 
 async def _run_auth_builder_with_header_team(
-    jwt_auth_config: LiteLLM_JWTAuth,
+    jwt_auth_config: HangarLLM_JWTAuth,
     token: dict,
     header_team_id: str,
-    user_object: LiteLLM_UserTable,
+    user_object: HangarLLM_UserTable,
     fake_get_team,
     allowed_team_ids: set,
     fake_get_team_by_alias=_team_alias_lookup_404,
@@ -5944,7 +5944,7 @@ async def _run_auth_builder_with_header_team(
     send_header: bool = True,
 ):
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = jwt_auth_config
+    jwt_handler.hangarllm_jwtauth = jwt_auth_config
     with (
         patch.object(
             jwt_handler, "auth_jwt", new_callable=AsyncMock, return_value=token
@@ -5982,12 +5982,12 @@ async def _run_auth_builder_with_header_team(
             JWTAuthManager, "sync_user_role_and_teams", new_callable=AsyncMock
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=fake_get_team,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object_by_alias",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object_by_alias",
             new_callable=AsyncMock,
             side_effect=fake_get_team_by_alias,
         ),
@@ -6002,7 +6002,7 @@ async def _run_auth_builder_with_header_team(
             user_api_key_cache=None,
             parent_otel_span=None,
             proxy_logging_obj=None,
-            request_headers={"x-litellm-team-id": header_team_id} if send_header else {},
+            request_headers={"x-hangarllm-team-id": header_team_id} if send_header else {},
         )
 
 
@@ -6010,23 +6010,23 @@ async def _run_auth_builder_with_header_team(
 async def test_auth_builder_header_team_not_found_matches_non_membership_denial() -> (
     None
 ):
-    """A provisional x-litellm-team-id naming a nonexistent team must produce
+    """A provisional x-hangarllm-team-id naming a nonexistent team must produce
     the exact same 403 shape as one naming an existing team outside the
     caller's memberships. Letting get_team_object's 404 surface would give any
     valid-JWT caller an oracle to probe which team ids exist."""
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="u_oracle",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["team_member"],
     )
-    config = LiteLLM_JWTAuth(
+    config = HangarLLM_JWTAuth(
         enforce_team_based_model_access=True,
         fallback_to_db_teams=True,
     )
     token = {"sub": "u_oracle", "scope": ""}
 
     async def team_exists(team_id, **kwargs):
-        return LiteLLM_TeamTable(team_id=team_id)
+        return HangarLLM_TeamTable(team_id=team_id)
 
     with pytest.raises(HTTPException) as missing_exc:
         await _run_auth_builder_with_header_team(
@@ -6050,12 +6050,12 @@ async def test_auth_builder_claim_backed_header_team_lookup_error_propagates() -
     """When the JWT carries team claims the header team is not provisional, so
     a failed team lookup keeps the upstream contract: get_team_object's 404
     surfaces unchanged instead of being rewritten into the membership 403."""
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="u_claimed",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["team_member"],
     )
-    config = LiteLLM_JWTAuth(
+    config = HangarLLM_JWTAuth(
         enforce_team_based_model_access=True,
         fallback_to_db_teams=True,
         team_ids_jwt_field="team_ids",
@@ -6075,21 +6075,21 @@ async def test_resolve_db_team_fallback_loads_team_membership():
     """The DB-team fallback must load the resolved team's membership row (when a
     user_id is known) so per-team membership budget limits are enforced on the
     fallback path the same as on the claim-based path; returning a None membership
-    would silently skip LiteLLM_TeamMembership budget checks for every request."""
-    user_object = LiteLLM_UserTable(
+    would silently skip HangarLLM_TeamMembership budget checks for every request."""
+    user_object = HangarLLM_UserTable(
         user_id="u_membership",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["team_with_budget"],
     )
-    membership = LiteLLM_TeamMembership(
+    membership = HangarLLM_TeamMembership(
         user_id="u_membership",
         team_id="team_with_budget",
         budget_id="budget_xyz",
-        litellm_budget_table=None,
+        hangarllm_budget_table=None,
     )
 
     async def fake_get_team(team_id, **kwargs):
-        return LiteLLM_TeamTable(team_id=team_id)
+        return HangarLLM_TeamTable(team_id=team_id)
 
     async def fake_get_membership(user_id, team_id, **kwargs):
         assert user_id == "u_membership"
@@ -6098,12 +6098,12 @@ async def test_resolve_db_team_fallback_loads_team_membership():
 
     with (
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=fake_get_team,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_membership",
+            "hangarllm.proxy.auth.handle_jwt.get_team_membership",
             new_callable=AsyncMock,
             side_effect=fake_get_membership,
         ),
@@ -6138,26 +6138,26 @@ async def test_resolve_db_team_fallback_survives_membership_lookup_error():
     request. get_team_membership swallows DB errors internally and returns None, so
     the fallback must return the resolved team with a None membership (budget
     enforcement degrades gracefully) instead of treating it as a denial."""
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="u_flaky",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["team_flaky"],
     )
 
     async def fake_get_team(team_id, **kwargs):
-        return LiteLLM_TeamTable(team_id=team_id)
+        return HangarLLM_TeamTable(team_id=team_id)
 
     async def none_on_db_error_membership(user_id, team_id, **kwargs):
         return None
 
     with (
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=fake_get_team,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_membership",
+            "hangarllm.proxy.auth.handle_jwt.get_team_membership",
             new_callable=AsyncMock,
             side_effect=none_on_db_error_membership,
         ),
@@ -6189,30 +6189,30 @@ async def test_resolve_db_team_fallback_survives_membership_lookup_error():
 async def test_auth_builder_db_fallback_does_not_validate_rbac_team_against_db_membership():
     """When fallback_to_db_teams is on and the JWT carries an RBAC team role but no
     group/team claims, team_id is set from the RBAC object_id (not the provisional
-    x-litellm-team-id header). That RBAC-asserted team must not be re-validated
+    x-hangarllm-team-id header). That RBAC-asserted team must not be re-validated
     against the user's DB memberships; only a team that actually came from the
     header is provisional. Without the team_id == header_team_id guard, every such
     RBAC request 403s when the RBAC team is not also a DB membership."""
     rbac_team = "rbac_asserted_team"
     user_id = "u_rbac"
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id=user_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["unrelated_db_team"],
     )
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         enforce_team_based_model_access=True,
         fallback_to_db_teams=True,
     )
 
     async def fake_get_team(team_id, **kwargs):
-        return LiteLLM_TeamTable(team_id=team_id)
+        return HangarLLM_TeamTable(team_id=team_id)
 
     with (
         patch.object(jwt_handler, "auth_jwt", new_callable=AsyncMock) as mock_auth_jwt,
         patch.object(JWTAuthManager, "check_rbac_role", new_callable=AsyncMock),
-        patch.object(jwt_handler, "get_rbac_role", return_value=LitellmUserRoles.TEAM),
+        patch.object(jwt_handler, "get_rbac_role", return_value=HangarllmUserRoles.TEAM),
         patch.object(jwt_handler, "get_scopes", return_value=[]),
         patch.object(jwt_handler, "get_object_id", return_value=rbac_team),
         patch.object(
@@ -6242,7 +6242,7 @@ async def test_auth_builder_db_fallback_does_not_validate_rbac_team_against_db_m
             JWTAuthManager, "sync_user_role_and_teams", new_callable=AsyncMock
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=fake_get_team,
         ),
@@ -6270,19 +6270,19 @@ async def test_resolve_db_team_fallback_distinguishes_no_membership_vs_model_den
     and a user with memberships that all fail the model-access check must surface
     different 403s; collapsing both into the no-membership message hides the real
     cause and diverges from find_team_with_model_access's claim-based message."""
-    membership_user = LiteLLM_UserTable(
+    membership_user = HangarLLM_UserTable(
         user_id="u_no_model",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["only_team"],
     )
-    no_membership_user = LiteLLM_UserTable(
+    no_membership_user = HangarLLM_UserTable(
         user_id="u_empty",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=[],
     )
 
     async def fake_get_team(team_id, **kwargs):
-        return LiteLLM_TeamTable(team_id=team_id, models=["other"])
+        return HangarLLM_TeamTable(team_id=team_id, models=["other"])
 
     async def fake_can_access(model, team_object, llm_router, team_model_aliases=None):
         raise ProxyException(
@@ -6294,12 +6294,12 @@ async def test_resolve_db_team_fallback_distinguishes_no_membership_vs_model_den
 
     with (
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=fake_get_team,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.can_team_access_model",
+            "hangarllm.proxy.auth.handle_jwt.can_team_access_model",
             new_callable=AsyncMock,
             side_effect=fake_can_access,
         ),
@@ -6350,19 +6350,19 @@ async def test_auth_builder_db_fallback_runs_when_only_team_id_default_set():
     operator-configured default) so fallback_to_db_teams still attributes to the
     user's DB memberships instead of silently routing to the default team."""
     user_id = "u_default_token"
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id=user_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["db_team_for_user"],
     )
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         fallback_to_db_teams=True,
         team_id_default="config_default_team",
     )
 
     async def fake_get_team(team_id, **kwargs):
-        return LiteLLM_TeamTable(team_id=team_id)
+        return HangarLLM_TeamTable(team_id=team_id)
 
     with (
         patch.object(jwt_handler, "auth_jwt", new_callable=AsyncMock) as mock_auth_jwt,
@@ -6396,12 +6396,12 @@ async def test_auth_builder_db_fallback_runs_when_only_team_id_default_set():
             JWTAuthManager, "sync_user_role_and_teams", new_callable=AsyncMock
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=fake_get_team,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_membership",
+            "hangarllm.proxy.auth.handle_jwt.get_team_membership",
             new_callable=AsyncMock,
             return_value=None,
         ),
@@ -6431,22 +6431,22 @@ async def test_auth_builder_alias_only_token_resolves_alias_not_db_fallback():
     clause in the db_team_fallback gate the alias is silently dropped and the request
     is mis-attributed to the user's first DB team instead of the alias-named team."""
     user_id = "u_alias_only"
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id=user_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["db_membership_team"],
     )
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         fallback_to_db_teams=True,
         team_alias_jwt_field="team_name",
     )
 
     async def fake_get_team(team_id, **kwargs):
-        return LiteLLM_TeamTable(team_id=team_id)
+        return HangarLLM_TeamTable(team_id=team_id)
 
     async def fake_get_team_by_alias(team_alias, **kwargs):
-        return LiteLLM_TeamTable(team_id="alias_resolved_team", team_alias=team_alias)
+        return HangarLLM_TeamTable(team_id="alias_resolved_team", team_alias=team_alias)
 
     with (
         patch.object(jwt_handler, "auth_jwt", new_callable=AsyncMock) as mock_auth_jwt,
@@ -6480,17 +6480,17 @@ async def test_auth_builder_alias_only_token_resolves_alias_not_db_fallback():
             JWTAuthManager, "sync_user_role_and_teams", new_callable=AsyncMock
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=fake_get_team,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object_by_alias",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object_by_alias",
             new_callable=AsyncMock,
             side_effect=fake_get_team_by_alias,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_membership",
+            "hangarllm.proxy.auth.handle_jwt.get_team_membership",
             new_callable=AsyncMock,
             return_value=None,
         ),
@@ -6519,8 +6519,8 @@ async def test_find_and_validate_specific_team_id_alias_wins_over_team_id_defaul
     silently substitutes team_id_default for a missing claim, which would
     otherwise mask the alias-resolved team and mis-attribute spend/access
     to the configured default team."""
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
@@ -6528,23 +6528,23 @@ async def test_find_and_validate_specific_team_id_alias_wins_over_team_id_defaul
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_alias_jwt_field="team_alias",
             team_id_default="config_default_team",
         ),
     )
 
     jwt_token = {"sub": "user-1", "team_alias": "my-team"}
-    alias_team = LiteLLM_TeamTable(
+    alias_team = HangarLLM_TeamTable(
         team_id="alias_resolved_team", team_alias="my-team"
     )
 
     with (
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
+            "hangarllm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
         ) as mock_get_by_id,
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object_by_alias",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object_by_alias",
             new_callable=AsyncMock,
         ) as mock_get_by_alias,
     ):
@@ -6570,8 +6570,8 @@ async def test_find_and_validate_specific_team_id_team_id_default_used_without_a
     """When the token carries neither a team_id nor an alias claim and
     team_id_default is configured, the default still resolves the team. The
     alias-precedence fix must not regress this baseline fallback behavior."""
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     jwt_handler = JWTHandler()
     user_api_key_cache = DualCache()
@@ -6579,21 +6579,21 @@ async def test_find_and_validate_specific_team_id_team_id_default_used_without_a
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_alias_jwt_field="team_alias",
             team_id_default="config_default_team",
         ),
     )
 
     jwt_token = {"sub": "user-1"}
-    default_team = LiteLLM_TeamTable(team_id="config_default_team")
+    default_team = HangarLLM_TeamTable(team_id="config_default_team")
 
     with (
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
+            "hangarllm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
         ) as mock_get_by_id,
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object_by_alias",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object_by_alias",
             new_callable=AsyncMock,
         ) as mock_get_by_alias,
     ):
@@ -6619,18 +6619,18 @@ async def test_auth_builder_db_fallback_enforces_passthrough_route_access():
     auth-enforced passthrough route check; previously the earlier gate ran while
     team_id was None and the fallback-resolved team bypassed it entirely."""
     user_id = "u_passthrough"
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id=user_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["team_no_passthrough"],
     )
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(fallback_to_db_teams=True)
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(fallback_to_db_teams=True)
 
     passthrough_route = "/vertex_ai/v1/projects/p/locations/us/publishers/google/models/gemini:generateContent"
 
     async def fake_get_team(team_id, **kwargs):
-        return LiteLLM_TeamTable(team_id=team_id, metadata={})
+        return HangarLLM_TeamTable(team_id=team_id, metadata={})
 
     with (
         patch.object(jwt_handler, "auth_jwt", new_callable=AsyncMock) as mock_auth_jwt,
@@ -6664,17 +6664,17 @@ async def test_auth_builder_db_fallback_enforces_passthrough_route_access():
             JWTAuthManager, "sync_user_role_and_teams", new_callable=AsyncMock
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=fake_get_team,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_membership",
+            "hangarllm.proxy.auth.handle_jwt.get_team_membership",
             new_callable=AsyncMock,
             return_value=None,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.RouteChecks.is_auth_enforced_pass_through_route",
+            "hangarllm.proxy.auth.handle_jwt.RouteChecks.is_auth_enforced_pass_through_route",
             return_value=True,
         ),
         patch.object(
@@ -6705,16 +6705,16 @@ async def test_auth_builder_db_fallback_enforces_passthrough_route_access():
 
 async def _auth_builder_via_db_team_fallback(team_allowed_routes: list[str]):
     user_id = "u_passthrough"
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id=user_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["team_no_passthrough"],
     )
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(fallback_to_db_teams=True, team_allowed_routes=team_allowed_routes)
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(fallback_to_db_teams=True, team_allowed_routes=team_allowed_routes)
 
     async def fake_get_team(team_id, **kwargs):
-        return LiteLLM_TeamTable(team_id=team_id, metadata={})
+        return HangarLLM_TeamTable(team_id=team_id, metadata={})
 
     with (
         patch.object(jwt_handler, "auth_jwt", new_callable=AsyncMock, return_value={"sub": user_id, "scope": ""}),
@@ -6741,20 +6741,20 @@ async def _auth_builder_via_db_team_fallback(team_allowed_routes: list[str]):
         patch.object(JWTAuthManager, "validate_object_id", return_value=True),
         patch.object(JWTAuthManager, "sync_user_role_and_teams", new_callable=AsyncMock),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=fake_get_team,
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_membership",
+            "hangarllm.proxy.auth.handle_jwt.get_team_membership",
             new_callable=AsyncMock,
             return_value=None,
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             _AUTH_ENFORCED_MODEL_HOST_ROUTES,
         ),
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
     ):
         return await JWTAuthManager.auth_builder(
             api_key="test_jwt_token",
@@ -6798,7 +6798,7 @@ async def test_sync_user_role_and_teams_singular_claim_reconciles_memberships():
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=AsyncMock(),
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_id_jwt_field="primary_team",
             sync_user_role_and_teams=True,
             fallback_to_db_teams=True,
@@ -6806,14 +6806,14 @@ async def test_sync_user_role_and_teams_singular_claim_reconciles_memberships():
     )
 
     token = {"sub": "u_singular", "primary_team": "team_primary"}
-    user = LiteLLM_UserTable(
+    user = HangarLLM_UserTable(
         user_id="u_singular",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=HangarllmUserRoles.INTERNAL_USER.value,
         teams=["team_stale_a", "team_stale_b"],
     )
 
     with patch(
-        "litellm.proxy.management_endpoints.scim.scim_v2.patch_team_membership",
+        "hangarllm.proxy.management_endpoints.scim.scim_v2.patch_team_membership",
         new_callable=AsyncMock,
     ) as mock_patch:
         await JWTAuthManager.sync_user_role_and_teams(
@@ -6833,20 +6833,20 @@ async def test_sync_user_role_and_teams_singular_claim_reconciles_memberships():
 
 @pytest.mark.asyncio
 async def test_auth_builder_provisional_header_team_is_not_upserted():
-    """A provisional x-litellm-team-id (accepted only because the JWT carries no
+    """A provisional x-hangarllm-team-id (accepted only because the JWT carries no
     team claims) must not be upserted even when team_id_upsert is enabled: it is
     validated against DB membership afterwards, so upserting first would let an
     attacker-supplied header create an orphaned team row. A genuine membership
     team already exists, so the resolved request still succeeds."""
     user_id = "u_no_upsert"
     header_team = "header_supplied_team"
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id=user_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=[header_team],
     )
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         fallback_to_db_teams=True,
         team_id_upsert=True,
     )
@@ -6855,7 +6855,7 @@ async def test_auth_builder_provisional_header_team_is_not_upserted():
 
     async def spy_get_team(team_id, **kwargs):
         upsert_by_team[team_id] = kwargs.get("team_id_upsert")
-        return LiteLLM_TeamTable(team_id=team_id)
+        return HangarLLM_TeamTable(team_id=team_id)
 
     with (
         patch.object(jwt_handler, "auth_jwt", new_callable=AsyncMock) as mock_auth_jwt,
@@ -6888,7 +6888,7 @@ async def test_auth_builder_provisional_header_team_is_not_upserted():
         patch.object(JWTAuthManager, "validate_object_id", return_value=True),
         patch.object(JWTAuthManager, "sync_user_role_and_teams", new_callable=AsyncMock),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=spy_get_team,
         ),
@@ -6904,7 +6904,7 @@ async def test_auth_builder_provisional_header_team_is_not_upserted():
             user_api_key_cache=None,
             parent_otel_span=None,
             proxy_logging_obj=None,
-            request_headers={"x-litellm-team-id": header_team},
+            request_headers={"x-hangarllm-team-id": header_team},
         )
 
     assert result["team_id"] == header_team
@@ -6915,27 +6915,27 @@ async def test_auth_builder_provisional_header_team_is_not_upserted():
 async def test_auth_builder_header_cannot_override_rbac_team_under_db_fallback():
     """An RBAC team-role JWT already pins team_id to the asserted team. With
     fallback_to_db_teams on, a caller must not be able to substitute that team
-    by sending x-litellm-team-id for any other team they happen to belong to:
+    by sending x-hangarllm-team-id for any other team they happen to belong to:
     the provisional-header path is only for tokens with no team identity at all,
     so an RBAC token plus a non-claim header team is rejected with 403."""
     user_id = "u_rbac_override"
     rbac_team = "rbac_pinned_team"
     other_team = "other_db_team"
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id=user_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=[other_team],
     )
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(fallback_to_db_teams=True)
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(fallback_to_db_teams=True)
 
     async def fake_get_team(team_id, **kwargs):
-        return LiteLLM_TeamTable(team_id=team_id)
+        return HangarLLM_TeamTable(team_id=team_id)
 
     with (
         patch.object(jwt_handler, "auth_jwt", new_callable=AsyncMock) as mock_auth_jwt,
         patch.object(JWTAuthManager, "check_rbac_role", new_callable=AsyncMock),
-        patch.object(jwt_handler, "get_rbac_role", return_value=LitellmUserRoles.TEAM),
+        patch.object(jwt_handler, "get_rbac_role", return_value=HangarllmUserRoles.TEAM),
         patch.object(jwt_handler, "get_scopes", return_value=[]),
         patch.object(jwt_handler, "get_object_id", return_value=rbac_team),
         patch.object(
@@ -6965,7 +6965,7 @@ async def test_auth_builder_header_cannot_override_rbac_team_under_db_fallback()
             JWTAuthManager, "sync_user_role_and_teams", new_callable=AsyncMock
         ),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=fake_get_team,
         ),
@@ -6982,7 +6982,7 @@ async def test_auth_builder_header_cannot_override_rbac_team_under_db_fallback()
                 user_api_key_cache=None,
                 parent_otel_span=None,
                 proxy_logging_obj=None,
-                request_headers={"x-litellm-team-id": other_team},
+                request_headers={"x-hangarllm-team-id": other_team},
             )
 
     assert exc_info.value.status_code == 403
@@ -6990,26 +6990,26 @@ async def test_auth_builder_header_cannot_override_rbac_team_under_db_fallback()
 
 @pytest.mark.asyncio
 async def test_auth_builder_header_team_enforces_team_allowed_routes_under_db_fallback():
-    """A claimless JWT with x-litellm-team-id under fallback_to_db_teams must
+    """A claimless JWT with x-hangarllm-team-id under fallback_to_db_teams must
     obey the same team_allowed_routes gate as the auto-pick fallback path.
     Otherwise the header bypasses the route gate the JWT config narrows for
     team-role callers, letting management/info routes be reached with a
     team_id the auto-pick path would silently refuse to set."""
     user_id = "u_header_routes"
     header_team = "header_supplied_team"
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id=user_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=[header_team],
     )
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         fallback_to_db_teams=True,
         team_allowed_routes=["openai_routes"],
     )
 
     async def fake_get_team(team_id, **kwargs):
-        return LiteLLM_TeamTable(team_id=team_id)
+        return HangarLLM_TeamTable(team_id=team_id)
 
     async def call(route: str):
         with (
@@ -7047,7 +7047,7 @@ async def test_auth_builder_header_team_enforces_team_allowed_routes_under_db_fa
                 JWTAuthManager, "sync_user_role_and_teams", new_callable=AsyncMock
             ),
             patch(
-                "litellm.proxy.auth.handle_jwt.get_team_object",
+                "hangarllm.proxy.auth.handle_jwt.get_team_object",
                 new_callable=AsyncMock,
                 side_effect=fake_get_team,
             ),
@@ -7063,7 +7063,7 @@ async def test_auth_builder_header_team_enforces_team_allowed_routes_under_db_fa
                 user_api_key_cache=None,
                 parent_otel_span=None,
                 proxy_logging_obj=None,
-                request_headers={"x-litellm-team-id": header_team},
+                request_headers={"x-hangarllm-team-id": header_team},
             )
 
     with pytest.raises(HTTPException) as exc_info:
@@ -7085,18 +7085,18 @@ async def _resolve_header(
 ) -> tuple[HeaderTeam | None, AsyncMock, AsyncMock]:
     with (
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object",
             new_callable=AsyncMock,
             side_effect=fake_get_team,
         ) as by_id,
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object_by_alias",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object_by_alias",
             new_callable=AsyncMock,
             side_effect=fake_get_team_by_alias,
         ) as by_alias,
     ):
         resolved = await JWTAuthManager.resolve_team_from_header(
-            request_headers={"X-LiteLLM-Team-Id": header_value},
+            request_headers={"X-HangarLLM-Team-Id": header_value},
             allowed_team_ids=allowed_team_ids,
             fallback_to_db_teams=fallback_to_db_teams,
             prisma_client=MagicMock(),
@@ -7109,7 +7109,7 @@ async def _resolve_header(
 
 @pytest.mark.asyncio
 async def test_resolve_team_from_header_accepts_the_alias_of_an_allowed_team():
-    """x-litellm-team-id may carry the team alias instead of the team id (LIT-7181).
+    """x-hangarllm-team-id may carry the team alias instead of the team id (LIT-7181).
     The alias resolves to its team id before the allowed-teams check, so a
     caller whose JWT grants team_a gets team_a whether it sends the id or the
     alias, and the id path never pays for an alias lookup."""
@@ -7151,7 +7151,7 @@ async def test_resolve_team_from_header_denies_aliases_of_teams_the_jwt_does_not
     assert "team_b" not in other_team.value.detail
     assert other_team.value.detail.replace("alias_b", "<value>") == unknown.value.detail.replace("no_such", "<value>")
     assert unknown.value.detail == (
-        "x-litellm-team-id 'no_such' does not resolve to a team id or a unique team alias in your JWT's allowed "
+        "x-hangarllm-team-id 'no_such' does not resolve to a team id or a unique team alias in your JWT's allowed "
         "teams. Allowed team ids: ['team_a']"
     )
 
@@ -7162,7 +7162,7 @@ async def test_resolve_team_from_header_denies_an_unknown_team_with_403_when_the
     stray_claim: object,
 ):
     jwt_handler: Final = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_ids_jwt_field="groups")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_ids_jwt_field="groups")
     allowed_team_ids: Final = set(jwt_handler.get_team_ids_from_jwt({"groups": ["team_a", stray_claim]}))
 
     with pytest.raises(HTTPException) as denied:
@@ -7195,7 +7195,7 @@ async def test_resolve_team_from_header_under_db_fallback_tries_the_id_before_th
         await _resolve_header("ghost", set(), True, _teams_by_id(known_ids), _teams_by_alias(aliases))
     assert neither.value.status_code == 403
     assert neither.value.detail == (
-        "x-litellm-team-id 'ghost' does not resolve to a team id or a unique team alias among your team memberships."
+        "x-hangarllm-team-id 'ghost' does not resolve to a team id or a unique team alias among your team memberships."
     )
 
 
@@ -7209,16 +7209,16 @@ async def test_resolve_team_from_header_under_db_fallback_never_aliases_a_team_i
     aliases = {"team_a": "team_b"}
 
     with (
-        patch("litellm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock, side_effect=_team_lookup_404),
+        patch("hangarllm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock, side_effect=_team_lookup_404),
         patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object_by_alias",
+            "hangarllm.proxy.auth.handle_jwt.get_team_object_by_alias",
             new_callable=AsyncMock,
             side_effect=_teams_by_alias(aliases),
         ) as lookups_by_alias,
         pytest.raises(HTTPException) as unreadable,
     ):
         await JWTAuthManager.resolve_team_from_header(
-            request_headers={"x-litellm-team-id": "team_a"},
+            request_headers={"x-hangarllm-team-id": "team_a"},
             allowed_team_ids=set(),
             fallback_to_db_teams=True,
             prisma_client=MagicMock(),
@@ -7229,7 +7229,7 @@ async def test_resolve_team_from_header_under_db_fallback_never_aliases_a_team_i
 
     assert unreadable.value.status_code == 403
     assert unreadable.value.detail == (
-        "x-litellm-team-id 'team_a' does not resolve to a team id or a unique team alias among your team memberships."
+        "x-hangarllm-team-id 'team_a' does not resolve to a team id or a unique team alias among your team memberships."
     )
     lookups_by_alias.assert_not_awaited()
 
@@ -7256,7 +7256,7 @@ async def test_resolve_team_from_header_denies_a_duplicate_alias_like_an_unknown
     assert duplicate.value.status_code == 403
     assert duplicate.value.detail == unknown.value.detail
     assert duplicate.value.detail == (
-        "x-litellm-team-id 'shared_alias' does not resolve to a team id or a unique team alias in your JWT's "
+        "x-hangarllm-team-id 'shared_alias' does not resolve to a team id or a unique team alias in your JWT's "
         "allowed teams. Allowed team ids: ['team_a']"
     )
 
@@ -7268,7 +7268,7 @@ async def test_resolve_team_from_header_denies_a_duplicate_alias_like_an_unknown
     assert duplicate_under_fallback.value.status_code == 403
     assert duplicate_under_fallback.value.detail == unknown_under_fallback.value.detail
     assert duplicate_under_fallback.value.detail == (
-        "x-litellm-team-id 'shared_alias' does not resolve to a team id or a unique team alias among your team "
+        "x-hangarllm-team-id 'shared_alias' does not resolve to a team id or a unique team alias among your team "
         "memberships."
     )
 
@@ -7279,18 +7279,18 @@ async def test_resolve_team_from_header_denies_a_duplicate_alias_like_an_unknown
 
 @pytest.mark.asyncio
 async def test_auth_builder_header_alias_binds_the_aliased_team_under_claims_and_db_fallback():
-    """End to end through auth_builder, x-litellm-team-id carrying a team alias
+    """End to end through auth_builder, x-hangarllm-team-id carrying a team alias
     binds the request to the aliased team (result team_id is the canonical id)
     both when the JWT grants that team by claim and when a claimless JWT relies
     on fallback_to_db_teams and DB membership."""
     aliases = {"alias_member": "team_member"}
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="u_alias",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["team_member"],
     )
 
-    claims_config = LiteLLM_JWTAuth(team_ids_jwt_field="team_ids")
+    claims_config = HangarLLM_JWTAuth(team_ids_jwt_field="team_ids")
     by_claim = await _run_auth_builder_with_header_team(
         claims_config,
         {"sub": "u_alias", "scope": "", "team_ids": ["team_member"]},
@@ -7303,7 +7303,7 @@ async def test_auth_builder_header_alias_binds_the_aliased_team_under_claims_and
     assert by_claim["team_id"] == "team_member"
     assert by_claim["team_object"].team_id == "team_member"
 
-    fallback_config = LiteLLM_JWTAuth(fallback_to_db_teams=True)
+    fallback_config = HangarLLM_JWTAuth(fallback_to_db_teams=True)
     by_membership = await _run_auth_builder_with_header_team(
         fallback_config,
         {"sub": "u_alias", "scope": ""},
@@ -7324,12 +7324,12 @@ async def test_auth_builder_header_alias_of_a_non_member_team_is_denied_like_an_
     the caller sent rather than the team id it resolved to."""
     aliases = {"alias_other": "team_other"}
     known_ids = frozenset({"team_member", "team_other"})
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="u_alias_outsider",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["team_member"],
     )
-    config = LiteLLM_JWTAuth(fallback_to_db_teams=True)
+    config = HangarLLM_JWTAuth(fallback_to_db_teams=True)
     token = {"sub": "u_alias_outsider", "scope": ""}
 
     with pytest.raises(HTTPException) as outsider_alias:
@@ -7354,12 +7354,12 @@ async def test_auth_builder_header_alias_under_db_fallback_keeps_the_team_allowe
     """Under fallback_to_db_teams, a member team selected by alias is still held
     to team_allowed_routes, and the denial names the alias the caller sent."""
     aliases = {"alias_member": "team_member"}
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="u_alias_routes",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["team_member"],
     )
-    config = LiteLLM_JWTAuth(fallback_to_db_teams=True, team_allowed_routes=["openai_routes"])
+    config = HangarLLM_JWTAuth(fallback_to_db_teams=True, team_allowed_routes=["openai_routes"])
     token = {"sub": "u_alias_routes", "scope": ""}
 
     with pytest.raises(HTTPException) as exc_info:
@@ -7375,7 +7375,7 @@ async def test_auth_builder_header_alias_under_db_fallback_keeps_the_team_allowe
         )
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail == (
-        "Team 'alias_member' (from x-litellm-team-id header) is not allowed to access route '/key/info'."
+        "Team 'alias_member' (from x-hangarllm-team-id header) is not allowed to access route '/key/info'."
     )
 
     allowed = await _run_auth_builder_with_header_team(
@@ -7393,16 +7393,16 @@ async def test_auth_builder_header_alias_under_db_fallback_keeps_the_team_allowe
 
 @pytest.mark.asyncio
 async def test_auth_builder_header_selects_db_membership_team_when_jwt_also_carries_a_team_claim() -> None:
-    """Under fallback_to_db_teams, x-litellm-team-id may name a DB-membership
+    """Under fallback_to_db_teams, x-hangarllm-team-id may name a DB-membership
     team the JWT does not claim (LIT-8656): the allowed set is the JWT teams
     union the user's DB memberships, not the JWT teams alone. The flag-off
     path keeps rejecting the same header against the JWT's allowed teams."""
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="u_mixed",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["team_member"],
     )
-    config = LiteLLM_JWTAuth(fallback_to_db_teams=True, team_id_jwt_field="appid")
+    config = HangarLLM_JWTAuth(fallback_to_db_teams=True, team_id_jwt_field="appid")
     token = {"sub": "u_mixed", "scope": "", "appid": "team_claimed"}
     fake_get_team = _teams_by_id(frozenset({"team_claimed", "team_member"}))
 
@@ -7417,7 +7417,7 @@ async def test_auth_builder_header_selects_db_membership_team_when_jwt_also_carr
     )
     assert by_claim["team_id"] == "team_claimed"
 
-    flag_off = LiteLLM_JWTAuth(fallback_to_db_teams=False, team_id_jwt_field="appid")
+    flag_off = HangarLLM_JWTAuth(fallback_to_db_teams=False, team_id_jwt_field="appid")
     with pytest.raises(HTTPException) as exc_info:
         await _run_auth_builder_with_header_team(
             flag_off, token, "team_member", user_object, fake_get_team, {"team_claimed"}
@@ -7432,12 +7432,12 @@ async def test_auth_builder_header_non_member_team_is_denied_when_jwt_also_carri
     denial even when the JWT carries a team claim, and an existing but
     non-member team produces the exact same 403 shape as a nonexistent one so
     the response is no oracle for which team ids exist."""
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="u_mixed",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["team_member"],
     )
-    config = LiteLLM_JWTAuth(fallback_to_db_teams=True, team_id_jwt_field="appid")
+    config = HangarLLM_JWTAuth(fallback_to_db_teams=True, team_id_jwt_field="appid")
     token = {"sub": "u_mixed", "scope": "", "appid": "team_claimed"}
     fake_get_team = _teams_by_id(frozenset({"team_claimed", "team_member", "team_other"}))
 
@@ -7453,7 +7453,7 @@ async def test_auth_builder_header_non_member_team_is_denied_when_jwt_also_carri
     assert outsider_exc.value.status_code == 403
     assert missing_exc.value.status_code == 403
     assert outsider_exc.value.detail == (
-        "x-litellm-team-id 'team_other' does not resolve to a team id or a unique team alias among your "
+        "x-hangarllm-team-id 'team_other' does not resolve to a team id or a unique team alias among your "
         "team memberships."
     )
     assert missing_exc.value.detail.replace("team_ghost", "<team>") == outsider_exc.value.detail.replace(
@@ -7464,14 +7464,14 @@ async def test_auth_builder_header_non_member_team_is_denied_when_jwt_also_carri
 
 @pytest.mark.asyncio
 async def test_auth_builder_no_header_keeps_the_jwt_team_when_fallback_to_db_teams_is_on() -> None:
-    """With no x-litellm-team-id header, fallback_to_db_teams must not disturb
+    """With no x-hangarllm-team-id header, fallback_to_db_teams must not disturb
     the claim path: the JWT's own team claim still binds the request."""
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="u_mixed",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["team_member"],
     )
-    config = LiteLLM_JWTAuth(fallback_to_db_teams=True, team_id_jwt_field="appid")
+    config = HangarLLM_JWTAuth(fallback_to_db_teams=True, team_id_jwt_field="appid")
     token = {"sub": "u_mixed", "scope": "", "appid": "team_claimed"}
 
     result = await _run_auth_builder_with_header_team(
@@ -7491,12 +7491,12 @@ async def test_auth_builder_team_id_default_does_not_widen_the_header_allowed_se
     """team_id_default fills in a team for claimless tokens but must not widen
     the header's allowed set: a header naming the default team is still held
     to DB membership under fallback_to_db_teams."""
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="u_default",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         teams=["team_member"],
     )
-    config = LiteLLM_JWTAuth(fallback_to_db_teams=True, team_id_default="team_default")
+    config = HangarLLM_JWTAuth(fallback_to_db_teams=True, team_id_default="team_default")
     token = {"sub": "u_default", "scope": ""}
 
     with pytest.raises(HTTPException) as exc_info:
@@ -7510,7 +7510,7 @@ async def test_auth_builder_team_id_default_does_not_widen_the_header_allowed_se
         )
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail == (
-        "x-litellm-team-id 'team_default' does not resolve to a team id or a unique team alias among your "
+        "x-hangarllm-team-id 'team_default' does not resolve to a team id or a unique team alias among your "
         "team memberships."
     )
 
@@ -7526,7 +7526,7 @@ async def test_sync_user_role_and_teams_singular_claim_only_recognized_under_fla
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=AsyncMock(),
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             team_id_jwt_field="primary_team",
             sync_user_role_and_teams=True,
             fallback_to_db_teams=False,
@@ -7534,14 +7534,14 @@ async def test_sync_user_role_and_teams_singular_claim_only_recognized_under_fla
     )
 
     token = {"sub": "u_flag_off", "primary_team": "team_primary"}
-    user = LiteLLM_UserTable(
+    user = HangarLLM_UserTable(
         user_id="u_flag_off",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=HangarllmUserRoles.INTERNAL_USER.value,
         teams=["team_existing"],
     )
 
     with patch(
-        "litellm.proxy.management_endpoints.scim.scim_v2.patch_team_membership",
+        "hangarllm.proxy.management_endpoints.scim.scim_v2.patch_team_membership",
         new_callable=AsyncMock,
     ) as mock_patch:
         await JWTAuthManager.sync_user_role_and_teams(
@@ -7563,19 +7563,19 @@ async def test_sync_user_role_and_teams_singular_claim_only_recognized_under_fla
 async def test_jwt_identity_and_authorization_keep_provisioning_in_admission(
     monkeypatch: pytest.MonkeyPatch, operation: str, existing_user: bool, model_allowed: bool
 ) -> None:
-    from litellm.proxy._types import ScopeMapping
-    from litellm.proxy.auth.auth_checks import UserNotFoundError
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy._types import ScopeMapping
+    from hangarllm.proxy.auth.auth_checks import UserNotFoundError
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     private_key, jwk = _get_rsa_key_and_jwk("identity-mode")
     cache: Final = UserApiKeyCache()
-    cache.set_cache("litellm_jwt_auth_keys_https://identity.example/jwks", [jwk])
+    cache.set_cache("hangarllm_jwt_auth_keys_https://identity.example/jwks", [jwk])
     user_id: Final = f"identity-mode-{operation}-{existing_user}-{model_allowed}"
-    user: Final = LiteLLM_UserTable(user_id=user_id, organization_memberships=[])
+    user: Final = HangarLLM_UserTable(user_id=user_id, organization_memberships=[])
     if existing_user:
         cache.set_cache(user_id, user)
     database: Final = MagicMock()
-    users: Final = database.db.litellm_usertable
+    users: Final = database.db.hangarllm_usertable
     users.find_unique = AsyncMock(return_value=None)
     users.find_first = AsyncMock(return_value=None)
     users.create = AsyncMock(return_value=user)
@@ -7583,7 +7583,7 @@ async def test_jwt_identity_and_authorization_keep_provisioning_in_admission(
     handler.update_environment(
         prisma_client=database,
         user_api_key_cache=cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             user_id_jwt_field="sub",
             user_id_upsert=True,
             enforce_scope_based_access=True,
@@ -7645,7 +7645,7 @@ def _entra_agent_registry() -> AgentRegistry:
             agent_id="canonical-agent-id",
             agent_name="2f5c9b1e-6a4d-4c8e-9f0b-7d1a3e5c9b21",
             agent_card_params={"name": "research-agent", "url": "http://localhost:9999/a2a", "version": "1.0.0"},
-            litellm_params={"require_trace_id_on_calls_by_agent": True},
+            hangarllm_params={"require_trace_id_on_calls_by_agent": True},
         )
     )
     return registry
@@ -7656,7 +7656,7 @@ def _entra_agent_jwt_handler(agent_id_jwt_field: str | None) -> JWTHandler:
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=DualCache(),
-        litellm_jwtauth=LiteLLM_JWTAuth(user_id_jwt_field="sub", agent_id_jwt_field=agent_id_jwt_field),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(user_id_jwt_field="sub", agent_id_jwt_field=agent_id_jwt_field),
     )
     return jwt_handler
 
@@ -7745,17 +7745,17 @@ def _entra_signed_app_token(monkeypatch, azp: str, scope: str) -> tuple[JWTHandl
     monkeypatch.delenv("JWT_AUDIENCE", raising=False)
     private_key, jwk = _get_rsa_key_and_jwk(kid="entra-kid")
     cache = UserApiKeyCache()
-    cache.set_cache(key=f"litellm_jwt_auth_keys_{jwks_url}", value=[jwk])
+    cache.set_cache(key=f"hangarllm_jwt_auth_keys_{jwks_url}", value=[jwk])
     jwt_handler = JWTHandler()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(agent_id_jwt_field="azp"),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(agent_id_jwt_field="azp"),
     )
     token = _encode_rsa_jwt(
         private_key,
         issuer="https://login.microsoftonline.test/lit7664-tenant/v2.0",
-        audience="api://litellm",
+        audience="api://hangarllm",
         kid="entra-kid",
         extra_claims={"sub": "sp-object-id-1234", "azp": azp, "scope": scope},
     )
@@ -7770,7 +7770,7 @@ async def test_auth_builder_propagates_agent_id_from_jwt_claim(monkeypatch, is_a
     jwt_handler, token = _entra_signed_app_token(
         monkeypatch,
         azp="2f5c9b1e-6a4d-4c8e-9f0b-7d1a3e5c9b21",
-        scope=LiteLLM_JWTAuth().admin_jwt_scope if is_admin_token else "",
+        scope=HangarLLM_JWTAuth().admin_jwt_scope if is_admin_token else "",
     )
     jwt_handler.bind_agent_lookup(_entra_agent_registry())
 
@@ -7805,7 +7805,7 @@ async def test_auth_builder_denies_jwt_naming_unregistered_agent_before_admin_ch
     jwt_handler, token = _entra_signed_app_token(
         monkeypatch,
         azp="00000000-0000-0000-0000-000000000000",
-        scope=LiteLLM_JWTAuth().admin_jwt_scope,
+        scope=HangarLLM_JWTAuth().admin_jwt_scope,
     )
     jwt_handler.bind_agent_lookup(_entra_agent_registry())
 
@@ -7842,13 +7842,13 @@ _JWT_DENIED_CLIENT_MESSAGE = (
 def test_can_rbac_role_call_model_denial_hides_role_allowlist_from_client():
     general_settings = {
         "role_permissions": [
-            RoleBasedPermissions(role=LitellmUserRoles.INTERNAL_USER, models=["gpt-5.6-mini"]),
+            RoleBasedPermissions(role=HangarllmUserRoles.INTERNAL_USER, models=["gpt-5.6-mini"]),
         ]
     }
 
     with pytest.raises(ModelAccessDeniedHTTPException) as exc_info:
         JWTAuthManager.can_rbac_role_call_model(
-            rbac_role=LitellmUserRoles.INTERNAL_USER,
+            rbac_role=HangarllmUserRoles.INTERNAL_USER,
             general_settings=general_settings,
             model="gpt-5.6",
         )
@@ -7863,8 +7863,8 @@ def test_can_rbac_role_call_model_denial_hides_role_allowlist_from_client():
 def test_check_scope_based_access_denial_hides_scope_allowlist_from_client():
     with pytest.raises(ModelAccessDeniedHTTPException) as exc_info:
         JWTAuthManager.check_scope_based_access(
-            scope_mappings=[ScopeMapping(scope="litellm.api.consumer", models=["gpt-5.6-mini"])],
-            scopes=["litellm.api.consumer"],
+            scope_mappings=[ScopeMapping(scope="hangarllm.api.consumer", models=["gpt-5.6-mini"])],
+            scopes=["hangarllm.api.consumer"],
             request_data={"model": "gpt-5.6"},
             general_settings={},
         )
@@ -7877,17 +7877,17 @@ def test_check_scope_based_access_denial_hides_scope_allowlist_from_client():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("admission", [False, True])
 async def test_admin_jwt_team_header_only_provisions_during_admission(monkeypatch, admission: bool):
-    from litellm.proxy.management_endpoints import team_endpoints
+    from hangarllm.proxy.management_endpoints import team_endpoints
 
     handler, token = _entra_signed_app_token(
-        monkeypatch, azp="canonical-agent-id", scope=LiteLLM_JWTAuth().admin_jwt_scope,
+        monkeypatch, azp="canonical-agent-id", scope=HangarLLM_JWTAuth().admin_jwt_scope,
     )
     handler.bind_agent_lookup(_entra_agent_registry())
-    handler.litellm_jwtauth.team_id_upsert = True
-    handler.litellm_jwtauth.admin_allowed_routes = ["openai_routes"]
+    handler.hangarllm_jwtauth.team_id_upsert = True
+    handler.hangarllm_jwtauth.admin_allowed_routes = ["openai_routes"]
     database = MagicMock()
-    database.db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
-    create_team = AsyncMock(return_value=LiteLLM_TeamTable(team_id="new-team").model_dump())
+    database.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=None)
+    create_team = AsyncMock(return_value=HangarLLM_TeamTable(team_id="new-team").model_dump())
     monkeypatch.setattr(team_endpoints, "new_team", create_team)
     resolve = JWTAuthManager.auth_builder if admission else JWTAuthManager.authorize_jwt
 
@@ -7895,7 +7895,7 @@ async def test_admin_jwt_team_header_only_provisions_during_admission(monkeypatc
         api_key=token, jwt_handler=handler, request_data={}, general_settings={},
         route="/chat/completions", prisma_client=database,
         user_api_key_cache=handler.user_api_key_cache, parent_otel_span=None,
-        proxy_logging_obj=MagicMock(), request_headers={"x-litellm-team-id": "new-team"},
+        proxy_logging_obj=MagicMock(), request_headers={"x-hangarllm-team-id": "new-team"},
     )
 
     assert result["is_proxy_admin"] is True
@@ -7913,7 +7913,7 @@ def _explicit_identity_registry() -> AgentRegistry:
         agent_id="explicit-agent-id",
         agent_name="Readable agent name",
         agent_card_params={},
-        litellm_params={"identity": {
+        hangarllm_params={"identity": {
             "provider": "microsoft_entra",
             "tenant_id": "11111111-1111-4111-8111-111111111111",
             "client_id": "22222222-2222-4222-8222-222222222222",
@@ -7966,17 +7966,17 @@ def test_explicit_entra_identity_cannot_be_claimed_via_legacy_lookup(override: M
 async def test_scope_admin_admission_resolves_existing_user_without_provisioning(
     monkeypatch: pytest.MonkeyPatch, existing_user: bool, warm_cache: bool, email: str | None
 ) -> None:
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     private_key, jwk = _get_rsa_key_and_jwk("admin-status")
     cache: Final = UserApiKeyCache()
-    cache.set_cache("litellm_jwt_auth_keys_https://admin.example/jwks", [jwk])
+    cache.set_cache("hangarllm_jwt_auth_keys_https://admin.example/jwks", [jwk])
     user_id: Final = f"admin-status-{existing_user}-{warm_cache}-{email}"
-    user: Final = LiteLLM_UserTable(user_id=user_id, user_email="admin@allowed.example", metadata={"scim_active": False}, organization_memberships=[])
+    user: Final = HangarLLM_UserTable(user_id=user_id, user_email="admin@allowed.example", metadata={"scim_active": False}, organization_memberships=[])
     if existing_user and warm_cache:
         cache.set_cache(user_id, user)
     database: Final = MagicMock()
-    users: Final = database.db.litellm_usertable
+    users: Final = database.db.hangarllm_usertable
     users.find_unique = AsyncMock(return_value=user if existing_user else None)
     users.find_first = AsyncMock(return_value=None)
     users.create = AsyncMock()
@@ -7984,7 +7984,7 @@ async def test_scope_admin_admission_resolves_existing_user_without_provisioning
     handler.update_environment(
         prisma_client=database,
         user_api_key_cache=cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             user_id_jwt_field="sub", user_id_upsert=True, user_email_jwt_field="email",
             user_allowed_email_domain="allowed.example",
         ),
@@ -7994,7 +7994,7 @@ async def test_scope_admin_admission_resolves_existing_user_without_provisioning
     monkeypatch.setenv("JWT_AUDIENCE", "gateway")
     token: Final = _encode_rsa_jwt(
         private_key, "https://admin.example", "gateway", "admin-status",
-        {"sub": user_id, "scope": "litellm_proxy_admin", **({"email": email} if email else {})},
+        {"sub": user_id, "scope": "hangarllm_proxy_admin", **({"email": email} if email else {})},
     )
     result: Final = await JWTAuthManager.auth_builder(
         api_key=token, jwt_handler=handler, prisma_client=database, user_api_key_cache=cache,
@@ -8024,7 +8024,7 @@ async def test_scope_admin_admission_resolves_existing_user_without_provisioning
 async def test_managed_application_uses_persisted_identity_without_provisioning_human(
     monkeypatch: pytest.MonkeyPatch, mode: str, audience_validation: bool, route: str, allowed: bool
 ) -> None:
-    from litellm.types.proxy.agent_identity import AgentIdentityBinding
+    from hangarllm.types.proxy.agent_identity import AgentIdentityBinding
 
     tenant: Final = "11111111-1111-4111-8111-111111111111"
     client_id: Final = "22222222-2222-4222-8222-222222222222"
@@ -8036,9 +8036,9 @@ async def test_managed_application_uses_persisted_identity_without_provisioning_
     monkeypatch.setenv("JWT_AUDIENCE", "api://gateway")
     private_key, jwk = _get_rsa_key_and_jwk(kid="managed-key")
     cache: Final = DualCache()
-    cache.set_cache(key=f"litellm_jwt_auth_keys_{jwks_url}", value=[jwk])
+    cache.set_cache(key=f"hangarllm_jwt_auth_keys_{jwks_url}", value=[jwk])
     handler: Final = JWTHandler()
-    handler.update_environment(None, cache, LiteLLM_JWTAuth(user_id_upsert=True))
+    handler.update_environment(None, cache, HangarLLM_JWTAuth(user_id_upsert=True))
     binding: Final = AgentIdentityBinding(
         agent_id="stable-id",
         provider="microsoft_entra",
@@ -8060,11 +8060,11 @@ async def test_managed_application_uses_persisted_identity_without_provisioning_
         }
     )
     database: Final = MagicMock()
-    database.writer_db.litellm_agentidentity.find_unique = AsyncMock(return_value=binding)
-    database.writer_db.litellm_agentidentity.update_many = AsyncMock(return_value=1)
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=agent)
-    database.writer_db.litellm_verifiedsubject.find_unique = AsyncMock(return_value=None)
-    database.db.litellm_usertable.upsert = AsyncMock()
+    database.writer_db.hangarllm_agentidentity.find_unique = AsyncMock(return_value=binding)
+    database.writer_db.hangarllm_agentidentity.update_many = AsyncMock(return_value=1)
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=agent)
+    database.writer_db.hangarllm_verifiedsubject.find_unique = AsyncMock(return_value=None)
+    database.db.hangarllm_usertable.upsert = AsyncMock()
     token: Final = _encode_rsa_jwt(
         private_key,
         issuer=issuer,
@@ -8106,12 +8106,12 @@ async def test_managed_application_uses_persisted_identity_without_provisioning_
         assert auth.managed_agent_context is not None
         assert auth.managed_agent_context.mode == "autonomous"
         assert result["is_proxy_admin"] is False
-    database.db.litellm_usertable.upsert.assert_not_awaited()
+    database.db.hangarllm_usertable.upsert.assert_not_awaited()
 
 
 @pytest.mark.parametrize("claim_value", ["managed", "Readable managed agent"])
 def test_legacy_claim_cannot_select_a_top_level_entra_binding(claim_value: str) -> None:
-    from litellm.types.proxy.agent_identity import AgentIdentityBinding
+    from hangarllm.types.proxy.agent_identity import AgentIdentityBinding
 
     registry: Final = AgentRegistry()
     registry.register_agent(
@@ -8146,7 +8146,7 @@ async def test_database_free_jwt_admission_with_entra_shaped_claims(monkeypatch:
     monkeypatch.setenv("JWT_AUDIENCE", "api://gateway")
     private_key, jwk = _get_rsa_key_and_jwk(kid="config-key")
     cache: Final = DualCache()
-    cache.set_cache(key=f"litellm_jwt_auth_keys_{jwks_url}", value=[jwk])
+    cache.set_cache(key=f"hangarllm_jwt_auth_keys_{jwks_url}", value=[jwk])
     registry: Final = AgentRegistry()
     registry.register_agent(
         AgentResponse(
@@ -8157,7 +8157,7 @@ async def test_database_free_jwt_admission_with_entra_shaped_claims(monkeypatch:
         )
     )
     handler: Final = JWTHandler()
-    handler.update_environment(None, cache, LiteLLM_JWTAuth(agent_id_jwt_field="agent", admin_allowed_routes=["llm_api_routes"]))
+    handler.update_environment(None, cache, HangarLLM_JWTAuth(agent_id_jwt_field="agent", admin_allowed_routes=["llm_api_routes"]))
     handler.bind_agent_lookup(registry)
     token: Final = _encode_rsa_jwt(
         private_key,
@@ -8167,7 +8167,7 @@ async def test_database_free_jwt_admission_with_entra_shaped_claims(monkeypatch:
         extra_claims={
             "tid": "test-tenant",
             "azp": "application",
-            "scope": "litellm_proxy_admin",
+            "scope": "hangarllm_proxy_admin",
             **({"agent": "configured"} if kind != "human" else {}),
         },
     )
@@ -8206,7 +8206,7 @@ async def test_database_free_jwt_admission_with_entra_shaped_claims(monkeypatch:
 def test_managed_issuer_requires_configured_audience_validation(
     monkeypatch: pytest.MonkeyPatch, issuer: str | None, audience: str | None, disabled: bool, expected: bool
 ) -> None:
-    from litellm.proxy._types import JWTIssuerConfig
+    from hangarllm.proxy._types import JWTIssuerConfig
 
     monkeypatch.delenv("JWT_ISSUER", raising=False)
     monkeypatch.delenv("JWT_AUDIENCE", raising=False)
@@ -8214,7 +8214,7 @@ def test_managed_issuer_requires_configured_audience_validation(
     handler.update_environment(
         None,
         DualCache(),
-        LiteLLM_JWTAuth(
+        HangarLLM_JWTAuth(
             issuers=[
                 JWTIssuerConfig(issuer="trusted", audience=audience, disable_audience_validation=disabled),
             ]
@@ -8228,14 +8228,14 @@ def test_managed_issuer_requires_configured_audience_validation(
 async def test_managed_jwt_reuses_binding_lookup_but_rechecks_disabled_policy(
     monkeypatch: pytest.MonkeyPatch, authentication_write: str
 ) -> None:
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.types.proxy.agent_identity import AgentIdentityBinding
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.types.proxy.agent_identity import AgentIdentityBinding
 
     issuer: Final = "https://login.microsoftonline.com/tenant/v2.0"
     jwks_url: Final = "https://identity.example/managed-jwks"
     private_key, jwk = _get_rsa_key_and_jwk("managed-cache")
     cache: Final = UserApiKeyCache()
-    cache.set_cache(f"litellm_jwt_auth_keys_{jwks_url}", [jwk])
+    cache.set_cache(f"hangarllm_jwt_auth_keys_{jwks_url}", [jwk])
     monkeypatch.setenv("JWT_PUBLIC_KEY_URL", jwks_url)
     monkeypatch.setenv("JWT_ISSUER", issuer)
     monkeypatch.setenv("JWT_AUDIENCE", "gateway")
@@ -8247,11 +8247,11 @@ async def test_managed_jwt_reuses_binding_lookup_but_rechecks_disabled_policy(
         agent_id="managed", agent_name="Managed", agent_card_params={}, identity_managed=True, identity=binding,
     )
     database: Final = MagicMock()
-    database.writer_db.litellm_agentidentity.find_unique = AsyncMock(return_value=binding)
-    database.writer_db.litellm_agentidentity.update_many = AsyncMock(return_value=1)
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=agent)
+    database.writer_db.hangarllm_agentidentity.find_unique = AsyncMock(return_value=binding)
+    database.writer_db.hangarllm_agentidentity.update_many = AsyncMock(return_value=1)
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=agent)
     handler: Final = JWTHandler()
-    handler.update_environment(database, cache, LiteLLM_JWTAuth())
+    handler.update_environment(database, cache, HangarLLM_JWTAuth())
     token: Final = _encode_rsa_jwt(
         private_key, issuer, "gateway", "managed-cache", {"tid": "tenant", "azp": "client", "oid": "principal"}
     )
@@ -8262,24 +8262,24 @@ async def test_managed_jwt_reuses_binding_lookup_but_rechecks_disabled_policy(
     for _ in range(2):
         result: Final = await JWTAuthManager.authorize_jwt(**arguments)
         assert result["agent_id"] == "managed"
-    database.writer_db.litellm_agentidentity.find_unique.assert_awaited_once()
-    assert database.writer_db.litellm_agentstable.find_unique.await_count == 2
-    assert database.writer_db.litellm_agentidentity.update_many.await_count == 2
+    database.writer_db.hangarllm_agentidentity.find_unique.assert_awaited_once()
+    assert database.writer_db.hangarllm_agentstable.find_unique.await_count == 2
+    assert database.writer_db.hangarllm_agentidentity.update_many.await_count == 2
     if authentication_write != "success":
-        database.writer_db.litellm_agentidentity.update_many.return_value = 0
-        database.writer_db.litellm_agentidentity.update_many.side_effect = (
+        database.writer_db.hangarllm_agentidentity.update_many.return_value = 0
+        database.writer_db.hangarllm_agentidentity.update_many.side_effect = (
             RuntimeError("storage unavailable") if authentication_write == "unavailable" else None
         )
         with pytest.raises(HTTPException) as failed_write:
             await JWTAuthManager.authorize_jwt(**arguments)
         assert failed_write.value.status_code == (503 if authentication_write == "unavailable" else 403)
-        assert database.writer_db.litellm_agentidentity.update_many.await_count == 3
+        assert database.writer_db.hangarllm_agentidentity.update_many.await_count == 3
         return
-    database.writer_db.litellm_agentstable.find_unique.return_value = agent.model_copy(update={"enabled": False})
+    database.writer_db.hangarllm_agentstable.find_unique.return_value = agent.model_copy(update={"enabled": False})
     with pytest.raises(HTTPException) as denied:
         await JWTAuthManager.authorize_jwt(**arguments)
     assert denied.value.status_code == 403
-    assert database.writer_db.litellm_agentidentity.update_many.await_count == 2
+    assert database.writer_db.hangarllm_agentidentity.update_many.await_count == 2
 
 
 @pytest.mark.asyncio
@@ -8298,26 +8298,26 @@ async def test_managed_jwt_reuses_binding_lookup_but_rechecks_disabled_policy(
 async def test_delegated_jwt_uses_granting_team_policy_before_route_authorization(
     monkeypatch: pytest.MonkeyPatch, team_route_allowed: bool, team_claim: str | None, db_fallback: bool
 ) -> None:
-    from litellm.proxy.agent_endpoints.auth import agent_permission_handler
-    from litellm.proxy.auth import handle_jwt
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.types.proxy.agent_identity import ManagedAgentContext
+    from hangarllm.proxy.agent_endpoints.auth import agent_permission_handler
+    from hangarllm.proxy.auth import handle_jwt
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.types.proxy.agent_identity import ManagedAgentContext
 
     issuer: Final = "https://login.microsoftonline.com/11111111-1111-4111-8111-111111111111/v2.0"
     jwks_url: Final = "https://identity.example/delegated-jwks"
     private_key, jwk = _get_rsa_key_and_jwk("delegated-team")
     cache: Final = UserApiKeyCache()
-    cache.set_cache(f"litellm_jwt_auth_keys_{jwks_url}", [jwk])
+    cache.set_cache(f"hangarllm_jwt_auth_keys_{jwks_url}", [jwk])
     monkeypatch.setenv("JWT_PUBLIC_KEY_URL", jwks_url)
     monkeypatch.setenv("JWT_ISSUER", issuer)
     monkeypatch.setenv("JWT_AUDIENCE", "gateway")
     database: Final = MagicMock()
-    database.writer_db.litellm_agentidentity.update_many = AsyncMock(return_value=1)
+    database.writer_db.hangarllm_agentidentity.update_many = AsyncMock(return_value=1)
     handler: Final = JWTHandler()
     handler.update_environment(
         database,
         cache,
-        LiteLLM_JWTAuth(
+        HangarLLM_JWTAuth(
             team_allowed_routes=["/chat/completions" if team_route_allowed else "/embeddings"],
             team_id_jwt_field="team" if team_claim is not None else None,
             team_alias_jwt_field="team_alias" if team_claim is not None else None,
@@ -8333,20 +8333,20 @@ async def test_delegated_jwt_uses_granting_team_policy_before_route_authorizatio
         "_verified_human_agent_sources",
         AsyncMock(return_value=(("granting-team", frozenset(("delegated-agent",))),)),
     )
-    team: Final = LiteLLM_TeamTable(team_id="granting-team", models=["allowed-model"], max_budget=5)
+    team: Final = HangarLLM_TeamTable(team_id="granting-team", models=["allowed-model"], max_budget=5)
 
-    async def team_policy(team_id: str, **kwargs: object) -> LiteLLM_TeamTable:
-        return team if team_id == team.team_id else LiteLLM_TeamTable(team_id=team_id)
+    async def team_policy(team_id: str, **kwargs: object) -> HangarLLM_TeamTable:
+        return team if team_id == team.team_id else HangarLLM_TeamTable(team_id=team_id)
 
     load_team: Final = AsyncMock(side_effect=team_policy)
     monkeypatch.setattr(handle_jwt, "get_team_object", load_team)
     monkeypatch.setattr(
-        handle_jwt, "get_team_object_by_alias", AsyncMock(return_value=LiteLLM_TeamTable(team_id="other-team"))
+        handle_jwt, "get_team_object_by_alias", AsyncMock(return_value=HangarLLM_TeamTable(team_id="other-team"))
     )
     monkeypatch.setattr(
         handle_jwt,
         "get_user_object",
-        AsyncMock(return_value=LiteLLM_UserTable(user_id="human", teams=["granting-team", "other-team"])),
+        AsyncMock(return_value=HangarLLM_UserTable(user_id="human", teams=["granting-team", "other-team"])),
     )
     monkeypatch.setattr(handle_jwt, "get_team_membership", AsyncMock(return_value=None))
     token: Final = _encode_rsa_jwt(
@@ -8400,13 +8400,13 @@ async def test_check_admin_access_names_the_route_and_the_expanded_allow_list_wh
     handler.update_environment(
         prisma_client=None,
         user_api_key_cache=UserApiKeyCache(),
-        litellm_jwtauth=LiteLLM_JWTAuth(admin_allowed_routes=["info_routes", "/custom/admin/route"]),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(admin_allowed_routes=["info_routes", "/custom/admin/route"]),
     )
 
     with pytest.raises(Exception, match="Admin not allowed to access this route") as denied:
         await JWTAuthManager.check_admin_access(
             jwt_handler=handler,
-            scopes=["litellm_proxy_admin"],
+            scopes=["hangarllm_proxy_admin"],
             route="/key/generate",
             user_id="admin-user",
             org_id=None,
@@ -8415,7 +8415,7 @@ async def test_check_admin_access_names_the_route_and_the_expanded_allow_list_wh
 
     assert str(denied.value) == (
         "Admin not allowed to access this route. Route=/key/generate, "
-        f"Allowed Routes={[*LiteLLMRoutes.info_routes.value, '/custom/admin/route']}"
+        f"Allowed Routes={[*HangarLLMRoutes.info_routes.value, '/custom/admin/route']}"
     )
 
 
@@ -8433,10 +8433,10 @@ def test_team_has_passthrough_route_access_denied_route_wins(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-    team: Final = LiteLLM_TeamTable(team_id="team-a", metadata=team_metadata)
+    team: Final = HangarLLM_TeamTable(team_id="team-a", metadata=team_metadata)
 
     with patch(
-        "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+        "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
         _AUTH_ENFORCED_MODEL_HOST_ROUTES,
     ):
         assert not JWTAuthManager._team_has_passthrough_route_access(
@@ -8461,7 +8461,7 @@ def test_team_has_passthrough_route_access_denied_route_wins(
 def test_team_passthrough_route_denial_names_the_matched_deny_entry(
     team_metadata: dict[str, list[str]], expected_detail: str
 ) -> None:
-    team: Final = LiteLLM_TeamTable(team_id="team-a", metadata=team_metadata)
+    team: Final = HangarLLM_TeamTable(team_id="team-a", metadata=team_metadata)
 
     with pytest.raises(HTTPException) as exc_info:
         JWTAuthManager._raise_team_passthrough_route_denial(route="/model-host/v1/predict", team_object=team)
@@ -8505,12 +8505,12 @@ def _id_jag_claims(**overrides):
     }
 
 
-def _assertion_handler(jwk, litellm_jwtauth, jwks_url=ASSERTION_JWKS_URL):
+def _assertion_handler(jwk, hangarllm_jwtauth, jwks_url=ASSERTION_JWKS_URL):
     """A handler whose JWKS for the issuer is already cached, so no HTTP is needed."""
     handler: Final = JWTHandler()
     cache: Final = DualCache()
-    cache.set_cache(f"litellm_jwt_auth_keys_{jwks_url}", [jwk])
-    handler.update_environment(prisma_client=None, user_api_key_cache=cache, litellm_jwtauth=litellm_jwtauth)
+    cache.set_cache(f"hangarllm_jwt_auth_keys_{jwks_url}", [jwk])
+    handler.update_environment(prisma_client=None, user_api_key_cache=cache, hangarllm_jwtauth=hangarllm_jwtauth)
     return handler
 
 
@@ -8522,12 +8522,12 @@ async def test_decode_trusted_assertion_verifies_against_the_configured_issuer_w
     jwk, sign = _assertion_signer()
     handler = _assertion_handler(
         jwk,
-        LiteLLM_JWTAuth(
+        HangarLLM_JWTAuth(
             issuers=[
                 JWTIssuerConfig(
                     issuer=ASSERTION_ISSUER,
                     jwks_url=ASSERTION_JWKS_URL,
-                    audience="api://litellm",
+                    audience="api://hangarllm",
                     user_id_jwt_field="sub",
                 )
             ]
@@ -8549,7 +8549,7 @@ async def test_decode_trusted_assertion_falls_back_to_the_env_scoped_issuer(monk
     jwk, sign = _assertion_signer()
     monkeypatch.setenv("JWT_ISSUER", ASSERTION_ISSUER)
     monkeypatch.setenv("JWT_PUBLIC_KEY_URL", ASSERTION_JWKS_URL)
-    handler = _assertion_handler(jwk, LiteLLM_JWTAuth())
+    handler = _assertion_handler(jwk, HangarLLM_JWTAuth())
     verified = await handler.decode_trusted_assertion(sign(_id_jag_claims()), GATEWAY_AUDIENCES, ID_JAG_CLAIMS)
     assert isinstance(verified, dict)
     assert verified["jti"] == "jti-1"
@@ -8563,7 +8563,7 @@ async def test_decode_trusted_assertion_falls_back_to_the_env_scoped_issuer(monk
 @pytest.mark.parametrize(
     "fault, reason",
     [
-        ({"aud": "api://litellm"}, "udience"),
+        ({"aud": "api://hangarllm"}, "udience"),
         ({"jti": None}, "jti"),
         ({"client_id": None}, "client_id"),
         ({"exp": -10}, "xpired"),
@@ -8582,7 +8582,7 @@ async def test_decode_trusted_assertion_rejects_a_claim_outside_the_profile(faul
     jwk, sign = _assertion_signer()
     handler = _assertion_handler(
         jwk,
-        LiteLLM_JWTAuth(issuers=[JWTIssuerConfig(issuer=ASSERTION_ISSUER, jwks_url=ASSERTION_JWKS_URL, audience="x")]),
+        HangarLLM_JWTAuth(issuers=[JWTIssuerConfig(issuer=ASSERTION_ISSUER, jwks_url=ASSERTION_JWKS_URL, audience="x")]),
     )
     rejected = await handler.decode_trusted_assertion(sign(claims), GATEWAY_AUDIENCES, ID_JAG_CLAIMS)
     assert isinstance(rejected, AssertionRejection)
@@ -8595,7 +8595,7 @@ async def test_decode_trusted_assertion_rejects_a_forged_signature_and_garbage(m
     _, forge = _assertion_signer()
     handler = _assertion_handler(
         jwk,
-        LiteLLM_JWTAuth(issuers=[JWTIssuerConfig(issuer=ASSERTION_ISSUER, jwks_url=ASSERTION_JWKS_URL, audience="x")]),
+        HangarLLM_JWTAuth(issuers=[JWTIssuerConfig(issuer=ASSERTION_ISSUER, jwks_url=ASSERTION_JWKS_URL, audience="x")]),
     )
     forged = await handler.decode_trusted_assertion(forge(_id_jag_claims()), GATEWAY_AUDIENCES, ID_JAG_CLAIMS)
     assert isinstance(forged, AssertionRejection)
@@ -8603,7 +8603,7 @@ async def test_decode_trusted_assertion_rejects_a_forged_signature_and_garbage(m
     garbage = await handler.decode_trusted_assertion("not.a.jwt", GATEWAY_AUDIENCES, ID_JAG_CLAIMS)
     assert isinstance(garbage, AssertionRejection)
     monkeypatch.delenv("JWT_ISSUER", raising=False)
-    unconfigured = await _assertion_handler(jwk, LiteLLM_JWTAuth()).decode_trusted_assertion(
+    unconfigured = await _assertion_handler(jwk, HangarLLM_JWTAuth()).decode_trusted_assertion(
         forge(_id_jag_claims()), GATEWAY_AUDIENCES, ID_JAG_CLAIMS
     )
     assert isinstance(unconfigured, AssertionRejection)
@@ -8615,7 +8615,7 @@ async def test_decode_trusted_assertion_reports_an_unreachable_jwks_as_an_outage
     jwk, sign = _assertion_signer()
     handler = _assertion_handler(
         jwk,
-        LiteLLM_JWTAuth(issuers=[JWTIssuerConfig(issuer=ASSERTION_ISSUER, jwks_url=ASSERTION_JWKS_URL, audience="x")]),
+        HangarLLM_JWTAuth(issuers=[JWTIssuerConfig(issuer=ASSERTION_ISSUER, jwks_url=ASSERTION_JWKS_URL, audience="x")]),
         jwks_url="https://a-different-cached-url.example.com/keys",
     )
     with patch.object(handler, "_fetch_jwks_keys", new_callable=AsyncMock, side_effect=JWKSUnreachableError("down")):
@@ -8631,7 +8631,7 @@ async def test_auth_jwt_never_accepts_an_id_jag_as_a_bearer_token():
     jwk, sign = _assertion_signer()
     handler = _assertion_handler(
         jwk,
-        LiteLLM_JWTAuth(
+        HangarLLM_JWTAuth(
             issuers=[
                 JWTIssuerConfig(issuer=ASSERTION_ISSUER, jwks_url=ASSERTION_JWKS_URL, audience=GATEWAY_AUDIENCES[0])
             ]
@@ -8650,11 +8650,11 @@ async def test_decode_trusted_assertion_runs_the_configured_custom_validate_on_t
     seen: Final = []
     handler = _assertion_handler(
         jwk,
-        LiteLLM_JWTAuth(
-            issuers=[JWTIssuerConfig(issuer=ASSERTION_ISSUER, jwks_url=ASSERTION_JWKS_URL, audience="api://litellm")]
+        HangarLLM_JWTAuth(
+            issuers=[JWTIssuerConfig(issuer=ASSERTION_ISSUER, jwks_url=ASSERTION_JWKS_URL, audience="api://hangarllm")]
         ),
     )
-    handler.litellm_jwtauth.custom_validate = lambda claims: seen.append(dict(claims)) or verdict
+    handler.hangarllm_jwtauth.custom_validate = lambda claims: seen.append(dict(claims)) or verdict
     claims = _id_jag_claims()
     verified = await handler.decode_trusted_assertion(sign(claims), GATEWAY_AUDIENCES, ID_JAG_CLAIMS)
     assert [{key: call[key] for key in claims} for call in seen] == [claims]

@@ -18,12 +18,12 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
-from litellm import Router
-from litellm.utils import AZURE_MODEL_PLACEHOLDER
+from hangarllm import Router
+from hangarllm.utils import AZURE_MODEL_PLACEHOLDER
 
 
 def test_get_team_models_for_all_models_and_team_only_models():
-    from litellm.proxy.auth.model_checks import get_team_models
+    from hangarllm.proxy.auth.model_checks import get_team_models
 
     team_models = ["all-proxy-models", "team-only-model", "team-only-model-2"]
     proxy_model_list = ["model1", "model2", "model3"]
@@ -36,7 +36,7 @@ def test_get_team_models_for_all_models_and_team_only_models():
 
 
 def test_get_team_models_lists_models_in_the_order_the_team_set_them() -> None:
-    from litellm.proxy.auth.model_checks import get_team_models
+    from hangarllm.proxy.auth.model_checks import get_team_models
 
     team_models: Final = ["zeta", "alpha", "mu", "beta", "omega", "kappa", "delta", "all-proxy-models"]
     result: Final = get_team_models(team_models, ["proxy-b", "proxy-a"], {"grp": ["g1"]}, True)
@@ -50,7 +50,7 @@ def test_get_team_models_all_proxy_models_includes_access_groups():
     the result should include model access group names (e.g. 'claude-model-group')
     in addition to individual model names.
     """
-    from litellm.proxy.auth.model_checks import get_team_models
+    from hangarllm.proxy.auth.model_checks import get_team_models
 
     team_models = ["all-proxy-models"]
     proxy_model_list = ["model1", "model2"]
@@ -77,7 +77,7 @@ def test_get_team_models_all_proxy_models_without_include_flag():
     When include_model_access_groups=False, access group names should NOT
     appear in the result even with 'all-proxy-models'.
     """
-    from litellm.proxy.auth.model_checks import get_team_models
+    from hangarllm.proxy.auth.model_checks import get_team_models
 
     team_models = ["all-proxy-models"]
     proxy_model_list = ["model1", "model2"]
@@ -103,8 +103,8 @@ def test_get_key_models_all_proxy_models_includes_access_groups():
     When a key has 'all-proxy-models' and include_model_access_groups=True,
     the result should include model access group names.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.model_checks import get_key_models
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.auth.model_checks import get_key_models
 
     user_api_key_dict = UserAPIKeyAuth(
         models=["all-proxy-models"],
@@ -133,8 +133,8 @@ def test_get_key_models_passes_include_model_access_groups():
     include_model_access_groups=True, the group name should be retained
     (not stripped by _get_models_from_access_groups).
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.model_checks import get_key_models
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.auth.model_checks import get_key_models
 
     user_api_key_dict = UserAPIKeyAuth(
         models=["group-a"],
@@ -160,8 +160,8 @@ def test_get_key_models_keeps_literal_model_colliding_with_group_name():
     """A name that is BOTH a deployed model and an access group grants both at
     runtime (_check_model_access_helper unions them), so the listing must keep
     the literal model alongside the group members instead of dropping it."""
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.model_checks import get_key_models
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.auth.model_checks import get_key_models
 
     user_api_key_dict = UserAPIKeyAuth(models=["beta-models"], api_key="test-key")
 
@@ -176,7 +176,7 @@ def test_get_key_models_keeps_literal_model_colliding_with_group_name():
 
 def test_get_team_models_keeps_literal_model_colliding_with_group_name():
     """Team flavor of the collision case: literal deployment survives group expansion."""
-    from litellm.proxy.auth.model_checks import get_team_models
+    from hangarllm.proxy.auth.model_checks import get_team_models
 
     result = get_team_models(
         team_models=["beta-models"],
@@ -189,7 +189,7 @@ def test_get_team_models_keeps_literal_model_colliding_with_group_name():
 
 def test_get_team_models_drops_group_name_that_is_not_a_deployed_model():
     """No collision: a pure access-group name is still replaced by its members."""
-    from litellm.proxy.auth.model_checks import get_team_models
+    from hangarllm.proxy.auth.model_checks import get_team_models
 
     result = get_team_models(
         team_models=["beta-models"],
@@ -206,8 +206,8 @@ def test_get_key_models_does_not_mutate_input():
     _get_models_from_access_groups uses .pop()/.extend() which would corrupt
     cached UserAPIKeyAuth objects if all_models were an alias instead of a copy.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.model_checks import get_key_models
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.auth.model_checks import get_key_models
 
     original_models = ["group-a", "extra-model"]
     user_api_key_dict = UserAPIKeyAuth(
@@ -238,7 +238,7 @@ def test_get_key_models_does_not_mutate_input():
             ],
             [],
             [],
-            [{"model_name": "anthropic/*", "litellm_params": {"model": "anthropic/*"}}],
+            [{"model_name": "anthropic/*", "hangarllm_params": {"model": "anthropic/*"}}],
             [
                 "anthropic/claude-3-haiku-20240307",
                 "anthropic/claude-3-5-haiku-20241022",
@@ -251,7 +251,7 @@ def test_get_key_models_does_not_mutate_input():
                 "anthropic/claude-3-5-haiku-20241022",
             ],
             [],
-            [{"model_name": "anthropic/*", "litellm_params": {"model": "anthropic/*"}}],
+            [{"model_name": "anthropic/*", "hangarllm_params": {"model": "anthropic/*"}}],
             [
                 "anthropic/claude-3-haiku-20240307",
                 "anthropic/claude-3-5-haiku-20241022",
@@ -264,7 +264,7 @@ def test_get_key_models_does_not_mutate_input():
                 "anthropic/claude-3-haiku-20240307",
                 "anthropic/claude-3-5-haiku-20241022",
             ],
-            [{"model_name": "anthropic/*", "litellm_params": {"model": "anthropic/*"}}],
+            [{"model_name": "anthropic/*", "hangarllm_params": {"model": "anthropic/*"}}],
             [
                 "anthropic/claude-3-haiku-20240307",
                 "anthropic/claude-3-5-haiku-20241022",
@@ -276,8 +276,8 @@ def test_get_complete_model_list_order(key_models, team_models, proxy_model_list
     """
     Test that get_complete_model_list preserves order
     """
-    from litellm.proxy.auth.model_checks import get_complete_model_list
-    from litellm import Router
+    from hangarllm.proxy.auth.model_checks import get_complete_model_list
+    from hangarllm import Router
 
     assert (
         get_complete_model_list(
@@ -298,8 +298,8 @@ def test_get_complete_model_list_byok_wildcard_expansion():
     no deployment for them - BYOK case where team has openai/* but proxy has
     no openai config.
     """
-    from litellm.proxy.auth.model_checks import get_complete_model_list
-    from litellm import Router
+    from hangarllm.proxy.auth.model_checks import get_complete_model_list
+    from hangarllm import Router
 
     # Router with empty model_list - no openai/* deployment (BYOK scenario)
     result = get_complete_model_list(
@@ -323,14 +323,14 @@ def test_get_complete_model_list_expands_team_scoped_wildcard_with_stored_creden
     Team-scoped BYOK wildcard deployments are stored under an internal model_name,
     with the public wildcard name in model_info.team_public_model_name.
     """
-    import litellm
-    from litellm import Router
-    from litellm.proxy.auth import model_checks
-    from litellm.proxy.auth.model_checks import get_complete_model_list
-    from litellm.types.utils import CredentialItem
+    import hangarllm
+    from hangarllm import Router
+    from hangarllm.proxy.auth import model_checks
+    from hangarllm.proxy.auth.model_checks import get_complete_model_list
+    from hangarllm.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -346,11 +346,11 @@ def test_get_complete_model_list_expands_team_scoped_wildcard_with_stored_creden
 
     captured_params = {}
 
-    def fake_get_provider_models(provider, litellm_params=None):
+    def fake_get_provider_models(provider, hangarllm_params=None):
         captured_params["provider"] = provider
-        captured_params["api_key"] = litellm_params.api_key
-        captured_params["api_base"] = litellm_params.api_base
-        captured_params["credential_name"] = litellm_params.litellm_credential_name
+        captured_params["api_key"] = hangarllm_params.api_key
+        captured_params["api_base"] = hangarllm_params.api_base
+        captured_params["credential_name"] = hangarllm_params.hangarllm_credential_name
         return ["gpt-4o"]
 
     monkeypatch.setattr(model_checks, "get_provider_models", fake_get_provider_models)
@@ -359,10 +359,10 @@ def test_get_complete_model_list_expands_team_scoped_wildcard_with_stored_creden
         model_list=[
             {
                 "model_name": "model_name_team-1_generated",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
                     "custom_llm_provider": "openai",
-                    "litellm_credential_name": "openai-credential",
+                    "hangarllm_credential_name": "openai-credential",
                 },
                 "model_info": {
                     "team_id": "team-1",
@@ -394,14 +394,14 @@ def test_get_complete_model_list_expands_team_scoped_wildcard_with_stored_creden
 def test_wildcard_credential_hydration_preserves_deployment_params(
     monkeypatch,
 ):
-    import litellm
-    from litellm.proxy.auth import model_checks
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
-    from litellm.types.utils import CredentialItem
+    import hangarllm
+    from hangarllm.proxy.auth import model_checks
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
+    from hangarllm.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -419,24 +419,24 @@ def test_wildcard_credential_hydration_preserves_deployment_params(
 
     captured_params = {}
 
-    def fake_get_provider_models(provider, litellm_params=None):
+    def fake_get_provider_models(provider, hangarllm_params=None):
         captured_params["provider"] = provider
-        captured_params["model"] = litellm_params.model
-        captured_params["api_key"] = litellm_params.api_key
-        captured_params["api_version"] = litellm_params.api_version
-        captured_params["credential_name"] = litellm_params.litellm_credential_name
-        captured_params["has_unexpected_field"] = hasattr(litellm_params, "unexpected_field")
+        captured_params["model"] = hangarllm_params.model
+        captured_params["api_key"] = hangarllm_params.api_key
+        captured_params["api_version"] = hangarllm_params.api_version
+        captured_params["credential_name"] = hangarllm_params.hangarllm_credential_name
+        captured_params["has_unexpected_field"] = hasattr(hangarllm_params, "unexpected_field")
         return ["gpt-4o"]
 
     monkeypatch.setattr(model_checks, "get_provider_models", fake_get_provider_models)
 
     result = get_known_models_from_wildcard(
         wildcard_model="openai/*",
-        litellm_params=LiteLLM_Params(
+        hangarllm_params=HangarLLM_Params(
             model="openai/*",
             custom_llm_provider="openai",
             api_version="deployment-version",
-            litellm_credential_name="openai-credential",
+            hangarllm_credential_name="openai-credential",
         ),
     )
 
@@ -453,11 +453,11 @@ def test_wildcard_credential_hydration_preserves_deployment_params(
 
 @respx.mock
 def test_hosted_vllm_wildcard_lists_the_server_models_without_an_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     models_route: Final = respx.get("http://vllm-without-key.test:8000/v1/models").mock(
         return_value=httpx.Response(
             200,
@@ -473,7 +473,7 @@ def test_hosted_vllm_wildcard_lists_the_server_models_without_an_api_key(monkeyp
 
     listed: Final = get_known_models_from_wildcard(
         "hosted_vllm/*",
-        LiteLLM_Params(model="hosted_vllm/*", api_base="http://vllm-without-key.test:8000/v1"),
+        HangarLLM_Params(model="hosted_vllm/*", api_base="http://vllm-without-key.test:8000/v1"),
     )
 
     assert listed == [
@@ -486,18 +486,18 @@ def test_hosted_vllm_wildcard_lists_the_server_models_without_an_api_key(monkeyp
 
 @respx.mock
 def test_hosted_vllm_wildcard_sends_the_configured_api_key_as_a_bearer_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     models_route: Final = respx.get(
         "http://vllm-with-key.test:8000/v1/models", headers={"Authorization": "Bearer vllm-test-key"}
     ).mock(return_value=httpx.Response(200, json={"data": [{"id": "qwen2.5"}]}))
 
     listed: Final = get_known_models_from_wildcard(
         "hosted_vllm/*",
-        LiteLLM_Params(model="hosted_vllm/*", api_base="http://vllm-with-key.test:8000/v1", api_key="vllm-test-key"),
+        HangarLLM_Params(model="hosted_vllm/*", api_base="http://vllm-with-key.test:8000/v1", api_key="vllm-test-key"),
     )
 
     assert listed == ["hosted_vllm/qwen2.5"]
@@ -506,11 +506,11 @@ def test_hosted_vllm_wildcard_sends_the_configured_api_key_as_a_bearer_token(mon
 
 @respx.mock
 def test_hosted_vllm_wildcard_without_api_base_lists_the_server_chat_would_call(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     monkeypatch.setenv("HOSTED_VLLM_API_BASE", "http://hosted-vllm-env.test:8000/v1")
     monkeypatch.setenv("HOSTED_VLLM_API_KEY", "hosted-vllm-env-key")
     monkeypatch.setenv("VLLM_API_BASE", "http://vllm-passthrough-env.test:8000")
@@ -522,7 +522,7 @@ def test_hosted_vllm_wildcard_without_api_base_lists_the_server_chat_would_call(
     ).mock(return_value=httpx.Response(200, json={"data": [{"id": "qwen2.5"}]}))
 
     listed: Final = get_known_models_from_wildcard(
-        "hosted_vllm/*", LiteLLM_Params(model="hosted_vllm/*", custom_llm_provider="hosted_vllm")
+        "hosted_vllm/*", HangarLLM_Params(model="hosted_vllm/*", custom_llm_provider="hosted_vllm")
     )
 
     assert listed == ["hosted_vllm/qwen2.5"]
@@ -533,18 +533,18 @@ def test_hosted_vllm_wildcard_without_api_base_lists_the_server_chat_would_call(
 def test_hosted_vllm_wildcard_listing_does_not_wait_the_completion_timeout_on_a_hung_server(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm
-    from litellm.constants import NON_LLM_CONNECTION_TIMEOUT
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import hangarllm
+    from hangarllm.constants import NON_LLM_CONNECTION_TIMEOUT
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     models_route: Final = respx.get("http://vllm-timeout.test:8000/v1/models").mock(
         return_value=httpx.Response(200, json={"data": [{"id": "qwen2.5"}]})
     )
 
     get_known_models_from_wildcard(
-        "hosted_vllm/*", LiteLLM_Params(model="hosted_vllm/*", api_base="http://vllm-timeout.test:8000/v1")
+        "hosted_vllm/*", HangarLLM_Params(model="hosted_vllm/*", api_base="http://vllm-timeout.test:8000/v1")
     )
 
     read_timeout: Final = models_route.calls.last.request.extensions["timeout"]["read"]
@@ -554,11 +554,11 @@ def test_hosted_vllm_wildcard_listing_does_not_wait_the_completion_timeout_on_a_
 
 @respx.mock
 def test_hosted_vllm_wildcard_listing_sends_the_deployment_extra_headers(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     respx.get(
         "http://vllm-behind-gateway.test:8000/v1/models",
         headers={"X-Tenant": "team-a", "Authorization": "Bearer vllm-test-key"},
@@ -566,7 +566,7 @@ def test_hosted_vllm_wildcard_listing_sends_the_deployment_extra_headers(monkeyp
 
     listed: Final = get_known_models_from_wildcard(
         "hosted_vllm/*",
-        LiteLLM_Params(
+        HangarLLM_Params(
             model="hosted_vllm/*",
             api_base="http://vllm-behind-gateway.test:8000/v1",
             api_key="vllm-test-key",
@@ -580,11 +580,11 @@ def test_hosted_vllm_wildcard_listing_sends_the_deployment_extra_headers(monkeyp
 
 @respx.mock
 def test_vllm_wildcard_never_lists_the_ids_of_a_configured_vllm_server(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     monkeypatch.setenv("VLLM_API_BASE", "http://vllm-library-env.test:8000")
     monkeypatch.setenv("VLLM_API_KEY", "vllm-library-env-key")
     server_route: Final = respx.get(url__regex=r"http://vllm-library(-env)?\.test:8000/.*").mock(
@@ -593,7 +593,7 @@ def test_vllm_wildcard_never_lists_the_ids_of_a_configured_vllm_server(monkeypat
 
     listed: Final = get_known_models_from_wildcard(
         "vllm/*",
-        LiteLLM_Params(model="vllm/*", api_base="http://vllm-library.test:8000", api_key="vllm-library-key"),
+        HangarLLM_Params(model="vllm/*", api_base="http://vllm-library.test:8000", api_key="vllm-library-key"),
     )
 
     assert "vllm/model-only-a-server-serves" not in listed
@@ -661,25 +661,25 @@ def self_signed_vllm_api_base(tmp_path: Path) -> Iterator[str]:
 def test_hosted_vllm_wildcard_lists_a_self_signed_server_only_when_the_deployment_turns_off_ssl_verify(
     monkeypatch: pytest.MonkeyPatch, self_signed_vllm_api_base: str
 ) -> None:
-    import litellm
-    from litellm.caching.llm_caching_handler import LLMClientCache
-    from litellm.llms.custom_httpx import http_handler
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import hangarllm
+    from hangarllm.caching.llm_caching_handler import LLMClientCache
+    from hangarllm.llms.custom_httpx import http_handler
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
-    monkeypatch.setattr(litellm, "ssl_verify", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "ssl_verify", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
     monkeypatch.setattr(http_handler, "_ssl_context_cache", {})
     monkeypatch.delenv("SSL_VERIFY", raising=False)
     monkeypatch.delenv("SSL_CERT_FILE", raising=False)
 
     verified: Final = get_known_models_from_wildcard(
-        "hosted_vllm/*", LiteLLM_Params(model="hosted_vllm/*", api_base=self_signed_vllm_api_base)
+        "hosted_vllm/*", HangarLLM_Params(model="hosted_vllm/*", api_base=self_signed_vllm_api_base)
     )
     unverified: Final = get_known_models_from_wildcard(
         "hosted_vllm/*",
-        LiteLLM_Params(model="hosted_vllm/*", api_base=self_signed_vllm_api_base, ssl_verify=False),
+        HangarLLM_Params(model="hosted_vllm/*", api_base=self_signed_vllm_api_base, ssl_verify=False),
     )
 
     assert verified == []
@@ -687,21 +687,21 @@ def test_hosted_vllm_wildcard_lists_a_self_signed_server_only_when_the_deploymen
 
 
 @respx.mock
-def test_custom_prefix_over_a_litellm_proxy_wildcard_lists_upstream_models_under_the_prefix_alone(
+def test_custom_prefix_over_a_hangarllm_proxy_wildcard_lists_upstream_models_under_the_prefix_alone(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     respx.get("http://upstream-proxy.test:4000/v1/models").mock(
         return_value=httpx.Response(200, json={"data": [{"id": "gpt-4o"}, {"id": "claude-sonnet"}]})
     )
 
     listed: Final = get_known_models_from_wildcard(
         "team-proxy/*",
-        LiteLLM_Params(model="litellm_proxy/*", api_base="http://upstream-proxy.test:4000", api_key="sk-upstream"),
+        HangarLLM_Params(model="hangarllm_proxy/*", api_base="http://upstream-proxy.test:4000", api_key="sk-upstream"),
     )
 
     assert listed == ["team-proxy/gpt-4o", "team-proxy/claude-sonnet"]
@@ -714,19 +714,19 @@ def test_wildcard_custom_prefix_does_not_stack_provider_prefix(monkeypatch):
     instances) must not stack the provider's own prefix onto the expanded model ids. The expanded
     ids should be ``ollama_server1/gemma3:1b`` rather than ``ollama_server1/ollama/gemma3:1b``.
     """
-    from litellm.proxy.auth import model_checks
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    from hangarllm.proxy.auth import model_checks
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
     monkeypatch.setattr(
         model_checks,
         "get_provider_models",
-        lambda provider, litellm_params=None: ["ollama/gemma3:1b", "ollama/llama3:8b"],
+        lambda provider, hangarllm_params=None: ["ollama/gemma3:1b", "ollama/llama3:8b"],
     )
 
     result = get_known_models_from_wildcard(
         wildcard_model="ollama_server1/*",
-        litellm_params=LiteLLM_Params(model="ollama_chat/*", custom_llm_provider="ollama_chat"),
+        hangarllm_params=HangarLLM_Params(model="ollama_chat/*", custom_llm_provider="ollama_chat"),
     )
 
     assert result == ["ollama_server1/gemma3:1b", "ollama_server1/llama3:8b"]
@@ -737,23 +737,23 @@ def test_wildcard_custom_prefix_keeps_org_segment_for_non_provider_first_segment
 ):
     """Only a known provider prefix should be stripped before re-prefixing.
 
-    If ``get_provider_models`` returns ids whose first segment is an org rather than a litellm
+    If ``get_provider_models`` returns ids whose first segment is an org rather than a hangarllm
     provider (e.g. ``meta-llama/Llama-3-8B``), stripping the first slash segment would drop the
     org and produce an uncallable id. The org segment must be preserved.
     """
-    from litellm.proxy.auth import model_checks
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    from hangarllm.proxy.auth import model_checks
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
     monkeypatch.setattr(
         model_checks,
         "get_provider_models",
-        lambda provider, litellm_params=None: ["meta-llama/Llama-3-8B"],
+        lambda provider, hangarllm_params=None: ["meta-llama/Llama-3-8B"],
     )
 
     result = get_known_models_from_wildcard(
         wildcard_model="my_hf/*",
-        litellm_params=LiteLLM_Params(model="huggingface/*", custom_llm_provider="huggingface"),
+        hangarllm_params=HangarLLM_Params(model="huggingface/*", custom_llm_provider="huggingface"),
     )
 
     assert result == ["my_hf/meta-llama/Llama-3-8B"]
@@ -762,30 +762,30 @@ def test_wildcard_custom_prefix_keeps_org_segment_for_non_provider_first_segment
 def test_wildcard_credential_hydration_preserves_missing_credential_name(
     monkeypatch,
 ):
-    import litellm
-    from litellm.proxy.auth import model_checks
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import hangarllm
+    from hangarllm.proxy.auth import model_checks
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    monkeypatch.setattr(litellm, "credential_list", [])
+    monkeypatch.setattr(hangarllm, "credential_list", [])
 
     captured_params = {}
 
-    def fake_get_provider_models(provider, litellm_params=None):
+    def fake_get_provider_models(provider, hangarllm_params=None):
         captured_params["provider"] = provider
-        captured_params["api_key"] = litellm_params.api_key
-        captured_params["credential_name"] = litellm_params.litellm_credential_name
+        captured_params["api_key"] = hangarllm_params.api_key
+        captured_params["credential_name"] = hangarllm_params.hangarllm_credential_name
         return ["gpt-4o"]
 
     monkeypatch.setattr(model_checks, "get_provider_models", fake_get_provider_models)
 
     result = get_known_models_from_wildcard(
         wildcard_model="openai/*",
-        litellm_params=LiteLLM_Params(
+        hangarllm_params=HangarLLM_Params(
             model="openai/*",
             custom_llm_provider="openai",
             api_key=None,
-            litellm_credential_name="missing-credential",
+            hangarllm_credential_name="missing-credential",
         ),
     )
 
@@ -798,13 +798,13 @@ def test_wildcard_credential_hydration_preserves_missing_credential_name(
 
 
 def test_hydrate_credential_name_none_leaves_params_untouched(monkeypatch):
-    import litellm
-    from litellm.proxy.auth.model_checks import _hydrate_litellm_credential_name
-    from litellm.types.router import LiteLLM_Params
-    from litellm.types.utils import CredentialItem
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import _hydrate_hangarllm_credential_name
+    from hangarllm.types.router import HangarLLM_Params
+    from hangarllm.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -814,23 +814,23 @@ def test_hydrate_credential_name_none_leaves_params_untouched(monkeypatch):
             )
         ],
     )
-    params = LiteLLM_Params(model="openai/gpt-4o", litellm_credential_name=None)
+    params = HangarLLM_Params(model="openai/gpt-4o", hangarllm_credential_name=None)
 
-    result = _hydrate_litellm_credential_name(params)
+    result = _hydrate_hangarllm_credential_name(params)
 
     assert result is not None
     assert result.api_key is None
-    assert result.litellm_credential_name is None
+    assert result.hangarllm_credential_name is None
 
 
 def test_hydrate_replaced_credential_uses_new_credential_values(monkeypatch):
-    import litellm
-    from litellm.proxy.auth.model_checks import _hydrate_litellm_credential_name
-    from litellm.types.router import LiteLLM_Params
-    from litellm.types.utils import CredentialItem
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import _hydrate_hangarllm_credential_name
+    from hangarllm.types.router import HangarLLM_Params
+    from hangarllm.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -845,23 +845,23 @@ def test_hydrate_replaced_credential_uses_new_credential_values(monkeypatch):
             ),
         ],
     )
-    params = LiteLLM_Params(model="openai/gpt-4o", litellm_credential_name="other-credential")
+    params = HangarLLM_Params(model="openai/gpt-4o", hangarllm_credential_name="other-credential")
 
-    result = _hydrate_litellm_credential_name(params)
+    result = _hydrate_hangarllm_credential_name(params)
 
     assert result is not None
     assert result.api_key == "sk-other"
-    assert result.litellm_credential_name is None
+    assert result.hangarllm_credential_name is None
 
 
 def test_hydrate_inline_api_key_wins_over_stored_credential(monkeypatch):
-    import litellm
-    from litellm.proxy.auth.model_checks import _hydrate_litellm_credential_name
-    from litellm.types.router import LiteLLM_Params
-    from litellm.types.utils import CredentialItem
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import _hydrate_hangarllm_credential_name
+    from hangarllm.types.router import HangarLLM_Params
+    from hangarllm.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -871,13 +871,13 @@ def test_hydrate_inline_api_key_wins_over_stored_credential(monkeypatch):
             )
         ],
     )
-    params = LiteLLM_Params(
+    params = HangarLLM_Params(
         model="openai/gpt-4o",
         api_key="sk-inline",
-        litellm_credential_name="shared-credential",
+        hangarllm_credential_name="shared-credential",
     )
 
-    result = _hydrate_litellm_credential_name(params)
+    result = _hydrate_hangarllm_credential_name(params)
 
     assert result is not None
     assert result.api_key == "sk-inline"
@@ -887,15 +887,15 @@ def test_hydrate_inline_api_key_wins_over_stored_credential(monkeypatch):
 async def test_get_available_models_for_user_expands_query_team_wildcard(
     monkeypatch,
 ):
-    import litellm
-    from litellm import Router
-    from litellm.proxy.auth import model_checks
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import get_available_models_for_user
-    from litellm.types.utils import CredentialItem
+    import hangarllm
+    from hangarllm import Router
+    from hangarllm.proxy.auth import model_checks
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.utils import get_available_models_for_user
+    from hangarllm.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -906,9 +906,9 @@ async def test_get_available_models_for_user_expands_query_team_wildcard(
         ],
     )
 
-    def fake_get_provider_models(provider, litellm_params=None):
-        assert litellm_params.api_key == "stored-openai-key"
-        assert litellm_params.litellm_credential_name is None
+    def fake_get_provider_models(provider, hangarllm_params=None):
+        assert hangarllm_params.api_key == "stored-openai-key"
+        assert hangarllm_params.hangarllm_credential_name is None
         return ["gpt-4o-mini"]
 
     monkeypatch.setattr(model_checks, "get_provider_models", fake_get_provider_models)
@@ -917,10 +917,10 @@ async def test_get_available_models_for_user_expands_query_team_wildcard(
         model_list=[
             {
                 "model_name": "model_name_team-1_generated",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
                     "custom_llm_provider": "openai",
-                    "litellm_credential_name": "openai-credential",
+                    "hangarllm_credential_name": "openai-credential",
                 },
                 "model_info": {
                     "team_id": "team-1",
@@ -949,8 +949,8 @@ async def test_get_available_models_for_user_expands_query_team_wildcard(
 def test_get_key_models_all_team_models_recursive_team():
     """GH#30619: when key and team both have all-team-models,
     the sentinel should expand to proxy_model_list."""
-    from litellm.proxy.auth.model_checks import get_key_models
-    from litellm.proxy._types import SpecialModelNames
+    from hangarllm.proxy.auth.model_checks import get_key_models
+    from hangarllm.proxy._types import SpecialModelNames
 
     user_api_key_dict = type(
         "obj",
@@ -968,8 +968,8 @@ def test_get_key_models_all_team_models_recursive_team():
 
 
 def test_get_key_models_all_team_models_keeps_mixed_team_entries():
-    from litellm.proxy.auth.model_checks import get_key_models
-    from litellm.proxy._types import SpecialModelNames
+    from hangarllm.proxy.auth.model_checks import get_key_models
+    from hangarllm.proxy._types import SpecialModelNames
 
     user_api_key_dict = type(
         "obj",
@@ -990,8 +990,8 @@ def test_get_key_models_all_team_models_keeps_mixed_team_entries():
 
 def test_get_team_models_all_team_models_expands():
     """GH#30619: all-team-models in team_models should expand."""
-    from litellm.proxy.auth.model_checks import get_team_models
-    from litellm.proxy._types import SpecialModelNames
+    from hangarllm.proxy.auth.model_checks import get_team_models
+    from hangarllm.proxy._types import SpecialModelNames
 
     result = get_team_models(
         [SpecialModelNames.all_team_models.value],
@@ -1005,8 +1005,8 @@ def test_get_team_models_all_team_models_expands():
 def test_get_team_models_all_team_models_expands_with_access_groups():
     """GH#30619: all-team-models with include_model_access_groups
     should include access group keys."""
-    from litellm.proxy.auth.model_checks import get_team_models
-    from litellm.proxy._types import SpecialModelNames
+    from hangarllm.proxy.auth.model_checks import get_team_models
+    from hangarllm.proxy._types import SpecialModelNames
 
     result = get_team_models(
         [SpecialModelNames.all_team_models.value],
@@ -1026,8 +1026,8 @@ def test_get_key_models_teamless_all_team_models_returns_unrestricted():
     models field empty ([] = unrestricted). The sentinel must not leak into
     the returned list. Fails if someone adds a team_id guard to the sentinel
     expansion in get_key_models."""
-    from litellm.proxy._types import SpecialModelNames
-    from litellm.proxy.auth.model_checks import get_key_models
+    from hangarllm.proxy._types import SpecialModelNames
+    from hangarllm.proxy.auth.model_checks import get_key_models
 
     user_api_key_dict = type(
         "obj",
@@ -1046,11 +1046,11 @@ def test_get_key_models_teamless_all_team_models_returns_unrestricted():
 
 def test_expand_wildcard_deployments_non_wildcard_passthrough():
     """Non-wildcard deployments must be returned unchanged."""
-    from litellm.proxy.auth.model_checks import (
+    from hangarllm.proxy.auth.model_checks import (
         expand_wildcard_deployments_for_model_info,
     )
 
-    deployment = {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}}
+    deployment = {"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o"}}
     result = expand_wildcard_deployments_for_model_info([deployment])
     assert result == [deployment]
 
@@ -1058,55 +1058,55 @@ def test_expand_wildcard_deployments_non_wildcard_passthrough():
 def test_expand_wildcard_deployments_openai_wildcard():
     """openai/* should expand into ≥1 known openai model entries."""
 
-    from litellm.proxy.auth.model_checks import (
+    from hangarllm.proxy.auth.model_checks import (
         expand_wildcard_deployments_for_model_info,
     )
 
     fake_models = ["openai/gpt-4o", "openai/gpt-4o-mini"]
     deployment = {
         "model_name": "openai/*",
-        "litellm_params": {"model": "openai/*"},
+        "hangarllm_params": {"model": "openai/*"},
     }
     with patch(
-        "litellm.proxy.auth.model_checks.get_known_models_from_wildcard",
+        "hangarllm.proxy.auth.model_checks.get_known_models_from_wildcard",
         return_value=fake_models,
     ):
         result = expand_wildcard_deployments_for_model_info([deployment])
 
     assert len(result) == 2
     assert all(r["model_name"] in fake_models for r in result)
-    assert all(r["litellm_params"]["model"] in fake_models for r in result)
+    assert all(r["hangarllm_params"]["model"] in fake_models for r in result)
 
 
-def test_expand_wildcard_concrete_model_name_with_wildcard_litellm_params():
-    """Concrete model_name must not be overwritten when only litellm_params.model is wildcard."""
-    from litellm.proxy.auth.model_checks import (
+def test_expand_wildcard_concrete_model_name_with_wildcard_hangarllm_params():
+    """Concrete model_name must not be overwritten when only hangarllm_params.model is wildcard."""
+    from hangarllm.proxy.auth.model_checks import (
         expand_wildcard_deployments_for_model_info,
     )
 
     deployment = {
         "model_name": "my-custom-alias",
-        "litellm_params": {"model": "openai/*"},
+        "hangarllm_params": {"model": "openai/*"},
     }
     result = expand_wildcard_deployments_for_model_info([deployment])
     # model_name is not a wildcard, so the deployment passes through unchanged
     assert result == [deployment]
 
 
-def test_expand_wildcard_invalid_litellm_params_passthrough():
-    """Deployments with invalid litellm_params must pass through unchanged (no 500)."""
-    from litellm.proxy.auth.model_checks import (
+def test_expand_wildcard_invalid_hangarllm_params_passthrough():
+    """Deployments with invalid hangarllm_params must pass through unchanged (no 500)."""
+    from hangarllm.proxy.auth.model_checks import (
         expand_wildcard_deployments_for_model_info,
     )
 
     deployment = {
         "model_name": "openai/*",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/*",
             "max_retries": "not-an-int-field-that-breaks",
         },
     }
-    # Even if LiteLLM_Params construction fails the deployment should survive
+    # Even if HangarLLM_Params construction fails the deployment should survive
     result = expand_wildcard_deployments_for_model_info([deployment])
     assert result == [deployment]
 
@@ -1128,15 +1128,15 @@ def test_expand_wildcard_alias_without_a_slash_lists_and_filters_by_its_own_patt
     expected_names: list[str],
     expected_listings: int,
 ) -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     api_base: Final = f"http://vllm-alias-{request.node.callspec.id}.test:8000/v1"
     listing: Final = respx.get(f"{api_base}/models").mock(
         return_value=httpx.Response(200, json={"data": [{"id": "qwen2.5"}]})
     )
-    deployment: Final = {"model_name": "qwen-*", "litellm_params": {"model": "hosted_vllm/*", "api_base": api_base}}
+    deployment: Final = {"model_name": "qwen-*", "hangarllm_params": {"model": "hosted_vllm/*", "api_base": api_base}}
 
     rows: Final = expand_wildcard_deployments_for_model_info([deployment], allowed_model_names=allowed_model_names)
 
@@ -1153,9 +1153,9 @@ def test_expand_wildcard_alias_without_a_slash_lists_and_filters_by_its_own_patt
 def test_expand_wildcard_alias_over_one_model_is_kept_only_for_keys_with_a_name_it_matches(
     allowed_model_names: list[str], keeps_the_alias: bool
 ) -> None:
-    from litellm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info
+    from hangarllm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info
 
-    deployment: Final = {"model_name": "gpt-4o*", "litellm_params": {"model": "openai/gpt-4o"}}
+    deployment: Final = {"model_name": "gpt-4o*", "hangarllm_params": {"model": "openai/gpt-4o"}}
 
     rows: Final = expand_wildcard_deployments_for_model_info([deployment], allowed_model_names=allowed_model_names)
 
@@ -1163,18 +1163,18 @@ def test_expand_wildcard_alias_over_one_model_is_kept_only_for_keys_with_a_name_
 
 def test_get_complete_model_list_excludes_wildcard_routes_by_default():
     """Regression (LIT-4108): a wildcard with a matching router deployment leaked into /v1/models."""
-    from litellm import Router
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    from hangarllm import Router
+    from hangarllm.proxy.auth.model_checks import get_complete_model_list
 
     router = Router(
         model_list=[
             {
                 "model_name": "bedrock/*",
-                "litellm_params": {"model": "bedrock/*"},
+                "hangarllm_params": {"model": "bedrock/*"},
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "openai/gpt-4"},
+                "hangarllm_params": {"model": "openai/gpt-4"},
             },
         ]
     )
@@ -1195,7 +1195,7 @@ def test_get_complete_model_list_excludes_wildcard_routes_by_default():
 
 
 def test_get_complete_model_list_excludes_wildcard_routes_without_router():
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    from hangarllm.proxy.auth.model_checks import get_complete_model_list
 
     result = get_complete_model_list(
         key_models=[],
@@ -1213,14 +1213,14 @@ def test_get_complete_model_list_excludes_wildcard_routes_without_router():
 
 
 def test_get_complete_model_list_includes_wildcard_routes_when_requested():
-    from litellm import Router
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    from hangarllm import Router
+    from hangarllm.proxy.auth.model_checks import get_complete_model_list
 
     router = Router(
         model_list=[
             {
                 "model_name": "bedrock/*",
-                "litellm_params": {"model": "bedrock/*"},
+                "hangarllm_params": {"model": "bedrock/*"},
             },
         ]
     )
@@ -1243,44 +1243,44 @@ def test_add_known_models_refreshes_models_by_provider_for_wildcard_expansion():
     """models_by_provider was a frozen import-time snapshot of set unions, so cost map
     reloads (which call add_known_models) never reached wildcard expansion until a
     process restart (LIT-4947)."""
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
 
     fake_model = "vertex_ai/gemini-lit4947-regression"
-    captured_reference = litellm.models_by_provider
-    assert fake_model not in litellm.models_by_provider["vertex_ai"]
+    captured_reference = hangarllm.models_by_provider
+    assert fake_model not in hangarllm.models_by_provider["vertex_ai"]
     try:
-        litellm.add_known_models(
-            model_cost_map={fake_model: {"litellm_provider": "vertex_ai-language-models", "mode": "chat"}}
+        hangarllm.add_known_models(
+            model_cost_map={fake_model: {"hangarllm_provider": "vertex_ai-language-models", "mode": "chat"}}
         )
-        assert fake_model in litellm.models_by_provider["vertex_ai"]
-        assert litellm.models_by_provider is captured_reference
+        assert fake_model in hangarllm.models_by_provider["vertex_ai"]
+        assert hangarllm.models_by_provider is captured_reference
         assert fake_model in captured_reference["vertex_ai"]
         assert fake_model in get_known_models_from_wildcard("vertex_ai/*")
     finally:
-        litellm.vertex_language_models.discard(fake_model)
-        litellm.add_known_models(model_cost_map={})
-    assert fake_model not in litellm.models_by_provider["vertex_ai"]
+        hangarllm.vertex_language_models.discard(fake_model)
+        hangarllm.add_known_models(model_cost_map={})
+    assert fake_model not in hangarllm.models_by_provider["vertex_ai"]
 
 
 def test_wildcard_lists_a_model_once_when_registered_both_bare_and_provider_prefixed():
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
 
     bare: Final = "gpt-dedupe-regression"
-    entry: Final = {"litellm_provider": "openai", "mode": "chat"}
+    entry: Final = {"hangarllm_provider": "openai", "mode": "chat"}
     try:
-        litellm.register_model({bare: entry, f"openai/{bare}": entry}, persist_across_reloads=False)
+        hangarllm.register_model({bare: entry, f"openai/{bare}": entry}, persist_across_reloads=False)
 
         listed: Final = get_known_models_from_wildcard("openai/*")
 
         assert listed.count(f"openai/{bare}") == 1
     finally:
-        litellm.model_cost.pop(bare, None)
-        litellm.model_cost.pop(f"openai/{bare}", None)
-        litellm.open_ai_chat_completion_models.discard(bare)
-        litellm.open_ai_chat_completion_models.discard(f"openai/{bare}")
-        litellm.add_known_models(model_cost_map={})
+        hangarllm.model_cost.pop(bare, None)
+        hangarllm.model_cost.pop(f"openai/{bare}", None)
+        hangarllm.open_ai_chat_completion_models.discard(bare)
+        hangarllm.open_ai_chat_completion_models.discard(f"openai/{bare}")
+        hangarllm.add_known_models(model_cost_map={})
 
 
 def _is_vertex_ai_label(label: object) -> bool:
@@ -1288,13 +1288,13 @@ def _is_vertex_ai_label(label: object) -> bool:
 
 
 def test_vertex_wildcard_lists_every_vertex_cost_map_row_under_its_callable_id():
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
 
     vertex_rows: Final = {
         f"vertex_ai/{name.removeprefix('vertex_ai/')}"
-        for name, info in litellm.model_cost.items()
-        if _is_vertex_ai_label(info.get("litellm_provider"))
+        for name, info in hangarllm.model_cost.items()
+        if _is_vertex_ai_label(info.get("hangarllm_provider"))
     }
     assert vertex_rows
 
@@ -1329,26 +1329,26 @@ VERTEX_COST_MAP_LABELS: Final = (
 
 @contextmanager
 def _registered_rows(label_per_key: Mapping[str, str]) -> Generator[None, None, None]:
-    import litellm
+    import hangarllm
 
     try:
-        litellm.register_model(
-            {key: {"litellm_provider": label, "mode": "chat"} for key, label in label_per_key.items()},
+        hangarllm.register_model(
+            {key: {"hangarllm_provider": label, "mode": "chat"} for key, label in label_per_key.items()},
             persist_across_reloads=False,
         )
         yield
     finally:
-        provider_model_sets: Final = tuple(value for value in vars(litellm).values() if isinstance(value, set))
+        provider_model_sets: Final = tuple(value for value in vars(hangarllm).values() if isinstance(value, set))
         for key in label_per_key:
             for provider_models in provider_model_sets:
                 provider_models.discard(key)
                 provider_models.discard(key.removeprefix("vertex_ai/"))
-        litellm.add_known_models(model_cost_map={})
+        hangarllm.add_known_models(model_cost_map={})
 
 
 @pytest.mark.parametrize("label", VERTEX_COST_MAP_LABELS)
 def test_vertex_wildcard_lists_a_row_registered_under_any_vertex_label(label: str):
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
 
     key: Final = f"vertex_ai/fake-{label}-row"
     with _registered_rows({key: label}):
@@ -1362,8 +1362,8 @@ def test_vertex_wildcard_lists_a_row_registered_under_any_vertex_label(label: st
     [("vertex_ai/*", "vertex_ai"), ("my_vertex/*", "my_vertex")],
 )
 def test_wildcard_keeps_a_publisher_segment_that_names_another_provider(wildcard_model: str, listed_prefix: str):
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
     with _registered_rows(
         {
@@ -1373,7 +1373,7 @@ def test_wildcard_keeps_a_publisher_segment_that_names_another_provider(wildcard
     ):
         listed: Final = get_known_models_from_wildcard(
             wildcard_model=wildcard_model,
-            litellm_params=LiteLLM_Params(model="vertex_ai/*"),
+            hangarllm_params=HangarLLM_Params(model="vertex_ai/*"),
         )
 
     assert f"{listed_prefix}/openai/fake-publisher-maas" in listed
@@ -1383,11 +1383,11 @@ def test_wildcard_keeps_a_publisher_segment_that_names_another_provider(wildcard
 
 @pytest.mark.parametrize("provider", ["replicate", "wandb"])
 def test_wildcard_lists_each_model_once_under_its_full_owner_id(provider: str):
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
 
     full_ids: Final = {
-        f"{provider}/{model.removeprefix(f'{provider}/')}" for model in litellm.models_by_provider[provider]
+        f"{provider}/{model.removeprefix(f'{provider}/')}" for model in hangarllm.models_by_provider[provider]
     }
     assert any(model.count("/") > 1 for model in full_ids)
 
@@ -1395,7 +1395,7 @@ def test_wildcard_lists_each_model_once_under_its_full_owner_id(provider: str):
 
 
 def test_get_complete_model_list_drops_no_default_models_sentinel():
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    from hangarllm.proxy.auth.model_checks import get_complete_model_list
 
     result = get_complete_model_list(
         key_models=["no-default-models", "model-a"],
@@ -1408,7 +1408,7 @@ def test_get_complete_model_list_drops_no_default_models_sentinel():
 
 
 def test_get_complete_model_list_sentinel_only_grants_nothing():
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    from hangarllm.proxy.auth.model_checks import get_complete_model_list
 
     result = get_complete_model_list(
         key_models=["no-default-models"],
@@ -1422,18 +1422,18 @@ def test_get_complete_model_list_sentinel_only_grants_nothing():
 
 @pytest.fixture
 def fresh_available_models_cache(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm.utils as litellm_utils
+    import hangarllm.utils as hangarllm_utils
 
-    monkeypatch.setattr(litellm_utils, "_model_cache", litellm_utils.AvailableModelsCache())
+    monkeypatch.setattr(hangarllm_utils, "_model_cache", hangarllm_utils.AvailableModelsCache())
 
 
 def test_get_provider_models_admits_providers_without_a_static_catalog():
-    from litellm.proxy.auth.model_checks import get_provider_models
-    from litellm.types.router import LiteLLM_Params
+    from hangarllm.proxy.auth.model_checks import get_provider_models
+    from hangarllm.types.router import HangarLLM_Params
 
     result = get_provider_models(
         "hosted_vllm",
-        litellm_params=LiteLLM_Params(
+        hangarllm_params=HangarLLM_Params(
             model="hosted_vllm/*",
             api_base="http://upstream:4000",
             api_key="sk-upstream",
@@ -1443,16 +1443,16 @@ def test_get_provider_models_admits_providers_without_a_static_catalog():
     assert result == []
 
 
-@pytest.mark.parametrize("wildcard", ["litellm_proxy/*", "team-proxy/*"])
+@pytest.mark.parametrize("wildcard", ["hangarllm_proxy/*", "team-proxy/*"])
 @pytest.mark.usefixtures("fresh_available_models_cache")
 @respx.mock
-def test_get_complete_model_list_discovers_litellm_proxy_wildcard_models_by_default(
+def test_get_complete_model_list_discovers_hangarllm_proxy_wildcard_models_by_default(
     monkeypatch: pytest.MonkeyPatch, wildcard: str
 ) -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_complete_model_list
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", False)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", False)
     catalog: Final = respx.get(
         "http://upstream-discovery.test:4000/gateway/v1/models",
         headers={"Authorization": "Bearer test-upstream-key"},
@@ -1461,8 +1461,8 @@ def test_get_complete_model_list_discovers_litellm_proxy_wildcard_models_by_defa
         model_list=[
             {
                 "model_name": wildcard,
-                "litellm_params": {
-                    "model": "litellm_proxy/*",
+                "hangarllm_params": {
+                    "model": "hangarllm_proxy/*",
                     "api_base": "http://upstream-discovery.test:4000/gateway/v1",
                     "api_key": "test-upstream-key",
                 },
@@ -1484,14 +1484,14 @@ def test_get_complete_model_list_discovers_litellm_proxy_wildcard_models_by_defa
 
 @pytest.mark.usefixtures("fresh_available_models_cache")
 @respx.mock
-def test_litellm_proxy_discovery_cache_is_scoped_to_the_upstream_key_and_gateway(
+def test_hangarllm_proxy_discovery_cache_is_scoped_to_the_upstream_key_and_gateway(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", False)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", False)
     first: Final = respx.get(
         "http://first-proxy.test:4000/v1/models", headers={"Authorization": "Bearer test-first-key"}
     ).mock(return_value=httpx.Response(200, json={"data": [{"id": "first-key-model"}]}))
@@ -1501,37 +1501,37 @@ def test_litellm_proxy_discovery_cache_is_scoped_to_the_upstream_key_and_gateway
     other_gateway: Final = respx.get(
         "http://other-proxy.test:4000/v1/models", headers={"Authorization": "Bearer test-first-key"}
     ).mock(return_value=httpx.Response(200, json={"data": [{"id": "other-gateway-model"}]}))
-    deployment: Final = LiteLLM_Params(
-        model="litellm_proxy/*", api_base="http://first-proxy.test:4000/v1", api_key="test-first-key"
+    deployment: Final = HangarLLM_Params(
+        model="hangarllm_proxy/*", api_base="http://first-proxy.test:4000/v1", api_key="test-first-key"
     )
 
-    assert get_known_models_from_wildcard("litellm_proxy/*", deployment) == ["litellm_proxy/first-key-model"]
+    assert get_known_models_from_wildcard("hangarllm_proxy/*", deployment) == ["hangarllm_proxy/first-key-model"]
     assert get_known_models_from_wildcard(
-        "litellm_proxy/*", deployment.model_copy(update={"api_key": "test-second-key"})
-    ) == ["litellm_proxy/second-key-model"]
+        "hangarllm_proxy/*", deployment.model_copy(update={"api_key": "test-second-key"})
+    ) == ["hangarllm_proxy/second-key-model"]
     assert get_known_models_from_wildcard(
-        "litellm_proxy/*", deployment.model_copy(update={"api_base": "http://other-proxy.test:4000/v1"})
-    ) == ["litellm_proxy/other-gateway-model"]
-    assert get_known_models_from_wildcard("litellm_proxy/*", deployment) == ["litellm_proxy/first-key-model"]
+        "hangarllm_proxy/*", deployment.model_copy(update={"api_base": "http://other-proxy.test:4000/v1"})
+    ) == ["hangarllm_proxy/other-gateway-model"]
+    assert get_known_models_from_wildcard("hangarllm_proxy/*", deployment) == ["hangarllm_proxy/first-key-model"]
     assert (first.call_count, second.call_count, other_gateway.call_count) == (1, 1, 1)
 
 
 @pytest.mark.usefixtures("fresh_available_models_cache")
 @respx.mock
-def test_undeployed_litellm_proxy_wildcard_does_not_list_the_environment_gateway(
+def test_undeployed_hangarllm_proxy_wildcard_does_not_list_the_environment_gateway(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_complete_model_list
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", False)
-    monkeypatch.setenv("LITELLM_PROXY_API_BASE", "http://environment-proxy.test:4000")
-    monkeypatch.setenv("LITELLM_PROXY_API_KEY", "test-environment-key")
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", False)
+    monkeypatch.setenv("HANGARLLM_PROXY_API_BASE", "http://environment-proxy.test:4000")
+    monkeypatch.setenv("HANGARLLM_PROXY_API_KEY", "test-environment-key")
     catalog: Final = respx.get("http://environment-proxy.test:4000/v1/models").mock(
         return_value=httpx.Response(200, json={"data": [{"id": "environment-only-model"}]})
     )
     listed: Final = get_complete_model_list(
-        key_models=["litellm_proxy/*"],
+        key_models=["hangarllm_proxy/*"],
         team_models=[],
         proxy_model_list=[],
         user_model=None,
@@ -1543,31 +1543,31 @@ def test_undeployed_litellm_proxy_wildcard_does_not_list_the_environment_gateway
 
 
 def test_get_provider_models_returns_none_for_an_unknown_provider():
-    from litellm.proxy.auth.model_checks import get_provider_models
+    from hangarllm.proxy.auth.model_checks import get_provider_models
 
     assert get_provider_models("not-a-real-provider") is None
 
 
 def test_transcribe_is_a_known_provider_for_wildcard_expansion():
-    import litellm
-    from litellm.proxy.auth.model_checks import (
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import (
         get_known_models_from_wildcard,
         get_provider_models,
     )
 
-    assert "transcribe" in litellm.models_by_provider
-    assert "transcribe/StartTranscriptionJob" in litellm.models_by_provider["transcribe"]
+    assert "transcribe" in hangarllm.models_by_provider
+    assert "transcribe/StartTranscriptionJob" in hangarllm.models_by_provider["transcribe"]
     assert get_provider_models("transcribe") == ["transcribe/StartTranscriptionJob"]
     assert get_known_models_from_wildcard("transcribe/*") == ["transcribe/StartTranscriptionJob"]
 
 
 @respx.mock
 def test_partial_bedrock_wildcard_filters_the_discovered_ids(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
     region: Final = "ap-south-1"
     respx.get(
@@ -1595,7 +1595,7 @@ def test_partial_bedrock_wildcard_filters_the_discovered_ids(monkeypatch: pytest
             },
         )
     )
-    deployment: Final = LiteLLM_Params(
+    deployment: Final = HangarLLM_Params(
         model="bedrock/anthropic.*",
         aws_access_key_id="AKIAPARTIALWILDCARD",
         aws_secret_access_key="partial-wildcard-secret",
@@ -1611,11 +1611,11 @@ def test_partial_bedrock_wildcard_filters_the_discovered_ids(monkeypatch: pytest
 def test_partial_bedrock_wildcard_lists_nothing_when_no_discovered_id_carries_its_prefix(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
     region: Final = "ap-southeast-2"
     respx.get(
@@ -1633,7 +1633,7 @@ def test_partial_bedrock_wildcard_lists_nothing_when_no_discovered_id_carries_it
             },
         )
     )
-    deployment: Final = LiteLLM_Params(
+    deployment: Final = HangarLLM_Params(
         model="bedrock/anthropic.*",
         aws_access_key_id="AKIAPROFILEONLYACCOUNT",
         aws_secret_access_key="profile-only-secret",
@@ -1660,11 +1660,11 @@ def test_partial_bedrock_wildcard_lists_nothing_when_no_discovered_id_carries_it
 def test_openrouter_wildcard_lists_the_live_catalog_with_each_vendor_namespace(
     monkeypatch: pytest.MonkeyPatch, wildcard: str, deployment_model: str, listed_ids: list[str]
 ) -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     monkeypatch.delenv("OPENROUTER_API_BASE", raising=False)
     respx.get("https://openrouter.ai/api/v1/models/user").mock(
         return_value=httpx.Response(
@@ -1673,7 +1673,7 @@ def test_openrouter_wildcard_lists_the_live_catalog_with_each_vendor_namespace(
     )
 
     assert (
-        get_known_models_from_wildcard(wildcard, LiteLLM_Params(model=deployment_model, api_key=f"sk-or-{wildcard}"))
+        get_known_models_from_wildcard(wildcard, HangarLLM_Params(model=deployment_model, api_key=f"sk-or-{wildcard}"))
         == listed_ids
     )
 
@@ -1682,17 +1682,17 @@ def test_openrouter_wildcard_lists_the_live_catalog_with_each_vendor_namespace(
 def test_key_granted_openrouter_wildcard_without_an_openrouter_deployment_lists_no_environment_catalog(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm
-    from litellm import Router
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    import hangarllm
+    from hangarllm import Router
+    from hangarllm.proxy.auth.model_checks import get_complete_model_list
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-environment-only")
     catalog: Final = respx.get("https://openrouter.ai/api/v1/models/user").mock(
         return_value=httpx.Response(200, json={"data": [{"id": "anthropic/claude-haiku-5-5"}]})
     )
     router: Final = Router(
-        model_list=[{"model_name": "or-team/*", "litellm_params": {"model": "openrouter/*", "api_key": "sk-or-team"}}]
+        model_list=[{"model_name": "or-team/*", "hangarllm_params": {"model": "openrouter/*", "api_key": "sk-or-team"}}]
     )
 
     listed: Final = get_complete_model_list(
@@ -1711,11 +1711,11 @@ def test_key_granted_openrouter_wildcard_without_an_openrouter_deployment_lists_
 def test_key_granted_hosted_vllm_wildcard_without_a_hosted_vllm_deployment_lists_no_environment_server(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm
-    from litellm import Router
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    import hangarllm
+    from hangarllm import Router
+    from hangarllm.proxy.auth.model_checks import get_complete_model_list
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     monkeypatch.setenv("HOSTED_VLLM_API_BASE", "http://hosted-vllm-environment-only.test:8000/v1")
     environment_server: Final = respx.get("http://hosted-vllm-environment-only.test:8000/v1/models").mock(
         return_value=httpx.Response(200, json={"data": [{"id": "qwen2.5"}]})
@@ -1724,7 +1724,7 @@ def test_key_granted_hosted_vllm_wildcard_without_a_hosted_vllm_deployment_lists
         model_list=[
             {
                 "model_name": "vllm-team/*",
-                "litellm_params": {"model": "hosted_vllm/*", "api_base": "http://vllm-team.test:8000/v1"},
+                "hangarllm_params": {"model": "hosted_vllm/*", "api_base": "http://vllm-team.test:8000/v1"},
             }
         ]
     )
@@ -1745,9 +1745,9 @@ def test_key_granted_hosted_vllm_wildcard_without_a_hosted_vllm_deployment_lists
 def _openai_catalog_behind_a_catch_all(
     monkeypatch: pytest.MonkeyPatch, concrete_name: str, concrete_model_info: Mapping[str, str]
 ) -> Generator[Router, None, None]:
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     with respx.mock(assert_all_called=False) as respx_mock:
@@ -1756,10 +1756,10 @@ def _openai_catalog_behind_a_catch_all(
         )
         yield Router(
             model_list=[
-                {"model_name": "*", "litellm_params": {"model": "openai/*", "api_key": "sk-openai-catch-all"}},
+                {"model_name": "*", "hangarllm_params": {"model": "openai/*", "api_key": "sk-openai-catch-all"}},
                 {
                     "model_name": concrete_name,
-                    "litellm_params": {"model": "openrouter/openai/gpt-4o", "api_key": "sk-or-gpt-4o"},
+                    "hangarllm_params": {"model": "openrouter/openai/gpt-4o", "api_key": "sk-or-gpt-4o"},
                     "model_info": dict(concrete_model_info),
                 },
             ]
@@ -1776,7 +1776,7 @@ def _openai_catalog_behind_a_catch_all(
 def test_catch_all_wildcard_lists_a_name_a_concrete_deployment_serves_once(
     monkeypatch: pytest.MonkeyPatch, concrete_name: str, concrete_model_info: Mapping[str, str], team_id: str | None
 ) -> None:
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    from hangarllm.proxy.auth.model_checks import get_complete_model_list
 
     with _openai_catalog_behind_a_catch_all(monkeypatch, concrete_name, concrete_model_info) as router:
         listed: Final = get_complete_model_list(
@@ -1795,14 +1795,14 @@ def test_catch_all_wildcard_lists_a_name_a_concrete_deployment_serves_once(
 def test_catch_all_wildcard_model_info_keeps_only_the_concrete_row_for_a_deployed_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info
+    from hangarllm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info
 
     with _openai_catalog_behind_a_catch_all(monkeypatch, "gpt-4o", {}) as router:
         rows: Final = expand_wildcard_deployments_for_model_info(
             [dict(deployment) for deployment in router.get_model_list() or ()], llm_router=router
         )
 
-    assert sorted((row["model_name"], row["litellm_params"]["model"]) for row in rows) == [
+    assert sorted((row["model_name"], row["hangarllm_params"]["model"]) for row in rows) == [
         ("gpt-4o", "openrouter/openai/gpt-4o"),
         ("gpt-4o-mini", "openai/gpt-4o-mini"),
     ]
@@ -1816,9 +1816,9 @@ def _openrouter_catalog_beside_a_named_deployment(
     catalog: tuple[str, ...] = ("openai/gpt-5.4-mini", "anthropic/claude-haiku-5-5"),
     wildcard_key: str | None = None,
 ) -> Generator[Router, None, None]:
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     monkeypatch.delenv("OPENROUTER_API_BASE", raising=False)
     with respx.mock(assert_all_called=False) as respx_mock:
         respx_mock.get("https://openrouter.ai/api/v1/models/user").mock(
@@ -1828,14 +1828,14 @@ def _openrouter_catalog_beside_a_named_deployment(
             model_list=[
                 {
                     "model_name": wildcard_name,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openrouter/*",
                         "api_key": wildcard_key or f"sk-or-wildcard-{wildcard_name}",
                     },
                 },
                 {
                     "model_name": named,
-                    "litellm_params": {"model": "openrouter/openai/gpt-5.4-mini", "api_key": "sk-or-named"},
+                    "hangarllm_params": {"model": "openrouter/openai/gpt-5.4-mini", "api_key": "sk-or-named"},
                 },
             ]
         )
@@ -1848,7 +1848,7 @@ def _openrouter_catalog_beside_a_named_deployment(
 def test_provider_wildcard_lists_a_name_a_named_deployment_serves_once(
     monkeypatch: pytest.MonkeyPatch, wildcard_name: str, named: str
 ) -> None:
-    from litellm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info, get_complete_model_list
+    from hangarllm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info, get_complete_model_list
 
     with _openrouter_catalog_beside_a_named_deployment(monkeypatch, wildcard_name, named) as router:
         listed: Final = get_complete_model_list(
@@ -1865,7 +1865,7 @@ def test_provider_wildcard_lists_a_name_a_named_deployment_serves_once(
 
     vendor_prefix: Final = wildcard_name.removesuffix("*")
     assert sorted(listed) == [f"{vendor_prefix}anthropic/claude-haiku-5-5", named]
-    assert sorted((row["model_name"], row["litellm_params"]["api_key"]) for row in rows) == [
+    assert sorted((row["model_name"], row["hangarllm_params"]["api_key"]) for row in rows) == [
         (f"{vendor_prefix}anthropic/claude-haiku-5-5", f"sk-or-wildcard-{wildcard_name}"),
         (named, "sk-or-named"),
     ]
@@ -1878,7 +1878,7 @@ def test_provider_wildcard_lists_a_name_a_named_deployment_serves_once(
 def test_provider_wildcard_whose_whole_catalog_is_deployed_by_name_shows_only_the_named_row(
     monkeypatch: pytest.MonkeyPatch, wildcard_name: str, named: str
 ) -> None:
-    from litellm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info
+    from hangarllm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info
 
     with _openrouter_catalog_beside_a_named_deployment(
         monkeypatch,
@@ -1891,18 +1891,18 @@ def test_provider_wildcard_whose_whole_catalog_is_deployed_by_name_shows_only_th
             [dict(deployment) for deployment in router.get_model_list() or ()], llm_router=router
         )
 
-    assert [(row["model_name"], row["litellm_params"]["api_key"]) for row in rows] == [(named, "sk-or-named")]
+    assert [(row["model_name"], row["hangarllm_params"]["api_key"]) for row in rows] == [(named, "sk-or-named")]
 
 
 @respx.mock
 def test_custom_prefix_that_starts_a_discovered_id_still_prefixes_every_listed_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
     region: Final = "ca-central-1"
     respx.get(
@@ -1930,7 +1930,7 @@ def test_custom_prefix_that_starts_a_discovered_id_still_prefixes_every_listed_m
             },
         )
     )
-    deployment: Final = LiteLLM_Params(
+    deployment: Final = HangarLLM_Params(
         model="bedrock/*",
         aws_access_key_id="AKIACUSTOMPREFIXACCOUNT",
         aws_secret_access_key="custom-prefix-secret",
@@ -1946,21 +1946,21 @@ def test_custom_prefix_that_starts_a_discovered_id_still_prefixes_every_listed_m
 
 @contextmanager
 def _registered_chat_models(provider_by_model: Mapping[str, str]) -> Generator[None, None, None]:
-    import litellm
+    import hangarllm
 
-    litellm.register_model(
-        {model: {"litellm_provider": provider, "mode": "chat"} for model, provider in provider_by_model.items()},
+    hangarllm.register_model(
+        {model: {"hangarllm_provider": provider, "mode": "chat"} for model, provider in provider_by_model.items()},
         persist_across_reloads=False,
     )
     try:
         yield
     finally:
-        provider_model_sets: Final = tuple(known for known in vars(litellm).values() if isinstance(known, set))
+        provider_model_sets: Final = tuple(known for known in vars(hangarllm).values() if isinstance(known, set))
         for model in provider_by_model:
-            litellm.model_cost.pop(model, None)
+            hangarllm.model_cost.pop(model, None)
             for provider_models in provider_model_sets:
                 provider_models.discard(model)
-        litellm.add_known_models(model_cost_map={})
+        hangarllm.add_known_models(model_cost_map={})
 
 
 @pytest.mark.parametrize(
@@ -1996,11 +1996,11 @@ def _registered_chat_models(provider_by_model: Mapping[str, str]) -> Generator[N
 def test_partial_wildcard_lists_catalog_ids_stored_with_the_provider_prefix(
     wildcard: str, deployment_model: str | None, catalog: tuple[str, ...], expected: list[str]
 ) -> None:
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
     provider: Final = wildcard.split("/", 1)[0]
-    deployment: Final = None if deployment_model is None else LiteLLM_Params(model=deployment_model)
+    deployment: Final = None if deployment_model is None else HangarLLM_Params(model=deployment_model)
     with _registered_chat_models(dict.fromkeys(catalog, provider)):
         listed: Final = get_known_models_from_wildcard(wildcard, deployment)
 
@@ -2013,12 +2013,12 @@ def test_partial_wildcard_lists_catalog_ids_stored_with_the_provider_prefix(
 def test_routing_segment_lists_the_same_catalog_ids_as_the_bare_provider_wildcard(
     provider: str, routing_segment: str
 ) -> None:
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    bare_listing: Final = get_known_models_from_wildcard(f"{provider}/*", LiteLLM_Params(model=f"{provider}/*"))
+    bare_listing: Final = get_known_models_from_wildcard(f"{provider}/*", HangarLLM_Params(model=f"{provider}/*"))
     routed_listing: Final = get_known_models_from_wildcard(
-        f"{provider}/*", LiteLLM_Params(model=f"{provider}/{routing_segment}/*")
+        f"{provider}/*", HangarLLM_Params(model=f"{provider}/{routing_segment}/*")
     )
 
     assert bare_listing
@@ -2026,7 +2026,7 @@ def test_routing_segment_lists_the_same_catalog_ids_as_the_bare_provider_wildcar
 
 
 def test_provider_wildcard_lists_cost_map_models_but_not_pricing_tiers() -> None:
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
 
     model_id: Final = "together_ai/partial-wildcard-org/model-t"
     pricing_tier: Final = "together-ai-partial-wildcard-tier"
@@ -2038,13 +2038,13 @@ def test_provider_wildcard_lists_cost_map_models_but_not_pricing_tiers() -> None
 
 
 def test_provider_wildcard_stops_listing_a_cost_map_model_once_it_is_retired() -> None:
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+    import hangarllm
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
 
     model_id: Final = "together_ai/partial-wildcard-org/model-retired"
     with _registered_chat_models({model_id: "together_ai"}):
         listed_while_served: Final = get_known_models_from_wildcard("together_ai/*")
-        litellm.add_known_models({model_id: {"litellm_provider": "together_ai", "deprecation_date": "2000-01-01"}})
+        hangarllm.add_known_models({model_id: {"hangarllm_provider": "together_ai", "deprecation_date": "2000-01-01"}})
         listed_once_retired: Final = get_known_models_from_wildcard("together_ai/*")
 
     assert model_id in listed_while_served
@@ -2203,16 +2203,16 @@ def test_every_listed_partial_wildcard_id_routes_to_the_catalog_model_it_names(
 ) -> None:
     from pydantic import TypeAdapter
 
-    from litellm import Router
-    from litellm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info, get_complete_model_list
-    from litellm.types.router import LiteLLM_Params
+    from hangarllm import Router
+    from hangarllm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info, get_complete_model_list
+    from hangarllm.types.router import HangarLLM_Params
 
-    routed_params: Final = TypeAdapter(tuple[LiteLLM_Params, ...])
-    router: Final = Router(model_list=[{"model_name": model_name, "litellm_params": {"model": deployment_model}}])
+    routed_params: Final = TypeAdapter(tuple[HangarLLM_Params, ...])
+    router: Final = Router(model_list=[{"model_name": model_name, "hangarllm_params": {"model": deployment_model}}])
 
     def routed_model(listed_id: str) -> str:
         routed: Final = routed_params.validate_python(
-            tuple(deployment["litellm_params"] for deployment in router.wildcard_route_deployments(listed_id, None))
+            tuple(deployment["hangarllm_params"] for deployment in router.wildcard_route_deployments(listed_id, None))
         )
         return routed[0].model if routed else listed_id
 
@@ -2278,10 +2278,10 @@ def test_every_listed_partial_wildcard_id_routes_to_the_catalog_model_it_names(
 def test_only_slashless_azure_wildcards_skip_the_catalog_placeholder(
     model_name: str, expected_v1_models: list[str]
 ) -> None:
-    from litellm import Router
-    from litellm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info, get_complete_model_list
+    from hangarllm import Router
+    from hangarllm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info, get_complete_model_list
 
-    router: Final = Router(model_list=[{"model_name": model_name, "litellm_params": {"model": "azure/*"}}])
+    router: Final = Router(model_list=[{"model_name": model_name, "hangarllm_params": {"model": "azure/*"}}])
 
     v1_models: Final = get_complete_model_list(
         key_models=[],
@@ -2314,15 +2314,15 @@ def test_slashless_wildcard_over_a_bare_deployment_lists_its_custom_llm_provider
 ) -> None:
     from fnmatch import fnmatchcase
 
-    from litellm import Router
-    from litellm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info, get_complete_model_list
-    from litellm.utils import get_valid_models
+    from hangarllm import Router
+    from hangarllm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info, get_complete_model_list
+    from hangarllm.utils import get_valid_models
 
     router: Final = Router(
         model_list=[
             {
                 "model_name": model_name,
-                "litellm_params": {"model": deployment_model, "custom_llm_provider": "openai", "api_key": "sk-test"},
+                "hangarllm_params": {"model": deployment_model, "custom_llm_provider": "openai", "api_key": "sk-test"},
             }
         ]
     )
@@ -2340,7 +2340,7 @@ def test_slashless_wildcard_over_a_bare_deployment_lists_its_custom_llm_provider
     )
     openai_ids: Final = frozenset(model.removeprefix("openai/") for model in get_valid_models(custom_llm_provider="openai"))
     routed_models: Final = {
-        listed_id: [deployment["litellm_params"]["model"] for deployment in router.wildcard_route_deployments(listed_id, None)]
+        listed_id: [deployment["hangarllm_params"]["model"] for deployment in router.wildcard_route_deployments(listed_id, None)]
         for listed_id in v1_models
     }
 
@@ -2350,7 +2350,7 @@ def test_slashless_wildcard_over_a_bare_deployment_lists_its_custom_llm_provider
     ] == []
     assert {listed_id: models for listed_id, models in routed_models.items() if models != [listed_id]} == {}
     assert sorted(str(row["model_name"]) for row in model_info_rows) == sorted(v1_models)
-    assert [row for row in model_info_rows if row["litellm_params"]["model"] != row["model_name"]] == []
+    assert [row for row in model_info_rows if row["hangarllm_params"]["model"] != row["model_name"]] == []
 
 
 @pytest.mark.parametrize(
@@ -2364,24 +2364,24 @@ def test_slashless_wildcard_over_a_bare_deployment_lists_its_custom_llm_provider
 def test_custom_llm_provider_changes_no_listing_outside_slashless_names_over_bare_deployments(
     model_name: str, deployment_model: str
 ) -> None:
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
     with_provider: Final = get_known_models_from_wildcard(
-        model_name, LiteLLM_Params(model=deployment_model, custom_llm_provider="openai")
+        model_name, HangarLLM_Params(model=deployment_model, custom_llm_provider="openai")
     )
-    without_provider: Final = get_known_models_from_wildcard(model_name, LiteLLM_Params(model=deployment_model))
+    without_provider: Final = get_known_models_from_wildcard(model_name, HangarLLM_Params(model=deployment_model))
 
     assert with_provider == without_provider
 
 
 def test_inference_provider_route_lists_every_id_the_plain_provider_wildcard_lists() -> None:
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.types.router import HangarLLM_Params
 
-    plain: Final = get_known_models_from_wildcard("huggingface/*", LiteLLM_Params(model="huggingface/*"))
+    plain: Final = get_known_models_from_wildcard("huggingface/*", HangarLLM_Params(model="huggingface/*"))
     routed: Final = get_known_models_from_wildcard(
-        "huggingface/*", LiteLLM_Params(model="huggingface/featherless-ai/*")
+        "huggingface/*", HangarLLM_Params(model="huggingface/featherless-ai/*")
     )
 
     assert plain
@@ -2390,20 +2390,20 @@ def test_inference_provider_route_lists_every_id_the_plain_provider_wildcard_lis
 
 
 def test_catch_all_lists_no_id_a_more_specific_sibling_wildcard_routes_elsewhere() -> None:
-    from litellm import Router
-    from litellm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info, get_complete_model_list
+    from hangarllm import Router
+    from hangarllm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info, get_complete_model_list
 
     unshadowed_id: Final = "cloudflare/@cf/unshadowed-route-org/model-d"
     router: Final = Router(
         model_list=[
-            {"model_name": "*", "litellm_params": {"model": "cloudflare/@cf/*"}},
-            {"model_name": "partial-route-org/*", "litellm_params": {"model": "openai/*"}},
+            {"model_name": "*", "hangarllm_params": {"model": "cloudflare/@cf/*"}},
+            {"model_name": "partial-route-org/*", "hangarllm_params": {"model": "openai/*"}},
         ]
     )
 
     def routed_models(listed: list[str]) -> dict[str, object]:
         return {
-            listed_id: router.wildcard_route_deployments(listed_id, None)[0]["litellm_params"]["model"]
+            listed_id: router.wildcard_route_deployments(listed_id, None)[0]["hangarllm_params"]["model"]
             for listed_id in listed
             if "route-org/model-" in listed_id
         }
@@ -2431,15 +2431,15 @@ def test_catch_all_lists_no_id_a_more_specific_sibling_wildcard_routes_elsewhere
 
 
 def test_wildcard_lists_an_id_a_more_specific_sibling_serves_with_the_same_model() -> None:
-    from litellm import Router
-    from litellm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info, get_complete_model_list
+    from hangarllm import Router
+    from hangarllm.proxy.auth.model_checks import expand_wildcard_deployments_for_model_info, get_complete_model_list
 
     router: Final = Router(
         model_list=[
-            {"model_name": "openai/gpt-partial-route-9*", "litellm_params": {"model": "openai/gpt-partial-route-9*"}},
+            {"model_name": "openai/gpt-partial-route-9*", "hangarllm_params": {"model": "openai/gpt-partial-route-9*"}},
             {
                 "model_name": "openai/gpt-partial-route-9-mini*",
-                "litellm_params": {"model": "openai/gpt-partial-route-9-mini*"},
+                "hangarllm_params": {"model": "openai/gpt-partial-route-9-mini*"},
             },
         ]
     )
@@ -2464,11 +2464,11 @@ def test_wildcard_lists_an_id_a_more_specific_sibling_serves_with_the_same_model
 
 
 def test_prefixed_alias_over_a_bare_catch_all_lists_ids_that_route_through_it(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm import Router
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    from hangarllm import Router
+    from hangarllm.proxy.auth.model_checks import get_complete_model_list
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-partial-route-test")
-    router: Final = Router(model_list=[{"model_name": "team-partial-route/*", "litellm_params": {"model": "*"}}])
+    router: Final = Router(model_list=[{"model_name": "team-partial-route/*", "hangarllm_params": {"model": "*"}}])
     with _registered_chat_models({_ROUTE_OPENAI_ID: "openai"}):
         v1_models: Final = get_complete_model_list(
             key_models=[],

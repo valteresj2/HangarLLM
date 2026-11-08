@@ -57,7 +57,7 @@ def _responses_reply(prompt: str, response_id: str) -> Callable[[Request], Reply
 
 def _rows_for_key(key: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT litellm_call_id, request_id, spend FROM "LiteLLM_SpendLogs" WHERE api_key=%s',
+        'SELECT hangarllm_call_id, request_id, spend FROM "HangarLLM_SpendLogs" WHERE api_key=%s',
         (sha256(key.encode()).hexdigest(),),
     )
 
@@ -89,20 +89,20 @@ def test_bridged_chat_completion_above_log_offload_threshold_logs_and_charges_on
         assert response.status_code == 200, response.text
         assert "ok" in response.text, response.text
         assert response.json()["id"] == upstream_id, response.text
-        call_id: Final = response.headers["x-litellm-call-id"]
+        call_id: Final = response.headers["x-hangarllm-call-id"]
 
         rows: Final = eventually(
             lambda: _rows_for_key(key),
-            lambda values: any(row["litellm_call_id"] == call_id for row in values),
+            lambda values: any(row["hangarllm_call_id"] == call_id for row in values),
             seconds=70,
         )
-        call_rows: Final = [row for row in rows if row["litellm_call_id"] == call_id]
+        call_rows: Final = [row for row in rows if row["hangarllm_call_id"] == call_id]
         assert len(call_rows) == 1, rows
         assert float(str(call_rows[0]["spend"])) == pytest.approx(EXPECTED_SPEND), rows
         assert call_rows[0]["request_id"] == upstream_id, rows
 
         key_spend: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,)),
             lambda values: len(values) == 1 and float(str(values[0]["spend"])) >= EXPECTED_SPEND,
             seconds=70,
         )

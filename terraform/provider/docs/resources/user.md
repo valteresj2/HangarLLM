@@ -1,11 +1,11 @@
-# litellm_user Resource
+# hangarllm_user Resource
 
-Manages an internal user on the LiteLLM proxy. Internal users can log into the Admin UI, own API keys, and belong to teams
+Manages an internal user on the HangarLLM proxy. Internal users can log into the Admin UI, own API keys, and belong to teams
 
 ## Example Usage
 
 ```hcl
-resource "litellm_user" "alice" {
+resource "hangarllm_user" "alice" {
   user_email      = "alice@example.com"
   user_alias      = "Alice"
   user_role       = "internal_user"
@@ -13,7 +13,7 @@ resource "litellm_user" "alice" {
   budget_duration = "30d"
   tpm_limit       = 100000
   rpm_limit       = 1000
-  teams           = [litellm_team.engineering.id]
+  teams           = [hangarllm_team.engineering.id]
   models          = ["gpt-4o", "claude-sonnet-4-5"]
 
   metadata = {
@@ -50,7 +50,7 @@ resource "litellm_user" "alice" {
 - `permissions` (Optional) - Map of permission values for the user
 - `model_max_budget` (Optional) - JSON string of per-model budget config, e.g. `jsonencode({"gpt-4o" = {max_budget = 10.0}})`
 - `guardrails` (Optional) - List of guardrails applied to the user's requests
-- `blocked` (Optional, Default `false`) - Whether to block the key auto-created with the user. Only sent on creation, so changing it afterwards has no effect. The proxy has no user-level block; use `litellm_key_block` to block keys
+- `blocked` (Optional, Default `false`) - Whether to block the key auto-created with the user. Only sent on creation, so changing it afterwards has no effect. The proxy has no user-level block; use `hangarllm_key_block` to block keys
 
 ## Attribute Reference
 
@@ -62,5 +62,5 @@ resource "litellm_user" "alice" {
 Users can be imported using the user ID:
 
 ```shell
-terraform import litellm_user.alice <user-id>
+terraform import hangarllm_user.alice <user-id>
 ```

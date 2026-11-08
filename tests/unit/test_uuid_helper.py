@@ -1,7 +1,7 @@
 from typing import Final
 from uuid import NAMESPACE_DNS, UUID, uuid5 as stdlib_uuid5
 
-from litellm._uuid import uuid, uuid4
+from hangarllm._uuid import uuid, uuid4
 
 
 def test_uuid4_returns_canonical_random_uuid() -> None:

@@ -30,8 +30,8 @@ from openai.types.eval_create_response import EvalCreateResponse as _Eval
 from openai.types.evals.run_create_response import RunCreateResponse as _EvalRun
 from pydantic import JsonValue
 
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.videos.utils import (
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.types.videos.utils import (
     decode_video_id_with_provider,
     encode_character_id_with_provider,
     encode_video_id_with_provider,
@@ -859,7 +859,7 @@ def _store(gateway: Gateway, scenario: Scenario, model: str, identity: str, hand
         {
             "vector_store_id": store,
             "custom_llm_provider": "openai",
-            "litellm_params": {"model": model, "api_base": handle.api_base(), "api_key": identity},
+            "hangarllm_params": {"model": model, "api_base": handle.api_base(), "api_key": identity},
         },
     )
     assert response.status_code == 200, response.text
@@ -873,7 +873,7 @@ def _search_tool(gateway: Gateway, scenario: Scenario, identity: str, handle: Sc
         {
             "search_tool": {
                 "search_tool_name": name,
-                "litellm_params": {"search_provider": "exa_ai", "api_key": identity, "api_base": handle.api_base()},
+                "hangarllm_params": {"search_provider": "exa_ai", "api_key": identity, "api_base": handle.api_base()},
             }
         },
     )
@@ -1111,14 +1111,14 @@ def test_anthropic_messages_uses_router_wide_max_tokens_default(gateway: Gateway
                     "model_list": [
                         {
                             "model_name": "router-default-anthropic",
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": "anthropic/claude-haiku-4-5",
                                 "api_base": handle.api_base(),
                                 "api_key": identity,
                             },
                         }
                     ],
-                    "router_settings": {"default_litellm_params": {"max_tokens": 32}},
+                    "router_settings": {"default_hangarllm_params": {"max_tokens": 32}},
                 }
             ),
             encoding="utf-8",
@@ -1158,14 +1158,14 @@ def test_rerank_uses_router_wide_documents_default(gateway: Gateway, tmp_path: P
                     "model_list": [
                         {
                             "model_name": "router-default-rerank",
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": "cohere/rerank-v4.0",
                                 "api_base": handle.api_base(),
                                 "api_key": identity,
                             },
                         }
                     ],
-                    "router_settings": {"default_litellm_params": {"documents": ["router default document"]}},
+                    "router_settings": {"default_hangarllm_params": {"documents": ["router default document"]}},
                 }
             ),
             encoding="utf-8",
@@ -1247,7 +1247,7 @@ def test_valid_agent_creation_reaches_upstream(gateway: Gateway) -> None:
         scenario.cleanups.callback(delete_scenario, handle)
         request_body: Final = {
             **body,
-            "litellm_params_template": {"api_base": handle.api_base(), "api_key": identity},
+            "hangarllm_params_template": {"api_base": handle.api_base(), "api_key": identity},
         }
         response: Final = gateway.request("POST", "/v1beta/agents", request_body)
         assert response.status_code == 200, response.text
@@ -1406,7 +1406,7 @@ def test_default_search_model_uses_query_without_model(gateway: Gateway, tmp_pat
                     "search_tools": [
                         {
                             "search_tool_name": "exa-search",
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "search_provider": "exa_ai",
                                 "api_key": identity,
                                 "api_base": handle.api_base(),
@@ -1444,7 +1444,7 @@ def test_interaction_without_model_uses_completion_model(gateway: Gateway, tmp_p
                     "model_list": [
                         {
                             "model_name": "interaction-default",
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": "gemini/gemini-2.5-flash",
                                 "api_base": handle.api_base(),
                                 "api_key": identity,
@@ -1555,7 +1555,7 @@ def _chat_body(model: str, marker: str, valid: bool) -> dict[str, JsonValue]:
 
 
 def _spend_rows(request_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (request_id,))
+    return read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (request_id,))
 
 
 def _owned_model(
@@ -1693,7 +1693,7 @@ def test_upstream_pause_and_worker_kill_preserve_required_body_status(
             assert all(rows[0]["request_id"] == request_id for rows, request_id in zip(spend_rows, request_ids)), (
                 spend_rows
             )
-            record_property("chaos_spend_query", 'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id = %s')
+            record_property("chaos_spend_query", 'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id = %s')
             record_property("chaos_spend_response_id_count", len(request_ids))
             record_property("chaos_spend_row_counts", str(tuple(len(rows) for rows in spend_rows)))
             with owned.replacing_worker(min(workers)) as kill:
@@ -2272,7 +2272,7 @@ def test_json_video_create_decodes_character_ids_into_text_parts(gateway: Gatewa
 def test_multipart_video_create_decodes_character_ids_into_text_parts(gateway: Gateway) -> None:
     pytest.skip(
         "BUG: multipart characters[][id]=<encoded id> to /v1/videos (client.videos.create with extra_body "
-        "characters, or curl -F) reaches the upstream still LiteLLM-encoded instead of the provider id"
+        "characters, or curl -F) reaches the upstream still HangarLLM-encoded instead of the provider id"
     )
     seen: Final[list[Request]] = []
     with wire_server(_video_upstream(seen)) as wire, gateway.scenario() as scenario:

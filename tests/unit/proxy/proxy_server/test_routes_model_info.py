@@ -22,12 +22,12 @@ import pytest
 import respx
 from fastapi.testclient import TestClient
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LiteLLM_ProxyModelTable
-from litellm.utils import _invalidate_model_cost_lowercase_map
+import hangarllm
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import HangarLLM_ProxyModelTable
+from hangarllm.utils import _invalidate_model_cost_lowercase_map
 
 from .conftest import normalize, route_entry_points_to_stubs  # type: ignore[import-not-found]
 
@@ -45,12 +45,12 @@ from .conftest import normalize, route_entry_points_to_stubs  # type: ignore[imp
 async def test_discovery_preserves_model_info_fallbacks(
     backend_model: str, base_model: str | None, advertised_limit: int | None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "local",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": backend_model,
                     "api_base": "https://fallback.test/v1",
                     "api_key": "local-key",
@@ -60,7 +60,7 @@ async def test_discovery_preserves_model_info_fallbacks(
         ]
     )
     builtin: Final = {
-        "litellm_provider": "openai",
+        "hangarllm_provider": "openai",
         "mode": "chat",
         "max_input_tokens": 7000,
         "max_output_tokens": 2000,
@@ -68,12 +68,12 @@ async def test_discovery_preserves_model_info_fallbacks(
         "output_cost_per_token": 0.002,
     }
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
             "fallback-model": builtin,
             "openai/fallback-model": builtin,
-            "fallback-deployment": {"litellm_provider": "openai", "mode": "chat"},
+            "fallback-deployment": {"hangarllm_provider": "openai", "mode": "chat"},
         },
     )
     _invalidate_model_cost_lowercase_map()
@@ -103,7 +103,7 @@ async def test_discovery_preserves_model_info_fallbacks(
     }
     enriched_models: Final = (
         proxy_server._get_proxy_model_info(copy.deepcopy(deployment)),
-        proxy_server._enrich_model_info_with_litellm_data(copy.deepcopy(deployment), llm_router=router),
+        proxy_server._enrich_model_info_with_hangarllm_data(copy.deepcopy(deployment), llm_router=router),
     )
     expected_input: Final = (
         advertised_limit
@@ -125,13 +125,13 @@ async def test_upstream_limits_reach_model_info_routes(
     auth_as: Callable[[], AbstractContextManager[object]],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "local",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "hosted_vllm/org/local-model",
                     "api_base": "https://backend.test/v1",
                     "api_key": "local-key",
@@ -152,7 +152,7 @@ async def test_upstream_limits_reach_model_info_routes(
     await handler.client.aclose()
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as upstream:
         handler.client = upstream
-        litellm.in_memory_llm_clients_cache.set_cache("async_httpx_clientopenai", handler)
+        hangarllm.in_memory_llm_clients_cache.set_cache("async_httpx_clientopenai", handler)
         await proxy_server.ProxyStartupEvent.refresh_model_info()
         with auth_as():
             for path in ("/v1/model/info", "/model/info"):
@@ -217,45 +217,45 @@ def test_deleted_model_params_stay_absent_after_reload_and_another_save(
     mock_prisma: MagicMock,
     encoded: bool,
 ) -> None:
-    from litellm.proxy.management_endpoints.model_management_endpoints import update_db_model
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import PatchModelRequest
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo, updateDeployment, updateLiteLLMParams
+    from hangarllm.proxy.management_endpoints.model_management_endpoints import update_db_model
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import PatchModelRequest
+    from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo, updateDeployment, updateHangarLLMParams
 
     configured: Final = {
         "model": "openai/test-model", "api_key": "synthetic-runtime-secret",
-        "use_litellm_proxy": True, "use_in_pass_through": True, "use_chat_completions_api": False,
-        "litellm_image_enabled": True, "timeout": 30, "input_cost_per_token": 0.003,
+        "use_hangarllm_proxy": True, "use_in_pass_through": True, "use_chat_completions_api": False,
+        "hangarllm_image_enabled": True, "timeout": 30, "input_cost_per_token": 0.003,
         "team_id": "param-only-team", "temperature": 0, "metadata": {},
     }
     original: Final = Deployment(
-        model_name="editor-model", litellm_params=LiteLLM_Params.model_validate(configured),
+        model_name="editor-model", hangarllm_params=HangarLLM_Params.model_validate(configured),
         model_info=ModelInfo(id="editor-model", team_id="owner-team", access_groups=["retained-group"]),
     )
-    removals: Final = ("litellm_image_enabled", "use_litellm_proxy", "input_cost_per_token", "team_id")
+    removals: Final = ("hangarllm_image_enabled", "use_hangarllm_proxy", "input_cost_per_token", "team_id")
     deleted: Final = update_db_model(
         db_model=original,
         updated_patch=PatchModelRequest(
-            litellm_params=updateLiteLLMParams(max_retries=0), litellm_params_to_remove=removals,
+            hangarllm_params=updateHangarLLMParams(max_retries=0), hangarllm_params_to_remove=removals,
             model_info=ModelInfo(id="editor-model", input_cost_per_token=0.003),
         ),
     )
-    saved_params: Final = json.loads(deleted["litellm_params"])
+    saved_params: Final = json.loads(deleted["hangarllm_params"])
     saved_info: Final = json.loads(deleted["model_info"])
     assert saved_params == {**{key: value for key, value in configured.items() if key not in removals}, "max_retries": 0}
     assert "input_cost_per_token" not in saved_info
     assert saved_info["team_id"] == "owner-team"
     assert saved_info["access_groups"] == ["retained-group"]
     reloaded: Final = Deployment.model_validate(
-        {"model_name": original.model_name, "litellm_params": saved_params, "model_info": saved_info}
+        {"model_name": original.model_name, "hangarllm_params": saved_params, "model_info": saved_info}
     )
-    router: Final = litellm.Router(model_list=[{
-        "model_name": "editor-model", "litellm_params": saved_params,
+    router: Final = hangarllm.Router(model_list=[{
+        "model_name": "editor-model", "hangarllm_params": saved_params,
         "model_info": {"id": "editor-model", "db_model": True},
     }])
     stored_params: Final = {**saved_params, "api_key": "synthetic-stored-secret"}
-    mock_prisma.db.litellm_proxymodeltable.find_unique.return_value = LiteLLM_ProxyModelTable(
+    mock_prisma.db.hangarllm_proxymodeltable.find_unique.return_value = HangarLLM_ProxyModelTable(
         model_id="editor-model", model_name="editor-model",
-        litellm_params=json.dumps(stored_params) if encoded else stored_params,
+        hangarllm_params=json.dumps(stored_params) if encoded else stored_params,
         model_info={"id": "editor-model"},
     )
     monkeypatch.setattr(proxy_server, "llm_router", router)
@@ -266,26 +266,26 @@ def test_deleted_model_params_stay_absent_after_reload_and_another_save(
         editor: Final = client.get("/v2/model/info", params={"modelId": "editor-model", "use_stored_params": "true"})
 
     assert normal.status_code == editor.status_code == 200, editor.text
-    normal_params: Final = normal.json()["data"][0]["litellm_params"]
-    assert "use_litellm_proxy" in normal_params
-    assert editor.json()["data"][0]["litellm_params"] == {
+    normal_params: Final = normal.json()["data"][0]["hangarllm_params"]
+    assert "use_hangarllm_proxy" in normal_params
+    assert editor.json()["data"][0]["hangarllm_params"] == {
         key: value for key, value in normal_params.items() if key in saved_params
     }
-    assert editor.json()["data"][0]["litellm_params"]["use_chat_completions_api"] is False
+    assert editor.json()["data"][0]["hangarllm_params"]["use_chat_completions_api"] is False
     assert "synthetic-runtime-secret" not in editor.text
     assert "synthetic-stored-secret" not in editor.text
-    assert "use_litellm_proxy" in router.model_list[0]["litellm_params"]
+    assert "use_hangarllm_proxy" in router.model_list[0]["hangarllm_params"]
 
     saved_again: Final = update_db_model(
-        db_model=reloaded, updated_patch=updateDeployment(litellm_params=updateLiteLLMParams(rpm=10, timeout=None))
+        db_model=reloaded, updated_patch=updateDeployment(hangarllm_params=updateHangarLLMParams(rpm=10, timeout=None))
     )
-    persisted: Final = json.loads(saved_again["litellm_params"])
+    persisted: Final = json.loads(saved_again["hangarllm_params"])
     assert persisted == {**saved_params, "rpm": 10}
 
 
 def test_v2_model_info_in_openapi_schema():
     """``GET /v2/model/info`` is published in the proxy OpenAPI/Swagger spec."""
-    from litellm.proxy.proxy_server import get_openapi_schema
+    from hangarllm.proxy.proxy_server import get_openapi_schema
 
     schema = get_openapi_schema()
     assert "/v2/model/info" in schema["paths"]
@@ -303,7 +303,7 @@ def configured_router(monkeypatch):
     deployment.model_dump = MagicMock(
         return_value={
             "model_name": "gpt-4",
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "abc", "db_model": False},
         }
     )
@@ -323,19 +323,19 @@ def configured_router(monkeypatch):
 def test_v1_model_info_specific_id_happy(client, auth_as, configured_router, path):
     """Pins ``GET /v1/model/info`` and ``GET /model/info`` (happy: specific id).
 
-    Includes ``litellm_model_id`` so the early-return branch produces a
+    Includes ``hangarllm_model_id`` so the early-return branch produces a
     deterministic ``{"data": [<one deployment>]}`` body without touching
     the full model-info enrichment pipeline.
     """
     with auth_as():
-        response = client.get(path, params={"litellm_model_id": "abc"})
+        response = client.get(path, params={"hangarllm_model_id": "abc"})
     assert response.status_code == 200
     body = normalize(response.json())
     assert body == {
         "data": [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "hangarllm_params": {"model": "gpt-4"},
                 "model_info": {"id": "<VOLATILE>", "db_model": False},
             }
         ]
@@ -357,17 +357,17 @@ def test_get_proxy_model_info_surfaces_supports_parallel_function_calling(local_
     enriched = proxy_server._get_proxy_model_info(
         model={
             "model_name": "glm-5.3-flash",
-            "litellm_params": {"model": "together_ai/zai-org/GLM-5.3-Flash"},
+            "hangarllm_params": {"model": "together_ai/zai-org/GLM-5.3-Flash"},
             "model_info": {"id": "glm-deployment", "db_model": False},
         }
     )
     assert enriched["model_info"]["supports_parallel_function_calling"] is True
 
 
-def _enriched_model_info(monkeypatch, litellm_params: dict, model_info: dict) -> dict:
+def _enriched_model_info(monkeypatch, hangarllm_params: dict, model_info: dict) -> dict:
     monkeypatch.setattr(proxy_server, "llm_router", None)
     enriched: Final = proxy_server._get_proxy_model_info(
-        model={"model_name": "gpt-5.6", "litellm_params": litellm_params, "model_info": model_info}
+        model={"model_name": "gpt-5.6", "hangarllm_params": hangarllm_params, "model_info": model_info}
     )
     return enriched["model_info"]
 
@@ -379,13 +379,13 @@ def test_get_proxy_model_info_reports_no_pricing_overrides_for_a_cost_map_priced
     says so with an empty ``pricing_overrides``."""
     info = _enriched_model_info(monkeypatch, {"model": "openai/gpt-5.6"}, {"id": "dep-synced", "db_model": True})
     assert info["pricing_overrides"] == ()
-    assert info["input_cost_per_token"] == litellm.model_cost["gpt-5.6"]["input_cost_per_token"]
+    assert info["input_cost_per_token"] == hangarllm.model_cost["gpt-5.6"]["input_cost_per_token"]
 
 
-def test_get_proxy_model_info_shows_litellm_params_pricing_and_names_it_as_an_override(
+def test_get_proxy_model_info_shows_hangarllm_params_pricing_and_names_it_as_an_override(
     monkeypatch, local_model_cost_map
 ):
-    """A price on ``litellm_params`` is what the deployment bills at, so the model page shows that
+    """A price on ``hangarllm_params`` is what the deployment bills at, so the model page shows that
     value rather than the cost map's and lists the field under ``pricing_overrides``."""
     info = _enriched_model_info(
         monkeypatch,
@@ -394,7 +394,7 @@ def test_get_proxy_model_info_shows_litellm_params_pricing_and_names_it_as_an_ov
     )
     assert info["pricing_overrides"] == ("input_cost_per_token_batches",)
     assert info["input_cost_per_token_batches"] == 1e-09
-    assert info["input_cost_per_token"] == litellm.model_cost["gpt-5.6"]["input_cost_per_token"]
+    assert info["input_cost_per_token"] == hangarllm.model_cost["gpt-5.6"]["input_cost_per_token"]
 
 
 def test_get_proxy_model_info_names_config_model_info_pricing_as_an_override(monkeypatch, local_model_cost_map):
@@ -414,12 +414,12 @@ def test_v2_model_info_reports_pricing_overrides_to_the_admin_ui(client, auth_as
     model_list: Final = [
         {
             "model_name": "gpt-5.6",
-            "litellm_params": {"model": "openai/gpt-5.6", "input_cost_per_token": 3e-06},
+            "hangarllm_params": {"model": "openai/gpt-5.6", "input_cost_per_token": 3e-06},
             "model_info": {"id": "dep-typed", "db_model": True},
         },
         {
             "model_name": "gpt-5.6",
-            "litellm_params": {"model": "openai/gpt-5.6"},
+            "hangarllm_params": {"model": "openai/gpt-5.6"},
             "model_info": {"id": "dep-synced", "db_model": True},
         },
     ]
@@ -436,7 +436,7 @@ def test_v2_model_info_reports_pricing_overrides_to_the_admin_ui(client, auth_as
         "_apply_search_filter_to_models",
         AsyncMock(side_effect=lambda all_models, **kw: (all_models, len(all_models))),
     )
-    import litellm.proxy.agent_endpoints.model_list_helpers as mlh
+    import hangarllm.proxy.agent_endpoints.model_list_helpers as mlh
 
     monkeypatch.setattr(mlh, "append_agents_to_model_info", AsyncMock(side_effect=lambda models, **kw: models))
 
@@ -448,24 +448,24 @@ def test_v2_model_info_reports_pricing_overrides_to_the_admin_ui(client, auth_as
     assert by_id["dep-typed"]["pricing_overrides"] == ["input_cost_per_token"]
     assert by_id["dep-typed"]["input_cost_per_token"] == 3e-06
     assert by_id["dep-synced"]["pricing_overrides"] == []
-    assert by_id["dep-synced"]["input_cost_per_token"] == litellm.model_cost["gpt-5.6"]["input_cost_per_token"]
+    assert by_id["dep-synced"]["input_cost_per_token"] == hangarllm.model_cost["gpt-5.6"]["input_cost_per_token"]
 
 
 def test_model_info_reports_null_cost_for_unpriced_deployment_and_zero_for_declared_zero():
     """A deployment configured with no cost fields must not surface the 0 that ``get_model_info``
     defaults to, since the zero-cost budget bypass only honours a declared zero. The declared zero
     and a catalog price still come through."""
-    import litellm
+    import hangarllm
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "vllm-unpriced",
-                "litellm_params": {"model": "openai/vllm-unpriced", "api_key": "x", "api_base": "http://vllm"},
+                "hangarllm_params": {"model": "openai/vllm-unpriced", "api_key": "x", "api_base": "http://vllm"},
             },
             {
                 "model_name": "vllm-free",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/vllm-free",
                     "api_key": "x",
                     "api_base": "http://vllm",
@@ -473,13 +473,13 @@ def test_model_info_reports_null_cost_for_unpriced_deployment_and_zero_for_decla
                     "output_cost_per_token": 0,
                 },
             },
-            {"model_name": "gpt-priced", "litellm_params": {"model": "gpt-4o", "api_key": "x"}},
+            {"model_name": "gpt-priced", "hangarllm_params": {"model": "gpt-4o", "api_key": "x"}},
         ]
     )
 
     def enriched_cost(model_name: str) -> tuple:
         deployment = router.get_model_list(model_name=model_name)[0]
-        info = proxy_server._enrich_model_info_with_litellm_data(
+        info = proxy_server._enrich_model_info_with_hangarllm_data(
             {**deployment, "model_info": dict(deployment["model_info"])}
         )["model_info"]
         return info.get("input_cost_per_token"), info.get("output_cost_per_token")
@@ -502,10 +502,10 @@ def test_model_info_reports_null_cost_for_unpriced_deployment_and_zero_for_decla
 def test_model_info_reports_a_deployment_bedrock_native_output_opt_out(
     local_model_cost_map: None, deployment_model_info: dict[str, object], native: bool
 ) -> None:
-    info: Final = proxy_server._enrich_model_info_with_litellm_data(
+    info: Final = proxy_server._enrich_model_info_with_hangarllm_data(
         {
             "model_name": "sonnet",
-            "litellm_params": {"model": "bedrock/us.anthropic.claude-sonnet-5"},
+            "hangarllm_params": {"model": "bedrock/us.anthropic.claude-sonnet-5"},
             "model_info": {"id": "sonnet-deployment", **deployment_model_info},
         }
     )["model_info"]
@@ -522,10 +522,10 @@ def test_model_info_ignores_a_deployment_by_default_key_the_router_reads_only_fr
     local_model_cost_map: None, model: str, by_default: bool
 ) -> None:
     def reported_native(deployment_model_info: dict[str, object]) -> object:
-        return proxy_server._enrich_model_info_with_litellm_data(
+        return proxy_server._enrich_model_info_with_hangarllm_data(
             {
                 "model_name": "claude",
-                "litellm_params": {"model": model},
+                "hangarllm_params": {"model": model},
                 "model_info": {"id": "claude-deployment", **deployment_model_info},
             }
         )["model_info"]["supports_native_structured_output"]
@@ -540,16 +540,16 @@ def test_model_info_id_lookup_reports_the_same_cost_as_the_list(
     auth_as: Callable[[], AbstractContextManager[object]],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``GET /model/info?litellm_model_id=`` must agree with the ``GET /model/info`` list, so an
+    """``GET /model/info?hangarllm_model_id=`` must agree with the ``GET /model/info`` list, so an
     unpriced deployment cannot read as null in the list and as free on the id lookup."""
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
     declared: Final = {"input_cost_per_token": 0.001, "output_cost_per_token": 0.002}
     free: Final = {"input_cost_per_token": 0, "output_cost_per_token": 0}
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {"model": f"openai/{name}", "api_key": "x", "api_base": "http://vllm", **costs},
+                "hangarllm_params": {"model": f"openai/{name}", "api_key": "x", "api_base": "http://vllm", **costs},
                 "model_info": {"id": f"{name}-id"},
             }
             for name, costs in (("vllm-unpriced", {}), ("vllm-free", free), ("vllm-priced", declared))
@@ -572,7 +572,7 @@ def test_model_info_id_lookup_reports_the_same_cost_as_the_list(
     with auth_as():
         listed: Final = costs_of(client.get("/model/info"))
         by_id: Final = {
-            model_id: costs_of(client.get("/model/info", params={"litellm_model_id": model_id}))[model_id]
+            model_id: costs_of(client.get("/model/info", params={"hangarllm_model_id": model_id}))[model_id]
             for model_id in listed
         }
 
@@ -586,19 +586,19 @@ def test_model_info_id_lookup_reports_the_same_cost_as_the_list(
 
 
 async def test_v1_model_info_star_wildcard_filter_keeps_provider_expansion(monkeypatch):
-    from litellm.proxy._types import SpecialModelNames, UserAPIKeyAuth
-    from litellm.proxy.auth import model_checks
+    from hangarllm.proxy._types import SpecialModelNames, UserAPIKeyAuth
+    from hangarllm.proxy.auth import model_checks
 
-    def fake_get_provider_models(provider, litellm_params=None):
+    def fake_get_provider_models(provider, hangarllm_params=None):
         if provider == "openai":
             return ["gpt-4o"]
         return []
 
     deployment = {
         "model_name": "*",
-        "litellm_params": {"model": "openai/*", "api_key": "sk-star"},
+        "hangarllm_params": {"model": "openai/*", "api_key": "sk-star"},
     }
-    router = litellm.Router(model_list=[deployment])
+    router = hangarllm.Router(model_list=[deployment])
     monkeypatch.setattr(model_checks, "get_provider_models", fake_get_provider_models)
 
     expanded_deployments = proxy_server.expand_wildcard_deployments_for_model_info(router.get_model_list(), router)
@@ -618,7 +618,7 @@ async def test_v1_model_info_star_wildcard_filter_keeps_provider_expansion(monke
         allowed_model_names=allowed_model_names,
     )
 
-    assert [(model["model_name"], model["litellm_params"]["model"]) for model in result] == [("gpt-4o", "openai/gpt-4o")]
+    assert [(model["model_name"], model["hangarllm_params"]["model"]) for model in result] == [("gpt-4o", "openai/gpt-4o")]
     assert router.registry().names("gpt-4o", kind="wildcard") == frozenset({"openai/gpt-4o"})
 
 
@@ -630,21 +630,21 @@ async def test_v1_model_info_star_wildcard_filter_keeps_provider_expansion(monke
 def test_v1_model_info_asks_a_wildcard_server_only_for_keys_that_can_call_it(
     client, auth_as, monkeypatch, request, key_models, expected_names, expected_listings
 ):
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     wildcard_server: Final = f"http://vllm-{request.node.callspec.id}.test:8000/v1"
     other_alias_server: Final = f"http://vllm-secure-{request.node.callspec.id}.test:8000/v1"
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "qwen-open",
-                "litellm_params": {"model": "hosted_vllm/qwen2.5", "api_base": "http://vllm-open.test:8000/v1"},
+                "hangarllm_params": {"model": "hosted_vllm/qwen2.5", "api_base": "http://vllm-open.test:8000/v1"},
             },
-            {"model_name": "hosted_vllm/*", "litellm_params": {"model": "hosted_vllm/*", "api_base": wildcard_server}},
+            {"model_name": "hosted_vllm/*", "hangarllm_params": {"model": "hosted_vllm/*", "api_base": wildcard_server}},
             {
                 "model_name": "vllm-secure/*",
-                "litellm_params": {"model": "hosted_vllm/*", "api_base": other_alias_server},
+                "hangarllm_params": {"model": "hosted_vllm/*", "api_base": other_alias_server},
             },
         ]
     )
@@ -660,7 +660,7 @@ def test_v1_model_info_asks_a_wildcard_server_only_for_keys_that_can_call_it(
         other_alias_listing: Final = upstream.get(f"{other_alias_server}/models").mock(
             return_value=httpx.Response(200, json={"data": [{"id": "qwen2.5"}]})
         )
-        with auth_as(role=LitellmUserRoles.INTERNAL_USER, models=key_models):
+        with auth_as(role=HangarllmUserRoles.INTERNAL_USER, models=key_models):
             response: Final = client.get("/v1/model/info")
 
     assert response.status_code == 200, response.text
@@ -690,7 +690,7 @@ def byok_team_router(monkeypatch):
     """
     byok_deployment = {
         "model_name": _BYOK_INTERNAL_NAME,
-        "litellm_params": {"model": "openai/gpt-4"},
+        "hangarllm_params": {"model": "openai/gpt-4"},
         "model_info": {
             "id": "byok-deployment-id",
             "db_model": True,
@@ -721,13 +721,13 @@ def test_model_info_team_key_sees_own_byok_model(client, auth_as, byok_team_rout
     user's team memberships, returned an empty set for a team key, and the
     BYOK row was dropped -> `{"data": []}`.
     """
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     monkeypatch.setattr(proxy_server, "prisma_client", mock_prisma)
-    mock_prisma.db.litellm_usertable.find_unique.return_value = None
+    mock_prisma.db.hangarllm_usertable.find_unique.return_value = None
 
     with auth_as(
-        role=LitellmUserRoles.INTERNAL_USER,
+        role=HangarllmUserRoles.INTERNAL_USER,
         user_id=None,
         team_id=_BYOK_TEAM_ID,
         team_models=[_BYOK_PUBLIC_NAME],
@@ -749,13 +749,13 @@ def test_model_info_team_key_cannot_see_other_teams_byok_model(
 
     Guards the fix from over-broadening into a cross-team metadata leak.
     """
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     monkeypatch.setattr(proxy_server, "prisma_client", mock_prisma)
-    mock_prisma.db.litellm_usertable.find_unique.return_value = None
+    mock_prisma.db.hangarllm_usertable.find_unique.return_value = None
 
     with auth_as(
-        role=LitellmUserRoles.INTERNAL_USER,
+        role=HangarllmUserRoles.INTERNAL_USER,
         user_id=None,
         team_id="other-team",
         team_models=[_BYOK_PUBLIC_NAME],
@@ -775,13 +775,13 @@ _ACCESS_GROUP_ID = "ag-group-models"
 
 @pytest.fixture
 def access_group_team(monkeypatch, mock_prisma):
-    from litellm.models.access_group import LiteLLM_AccessGroupTable
-    from litellm.models.team import LiteLLM_TeamTableCachedObj
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.models.access_group import HangarLLM_AccessGroupTable
+    from hangarllm.models.team import HangarLLM_TeamTableCachedObj
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
-            {"model_name": name, "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-unused"}}
+            {"model_name": name, "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-unused"}}
             for name in ("model-direct", "model-group", "model-other")
         ]
     )
@@ -790,23 +790,23 @@ def access_group_team(monkeypatch, mock_prisma):
     def seed_team(models: list[str]) -> None:
         cache.set_cache(
             key=f"team_id:{_ACCESS_GROUP_TEAM_ID}",
-            value=LiteLLM_TeamTableCachedObj(
+            value=HangarLLM_TeamTableCachedObj(
                 team_id=_ACCESS_GROUP_TEAM_ID, models=models, access_group_ids=[_ACCESS_GROUP_ID]
             ),
-            model_type=LiteLLM_TeamTableCachedObj,
+            model_type=HangarLLM_TeamTableCachedObj,
         )
 
     cache.set_cache(
         key=f"access_group_id:{_ACCESS_GROUP_ID}",
-        value=LiteLLM_AccessGroupTable(
+        value=HangarLLM_AccessGroupTable(
             access_group_id=_ACCESS_GROUP_ID,
             access_group_name="group-models",
             access_model_names=["model-group"],
             assigned_team_ids=[_ACCESS_GROUP_TEAM_ID],
         ),
-        model_type=LiteLLM_AccessGroupTable,
+        model_type=HangarLLM_AccessGroupTable,
     )
-    mock_prisma.db.litellm_usertable.find_unique.return_value = None
+    mock_prisma.db.hangarllm_usertable.find_unique.return_value = None
     monkeypatch.setattr(proxy_server, "llm_router", router)
     monkeypatch.setattr(proxy_server, "llm_model_list", router.get_model_list())
     monkeypatch.setattr(proxy_server, "user_model", None)
@@ -836,11 +836,11 @@ def access_group_team(monkeypatch, mock_prisma):
 def test_model_listing_routes_list_team_access_group_models_the_key_can_call(
     client, auth_as, access_group_team, path, name_field, key_models, team_models, expected_names
 ):
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     access_group_team(team_models)
     with auth_as(
-        role=LitellmUserRoles.INTERNAL_USER,
+        role=HangarllmUserRoles.INTERNAL_USER,
         user_id=None,
         team_id=_ACCESS_GROUP_TEAM_ID,
         models=key_models,
@@ -871,24 +871,24 @@ def test_v1_model_info_unrestricted_admin_key_still_lists_team_byok_rows(
 def test_v1_model_info_scopes_a_personal_key_to_its_owner_teams(
     client, auth_as, access_group_team, monkeypatch, key_models, expected_names
 ):
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj, LiteLLM_UserTable, LitellmUserRoles
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy._types import HangarLLM_TeamTableCachedObj, HangarLLM_UserTable, HangarllmUserRoles
+    from hangarllm.proxy.auth import auth_checks
 
-    async def owner(**_: object) -> LiteLLM_UserTable:
-        return LiteLLM_UserTable(user_id="owner", teams=[_ACCESS_GROUP_TEAM_ID])
+    async def owner(**_: object) -> HangarLLM_UserTable:
+        return HangarLLM_UserTable(user_id="owner", teams=[_ACCESS_GROUP_TEAM_ID])
 
-    async def owner_team(team_id: str, **_: object) -> LiteLLM_TeamTableCachedObj:
-        return LiteLLM_TeamTableCachedObj(team_id=team_id, models=["model-direct"])
+    async def owner_team(team_id: str, **_: object) -> HangarLLM_TeamTableCachedObj:
+        return HangarLLM_TeamTableCachedObj(team_id=team_id, models=["model-direct"])
 
     async def no_membership(**_: object) -> None:
         return None
 
     access_group_team(["model-direct"])
-    monkeypatch.setattr(litellm, "personal_key_model_access_from_teams", True)
+    monkeypatch.setattr(hangarllm, "personal_key_model_access_from_teams", True)
     monkeypatch.setattr(auth_checks, "get_user_object", owner)
     monkeypatch.setattr(auth_checks, "get_team_object", owner_team)
     monkeypatch.setattr(auth_checks, "get_team_membership", no_membership)
-    with auth_as(role=LitellmUserRoles.INTERNAL_USER, user_id="owner", models=key_models):
+    with auth_as(role=HangarllmUserRoles.INTERNAL_USER, user_id="owner", models=key_models):
         response: Final = client.get("/v1/model/info")
 
     assert response.status_code == 200, response.text
@@ -904,8 +904,8 @@ def test_v1_model_info_scopes_a_personal_key_to_its_owner_teams(
 async def test_v1_model_info_caps_an_agent_key_with_no_model_list_to_its_access_groups(
     access_group_team, ceiling_models, expected
 ):
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.agent_endpoints.auth.agent_access_groups import AgentAccessGroupCeiling
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.agent_endpoints.auth.agent_access_groups import AgentAccessGroupCeiling
 
     async def ceiling(agent_id: str) -> AgentAccessGroupCeiling | None:
         assert agent_id == "agent-1"
@@ -962,7 +962,7 @@ def test_model_group_info_invalid_method(client, auth_as, null_router):
 
 @pytest.fixture
 def model_group_info_router(monkeypatch):
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import ModelGroupInfoProxy
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import ModelGroupInfoProxy
 
     model_names = ["gpt-4", "claude-3"]
     router = route_entry_points_to_stubs(MagicMock())
@@ -984,7 +984,7 @@ def model_group_info_router(monkeypatch):
     monkeypatch.setattr(proxy_server, "user_api_key_cache", None)
     monkeypatch.setattr(proxy_server, "get_model_group_info", model_group_info)
 
-    from litellm.proxy.agent_endpoints import model_list_helpers
+    from hangarllm.proxy.agent_endpoints import model_list_helpers
 
     monkeypatch.setattr(
         model_list_helpers,
@@ -998,9 +998,9 @@ def model_group_info_router(monkeypatch):
 def test_model_group_info_proxy_admin_ignores_key_model_restriction(
     client, auth_as, model_group_info_router, admin_role
 ):
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
-    with auth_as(LitellmUserRoles(admin_role), models=["no-default-models"]):
+    with auth_as(HangarllmUserRoles(admin_role), models=["no-default-models"]):
         response = client.get("/model_group/info")
 
     assert response.status_code == 200
@@ -1011,14 +1011,14 @@ def test_model_group_info_proxy_admin_ignores_key_model_restriction(
 def test_model_group_info_proxy_admin_expands_wildcard_deployments(
     client, auth_as, model_group_info_router, admin_role
 ):
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.proxy._types import HangarllmUserRoles
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
 
     model_group_info_router.get_model_names.return_value = ["gpt-4", "anthropic/*"]
     known_anthropic_models = get_known_models_from_wildcard(wildcard_model="anthropic/*")
     assert known_anthropic_models
 
-    with auth_as(LitellmUserRoles(admin_role), models=["no-default-models"]):
+    with auth_as(HangarllmUserRoles(admin_role), models=["no-default-models"]):
         response = client.get("/model_group/info")
 
     assert response.status_code == 200
@@ -1026,9 +1026,9 @@ def test_model_group_info_proxy_admin_expands_wildcard_deployments(
 
 
 def test_model_group_info_internal_user_key_model_restriction_applies(client, auth_as, model_group_info_router):
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER, models=["gpt-4"]):
+    with auth_as(HangarllmUserRoles.INTERNAL_USER, models=["gpt-4"]):
         response = client.get("/model_group/info")
 
     assert response.status_code == 200
@@ -1038,7 +1038,7 @@ def test_model_group_info_internal_user_key_model_restriction_applies(client, au
 def _azure_group_deployment(sku_host: str, mode: str, **model_info: object) -> dict[str, object]:
     return {
         "model_name": "gpt-mixed",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"azure/{sku_host}",
             "api_base": f"https://{sku_host}.openai.azure.com",
             "api_key": "dummy-key",
@@ -1052,10 +1052,10 @@ def _azure_group_deployment(sku_host: str, mode: str, **model_info: object) -> d
 def test_model_group_info_lists_batch_only_to_the_team_that_owns_the_batch_deployment(
     client, auth_as, monkeypatch, team_id: str | None, lists_batch: bool
 ):
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.agent_endpoints import model_list_helpers
+    from hangarllm.proxy._types import HangarllmUserRoles
+    from hangarllm.proxy.agent_endpoints import model_list_helpers
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _azure_group_deployment("chat-sku", "chat", supported_endpoints=["/v1/chat/completions"]),
             _azure_group_deployment("batch-sku", "batch", team_id="team-a"),
@@ -1074,7 +1074,7 @@ def test_model_group_info_lists_batch_only_to_the_team_that_owns_the_batch_deplo
         model_list_helpers, "append_agents_to_model_group", AsyncMock(side_effect=append_agents_to_model_group)
     )
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN, team_id=team_id):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN, team_id=team_id):
         response: Final = client.get("/model_group/info")
 
     assert response.status_code == 200
@@ -1088,14 +1088,14 @@ def test_model_group_info_describes_a_team_model_under_the_public_name_its_team_
 ):
     """A team's own model is listed under its public name, so its row must describe the team's deployment
     behind that name instead of a placeholder, and only for the team that owns it."""
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.agent_endpoints import model_list_helpers
+    from hangarllm.proxy._types import HangarllmUserRoles
+    from hangarllm.proxy.agent_endpoints import model_list_helpers
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": _BYOK_INTERNAL_NAME,
-                "litellm_params": {"model": "hosted_vllm/qa-local-coder", "api_base": "https://vllm.example/v1"},
+                "hangarllm_params": {"model": "hosted_vllm/qa-local-coder", "api_base": "https://vllm.example/v1"},
                 "model_info": {
                     "team_id": _BYOK_TEAM_ID,
                     "team_public_model_name": _BYOK_PUBLIC_NAME,
@@ -1118,7 +1118,7 @@ def test_model_group_info_describes_a_team_model_under_the_public_name_its_team_
         model_list_helpers, "append_agents_to_model_group", AsyncMock(side_effect=append_agents_to_model_group)
     )
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER, user_id=None, team_id=team_id, team_models=[_BYOK_PUBLIC_NAME]):
+    with auth_as(HangarllmUserRoles.INTERNAL_USER, user_id=None, team_id=team_id, team_models=[_BYOK_PUBLIC_NAME]):
         response: Final = client.get("/model_group/info")
 
     assert response.status_code == 200
@@ -1139,19 +1139,19 @@ def test_model_group_info_describes_the_deployments_a_shared_name_routes_the_tea
     """A team model whose public name is also a global model's name routes the team's requests to the
     team's deployment, so the team's row must describe that deployment in every field, while another
     team still sees the global model."""
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.agent_endpoints import model_list_helpers
+    from hangarllm.proxy._types import HangarllmUserRoles
+    from hangarllm.proxy.agent_endpoints import model_list_helpers
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": _BYOK_PUBLIC_NAME,
-                "litellm_params": {"model": "openai/gpt-4.1-mini"},
+                "hangarllm_params": {"model": "openai/gpt-4.1-mini"},
                 "model_info": {"supports_reasoning": False, "custom_tags": ["global-tag"]},
             },
             {
                 "model_name": _BYOK_INTERNAL_NAME,
-                "litellm_params": {"model": "fireworks_ai/accounts/fireworks/models/kimi-k3"},
+                "hangarllm_params": {"model": "fireworks_ai/accounts/fireworks/models/kimi-k3"},
                 "model_info": {
                     "team_id": _BYOK_TEAM_ID,
                     "team_public_model_name": _BYOK_PUBLIC_NAME,
@@ -1175,7 +1175,7 @@ def test_model_group_info_describes_the_deployments_a_shared_name_routes_the_tea
         model_list_helpers, "append_agents_to_model_group", AsyncMock(side_effect=append_agents_to_model_group)
     )
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER, user_id=None, team_id=team_id, team_models=[_BYOK_PUBLIC_NAME]):
+    with auth_as(HangarllmUserRoles.INTERNAL_USER, user_id=None, team_id=team_id, team_models=[_BYOK_PUBLIC_NAME]):
         response: Final = client.get("/model_group/info")
 
     assert response.status_code == 200
@@ -1198,27 +1198,27 @@ def mixed_auto_router_router(monkeypatch):
     model_list = [
         {
             "model_name": "gpt-4o-mini",
-            "litellm_params": {"model": "openai/gpt-4o-mini"},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini"},
             "model_info": {"id": "plain-1", "db_model": False},
         },
         {
             "model_name": "tri-tier-router",
-            "litellm_params": {"model": "auto_router/complexity_router"},
+            "hangarllm_params": {"model": "auto_router/complexity_router"},
             "model_info": {"id": "auto-complexity", "db_model": True},
         },
         {
             "model_name": "support-router",
-            "litellm_params": {"model": "auto_router/support-router"},
+            "hangarllm_params": {"model": "auto_router/support-router"},
             "model_info": {"id": "auto-semantic", "db_model": True},
         },
         {
             "model_name": "adaptive-router",
-            "litellm_params": {"model": "auto_router/adaptive_router"},
+            "hangarllm_params": {"model": "auto_router/adaptive_router"},
             "model_info": {"id": "auto-adaptive", "db_model": True},
         },
         {
             "model_name": "claude-opus",
-            "litellm_params": {"model": "anthropic/claude-opus-4-6"},
+            "hangarllm_params": {"model": "anthropic/claude-opus-4-6"},
             "model_info": {"id": "plain-2", "db_model": False},
         },
     ]
@@ -1236,9 +1236,9 @@ def mixed_auto_router_router(monkeypatch):
         "_apply_search_filter_to_models",
         AsyncMock(side_effect=lambda all_models, **kw: (all_models, len(all_models))),
     )
-    monkeypatch.setattr(proxy_server, "_enrich_model_info_with_litellm_data", lambda model, **kw: model)
+    monkeypatch.setattr(proxy_server, "_enrich_model_info_with_hangarllm_data", lambda model, **kw: model)
 
-    import litellm.proxy.agent_endpoints.model_list_helpers as mlh
+    import hangarllm.proxy.agent_endpoints.model_list_helpers as mlh
 
     monkeypatch.setattr(mlh, "append_agents_to_model_info", AsyncMock(side_effect=lambda models, **kw: models))
     yield router
@@ -1304,17 +1304,17 @@ def routing_status_router(monkeypatch):
     model_list = [
         {
             "model_name": "paused-model",
-            "litellm_params": {"model": "openai/paused-model"},
+            "hangarllm_params": {"model": "openai/paused-model"},
             "model_info": {"id": "paused-1", "db_model": True, "blocked": True},
         },
         {
             "model_name": "active-model",
-            "litellm_params": {"model": "openai/active-model"},
+            "hangarllm_params": {"model": "openai/active-model"},
             "model_info": {"id": "active-1", "db_model": True, "blocked": False},
         },
         {
             "model_name": "another-active",
-            "litellm_params": {"model": "openai/another-active"},
+            "hangarllm_params": {"model": "openai/another-active"},
             "model_info": {"id": "active-2", "db_model": False},
         },
     ]
@@ -1332,9 +1332,9 @@ def routing_status_router(monkeypatch):
         return [], 0
 
     monkeypatch.setattr(proxy_server, "_fetch_db_models_for_search", fake_fetch_db_models_for_search)
-    monkeypatch.setattr(proxy_server, "_enrich_model_info_with_litellm_data", lambda model, **kw: model)
+    monkeypatch.setattr(proxy_server, "_enrich_model_info_with_hangarllm_data", lambda model, **kw: model)
 
-    import litellm.proxy.agent_endpoints.model_list_helpers as mlh
+    import hangarllm.proxy.agent_endpoints.model_list_helpers as mlh
 
     monkeypatch.setattr(mlh, "append_agents_to_model_info", AsyncMock(side_effect=lambda models, **kw: models))
     yield router
@@ -1412,18 +1412,18 @@ def test_fetch_db_models_for_search_pushes_blocked_into_the_where(monkeypatch):
     assert {"blocked": False} not in where["AND"]
 
 
-def test_v2_model_info_search_matches_litellm_model_name(client, auth_as, monkeypatch):
-    """`search` also hits the underlying LiteLLM model name (e.g. a provider
+def test_v2_model_info_search_matches_hangarllm_model_name(client, auth_as, monkeypatch):
+    """`search` also hits the underlying HangarLLM model name (e.g. a provider
     prefix), not just the public model name."""
     model_list = [
         {
             "model_name": "paused-model",
-            "litellm_params": {"model": "openai/paused-model"},
+            "hangarllm_params": {"model": "openai/paused-model"},
             "model_info": {"id": "paused-1", "db_model": True, "blocked": True},
         },
         {
             "model_name": "active-model",
-            "litellm_params": {"model": "openai/active-model"},
+            "hangarllm_params": {"model": "openai/active-model"},
             "model_info": {"id": "active-1", "db_model": True, "blocked": False},
         },
     ]
@@ -1441,9 +1441,9 @@ def test_v2_model_info_search_matches_litellm_model_name(client, auth_as, monkey
         return [], 0
 
     monkeypatch.setattr(proxy_server, "_fetch_db_models_for_search", fake_fetch_db_models_for_search)
-    monkeypatch.setattr(proxy_server, "_enrich_model_info_with_litellm_data", lambda model, **kw: model)
+    monkeypatch.setattr(proxy_server, "_enrich_model_info_with_hangarllm_data", lambda model, **kw: model)
 
-    import litellm.proxy.agent_endpoints.model_list_helpers as mlh
+    import hangarllm.proxy.agent_endpoints.model_list_helpers as mlh
 
     monkeypatch.setattr(mlh, "append_agents_to_model_info", AsyncMock(side_effect=lambda models, **kw: models))
 
@@ -1459,7 +1459,7 @@ async def test_model_info_v2_query_sentinel_does_not_filter(monkeypatch, mixed_a
     Guarding on `is True` is what stops every direct-call test from silently filtering."""
     from unittest.mock import AsyncMock
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
     monkeypatch.setattr(proxy_server, "prisma_client", MagicMock())
     monkeypatch.setattr(proxy_server.proxy_config, "get_config", AsyncMock(return_value={}))
@@ -1468,13 +1468,13 @@ async def test_model_info_v2_query_sentinel_does_not_filter(monkeypatch, mixed_a
         "_apply_search_filter_to_models",
         AsyncMock(side_effect=lambda all_models, **kw: (all_models, len(all_models))),
     )
-    monkeypatch.setattr(proxy_server, "_enrich_model_info_with_litellm_data", lambda model, **kw: model)
+    monkeypatch.setattr(proxy_server, "_enrich_model_info_with_hangarllm_data", lambda model, **kw: model)
 
-    import litellm.proxy.agent_endpoints.model_list_helpers as mlh
+    import hangarllm.proxy.agent_endpoints.model_list_helpers as mlh
 
     monkeypatch.setattr(mlh, "append_agents_to_model_info", AsyncMock(side_effect=lambda models, **kw: models))
 
-    admin = UserAPIKeyAuth(user_id="u", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin = UserAPIKeyAuth(user_id="u", user_role=HangarllmUserRoles.PROXY_ADMIN)
     # Deliberately omit exclude_auto_routers, exactly as the pre-existing direct-call tests do.
     resp = await proxy_server.model_info_v2(
         user_api_key_dict=admin,
@@ -1505,17 +1505,17 @@ def access_group_router(monkeypatch):
     model_list = [
         {
             "model_name": "gpt-4o-mini",
-            "litellm_params": {"model": "openai/gpt-4o-mini"},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini"},
             "model_info": {"id": "sales-1", "db_model": False, "access_groups": ["sales-team"]},
         },
         {
             "model_name": "openai/*",
-            "litellm_params": {"model": "openai/*"},
+            "hangarllm_params": {"model": "openai/*"},
             "model_info": {"id": "sales-wildcard", "db_model": False, "access_groups": ["sales-team", "eng"]},
         },
         {
             "model_name": "claude-opus",
-            "litellm_params": {"model": "anthropic/claude-opus-4-6"},
+            "hangarllm_params": {"model": "anthropic/claude-opus-4-6"},
             "model_info": {"id": "plain-1", "db_model": False},
         },
     ]
@@ -1533,9 +1533,9 @@ def access_group_router(monkeypatch):
         "_apply_search_filter_to_models",
         AsyncMock(side_effect=lambda all_models, **kw: (all_models, len(all_models))),
     )
-    monkeypatch.setattr(proxy_server, "_enrich_model_info_with_litellm_data", lambda model, **kw: model)
+    monkeypatch.setattr(proxy_server, "_enrich_model_info_with_hangarllm_data", lambda model, **kw: model)
 
-    import litellm.proxy.agent_endpoints.model_list_helpers as mlh
+    import hangarllm.proxy.agent_endpoints.model_list_helpers as mlh
 
     monkeypatch.setattr(mlh, "append_agents_to_model_info", AsyncMock(side_effect=lambda models, **kw: models))
     yield router

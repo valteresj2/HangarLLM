@@ -18,22 +18,22 @@ import pytest
 import respx
 from starlette.requests import Request
 
-import litellm
-from litellm.proxy._types import (
+import hangarllm
+from hangarllm.proxy._types import (
     ConfigGeneralSettings,
-    LitellmUserRoles,
+    HangarllmUserRoles,
     PluginConfig,
     UserAPIKeyAuth,
 )
-from litellm.proxy.plugin_routes import list_plugins, register_plugins_from_config
+from hangarllm.proxy.plugin_routes import list_plugins, register_plugins_from_config
 
 
 def _admin() -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(api_key="sk-admin", user_role=LitellmUserRoles.PROXY_ADMIN)
+    return UserAPIKeyAuth(api_key="sk-admin", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
 
 def _non_admin() -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(api_key="sk-user", user_role=LitellmUserRoles.INTERNAL_USER)
+    return UserAPIKeyAuth(api_key="sk-user", user_role=HangarllmUserRoles.INTERNAL_USER)
 
 
 def test_plugins_is_a_valid_general_setting() -> None:
@@ -137,8 +137,8 @@ def test_plugin_key_is_never_returned_to_the_browser() -> None:
 
 
 def test_db_persisted_plugins_load_on_startup(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.proxy_server import ProxyConfig
 
     register_plugins_from_config({})
     monkeypatch.setattr(proxy_server, "general_settings", {})
@@ -165,7 +165,7 @@ def test_db_persisted_plugins_load_on_startup(monkeypatch: pytest.MonkeyPatch) -
 
 def test_safe_response_headers_sandbox_and_strips_wire_headers() -> None:
     """Proxied plugin responses must be inert and shed wire/cookie headers."""
-    from litellm.proxy.plugin_routes import _safe_response_headers
+    from hangarllm.proxy.plugin_routes import _safe_response_headers
 
     out = _safe_response_headers(
         {
@@ -184,35 +184,35 @@ def test_safe_response_headers_sandbox_and_strips_wire_headers() -> None:
         assert stripped not in out
 
 
-def test_litellm_credential_header_names_covers_every_auth_header() -> None:
+def test_hangarllm_credential_header_names_covers_every_auth_header() -> None:
     """The canonical strip set must list every header user_api_key_auth accepts
-    as a litellm key, so a new auth header can't silently start leaking."""
-    from litellm.proxy._types import SpecialHeaders
+    as a hangarllm key, so a new auth header can't silently start leaking."""
+    from hangarllm.proxy._types import SpecialHeaders
 
-    assert SpecialHeaders.litellm_credential_header_names() == {
+    assert SpecialHeaders.hangarllm_credential_header_names() == {
         "authorization",
         "api-key",
         "x-api-key",
         "x-goog-api-key",
         "ocp-apim-subscription-key",
-        "x-litellm-api-key",
+        "x-hangarllm-api-key",
     }
 
 
-def test_every_litellm_auth_header_is_stripped_before_forwarding() -> None:
-    """A plugin must never receive any header that authenticates against litellm,
+def test_every_hangarllm_auth_header_is_stripped_before_forwarding() -> None:
+    """A plugin must never receive any header that authenticates against hangarllm,
     only the hop-by-hop set and benign headers are forwarded."""
-    from litellm.proxy.plugin_routes import _request_strip_headers
+    from hangarllm.proxy.plugin_routes import _request_strip_headers
 
     strip = _request_strip_headers()
     incoming = {
-        "Authorization": "Bearer sk-litellm",
-        "API-Key": "sk-litellm",
-        "X-Api-Key": "sk-litellm",
-        "X-Goog-Api-Key": "sk-litellm",
-        "Ocp-Apim-Subscription-Key": "sk-litellm",
-        "X-Litellm-Api-Key": "sk-litellm",
-        "Cookie": "litellm_session=abc",
+        "Authorization": "Bearer sk-hangarllm",
+        "API-Key": "sk-hangarllm",
+        "X-Api-Key": "sk-hangarllm",
+        "X-Goog-Api-Key": "sk-hangarllm",
+        "Ocp-Apim-Subscription-Key": "sk-hangarllm",
+        "X-Hangarllm-Api-Key": "sk-hangarllm",
+        "Cookie": "hangarllm_session=abc",
         "Accept": "application/json",
         "X-Trace-Id": "t-1",
     }
@@ -222,13 +222,13 @@ def test_every_litellm_auth_header_is_stripped_before_forwarding() -> None:
 
 
 def test_configured_custom_key_header_is_stripped() -> None:
-    """A custom general_settings.litellm_key_header_name must also be stripped,
+    """A custom general_settings.hangarllm_key_header_name must also be stripped,
     read live so config changes are honoured without a restart."""
-    from litellm.proxy import proxy_server
-    from litellm.proxy.plugin_routes import _request_strip_headers
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.plugin_routes import _request_strip_headers
 
     original = getattr(proxy_server, "general_settings", None)
-    proxy_server.general_settings = {"litellm_key_header_name": "X-My-Tenant-Key"}
+    proxy_server.general_settings = {"hangarllm_key_header_name": "X-My-Tenant-Key"}
     try:
         assert "x-my-tenant-key" in _request_strip_headers()
     finally:
@@ -254,9 +254,9 @@ def _plugin_proxy_request(headers: dict[str, str]) -> Request:
 @pytest.mark.parametrize(
     ("user_id", "expected_identity_headers"),
     [
-        ("admin-1", {"x-litellm-user-id": "admin-1", "x-litellm-user-role": "proxy_admin"}),
-        (None, {"x-litellm-user-role": "proxy_admin"}),
-        ("", {"x-litellm-user-role": "proxy_admin"}),
+        ("admin-1", {"x-hangarllm-user-id": "admin-1", "x-hangarllm-user-role": "proxy_admin"}),
+        (None, {"x-hangarllm-user-role": "proxy_admin"}),
+        ("", {"x-hangarllm-user-role": "proxy_admin"}),
     ],
 )
 def test_plugin_proxy_forwards_caller_identity_and_replaces_the_caller_credential(
@@ -265,10 +265,10 @@ def test_plugin_proxy_forwards_caller_identity_and_replaces_the_caller_credentia
     user_id: str | None,
     expected_identity_headers: dict[str, str],
 ) -> None:
-    from litellm.proxy.plugin_routes import plugin_proxy
+    from hangarllm.proxy.plugin_routes import plugin_proxy
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     register_plugins_from_config(
         {"plugins": [{"name": "p", "url": "http://plugin.example", "plugin_key": "sk-plugin"}]}
     )
@@ -279,11 +279,11 @@ def test_plugin_proxy_forwards_caller_identity_and_replaces_the_caller_credentia
             "p",
             "items",
             _plugin_proxy_request({"Authorization": "Bearer sk-caller", "X-Trace-Id": "t-1"}),
-            UserAPIKeyAuth(api_key="sk-admin", user_role=LitellmUserRoles.PROXY_ADMIN, user_id=user_id),
+            UserAPIKeyAuth(api_key="sk-admin", user_role=HangarllmUserRoles.PROXY_ADMIN, user_id=user_id),
         )
     )
     register_plugins_from_config({})
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     forwarded = upstream.calls[0].request
     assert response.status_code == 200
@@ -292,7 +292,7 @@ def test_plugin_proxy_forwards_caller_identity_and_replaces_the_caller_credentia
     assert forwarded.headers["authorization"] == "Bearer sk-plugin"
     assert forwarded.headers["x-trace-id"] == "t-1"
     assert {
-        name: value for name, value in forwarded.headers.items() if name.startswith("x-litellm-user-")
+        name: value for name, value in forwarded.headers.items() if name.startswith("x-hangarllm-user-")
     } == expected_identity_headers
 
 
@@ -300,10 +300,10 @@ def test_plugin_proxy_refuses_non_admin_callers_without_contacting_the_plugin(
     monkeypatch: pytest.MonkeyPatch,
     respx_mock: respx.MockRouter,
 ) -> None:
-    from litellm.proxy.plugin_routes import plugin_proxy
+    from hangarllm.proxy.plugin_routes import plugin_proxy
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     register_plugins_from_config({"plugins": [{"name": "p", "url": "http://plugin.example"}]})
     upstream = respx_mock.post("http://plugin.example/items?page=2").respond(text="plugin says hi")
 
@@ -312,7 +312,7 @@ def test_plugin_proxy_refuses_non_admin_callers_without_contacting_the_plugin(
             "p",
             "items",
             _plugin_proxy_request({"Authorization": "Bearer sk-caller"}),
-            UserAPIKeyAuth(api_key="sk-user", user_role=LitellmUserRoles.INTERNAL_USER, user_id="user-1"),
+            UserAPIKeyAuth(api_key="sk-user", user_role=HangarllmUserRoles.INTERNAL_USER, user_id="user-1"),
         )
     )
     register_plugins_from_config({})

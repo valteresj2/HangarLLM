@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from litellm.proxy._types import LitellmUserRoles
+from hangarllm.proxy._types import HangarllmUserRoles
 
 from tests.integration._support.actors import Actor, SeededKey
 from tests.integration._support.actors import create_scratch_actor, create_scratch_team
@@ -54,7 +54,7 @@ _TEAM_MEMBER_ACTORS = (
 async def _callers(db, actors, prefix: str) -> dict[Actor, SeededKey]:
     team_members = {
         actor: await create_scratch_actor(
-            db, prefix, user_role=LitellmUserRoles.INTERNAL_USER.value, suffix=actor.value
+            db, prefix, user_role=HangarllmUserRoles.INTERNAL_USER.value, suffix=actor.value
         )
         for actor in _TEAM_MEMBER_ACTORS
     }
@@ -119,7 +119,7 @@ async def test_team_update_authz_matrix(
         resp.status_code == expected_status
     ), f"{actor.value} {shape}: {resp.status_code} {resp.text}"
 
-    row = await db.db.litellm_teamtable.find_unique(
+    row = await db.db.hangarllm_teamtable.find_unique(
         where={"team_id": resources.prefix}
     )
     assert row is not None
@@ -208,10 +208,10 @@ async def test_team_update_team_admin_resending_member_defaults_leaves_the_budge
     }
     seeded = await gateway_client.post("/team/update", json={"team_id": resources.prefix, **stored})
     assert seeded.status_code == 200, seeded.text
-    team = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    team = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert team is not None
     budget_id = team.metadata["team_member_budget_id"]
-    before = await db.db.litellm_budgettable.find_unique(where={"budget_id": budget_id})
+    before = await db.db.hangarllm_budgettable.find_unique(where={"budget_id": budget_id})
     assert before is not None
 
     with team_admin_permissions(gateway_client.gateway, ["tpm_limit"]):
@@ -222,9 +222,9 @@ async def test_team_update_team_admin_resending_member_defaults_leaves_the_budge
         )
     assert resp.status_code == 200, resp.text
 
-    after = await db.db.litellm_budgettable.find_unique(where={"budget_id": budget_id})
+    after = await db.db.hangarllm_budgettable.find_unique(where={"budget_id": budget_id})
     assert after is not None and after.updated_at == before.updated_at
-    team = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    team = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert team is not None and team.tpm_limit == 1000
 
 
@@ -241,7 +241,7 @@ async def test_team_update_team_admin_cannot_change_member_defaults_of_another_t
             json={"team_id": resources.prefix, "team_member_budget": 25.0},
         )
     assert resp.status_code == 403, resp.text
-    team = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    team = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert team is not None and "team_member_budget_id" not in (team.metadata or {}), "denied but team mutated"
 
 
@@ -255,13 +255,13 @@ async def test_team_update_team_admin_soft_budget_follows_the_proxy_admin_grant(
         denied = await gateway_client.post("/team/update", headers=headers, json=body)
     assert denied.status_code == 403, denied.text
     assert "'soft_budget'" in denied.text and "Team admin editable fields" in denied.text, denied.text
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert row is not None and row.soft_budget != 7.5, "denied but team mutated"
 
     with team_admin_permissions(gateway_client.gateway, ["soft_budget"]):
         allowed = await gateway_client.post("/team/update", headers=headers, json=body)
     assert allowed.status_code == 200, allowed.text
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert row is not None and row.soft_budget == 7.5
 
 
@@ -278,16 +278,16 @@ async def test_team_update_team_admin_cannot_set_soft_budget_on_a_team_they_do_n
             json={"team_id": resources.prefix, "soft_budget": 7.5},
         )
     assert resp.status_code == 403, resp.text
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert row is not None and row.soft_budget != 7.5, "denied but team mutated"
 
 
 async def _seed_team_metadata(db, team_id: str, metadata: dict[str, object]) -> None:
-    await db.db.litellm_teamtable.update(where={"team_id": team_id}, data={"metadata": json.dumps(metadata)})
+    await db.db.hangarllm_teamtable.update(where={"team_id": team_id}, data={"metadata": json.dumps(metadata)})
 
 
 async def _stored_team_metadata(db, team_id: str) -> dict[str, object]:
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": team_id})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": team_id})
     assert row is not None
     return dict(row.metadata or {})
 
@@ -363,7 +363,7 @@ async def test_team_update_team_admin_resending_stored_metadata_is_not_an_edit(g
             json={"team_id": resources.prefix, "tpm_limit": 500, "metadata": dict(_STORED_TEAM_METADATA)},
         )
     assert resp.status_code == 200, resp.text
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert row is not None and row.tpm_limit == 500
     assert dict(row.metadata or {}) == _STORED_TEAM_METADATA
 
@@ -411,7 +411,7 @@ async def test_team_update_org_relocation_gate(
         resp.status_code == expected_status
     ), f"{actor.value}: {resp.status_code} {resp.text}"
 
-    row = await db.db.litellm_teamtable.find_unique(
+    row = await db.db.hangarllm_teamtable.find_unique(
         where={"team_id": resources.prefix}
     )
     assert row is not None
@@ -449,7 +449,7 @@ async def test_team_update_org_relocation_allowed_for_dual_org_admin(
     actor = await create_scratch_actor(
         db,
         resources.prefix,
-        user_role=LitellmUserRoles.ORG_ADMIN.value,
+        user_role=HangarllmUserRoles.ORG_ADMIN.value,
         org_admin_of=(actors.org_a_id, actors.org_b_id),
     )
     team_id = await create_scratch_team(
@@ -463,7 +463,7 @@ async def test_team_update_org_relocation_allowed_for_dual_org_admin(
     )
     assert resp.status_code == 200, resp.text
 
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": team_id})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": team_id})
     assert row is not None
     assert (
         row.organization_id == actors.org_b_id

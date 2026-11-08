@@ -1,18 +1,18 @@
-# litellm_users Data Source
+# hangarllm_users Data Source
 
-Retrieves a page of LiteLLM users, with optional server-side filters
+Retrieves a page of HangarLLM users, with optional server-side filters
 
 ## Example Usage
 
 ```hcl
-data "litellm_users" "internal" {
+data "hangarllm_users" "internal" {
   role      = "internal_user"
   page      = 1
   page_size = 100
 }
 
 output "internal_user_ids" {
-  value = data.litellm_users.internal.ids
+  value = data.hangarllm_users.internal.ids
 }
 ```
 

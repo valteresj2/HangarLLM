@@ -9,7 +9,7 @@ import pytest
 from integration._support.client import Gateway, gateway_from_environment
 from integration._support.process import OwnedProxy, graceful_stop_seconds, owned_proxy_process
 from integration._support.wire import Reply, Request, wire_server
-from litellm.types.llms.anthropic import ANTHROPIC_OAUTH_BETA_HEADER
+from hangarllm.types.llms.anthropic import ANTHROPIC_OAUTH_BETA_HEADER
 from pydantic import JsonValue, TypeAdapter
 
 pytestmark: Final = pytest.mark.timeout(2 * graceful_stop_seconds() + 120)
@@ -358,7 +358,7 @@ def test_anthropic_count_uses_the_callers_subscription_token_when_the_deployment
             "POST",
             "/v1/messages/count_tokens",
             {"model": model, "messages": _MESSAGES},
-            headers={"Authorization": f"Bearer {_SUBSCRIPTION_TOKEN}", "x-litellm-api-key": f"Bearer {gateway.key}"},
+            headers={"Authorization": f"Bearer {_SUBSCRIPTION_TOKEN}", "x-hangarllm-api-key": f"Bearer {gateway.key}"},
         )
         assert counted.status_code == 200, counted.text
         assert _JSON_OBJECT.validate_json(counted.content)["input_tokens"] == 41, counted.text
@@ -380,7 +380,7 @@ def test_anthropic_count_keeps_the_deployments_key_over_the_callers_subscription
             "POST",
             "/v1/messages/count_tokens",
             {"model": model, "messages": _MESSAGES},
-            headers={"Authorization": f"Bearer {_SUBSCRIPTION_TOKEN}", "x-litellm-api-key": f"Bearer {gateway.key}"},
+            headers={"Authorization": f"Bearer {_SUBSCRIPTION_TOKEN}", "x-hangarllm-api-key": f"Bearer {gateway.key}"},
         )
         assert counted.status_code == 200, counted.text
         (received,) = wire.drain()

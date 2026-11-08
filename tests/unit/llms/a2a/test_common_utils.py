@@ -1,4 +1,4 @@
-"""Tests for litellm/llms/a2a/common_utils.py."""
+"""Tests for hangarllm/llms/a2a/common_utils.py."""
 
 from collections.abc import Mapping
 from types import MappingProxyType
@@ -6,15 +6,15 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.a2a.common_utils import resolve_a2a_hop_auth_header
+from hangarllm.llms.a2a.common_utils import resolve_a2a_hop_auth_header
 
 
 class _RecordingEntraResolver:
     def __init__(self) -> None:
         self.calls: list[Mapping[str, object]] = []
 
-    async def __call__(self, litellm_params: Mapping[str, object]) -> Mapping[str, str]:
-        self.calls.append(litellm_params)
+    async def __call__(self, hangarllm_params: Mapping[str, object]) -> Mapping[str, str]:
+        self.calls.append(hangarllm_params)
         return MappingProxyType({"Authorization": "Bearer minted-entra-token"})
 
 

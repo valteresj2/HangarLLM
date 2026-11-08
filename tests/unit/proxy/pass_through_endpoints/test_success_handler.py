@@ -7,21 +7,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from litellm.redis.stores.connection import connect
-from litellm.redis.stores.spend_counters import SpendCounterStore
+from hangarllm.redis.stores.connection import connect
+from hangarllm.redis.stores.spend_counters import SpendCounterStore
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.proxy.pass_through_endpoints.streaming_handler import (
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.proxy.pass_through_endpoints.streaming_handler import (
     PassThroughStreamingHandler,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from hangarllm.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
     EndpointType,
     PassthroughStandardLoggingPayload,
 )
@@ -69,17 +69,17 @@ async def test_chunk_processor_yields_raw_bytes(endpoint_type, url_route):
     response.aiter_bytes = mock_aiter_bytes
 
     request_body = {"key": "value"}
-    litellm_logging_obj = MagicMock()
+    hangarllm_logging_obj = MagicMock()
     start_time = datetime.now()
     passthrough_success_handler_obj = MagicMock()
-    litellm_logging_obj.async_success_handler = AsyncMock()
+    hangarllm_logging_obj.async_success_handler = AsyncMock()
 
     # Capture yielded chunks and perform detailed assertions
     received_chunks = []
     async for chunk in PassThroughStreamingHandler.chunk_processor(
         response=response,
         request_body=request_body,
-        litellm_logging_obj=litellm_logging_obj,
+        hangarllm_logging_obj=hangarllm_logging_obj,
         endpoint_type=endpoint_type,
         start_time=start_time,
         passthrough_success_handler_obj=passthrough_success_handler_obj,
@@ -109,23 +109,23 @@ async def test_route_streaming_logging_runs_async_handler_for_sdk_passthrough():
 
     Regression for duplicate-trace dedupe: dispatch_success_handlers treated these as
     sync SDK requests because call_type is not ``pass_through_endpoint`` and
-    litellm_params carries no ``acompletion`` flag, so only the sync success_handler
+    hangarllm_params carries no ``acompletion`` flag, so only the sync success_handler
     ran and CustomLogger.async_log_success_event never fired.
     """
     import time
 
-    from litellm.types.utils import CallTypes
+    from hangarllm.types.utils import CallTypes
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = HangarLLMLoggingObj(
         model="claude-sonnet-4-5",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type=CallTypes.anthropic_messages.value,
         start_time=time.time(),
-        litellm_call_id="test-id",
+        hangarllm_call_id="test-id",
         function_id="fn",
     )
-    logging_obj.model_call_details["litellm_params"] = {"anthropic_messages": True}
+    logging_obj.model_call_details["hangarllm_params"] = {"anthropic_messages": True}
 
     with (
         patch.object(
@@ -142,7 +142,7 @@ async def test_route_streaming_logging_runs_async_handler_for_sdk_passthrough():
         ),
     ):
         await PassThroughStreamingHandler._route_streaming_logging_to_handler(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/v1/messages",
             request_body={},
@@ -167,25 +167,25 @@ async def test_handle_logging_runs_async_handler_for_passthrough():
     _handle_logging is only ever reached from pass_through_async_success_handler
     (an async context), so it forces async dispatch via prefer_async_handlers.
     This pins that contract independent of the call-type classification: even a
-    call_type that _is_sync_litellm_request would classify as sync (here
-    "completion" with no async marker in litellm_params) must still reach
+    call_type that _is_sync_hangarllm_request would classify as sync (here
+    "completion" with no async marker in hangarllm_params) must still reach
     async_success_handler. Without prefer_async_handlers=True the sync-only
     branch would return early and async_log_success_event would never fire.
     """
     import time
 
-    from litellm.types.utils import CallTypes
+    from hangarllm.types.utils import CallTypes
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = HangarLLMLoggingObj(
         model="claude-sonnet-4-5",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type=CallTypes.completion.value,
         start_time=time.time(),
-        litellm_call_id="test-id",
+        hangarllm_call_id="test-id",
         function_id="fn",
     )
-    logging_obj.model_call_details["litellm_params"] = {}
+    logging_obj.model_call_details["hangarllm_params"] = {}
 
     handler = PassThroughEndpointLogging()
 
@@ -242,13 +242,13 @@ async def test_unhandled_route_passes_passthrough_payload_to_custom_logger():
         response_body=response_body,
     )
     logger: Final = _PayloadLogger()
-    logging_obj: Final = LiteLLMLoggingObj(
+    logging_obj: Final = HangarLLMLoggingObj(
         model="omni-moderation-latest",
         messages=[],
         stream=False,
         call_type="pass_through_endpoint",
         start_time=start_time,
-        litellm_call_id="moderation-1",
+        hangarllm_call_id="moderation-1",
         function_id="moderations",
         dynamic_async_success_callbacks=[logger],
     )
@@ -326,8 +326,8 @@ async def test_vertex_ai_anthropic_streaming_cost_injection_enabled():
     when include_cost_in_streaming_usage is enabled.
     """
     # Enable cost injection
-    original_value = getattr(litellm, "include_cost_in_streaming_usage", False)
-    litellm.include_cost_in_streaming_usage = True
+    original_value = getattr(hangarllm, "include_cost_in_streaming_usage", False)
+    hangarllm.include_cost_in_streaming_usage = True
 
     try:
         # Mock response with Anthropic SSE format chunks
@@ -348,12 +348,12 @@ async def test_vertex_ai_anthropic_streaming_cost_injection_enabled():
         response.aiter_bytes = mock_aiter_bytes
 
         # Setup logging object with model info
-        litellm_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
-        litellm_logging_obj.model = "claude-sonnet-4@20250514"
-        litellm_logging_obj.litellm_params = {}
-        litellm_logging_obj.model_call_details = {"model": "claude-sonnet-4@20250514"}
-        litellm_logging_obj.completion_start_time = None
-        litellm_logging_obj.async_success_handler = AsyncMock()
+        hangarllm_logging_obj = MagicMock(spec=HangarLLMLoggingObj)
+        hangarllm_logging_obj.model = "claude-sonnet-4@20250514"
+        hangarllm_logging_obj.hangarllm_params = {}
+        hangarllm_logging_obj.model_call_details = {"model": "claude-sonnet-4@20250514"}
+        hangarllm_logging_obj.completion_start_time = None
+        hangarllm_logging_obj.async_success_handler = AsyncMock()
 
         request_body = {"model": "claude-sonnet-4@20250514"}
         start_time = datetime.now()
@@ -362,12 +362,12 @@ async def test_vertex_ai_anthropic_streaming_cost_injection_enabled():
         url_route = "v1/projects/test-project/locations/us-east5/publishers/anthropic/models/claude-sonnet-4@20250514:streamRawPredict"
 
         # Mock completion_cost to return a test cost value
-        with patch("litellm.completion_cost", return_value=0.00015):
+        with patch("hangarllm.completion_cost", return_value=0.00015):
             received_chunks = []
             async for chunk in PassThroughStreamingHandler.chunk_processor(
                 response=response,
                 request_body=request_body,
-                litellm_logging_obj=litellm_logging_obj,
+                hangarllm_logging_obj=hangarllm_logging_obj,
                 endpoint_type=EndpointType.VERTEX_AI,
                 start_time=start_time,
                 passthrough_success_handler_obj=passthrough_success_handler_obj,
@@ -398,7 +398,7 @@ async def test_vertex_ai_anthropic_streaming_cost_injection_enabled():
 
     finally:
         # Restore original value
-        litellm.include_cost_in_streaming_usage = original_value
+        hangarllm.include_cost_in_streaming_usage = original_value
 
 
 @pytest.mark.usefixtures("_drain_logging_worker", "_vcr_outcome_gate")
@@ -408,8 +408,8 @@ async def test_vertex_ai_anthropic_streaming_cost_injection_disabled():
     Test that cost is NOT injected when include_cost_in_streaming_usage is disabled.
     """
     # Disable cost injection
-    original_value = getattr(litellm, "include_cost_in_streaming_usage", False)
-    litellm.include_cost_in_streaming_usage = False
+    original_value = getattr(hangarllm, "include_cost_in_streaming_usage", False)
+    hangarllm.include_cost_in_streaming_usage = False
 
     try:
         # Mock response with Anthropic SSE format chunks
@@ -426,11 +426,11 @@ async def test_vertex_ai_anthropic_streaming_cost_injection_disabled():
 
         response.aiter_bytes = mock_aiter_bytes
 
-        litellm_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
-        litellm_logging_obj.litellm_params = {}
-        litellm_logging_obj.model_call_details = {"model": "claude-sonnet-4@20250514"}
-        litellm_logging_obj.completion_start_time = None
-        litellm_logging_obj.async_success_handler = AsyncMock()
+        hangarllm_logging_obj = MagicMock(spec=HangarLLMLoggingObj)
+        hangarllm_logging_obj.hangarllm_params = {}
+        hangarllm_logging_obj.model_call_details = {"model": "claude-sonnet-4@20250514"}
+        hangarllm_logging_obj.completion_start_time = None
+        hangarllm_logging_obj.async_success_handler = AsyncMock()
 
         request_body = {"model": "claude-sonnet-4@20250514"}
         start_time = datetime.now()
@@ -442,7 +442,7 @@ async def test_vertex_ai_anthropic_streaming_cost_injection_disabled():
         async for chunk in PassThroughStreamingHandler.chunk_processor(
             response=response,
             request_body=request_body,
-            litellm_logging_obj=litellm_logging_obj,
+            hangarllm_logging_obj=hangarllm_logging_obj,
             endpoint_type=EndpointType.VERTEX_AI,
             start_time=start_time,
             passthrough_success_handler_obj=passthrough_success_handler_obj,
@@ -462,7 +462,7 @@ async def test_vertex_ai_anthropic_streaming_cost_injection_disabled():
 
     finally:
         # Restore original value
-        litellm.include_cost_in_streaming_usage = original_value
+        hangarllm.include_cost_in_streaming_usage = original_value
 
 
 @pytest.mark.usefixtures("_drain_logging_worker", "_vcr_outcome_gate")
@@ -471,8 +471,8 @@ async def test_vertex_ai_anthropic_streaming_cost_injection_no_usage_chunk():
     """
     Test that chunks without usage are not modified.
     """
-    original_value = getattr(litellm, "include_cost_in_streaming_usage", False)
-    litellm.include_cost_in_streaming_usage = True
+    original_value = getattr(hangarllm, "include_cost_in_streaming_usage", False)
+    hangarllm.include_cost_in_streaming_usage = True
 
     try:
         response = AsyncMock(spec=httpx.Response)
@@ -490,11 +490,11 @@ async def test_vertex_ai_anthropic_streaming_cost_injection_no_usage_chunk():
 
         response.aiter_bytes = mock_aiter_bytes
 
-        litellm_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
-        litellm_logging_obj.litellm_params = {}
-        litellm_logging_obj.model_call_details = {"model": "claude-sonnet-4@20250514"}
-        litellm_logging_obj.completion_start_time = None
-        litellm_logging_obj.async_success_handler = AsyncMock()
+        hangarllm_logging_obj = MagicMock(spec=HangarLLMLoggingObj)
+        hangarllm_logging_obj.hangarllm_params = {}
+        hangarllm_logging_obj.model_call_details = {"model": "claude-sonnet-4@20250514"}
+        hangarllm_logging_obj.completion_start_time = None
+        hangarllm_logging_obj.async_success_handler = AsyncMock()
 
         request_body = {"model": "claude-sonnet-4@20250514"}
         start_time = datetime.now()
@@ -506,7 +506,7 @@ async def test_vertex_ai_anthropic_streaming_cost_injection_no_usage_chunk():
         async for chunk in PassThroughStreamingHandler.chunk_processor(
             response=response,
             request_body=request_body,
-            litellm_logging_obj=litellm_logging_obj,
+            hangarllm_logging_obj=hangarllm_logging_obj,
             endpoint_type=EndpointType.VERTEX_AI,
             start_time=start_time,
             passthrough_success_handler_obj=passthrough_success_handler_obj,
@@ -521,7 +521,7 @@ async def test_vertex_ai_anthropic_streaming_cost_injection_no_usage_chunk():
             assert chunk == chunks_without_usage[i]
 
     finally:
-        litellm.include_cost_in_streaming_usage = original_value
+        hangarllm.include_cost_in_streaming_usage = original_value
 
 
 @pytest.mark.usefixtures("_drain_logging_worker", "_vcr_outcome_gate")
@@ -530,8 +530,8 @@ async def test_vertex_ai_anthropic_streaming_model_extraction():
     """
     Test that model name is correctly extracted for cost calculation.
     """
-    original_value = getattr(litellm, "include_cost_in_streaming_usage", False)
-    litellm.include_cost_in_streaming_usage = True
+    original_value = getattr(hangarllm, "include_cost_in_streaming_usage", False)
+    hangarllm.include_cost_in_streaming_usage = True
 
     try:
         response = AsyncMock(spec=httpx.Response)
@@ -547,12 +547,12 @@ async def test_vertex_ai_anthropic_streaming_model_extraction():
 
         response.aiter_bytes = mock_aiter_bytes
 
-        litellm_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
-        litellm_logging_obj.model = "claude-sonnet-4@20250514"
-        litellm_logging_obj.litellm_params = {}
-        litellm_logging_obj.model_call_details = {}
-        litellm_logging_obj.completion_start_time = None
-        litellm_logging_obj.async_success_handler = AsyncMock()
+        hangarllm_logging_obj = MagicMock(spec=HangarLLMLoggingObj)
+        hangarllm_logging_obj.model = "claude-sonnet-4@20250514"
+        hangarllm_logging_obj.hangarllm_params = {}
+        hangarllm_logging_obj.model_call_details = {}
+        hangarllm_logging_obj.completion_start_time = None
+        hangarllm_logging_obj.async_success_handler = AsyncMock()
 
         # Test model extraction from request body
         request_body = {"model": "claude-sonnet-4@20250514"}
@@ -561,13 +561,13 @@ async def test_vertex_ai_anthropic_streaming_model_extraction():
 
         url_route = "v1/projects/test-project/locations/us-east5/publishers/anthropic/models/claude-sonnet-4@20250514:streamRawPredict"
 
-        with patch("litellm.completion_cost") as mock_cost:
+        with patch("hangarllm.completion_cost") as mock_cost:
             mock_cost.return_value = 0.0001
             received_chunks = []
             async for chunk in PassThroughStreamingHandler.chunk_processor(
                 response=response,
                 request_body=request_body,
-                litellm_logging_obj=litellm_logging_obj,
+                hangarllm_logging_obj=hangarllm_logging_obj,
                 endpoint_type=EndpointType.VERTEX_AI,
                 start_time=start_time,
                 passthrough_success_handler_obj=passthrough_success_handler_obj,
@@ -581,7 +581,7 @@ async def test_vertex_ai_anthropic_streaming_model_extraction():
             assert call_args[1]["model"] == "claude-sonnet-4@20250514"
 
     finally:
-        litellm.include_cost_in_streaming_usage = original_value
+        hangarllm.include_cost_in_streaming_usage = original_value
 
 
 _LIVE_ROUTE: Final = "/vertex_ai/live"
@@ -592,14 +592,14 @@ _FIRST_TURN_USAGE: Final = {"promptTokenCount": 10, "candidatesTokenCount": 4, "
 _SECOND_TURN_USAGE: Final = {"promptTokenCount": 30, "candidatesTokenCount": 6, "totalTokenCount": 36}
 
 
-def _logging_obj() -> LiteLLMLoggingObj:
-    return LiteLLMLoggingObj(
+def _logging_obj() -> HangarLLMLoggingObj:
+    return HangarLLMLoggingObj(
         model="unknown",
         messages=[{"role": "user", "content": "WebSocket connection"}],
         stream=True,
         call_type="pass_through_endpoint",
         start_time=_START,
-        litellm_call_id="call-live",
+        hangarllm_call_id="call-live",
         function_id="websocket_passthrough",
     )
 
@@ -673,7 +673,7 @@ REALTIME_FRAMES: Final = [
 
 
 def _normalize(url_route: str, response_body: dict[str, object] | list[dict[str, object]]) -> dict:
-    logging_obj: Final = MagicMock(model_call_details={}, litellm_call_id="call-fake")
+    logging_obj: Final = MagicMock(model_call_details={}, hangarllm_call_id="call-fake")
     return PassThroughEndpointLogging().normalize_llm_passthrough_logging_payload(
         httpx_response=MagicMock(spec=httpx.Response),
         response_body=response_body,
@@ -684,7 +684,7 @@ def _normalize(url_route: str, response_body: dict[str, object] | list[dict[str,
         start_time=_START,
         end_time=_END,
         cache_hit=False,
-        litellm_call_id="call-fake",
+        hangarllm_call_id="call-fake",
     )
 
 
@@ -694,7 +694,7 @@ def test_openai_websocket_frames_reach_the_websocket_cost_handler(url_route):
 
     assert normalized["kwargs"]["model"] == "gpt-realtime-2.1"
     assert normalized["kwargs"]["custom_llm_provider"] == "openai"
-    prices: Final = litellm.model_cost["gpt-realtime-2.1"]
+    prices: Final = hangarllm.model_cost["gpt-realtime-2.1"]
     assert normalized["kwargs"]["response_cost"] == pytest.approx(
         33 * prices["input_cost_per_token"] + 16 * prices["output_cost_per_token"]
     )
@@ -705,7 +705,7 @@ def test_openai_http_passthrough_bodies_are_left_to_the_http_handlers():
     normalized: Final = _normalize("/openai/v1/responses", {"model": "gpt-5.4-mini", "usage": {"input_tokens": 13}})
 
     assert normalized["standard_logging_response_object"] is None
-    assert normalized["kwargs"] == {"litellm_call_id": "call-fake"}
+    assert normalized["kwargs"] == {"hangarllm_call_id": "call-fake"}
 
 
 @pytest.mark.asyncio
@@ -718,13 +718,13 @@ async def test_completed_passthrough_cancellation_preserves_accounting(
 
     import anyio
 
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy import proxy_server
-    from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
-    from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-    from litellm.proxy.spend_tracking.budget_reservation import release_unbound_budget_reservation
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.types.utils import ModelResponse, PromptTokensDetailsWrapper, Usage
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+    from hangarllm.proxy.spend_tracking.budget_reservation import release_unbound_budget_reservation
+    from hangarllm.proxy.utils import ProxyLogging
+    from hangarllm.types.utils import ModelResponse, PromptTokensDetailsWrapper, Usage
 
     class AllowanceCounter:
         def __init__(self) -> None:
@@ -743,10 +743,10 @@ async def test_completed_passthrough_cancellation_preserves_accounting(
     now: Final = datetime(2026, 10, 20, tzinfo=timezone.utc)
     model: Final = "passthrough-cancellation-test"
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         model,
         {
-            "litellm_provider": "vertex_ai",
+            "hangarllm_provider": "vertex_ai",
             "mode": "chat",
             "input_cost_per_token": 0.01,
             "output_cost_per_token": 0.02,
@@ -755,7 +755,7 @@ async def test_completed_passthrough_cancellation_preserves_accounting(
             "search_free_requests": {"count": 2, "period": "month", "shared_group": "cancelled-pass-through"},
         },
     )
-    monkeypatch.setattr(litellm, "apply_search_free_tier", True)
+    monkeypatch.setattr(hangarllm, "apply_search_free_tier", True)
     monkeypatch.setattr(proxy_server, "general_settings", {})
     counters: Final = SpendCounterStore(connect(None).spend_counters())
     for key in ("spend:key:pass-through-key", "spend:team:pass-through-team"):
@@ -775,13 +775,13 @@ async def test_completed_passthrough_cancellation_preserves_accounting(
     allowance: Final = AllowanceCounter()
     monkeypatch.setattr(proxy_logging.internal_usage_cache.dual_cache, "redis_cache", allowance)
     monkeypatch.setattr(proxy_server, "proxy_logging_obj", proxy_logging)
-    logging_obj: Final = LiteLLMLoggingObj(
+    logging_obj: Final = HangarLLMLoggingObj(
         model=model,
         messages=[],
         stream=False,
         call_type="pass_through_endpoint",
         start_time=now,
-        litellm_call_id="cancelled-pass-through",
+        hangarllm_call_id="cancelled-pass-through",
         function_id="cancelled-pass-through",
     )
     logging_obj.add_dynamic_callback(ProxyDBLogger(spend_writer=lambda: writer))
@@ -789,7 +789,7 @@ async def test_completed_passthrough_cancellation_preserves_accounting(
         model=model,
         custom_llm_provider="vertex_ai",
         optional_params={},
-        litellm_params={
+        hangarllm_params={
             "metadata": {
                 "user_api_key": "pass-through-key",
                 "user_api_key_user_id": "pass-through-user",

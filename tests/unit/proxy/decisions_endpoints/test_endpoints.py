@@ -18,25 +18,25 @@ from fastapi.testclient import TestClient
 from pydantic import TypeAdapter
 from starlette.routing import Match
 
-import litellm
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.decisions_pricing import apply_decisions_pricing
-from litellm.proxy._lazy_features import LAZY_FEATURES, LazyFeature, attach_lazy_features
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.decisions_endpoints.endpoints import decisions, router, systemone
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import SafeRouteAdder
-from litellm.proxy.proxy_server import (
+import hangarllm
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.decisions_pricing import apply_decisions_pricing
+from hangarllm.proxy._lazy_features import LAZY_FEATURES, LazyFeature, attach_lazy_features
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.decisions_endpoints.endpoints import decisions, router, systemone
+from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import SafeRouteAdder
+from hangarllm.proxy.proxy_server import (
     app,
     cleanup_router_config_variables,
     hash_token,
     initialize,
 )
-from litellm.types.decisions import DecisionsRequestBody, OpenAIDecisionRequestBody
-from litellm.types.extraction import ExtractionRequestBody
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import GenericGuardrailAPIInputs
+from hangarllm.types.decisions import DecisionsRequestBody, OpenAIDecisionRequestBody
+from hangarllm.types.extraction import ExtractionRequestBody
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import GenericGuardrailAPIInputs
 from tests._master_key import MASTER_KEY
 
 if sys.version_info >= (3, 14):
@@ -77,13 +77,13 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     config_path: Final = Path(__file__).parents[1] / "test_configs" / "test_config_no_auth.yaml"
     asyncio.run(initialize(config=str(config_path), debug=True))
     monkeypatch.setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "decider",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "perplexity/pplx-decider-v1-27b",
                         "api_key": "test-key",
                     },
@@ -91,10 +91,10 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
             ]
         ),
     )
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield TestClient(app)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.mark.parametrize("endpoint", ("/v1/systemone", "/systemone"))
@@ -110,13 +110,13 @@ def test_proxy_decisions_route_returns_answers_and_cost(
     assert response.status_code == 200, response.text
     assert response.json()["answers"] == _RESPONSE["answers"]
     assert "_hidden_params" not in response.json()
-    perplexity_cost: Final = litellm.model_cost["perplexity/pplx-decider-v1-27b"]
+    perplexity_cost: Final = hangarllm.model_cost["perplexity/pplx-decider-v1-27b"]
     expected_cost: Final = _INPUT_TOKENS * float(perplexity_cost["input_cost_per_token"]) + _OUTPUT_TOKENS * float(
         perplexity_cost["output_cost_per_token"]
     )
 
     assert expected_cost > 0
-    assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(expected_cost)
+    assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(expected_cost)
     assert upstream.called
     assert json.loads(upstream.calls[0].request.content) == {
         "model": "pplx-decider-v1-27b",
@@ -176,18 +176,18 @@ def test_proxy_decisions_dispatches_typesafe_deployment(
     monkeypatch: pytest.MonkeyPatch,
     respx_mock: respx.MockRouter,
 ) -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "jev",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "typesafe/jev-latest",
                     "api_key": "k",
                 },
             }
         ]
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", router)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", router)
     upstream: Final = respx_mock.post("https://api.typesafe.ai/v1/systemone").respond(json=_RESPONSE)
 
     response: Final = client.post(
@@ -216,18 +216,18 @@ def test_proxy_decisions_sends_the_env_key_to_the_deployment_api_base(
 ) -> None:
     monkeypatch.setenv("PERPLEXITYAI_API_KEY", "server-key")
     monkeypatch.delenv("PERPLEXITY_API_KEY", raising=False)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "decider",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "perplexity/pplx-decider-v1-27b",
                     "api_base": "https://egress.example/perplexity",
                 },
             }
         ]
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", router)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", router)
     upstream: Final = respx_mock.post("https://egress.example/perplexity/v1/decisions").respond(json=_RESPONSE)
 
     response: Final = client.post("/v1/systemone", json=_REQUEST)
@@ -288,18 +288,18 @@ def test_proxy_decisions_dispatches_strands_decider(
 ) -> None:
     monkeypatch.delenv("STRANDS_DECIDER_API_BASE", raising=False)
     monkeypatch.delenv("STRANDS_DECIDER_API_KEY", raising=False)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "strands",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "strands_decider/strands-decider-2B-hobson-v19",
                     "api_base": "https://strands.example",
                 },
             }
         ]
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", router)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", router)
     upstream: Final = respx_mock.post("https://strands.example/v1/systemone").respond(json=_STRANDS_RESPONSE)
 
     response: Final = client.post(
@@ -340,18 +340,18 @@ def test_proxy_decisions_dispatches_oss_classifier_deployment(
 ) -> None:
     monkeypatch.delenv(env_base, raising=False)
     monkeypatch.delenv(env_key, raising=False)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "oss-classifier",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": model,
                     "api_base": "https://oss-decider.example",
                 },
             }
         ]
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", router)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", router)
     upstream: Final = respx_mock.post("https://oss-decider.example/v1/systemone").respond(json=_STRANDS_RESPONSE)
 
     response: Final = client.post(
@@ -382,11 +382,11 @@ def test_proxy_systemone_dispatches_databricks_serving_endpoint(
     monkeypatch.delenv("DATABRICKS_API_BASE", raising=False)
     monkeypatch.delenv("DATABRICKS_API_KEY", raising=False)
     monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "databricks-decider",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "databricks/databricks-openjev-qwen35-4b",
                     "api_base": "https://workspace.example/serving-endpoints",
                     "api_key": "dapi-deployment",
@@ -394,7 +394,7 @@ def test_proxy_systemone_dispatches_databricks_serving_endpoint(
             }
         ]
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", router)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", router)
     upstream: Final = respx_mock.post(
         "https://workspace.example/serving-endpoints/databricks-openjev-qwen35-4b/invocations"
     ).respond(json={**_RESPONSE, "model": "/mosaicml/local_model"})
@@ -427,11 +427,11 @@ def test_proxy_systemone_dispatches_databricks_ai_decide(
     monkeypatch.delenv("DATABRICKS_API_BASE", raising=False)
     monkeypatch.delenv("DATABRICKS_API_KEY", raising=False)
     monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "databricks-decider",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "databricks/ai_decide",
                     "api_base": "https://workspace.example/serving-endpoints",
                     "api_key": "dapi-deployment",
@@ -439,7 +439,7 @@ def test_proxy_systemone_dispatches_databricks_ai_decide(
             }
         ]
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", router)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", router)
     upstream: Final = respx_mock.post("https://workspace.example/api/2.0/ai-functions/ai-decide").respond(
         json={
             "response": {"answers": {"is_defect": {"type": "noul", "probability": 0.9}}},
@@ -471,7 +471,7 @@ def test_proxy_decisions_without_model_uses_the_proxy_default_model(
     monkeypatch: pytest.MonkeyPatch,
     respx_mock: respx.MockRouter,
 ) -> None:
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_model", "decider")
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "user_model", "decider")
     upstream: Final = respx_mock.post("https://api.perplexity.ai/v1/decisions").respond(json=_RESPONSE)
 
     response: Final = client.post(
@@ -489,9 +489,9 @@ def test_a_request_body_cannot_turn_on_box_questions_for_a_proxy_without_a_route
     monkeypatch: pytest.MonkeyPatch,
     respx_mock: respx.MockRouter,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", None)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_model", "openai/gpt-6-luna")
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", None)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "user_model", "openai/gpt-6-luna")
     upstream: Final = respx_mock.post("https://fake-openai.example/v1/decisions").respond(json={})
 
     response: Final = client.post(
@@ -618,7 +618,7 @@ def test_openai_format_decisions_translate_through_systemone(
         "output_tokens_details": {"reasoning_tokens": 0},
         "total_tokens": _INPUT_TOKENS + _OUTPUT_TOKENS,
     }
-    assert float(response.headers["x-litellm-response-cost"]) > 0
+    assert float(response.headers["x-hangarllm-response-cost"]) > 0
 
 
 @pytest.mark.parametrize(
@@ -697,23 +697,23 @@ def test_openai_format_decisions_reach_an_openai_deployment_unchanged_including_
     respx_mock: respx.MockRouter,
 ) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "gpt-6-luna",
         {
-            **litellm.model_cost["gpt-6-luna"],
+            **hangarllm.model_cost["gpt-6-luna"],
             "input_cost_per_token_decisions": 1e-07,
             "cache_read_input_token_cost_decisions": 1e-07,
             "output_cost_per_token_decisions": 0.0,
         },
     )
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     monkeypatch.setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "llm_router",
-        litellm.Router(
-            model_list=[{"model_name": "decider", "litellm_params": {"model": "openai/gpt-6-luna", "api_key": "k"}}]
+        hangarllm.Router(
+            model_list=[{"model_name": "decider", "hangarllm_params": {"model": "openai/gpt-6-luna", "api_key": "k"}}]
         ),
     )
     image_message: Final = {
@@ -757,12 +757,12 @@ def test_openai_format_decisions_reach_an_openai_deployment_unchanged_including_
     body: Final = response.json()
     assert body["answers"] == _OPENAI_FORMAT_ANSWERS
     assert body["usage"] == upstream_usage
-    luna_decisions_cost: Final = apply_decisions_pricing(litellm.model_cost["gpt-6-luna"])
+    luna_decisions_cost: Final = apply_decisions_pricing(hangarllm.model_cost["gpt-6-luna"])
     expected_cost: Final = _INPUT_TOKENS * float(luna_decisions_cost["input_cost_per_token"]) + _OUTPUT_TOKENS * float(
         luna_decisions_cost["output_cost_per_token"]
     )
     assert expected_cost > 0
-    assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(expected_cost)
+    assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(expected_cost)
 
 
 _CLEF_OMNI_MEDIA: Final[Mapping[str, object]] = {
@@ -782,13 +782,13 @@ _CLEF_OMNI_UPSTREAM: Final = "https://cf.example/ai/run/@cf/cloudflare/clef-omni
 
 def _route_to_clef_omni(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "clef-omni",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "cloudflare/clef-omni",
                         "api_base": "https://cf.example",
                         "api_key": "cf-key",
@@ -796,7 +796,7 @@ def _route_to_clef_omni(monkeypatch: pytest.MonkeyPatch) -> None:
                 },
                 {
                     "model_name": "decider",
-                    "litellm_params": {"model": "perplexity/pplx-decider-v1-27b", "api_key": "k"},
+                    "hangarllm_params": {"model": "perplexity/pplx-decider-v1-27b", "api_key": "k"},
                 },
             ]
         ),
@@ -862,7 +862,7 @@ def test_proxy_refuses_decisions_media_it_cannot_send(
     endpoint: str,
     request_body: Mapping[str, object],
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     _route_to_clef_omni(monkeypatch)
     clef_upstream: Final = respx_mock.post(_CLEF_OMNI_UPSTREAM).respond(json=_CLEF_OMNI_RESPONSE)
     perplexity_upstream: Final = respx_mock.post("https://api.perplexity.ai/v1/decisions").respond(json=_RESPONSE)
@@ -883,18 +883,18 @@ def test_a_non_string_safety_identifier_is_refused_unless_the_deployment_drops_p
     safety_identifier: object,
     deployment_drops_params: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     monkeypatch.setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "decider",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-6-luna",
                         "api_key": "k",
                         "drop_params": deployment_drops_params,
@@ -964,11 +964,11 @@ _IMAGE_REQUESTS: Final = tuple(zip(_IMAGE_ENDPOINTS, _IMAGE_REQUEST_BODIES, stri
 _IMAGE_REQUEST_IDS: Final = ("openai_format", "systemone_format")
 
 
-def _route_decider_to(monkeypatch: pytest.MonkeyPatch, litellm_params: Mapping[str, object]) -> None:
+def _route_decider_to(monkeypatch: pytest.MonkeyPatch, hangarllm_params: Mapping[str, object]) -> None:
     monkeypatch.setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "llm_router",
-        litellm.Router(model_list=[{"model_name": "decider", "litellm_params": dict(litellm_params)}]),
+        hangarllm.Router(model_list=[{"model_name": "decider", "hangarllm_params": dict(hangarllm_params)}]),
     )
 
 
@@ -1016,7 +1016,7 @@ def test_images_to_a_text_only_deployment_are_refused_without_drop_params(
     request_body: Mapping[str, object],
     param: str,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     upstream: Final = respx_mock.post("https://api.perplexity.ai/v1/decisions").respond(json=_RESPONSE)
 
     response: Final = client.post(endpoint, json=request_body)
@@ -1034,7 +1034,7 @@ def test_images_to_a_text_only_deployment_are_dropped_when_it_drops_params(
     endpoint: str,
     request_body: Mapping[str, object],
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     _route_decider_to(
         monkeypatch, {"model": "perplexity/pplx-decider-v1-27b", "api_key": "test-key", "drop_params": True}
     )
@@ -1057,7 +1057,7 @@ def test_malformed_images_are_refused_unless_the_deployment_drops_params(
     respx_mock: respx.MockRouter,
     deployment_drops_params: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     _route_decider_to(
         monkeypatch,
         {
@@ -1095,7 +1095,7 @@ def test_malformed_assets_for_a_deployment_without_asset_support_are_dropped_onl
     respx_mock: respx.MockRouter,
     deployment_drops_params: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     _route_decider_to(
         monkeypatch,
         {"model": "perplexity/pplx-decider-v1-27b", "api_key": "test-key", "drop_params": deployment_drops_params},
@@ -1129,15 +1129,15 @@ def test_clips_for_a_model_without_media_support_are_refused_unless_the_deployme
     endpoint: str,
     deployment_drops_params: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     monkeypatch.setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "clef-flash",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "cloudflare/clef-flash",
                         "api_base": "https://cf.example",
                         "api_key": "cf-key",
@@ -1195,15 +1195,15 @@ def test_a_malformed_clip_for_a_model_without_media_support_is_dropped_only_when
     endpoint: str,
     deployment_drops_params: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     monkeypatch.setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "clef-flash",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "cloudflare/clef-flash",
                         "api_base": "https://cf.example",
                         "api_key": "cf-key",
@@ -1247,7 +1247,7 @@ def _serving_endpoint(bare: FastAPI, path: str) -> object:
 def test_a_config_pass_through_at_v1_decisions_keeps_its_route_and_the_native_api_serves_decisions(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("LITELLM_DISABLE_LAZY_ROUTES", raising=False)
+    monkeypatch.delenv("HANGARLLM_DISABLE_LAZY_ROUTES", raising=False)
 
     async def pass_through() -> dict[str, str]:
         return {"served_by": "pass-through"}
@@ -1266,7 +1266,7 @@ def test_a_config_pass_through_at_v1_decisions_keeps_its_route_and_the_native_ap
 def test_with_lazy_routes_disabled_a_config_pass_through_at_v1_decisions_still_wins(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_DISABLE_LAZY_ROUTES", "true")
+    monkeypatch.setenv("HANGARLLM_DISABLE_LAZY_ROUTES", "true")
 
     async def pass_through() -> dict[str, str]:
         return {"served_by": "pass-through"}
@@ -1323,7 +1323,7 @@ def test_swagger_documents_the_request_format_and_response_of_each_decisions_rou
     media = operation["requestBody"]["content"]["application/json"]
 
     assert "Decisions" in operation["summary"] or "System One" in operation["summary"]
-    assert "docs.litellm.ai/docs/decisions" in operation["description"]
+    assert "github.com/valteresj2/HangarLLM#readme" in operation["description"]
     assert required <= set(media["schema"]["required"])
     assert required <= set(media["schema"]["properties"])
     assert "$ref" not in json.dumps(media["schema"])
@@ -1372,13 +1372,13 @@ def _route_invoice_reader_to_clairic(
     monkeypatch: pytest.MonkeyPatch, drop_params: bool = False, additional_drop_params: tuple[str, ...] = ()
 ) -> None:
     monkeypatch.setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "invoice-reader",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "cloudflare/clairic",
                         "api_key": "cloudflare-key",
                         "api_base": "https://api.cloudflare.com/client/v4/accounts/acct/ai/run",
@@ -1408,10 +1408,10 @@ def test_proxy_extraction_forwards_the_body_to_clairic_and_returns_its_answers_a
     assert response.status_code == 200, response.text
     assert response.json() == {**_CLAIRIC_RESULT, "model": "invoice-reader"}
     expected_cost: Final = _CLAIRIC_INPUT_TOKENS * float(
-        litellm.model_cost["cloudflare/clairic"]["input_cost_per_token"]
+        hangarllm.model_cost["cloudflare/clairic"]["input_cost_per_token"]
     )
     assert expected_cost > 0
-    assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(expected_cost)
+    assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(expected_cost)
     assert json.loads(upstream.calls[0].request.content) == {**_EXTRACTION_REQUEST, "model": "clairic"}
     assert upstream.calls[0].request.headers["authorization"] == "Bearer cloudflare-key"
 
@@ -1454,7 +1454,7 @@ def test_proxy_extraction_refuses_a_malformed_body_before_calling_clairic(
 def test_proxy_extraction_refuses_a_key_clairic_does_not_take_before_calling_clairic(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter, key: str, value: object
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     _route_invoice_reader_to_clairic(monkeypatch)
     upstream: Final = respx_mock.post(_CLAIRIC_UPSTREAM).respond(json={"result": _CLAIRIC_RESULT, "success": True})
 
@@ -1477,7 +1477,7 @@ def test_proxy_extraction_sends_only_the_clairic_request_when_the_deployment_dro
     drop_params: bool,
     additional_drop_params: tuple[str, ...],
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     _route_invoice_reader_to_clairic(monkeypatch, drop_params, additional_drop_params)
     upstream: Final = respx_mock.post(_CLAIRIC_UPSTREAM).respond(json={"result": _CLAIRIC_RESULT, "success": True})
 
@@ -1492,9 +1492,9 @@ def test_proxy_extraction_sends_only_the_clairic_request_when_the_deployment_dro
 def test_proxy_extraction_leaves_out_the_cli_generation_defaults(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_max_tokens", 256)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_temperature", 0.2)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "user_max_tokens", 256)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "user_temperature", 0.2)
     _route_invoice_reader_to_clairic(monkeypatch)
     upstream: Final = respx_mock.post(_CLAIRIC_UPSTREAM).respond(json={"result": _CLAIRIC_RESULT, "success": True})
 
@@ -1520,7 +1520,7 @@ def test_proxy_extraction_refuses_a_remote_image_before_any_pre_call_hook_runs(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
     recorder: Final = _PreCallRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     _route_invoice_reader_to_clairic(monkeypatch)
     upstream: Final = respx_mock.post(_CLAIRIC_UPSTREAM).respond(json={"result": _CLAIRIC_RESULT, "success": True})
 
@@ -1536,7 +1536,7 @@ def test_proxy_extraction_refuses_a_remote_image_before_any_pre_call_hook_runs(
 def test_proxy_extraction_refuses_stream_before_calling_clairic_unless_the_deployment_drops_params(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     _route_invoice_reader_to_clairic(monkeypatch)
     upstream: Final = respx_mock.post(_CLAIRIC_UPSTREAM).respond(json={"result": _CLAIRIC_RESULT, "success": True})
 
@@ -1613,7 +1613,7 @@ def test_proxy_extraction_drops_spans_into_a_state_only_its_request_guardrail_sa
     sent_state: str,
     returned_vendor: Mapping[str, object],
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [_RequestEmailMasker(guardrail_email)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RequestEmailMasker(guardrail_email)])
     _route_invoice_reader_to_clairic(monkeypatch)
     upstream: Final = respx_mock.post(_CLAIRIC_UPSTREAM).respond(
         json={"result": _clairic_vendor_result(), "success": True}
@@ -1632,7 +1632,7 @@ def test_proxy_extraction_drops_spans_into_a_state_only_its_request_guardrail_sa
 def test_proxy_extraction_keeps_spans_into_the_masked_state_it_returns(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [_RequestEmailMasker("billing@acme.example")])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RequestEmailMasker("billing@acme.example")])
     _route_invoice_reader_to_clairic(monkeypatch)
     respx_mock.post(_CLAIRIC_UPSTREAM).respond(
         json={"result": _clairic_vendor_result(state_text=_MASKED_EMAIL_STATE), "success": True}
@@ -1701,9 +1701,9 @@ def test_a_compressed_body_naming_a_model_outside_the_key_is_refused_by_auth(
     user_api_key_cache.set_cache(
         key=hash_token(user_key), value=UserAPIKeyAuth(token=hash_token(user_key), models=["decider"])
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "prisma_client", "no-db-needed-for-a-cached-key")
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "prisma_client", "no-db-needed-for-a-cached-key")
     upstream: Final = respx_mock.post("https://api.perplexity.ai/v1/decisions").respond(json=_RESPONSE)
 
     response: Final = client.post(
@@ -1752,8 +1752,8 @@ def test_the_operator_request_size_limit_applies_to_the_decoded_body(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     max_request_size_mb: Final = 0.01
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
-    monkeypatch.setitem(litellm.proxy.proxy_server.general_settings, "max_request_size_mb", max_request_size_mb)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setitem(hangarllm.proxy.proxy_server.general_settings, "max_request_size_mb", max_request_size_mb)
     upstream: Final = respx_mock.post("https://api.perplexity.ai/v1/decisions").respond(json=_RESPONSE)
     state_text: Final = "".join(random.Random(0).choices("abcd", k=20_000))
     compressed: Final = zstd.compress(json.dumps({**_REQUEST, "state": {"source": state_text}}).encode())
@@ -1775,8 +1775,8 @@ def test_a_whole_number_request_size_limit_is_named_as_configured_in_the_413(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
-    monkeypatch.setitem(litellm.proxy.proxy_server.general_settings, "max_request_size_mb", 1)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setitem(hangarllm.proxy.proxy_server.general_settings, "max_request_size_mb", 1)
     upstream: Final = respx_mock.post("https://api.perplexity.ai/v1/decisions").respond(json=_RESPONSE)
 
     response: Final = client.post("/v1/systemone", json={**_REQUEST, "state": {"source": "a" * 1024 * 1024}})
@@ -1796,11 +1796,11 @@ def test_proxy_routes_lm_studio_decisions_with_optional_authentication(
     api_key: str | None,
 ) -> None:
     monkeypatch.delenv("LM_STUDIO_API_KEY", raising=False)
-    deployment_router: Final = litellm.Router(
+    deployment_router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "local-decision",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "lm_studio/served-decision",
                     "api_base": "http://lmstudio.local:1234/v1",
                     "api_key": api_key,
@@ -1808,7 +1808,7 @@ def test_proxy_routes_lm_studio_decisions_with_optional_authentication(
             }
         ]
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", deployment_router)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", deployment_router)
     upstream: Final = respx_mock.post("http://lmstudio.local:1234/v1/systemone").respond(json=_RESPONSE)
     fields: Final = (
         {"state": "review", "questions": {"is_defect": {"type": "noul", "instructions": "Is this a defect?"}}}
@@ -1849,11 +1849,11 @@ def test_proxy_routes_ollama_decisions_with_optional_authentication(
 ) -> None:
     monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
     monkeypatch.delenv("OLLAMA_API_BASE", raising=False)
-    deployment_router: Final = litellm.Router(
+    deployment_router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "local-decision",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"{provider}/d3:4b",
                     "api_base": "http://ollama.local:11434/v1",
                     "api_key": api_key,
@@ -1861,7 +1861,7 @@ def test_proxy_routes_ollama_decisions_with_optional_authentication(
             }
         ]
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", deployment_router)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", deployment_router)
     upstream: Final = respx_mock.post("http://ollama.local:11434/v1/systemone").respond(json=_RESPONSE)
     fields: Final = (
         {"state": "review", "questions": {"is_defect": {"type": "noul", "instructions": "Is this a defect?"}}}

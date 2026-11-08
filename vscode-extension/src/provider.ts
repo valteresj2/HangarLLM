@@ -4,7 +4,7 @@ import { buildChatCompletionParams, estimateMessageTokens } from "./messages";
 import { describeModels, estimateTokens, reasoningEffortFrom, type ModelDescriptor } from "./models";
 import { responseParts, type ResponsePart } from "./stream";
 
-export interface LiteLLMModel extends vscode.LanguageModelChatInformation {
+export interface HangarLLMModel extends vscode.LanguageModelChatInformation {
   readonly gateway: GatewayConfig;
 }
 
@@ -16,22 +16,22 @@ const RECONFIGURE_HINT =
 const configurationProblem = (result: Exclude<GatewayConfigResult, { kind: "ok" | "unconfigured" }>): string => {
   switch (result.kind) {
     case "missing_fields":
-      return `LiteLLM provider is missing its ${result.fields.join(" and ")}. ${RECONFIGURE_HINT}`;
+      return `HangarLLM provider is missing its ${result.fields.join(" and ")}. ${RECONFIGURE_HINT}`;
     case "invalid_url":
-      return `LiteLLM gateway URL "${result.baseUrl}" is not an http or https URL. ${RECONFIGURE_HINT}`;
+      return `HangarLLM gateway URL "${result.baseUrl}" is not an http or https URL. ${RECONFIGURE_HINT}`;
   }
 };
 
 const discoveryFailure = (result: Exclude<ModelGroupsResult, { kind: "ok" }>, baseUrl: string): string => {
   switch (result.kind) {
     case "http_error":
-      return `LiteLLM gateway at ${baseUrl} answered ${result.status} for /model_group/info: ${summarizeErrorBody(result.body)}`;
+      return `HangarLLM gateway at ${baseUrl} answered ${result.status} for /model_group/info: ${summarizeErrorBody(result.body)}`;
     case "invalid_response":
-      return `LiteLLM gateway at ${baseUrl} returned an unexpected /model_group/info payload: ${result.reason}`;
+      return `HangarLLM gateway at ${baseUrl} returned an unexpected /model_group/info payload: ${result.reason}`;
   }
 };
 
-const toModel = (descriptor: ModelDescriptor, gateway: GatewayConfig): LiteLLMModel => ({
+const toModel = (descriptor: ModelDescriptor, gateway: GatewayConfig): HangarLLMModel => ({
   id: descriptor.id,
   name: descriptor.name,
   family: descriptor.family,
@@ -68,7 +68,7 @@ const withAbortSignal = async <T>(token: vscode.CancellationToken, run: (signal:
   }
 };
 
-export class LiteLLMChatProvider implements vscode.LanguageModelChatProvider<LiteLLMModel>, vscode.Disposable {
+export class HangarLLMChatProvider implements vscode.LanguageModelChatProvider<HangarLLMModel>, vscode.Disposable {
   private readonly changeEmitter = new vscode.EventEmitter<void>();
   readonly onDidChangeLanguageModelChatInformation = this.changeEmitter.event;
 
@@ -85,7 +85,7 @@ export class LiteLLMChatProvider implements vscode.LanguageModelChatProvider<Lit
   async provideLanguageModelChatInformation(
     options: vscode.PrepareLanguageModelChatModelOptions,
     token: vscode.CancellationToken,
-  ): Promise<LiteLLMModel[]> {
+  ): Promise<HangarLLMModel[]> {
     const configured = gatewayConfigFrom(options.configuration);
     if (configured.kind === "unconfigured") {
       return [];
@@ -101,7 +101,7 @@ export class LiteLLMChatProvider implements vscode.LanguageModelChatProvider<Lit
   }
 
   async provideLanguageModelChatResponse(
-    model: LiteLLMModel,
+    model: HangarLLMModel,
     messages: readonly vscode.LanguageModelChatRequestMessage[],
     options: vscode.ProvideLanguageModelChatResponseOptions,
     progress: vscode.Progress<vscode.LanguageModelResponsePart>,
@@ -130,7 +130,7 @@ export class LiteLLMChatProvider implements vscode.LanguageModelChatProvider<Lit
     }
   }
 
-  async provideTokenCount(_model: LiteLLMModel, text: string | vscode.LanguageModelChatRequestMessage): Promise<number> {
+  async provideTokenCount(_model: HangarLLMModel, text: string | vscode.LanguageModelChatRequestMessage): Promise<number> {
     return typeof text === "string" ? estimateTokens(text) : estimateMessageTokens(text);
   }
 }

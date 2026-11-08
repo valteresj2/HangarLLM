@@ -7,13 +7,13 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.caching.caching import Cache
-from litellm.completion_extras.litellm_responses_transformation.handler import (
+import hangarllm
+from hangarllm.caching.caching import Cache
+from hangarllm.completion_extras.hangarllm_responses_transformation.handler import (
     ResponsesToCompletionBridgeHandler,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.types.utils import ModelResponse
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.types.utils import ModelResponse
 
 MODEL = "openai.gpt-5.5"
 REGION = "us-east-2"
@@ -21,8 +21,8 @@ REGION = "us-east-2"
 
 def _bedrock_mantle_kwargs() -> dict:
     messages = [{"role": "user", "content": "hi"}]
-    logging_obj = LiteLLMLogging(
-        litellm_call_id="test-call",
+    logging_obj = HangarLLMLogging(
+        hangarllm_call_id="test-call",
         call_type="acompletion",
         model=MODEL,
         messages=messages,
@@ -35,7 +35,7 @@ def _bedrock_mantle_kwargs() -> dict:
         "custom_llm_provider": "bedrock_mantle",
         "messages": messages,
         "optional_params": {},
-        "litellm_params": {
+        "hangarllm_params": {
             "aws_region_name": REGION,
             "api_base": "https://bedrock-mantle.us-east-1.api.aws/v1",
             "custom_llm_provider": "bedrock_mantle",
@@ -48,8 +48,8 @@ def _bedrock_mantle_kwargs() -> dict:
 
 def _openai_kwargs() -> dict:
     messages = [{"role": "user", "content": "hi"}]
-    logging_obj = LiteLLMLogging(
-        litellm_call_id="test-call",
+    logging_obj = HangarLLMLogging(
+        hangarllm_call_id="test-call",
         call_type="completion",
         model="gpt-5.5",
         messages=messages,
@@ -62,7 +62,7 @@ def _openai_kwargs() -> dict:
         "custom_llm_provider": "openai",
         "messages": messages,
         "optional_params": {},
-        "litellm_params": {},
+        "hangarllm_params": {},
         "headers": {},
         "model_response": ModelResponse(),
         "logging_obj": logging_obj,
@@ -73,7 +73,7 @@ def test_completion_forwards_custom_llm_provider_to_responses():
     bridge = ResponsesToCompletionBridgeHandler()
     cached = ModelResponse(id="chatcmpl-cached", model="gpt-5.5")
 
-    with patch("litellm.responses", return_value=cached) as fake_responses:
+    with patch("hangarllm.responses", return_value=cached) as fake_responses:
         result = bridge.completion(**_openai_kwargs())
 
     assert result is cached
@@ -91,7 +91,7 @@ async def test_acompletion_forwards_custom_llm_provider_to_aresponses():
 
     _fake_aresponses.kwargs = {}
 
-    with patch("litellm.aresponses", _fake_aresponses):
+    with patch("hangarllm.aresponses", _fake_aresponses):
         result = await bridge.acompletion(**_openai_kwargs())
 
     assert result is cached
@@ -109,7 +109,7 @@ async def test_acompletion_forwards_aws_region_name_to_aresponses():
 
     _fake_aresponses.kwargs = {}
 
-    with patch("litellm.aresponses", _fake_aresponses):
+    with patch("hangarllm.aresponses", _fake_aresponses):
         result = await bridge.acompletion(**_bedrock_mantle_kwargs())
 
     assert result is cached
@@ -159,8 +159,8 @@ _GPT_6_REQUEST: Final = {
 
 @pytest.fixture
 def _bridged_cache_edge(monkeypatch):
-    monkeypatch.setattr(litellm, "cache", Cache(type="local"))
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "cache", Cache(type="local"))
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     ids = itertools.count(1)
     with respx.mock(assert_all_called=True) as router:
         route = router.post(url__regex=r"https://example\.invalid/openai/responses.*").mock(
@@ -170,8 +170,8 @@ def _bridged_cache_edge(monkeypatch):
 
 
 def test_completion_no_cache_reaches_provider_each_time(_bridged_cache_edge):
-    first = litellm.completion(**_GPT_6_REQUEST, cache={"no-cache": True})
-    second = litellm.completion(**_GPT_6_REQUEST, cache={"no-cache": True})
+    first = hangarllm.completion(**_GPT_6_REQUEST, cache={"no-cache": True})
+    second = hangarllm.completion(**_GPT_6_REQUEST, cache={"no-cache": True})
 
     assert len(_bridged_cache_edge.calls) == 2
     assert [first.id, second.id] == ["resp_1", "resp_2"]
@@ -179,8 +179,8 @@ def test_completion_no_cache_reaches_provider_each_time(_bridged_cache_edge):
 
 @pytest.mark.asyncio
 async def test_acompletion_no_cache_reaches_provider_each_time(_bridged_cache_edge):
-    first = await litellm.acompletion(**_GPT_6_REQUEST, cache={"no-cache": True})
-    second = await litellm.acompletion(**_GPT_6_REQUEST, cache={"no-cache": True})
+    first = await hangarllm.acompletion(**_GPT_6_REQUEST, cache={"no-cache": True})
+    second = await hangarllm.acompletion(**_GPT_6_REQUEST, cache={"no-cache": True})
 
     assert len(_bridged_cache_edge.calls) == 2
     assert [first.id, second.id] == ["resp_1", "resp_2"]
@@ -188,8 +188,8 @@ async def test_acompletion_no_cache_reaches_provider_each_time(_bridged_cache_ed
 
 @pytest.mark.asyncio
 async def test_acompletion_without_cache_field_is_served_from_cache(_bridged_cache_edge):
-    first = await litellm.acompletion(**_GPT_6_REQUEST)
-    second = await litellm.acompletion(**_GPT_6_REQUEST)
+    first = await hangarllm.acompletion(**_GPT_6_REQUEST)
+    second = await hangarllm.acompletion(**_GPT_6_REQUEST)
 
     assert len(_bridged_cache_edge.calls) == 1
     assert [first.id, second.id] == ["resp_1", "resp_1"]

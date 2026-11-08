@@ -35,14 +35,14 @@ class WorkflowMessageResponse(BaseModel):
 
 
 def _delete_workflow_rows(run_id: str) -> None:
-    write_rows('DELETE FROM "LiteLLM_WorkflowEvent" WHERE run_id = %s', (run_id,))
-    write_rows('DELETE FROM "LiteLLM_WorkflowMessage" WHERE run_id = %s', (run_id,))
-    write_rows('DELETE FROM "LiteLLM_WorkflowRun" WHERE run_id = %s', (run_id,))
+    write_rows('DELETE FROM "HangarLLM_WorkflowEvent" WHERE run_id = %s', (run_id,))
+    write_rows('DELETE FROM "HangarLLM_WorkflowMessage" WHERE run_id = %s', (run_id,))
+    write_rows('DELETE FROM "HangarLLM_WorkflowRun" WHERE run_id = %s', (run_id,))
 
 
 def _run_rows(run_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT run_id, workflow_type, status, created_by, input FROM "LiteLLM_WorkflowRun" WHERE run_id = %s',
+        'SELECT run_id, workflow_type, status, created_by, input FROM "HangarLLM_WorkflowRun" WHERE run_id = %s',
         (run_id,),
     )
 
@@ -159,14 +159,14 @@ def test_workflow_runs_events_and_messages_are_key_owned(gateway: Gateway) -> No
         assert _run_rows(first_run.run_id)[0]["status"] == "pending"
         assert (
             read_rows(
-                'SELECT event_id FROM "LiteLLM_WorkflowEvent" WHERE run_id = %s',
+                'SELECT event_id FROM "HangarLLM_WorkflowEvent" WHERE run_id = %s',
                 (first_run.run_id,),
             )
             == []
         )
         assert (
             read_rows(
-                'SELECT message_id FROM "LiteLLM_WorkflowMessage" WHERE run_id = %s',
+                'SELECT message_id FROM "HangarLLM_WorkflowMessage" WHERE run_id = %s',
                 (first_run.run_id,),
             )
             == []

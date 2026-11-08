@@ -15,7 +15,7 @@ tests:
           value:
             - name: gateway-config
               configMap:
-                name: RELEASE-NAME-litellm-gateway-config
+                name: RELEASE-NAME-hangarllm-gateway-config
       - equal:
           path: spec.template.spec.containers[0].volumeMounts
           value:

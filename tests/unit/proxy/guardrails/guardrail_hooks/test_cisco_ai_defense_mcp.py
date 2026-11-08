@@ -22,20 +22,20 @@ from tests.unit.proxy.guardrails.guardrail_hooks._cisco_ai_defense_test_utils im
     datetime,
     init_guardrails_v2,
     json,
-    litellm,
+    hangarllm,
     pytest,
 )
 
 
 def test_cisco_ai_defense_config_via_init_v2_mcp(monkeypatch):
     monkeypatch.setenv("CISCO_AI_DEFENSE_API_KEY", "test-key")
-    litellm.guardrail_name_config_map = {}
+    hangarllm.guardrail_name_config_map = {}
 
     init_guardrails_v2(
         all_guardrails=[
             {
                 "guardrail_name": "cisco-mcp",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "cisco_ai_defense",
                     "mode": "pre_mcp_call",
                     "default_on": True,
@@ -52,7 +52,7 @@ class TestCiscoAIDefenseMCPMode:
     async def test_mcp_mode_inspects_mcp_request(self):
         g = _make_guardrail(inspection_type="mcp", event_hook="pre_mcp_call")
         data = _mcp_request(
-            name="send_email", args={"to": "x@y.com"}, litellm_call_id="call-1"
+            name="send_email", args={"to": "x@y.com"}, hangarllm_call_id="call-1"
         )
         post_mock = AsyncMock(return_value=_safe_response(url=MCP_URL))
         with _patch_inspection_post(g, post_mock):
@@ -133,8 +133,8 @@ class TestCiscoAIDefenseMCPMode:
     )
     @pytest.mark.asyncio
     async def test_mcp_input_redaction_reaches_tool_call(self, verdict_extra):
-        from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-        from litellm.proxy.utils import ProxyLogging
+        from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+        from hangarllm.proxy.utils import ProxyLogging
 
         original_args = {"note": "ssn 123-45-6789"}
         sanitized_args = {"note": "ssn [REDACTED]"}
@@ -194,7 +194,7 @@ class TestCiscoAIDefenseMCPMode:
             "name": "lookup_secret",
             "arguments": {"key": "production"},
             "mcp_server_name": "vault",
-            "litellm_call_id": "call-42",
+            "hangarllm_call_id": "call-42",
         }
         with _patch_inspection_post(g, post_mock):
             result = await g.async_post_mcp_tool_call_hook(
@@ -223,7 +223,7 @@ class TestCiscoAIDefenseMCPMode:
 
     @pytest.mark.asyncio
     async def test_mcp_response_hook_blocks_violation(self):
-        from litellm.types.mcp import MCPPostCallResponseObject
+        from hangarllm.types.mcp import MCPPostCallResponseObject
 
         g = _make_guardrail(
             inspection_type="mcp", event_hook=["pre_mcp_call", "during_mcp_call"]
@@ -242,7 +242,7 @@ class TestCiscoAIDefenseMCPMode:
             )
 
         assert result is not None, (
-            "MCP response block was silently dropped — the litellm "
+            "MCP response block was silently dropped — the hangarllm "
             "dispatcher swallows raised exceptions, so the hook must "
             "return a non-None MCPPostCallResponseObject to enforce a block."
         )
@@ -320,7 +320,7 @@ class TestCiscoAIDefenseMCPMode:
     async def test_mcp_response_hook_handles_raw_list_content(
         self, cisco_response_kind, expected_block
     ):
-        from litellm.types.mcp import MCPPostCallResponseObject
+        from hangarllm.types.mcp import MCPPostCallResponseObject
 
         g = _make_guardrail(
             inspection_type="mcp", event_hook=["pre_mcp_call", "during_mcp_call"]
@@ -343,7 +343,7 @@ class TestCiscoAIDefenseMCPMode:
             "name": "leak" if expected_block else "lookup_secret",
             "arguments": {"key": "production"} if not expected_block else {},
             "mcp_server_name": "vault",
-            "litellm_call_id": "call-raw-list",
+            "hangarllm_call_id": "call-raw-list",
         }
         with _patch_inspection_post(g, post_mock):
             result = await g.async_post_mcp_tool_call_hook(
@@ -381,7 +381,7 @@ class TestCiscoAIDefenseMCPMode:
     async def test_mcp_response_hook_through_real_logging_wrapper(self, use_wrapper):
         from mcp.types import AudioContent, CallToolResult, EmbeddedResource, ImageContent, TextContent, TextResourceContents
 
-        from litellm.types.mcp import MCPPostCallResponseObject
+        from hangarllm.types.mcp import MCPPostCallResponseObject
 
         g = _make_guardrail(
             inspection_type="mcp", event_hook=["pre_mcp_call", "during_mcp_call"]
@@ -411,7 +411,7 @@ class TestCiscoAIDefenseMCPMode:
                     "name": "leak_tool",
                     "arguments": {},
                     "mcp_server_name": "vault",
-                    "litellm_call_id": "real-wire-call",
+                    "hangarllm_call_id": "real-wire-call",
                 },
                 response_obj=wrapped if use_wrapper else real_result,
                 start_time=datetime.now(),
@@ -463,7 +463,7 @@ class TestCiscoAIDefenseMCPMode:
         with _patch_inspection_post(g, post_mock):
             result = await g.async_post_mcp_tool_call_hook(
                 kwargs={
-                    "litellm_call_id": "metadata-call",
+                    "hangarllm_call_id": "metadata-call",
                     "mcp_tool_call_metadata": {
                         "name": "lookup_secret",
                         "arguments": {"key": "production"},
@@ -527,7 +527,7 @@ class TestCiscoAIDefenseRedactListShape:
     @pytest.mark.asyncio
     async def test_redact_rewrites_mcp_response_list_shape(self, factory_name):
 
-        from litellm.types.mcp import MCPPostCallResponseObject
+        from hangarllm.types.mcp import MCPPostCallResponseObject
 
         g = _make_guardrail(inspection_type="mcp", event_hook=["pre_mcp_call", "during_mcp_call"])
 
@@ -557,8 +557,8 @@ class TestCiscoAIDefenseRedactListShape:
     async def test_redact_rewrites_client_visible_original_response(self):
         from mcp.types import CallToolResult, TextContent
 
-        from litellm.types.llms.base import HiddenParams
-        from litellm.types.mcp import MCPPostCallResponseObject
+        from hangarllm.types.llms.base import HiddenParams
+        from hangarllm.types.mcp import MCPPostCallResponseObject
 
         original_response = CallToolResult(
             content=[TextContent(type="text", text="SSN: 123-45-6789")],
@@ -663,8 +663,8 @@ class TestCiscoAIDefenseMCPBlockingContract:
 
     @pytest.mark.asyncio
     async def test_block_response_survives_dispatcher_contract(self):
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.types.mcp import MCPPostCallResponseObject
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.types.mcp import MCPPostCallResponseObject
         from mcp.types import CallToolResult, TextContent
 
         g = _make_guardrail(
@@ -700,7 +700,7 @@ class TestCiscoAIDefenseMCPBlockingContract:
                 captured["swallowed"] = repr(e)
 
         assert "swallowed" not in captured, (
-            f"async_post_mcp_tool_call_hook raised — the litellm "
+            f"async_post_mcp_tool_call_hook raised — the hangarllm "
             f"dispatcher would swallow this and the block would be lost. "
             f"Got: {captured.get('swallowed')}"
         )
@@ -833,7 +833,7 @@ class TestCiscoAIDefenseJsonRpcSuccessEnvelope:
 @pytest.mark.parametrize("action", ["block", "redact"])
 async def test_cisco_native_hook_through_logging_preserves_sanitized_result(action):
     from mcp.types import CallToolResult, TextContent
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     guardrail = _make_guardrail(
         inspection_type="mcp", event_hook=["pre_mcp_call", "during_mcp_call"]
@@ -848,7 +848,7 @@ async def test_cisco_native_hook_through_logging_preserves_sanitized_result(acti
     )
     logging_obj = Logging(
         model="MCP: probe/search", messages=[], stream=False, call_type="call_mcp_tool",
-        start_time=datetime.now(), litellm_call_id="cisco-hook", function_id="cisco-hook",
+        start_time=datetime.now(), hangarllm_call_id="cisco-hook", function_id="cisco-hook",
         dynamic_success_callbacks=[guardrail],
     )
     logging_obj.model_call_details.update({"name": "search", "arguments": {}, "original_response": result})

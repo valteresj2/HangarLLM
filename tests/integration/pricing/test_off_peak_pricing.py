@@ -40,11 +40,11 @@ def assert_chat_bills_rates(gateway: Gateway, model: str, input_rate: float, out
     )
     assert response.status_code == 200, response.text
     expected: Final = 20 * input_rate + 20 * output_rate
-    assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(expected, rel=1e-6)
+    assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(expected, rel=1e-6)
     request_id: Final = string_value(object_value(response.json())["id"])
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT spend, metadata, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
+            'SELECT spend, metadata, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
             (request_id,),
         ),
         lambda values: len(values) == 1,

@@ -7,10 +7,10 @@ import pytest
 
 # Adds the grandparent directory to sys.path to allow importing project modules
 
-from litellm.integrations.SlackAlerting.hanging_request_check import (
+from hangarllm.integrations.SlackAlerting.hanging_request_check import (
     AlertingHangingRequestCheck,
 )
-from litellm.types.integrations.slack_alerting import HangingRequestData
+from hangarllm.types.integrations.slack_alerting import HangingRequestData
 
 
 class TestAlertingHangingRequestCheck:
@@ -52,16 +52,16 @@ class TestAlertingHangingRequestCheck:
         Should extract metadata and store HangingRequestData in cache.
         """
         request_data = {
-            "litellm_call_id": "test_request_123",
+            "hangarllm_call_id": "test_request_123",
             "model": "gpt-4",
-            "deployment": {"litellm_params": {"api_base": "https://api.openai.com/v1"}},
+            "deployment": {"hangarllm_params": {"api_base": "https://api.openai.com/v1"}},
             "metadata": {
                 "user_api_key_alias": "test_key",
                 "user_api_key_team_alias": "test_team",
             },
         }
 
-        with patch("litellm.get_api_base", return_value="https://api.openai.com/v1"):
+        with patch("hangarllm.get_api_base", return_value="https://api.openai.com/v1"):
             await hanging_request_checker.add_request_to_hanging_request_check(
                 request_data
             )
@@ -101,7 +101,7 @@ class TestAlertingHangingRequestCheck:
         Should handle cases where optional fields are missing.
         """
         request_data = {
-            "litellm_call_id": "minimal_request_456",
+            "hangarllm_call_id": "minimal_request_456",
             "model": "gpt-3.5-turbo",
         }
 
@@ -158,7 +158,7 @@ class TestAlertingHangingRequestCheck:
         Test send_alerts_for_hanging_requests when proxy_logging_obj.internal_usage_cache is None.
         Should return early without processing when internal usage cache is unavailable.
         """
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy:
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy:
             mock_proxy.internal_usage_cache = None
 
             result = await hanging_request_checker.send_alerts_for_hanging_requests()
@@ -182,7 +182,7 @@ class TestAlertingHangingRequestCheck:
             key="completed_request_789", value=hanging_data, ttl=300
         )
 
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy:
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy:
             # Mock internal usage cache to return a request status (meaning request completed)
             mock_internal_cache = AsyncMock()
             mock_internal_cache.async_get_cache.return_value = {"status": "success"}
@@ -219,7 +219,7 @@ class TestAlertingHangingRequestCheck:
             key="hanging_request_999", value=hanging_data, ttl=300
         )
 
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy:
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy:
             # Mock internal usage cache to return None (meaning request is still hanging)
             mock_internal_cache = AsyncMock()
             mock_internal_cache.async_get_cache.return_value = None
@@ -253,7 +253,7 @@ class TestAlertingHangingRequestCheck:
             key="hanging_once_555", value=hanging_data, ttl=300
         )
 
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy:
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy:
             mock_internal_cache = AsyncMock()
             mock_internal_cache.async_get_cache.return_value = None
             mock_proxy.internal_usage_cache = mock_internal_cache
@@ -289,7 +289,7 @@ class TestAlertingHangingRequestCheck:
             key="young_request_123", value=hanging_data, ttl=300
         )
 
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy:
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy:
             # Mock internal usage cache to return None (request still in flight)
             mock_internal_cache = AsyncMock()
             mock_internal_cache.async_get_cache.return_value = None
@@ -319,7 +319,7 @@ class TestAlertingHangingRequestCheck:
         Test send_alerts_for_hanging_requests when hanging request data is missing from cache.
         Should continue processing other requests when individual request data is missing.
         """
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy:
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy:
             mock_internal_cache = AsyncMock()
             mock_proxy.internal_usage_cache = mock_internal_cache
 

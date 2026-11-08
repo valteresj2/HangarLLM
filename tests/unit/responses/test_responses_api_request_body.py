@@ -1,5 +1,5 @@
 """
-Test that litellm.responses() / litellm.aresponses() send the expected request body
+Test that hangarllm.responses() / hangarllm.aresponses() send the expected request body
 over the wire and surface provider errors correctly. Expected JSON bodies are stored
 in expected_responses_api_request/.
 """
@@ -20,10 +20,10 @@ import pytest
 import respx
 from pydantic import TypeAdapter
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.llms.openai import ResponsesAPIResponse
+import hangarllm
+from hangarllm._logging import verbose_logger
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.types.llms.openai import ResponsesAPIResponse
 from tests.unit.llms.bedrock.slow_upstream import (
     STREAM_TIMEOUT_SECONDS,
     UPSTREAM_FIRST_BYTE_SECONDS,
@@ -104,18 +104,18 @@ def _assert_request_body_matches(request_body: dict, expected_body: dict) -> Non
 @pytest.mark.asyncio
 async def test_aresponses_context_management_and_shell_request_body_matches_expected():
     """
-    Call litellm.aresponses() with context_management and shell tool;
+    Call hangarllm.aresponses() with context_management and shell tool;
     assert the httpx POST request body matches the expected JSON.
     """
     expected_body = _load_expected_body("context_management_and_shell.json")
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_ctx_shell_test", "gpt-4o"), 200)
 
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model="openai/gpt-4o",
             input=expected_body["input"],
             context_management=expected_body["context_management"],
@@ -131,20 +131,20 @@ async def test_aresponses_context_management_and_shell_request_body_matches_expe
 @pytest.mark.asyncio
 async def test_aresponses_azure_shell_tool_request_body_matches_expected():
     """
-    Call litellm.aresponses() on the Azure route with the shell tool;
+    Call hangarllm.aresponses() on the Azure route with the shell tool;
     assert the httpx POST request body carries the shell tool verbatim.
     """
     expected_body = _load_expected_body("azure_shell_tool.json")
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(
             _minimal_responses_api_payload("resp_azure_shell_test", "gpt-5-mini"), 200
         )
 
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model="azure/gpt-5-mini",
             api_base="https://fake-resource.openai.azure.com",
             api_key="fake-api-key",
@@ -163,7 +163,7 @@ async def test_aresponses_azure_shell_tool_request_body_matches_expected():
 async def test_aresponses_azure_shell_tool_400_maps_to_bad_request_error():
     """
     Azure rejects the shell tool for unsupported deployments with a 400;
-    litellm must surface that as litellm.BadRequestError carrying the provider message.
+    hangarllm must surface that as hangarllm.BadRequestError carrying the provider message.
     """
     error_body = {
         "error": {
@@ -189,13 +189,13 @@ async def test_aresponses_azure_shell_tool_400_maps_to_bad_request_error():
         response.raise_for_status()
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.side_effect = _raise_azure_400
 
-        with pytest.raises(litellm.BadRequestError) as excinfo:
-            await litellm.aresponses(
+        with pytest.raises(hangarllm.BadRequestError) as excinfo:
+            await hangarllm.aresponses(
                 model="azure/gpt-5-mini",
                 api_base="https://fake-resource.openai.azure.com",
                 api_key="fake-api-key",
@@ -215,14 +215,14 @@ async def test_aresponses_azure_shell_tool_400_maps_to_bad_request_error():
 async def test_aresponses_drops_stream_options():
     """The Responses API rejects include_usage, so include_usage-only stream_options must never reach the wire."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(
             _minimal_responses_api_payload("resp_stream_options_test", "gpt-5.5"), 200
         )
 
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model="openai/gpt-5.5",
             api_key="fake-api-key",
             input="hi",
@@ -240,13 +240,13 @@ async def test_aresponses_forwards_non_enum_reasoning_effort(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ):
     monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_effort_int", "gpt-5.4"))
     )
 
-    response: Final = await litellm.aresponses(model="openai/gpt-5.4", input="hi", reasoning_effort=5)
+    response: Final = await hangarllm.aresponses(model="openai/gpt-5.4", input="hi", reasoning_effort=5)
 
     assert upstream.call_count == 1
     request_body: Final = json.loads(upstream.calls[0].request.read())
@@ -259,14 +259,14 @@ async def test_aresponses_forwards_moderation(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_moderation", "gpt-5.4"))
     )
     moderation: Final = {"model": "omni-moderation-latest"}
 
-    await litellm.aresponses(model="openai/gpt-5.4", input="hi", moderation=moderation)
+    await hangarllm.aresponses(model="openai/gpt-5.4", input="hi", moderation=moderation)
 
     request_body: Final = TypeAdapter(dict[str, object]).validate_python(
         cast(object, json.loads(upstream.calls[0].request.read()))
@@ -280,13 +280,13 @@ async def test_aresponses_omits_null_moderation(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_null_moderation", "gpt-5.4"))
     )
 
-    await litellm.aresponses(model="openai/gpt-5.4", input="hi", moderation=None)
+    await hangarllm.aresponses(model="openai/gpt-5.4", input="hi", moderation=None)
 
     request_body: Final = TypeAdapter(dict[str, object]).validate_python(
         cast(object, json.loads(upstream.calls[0].request.read()))
@@ -298,8 +298,8 @@ async def test_aresponses_omits_null_moderation(
 @pytest.mark.asyncio
 async def test_aresponses_stream_forwards_moderation(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     received: Final[asyncio.Queue[httpx.Request]] = asyncio.Queue()
     payload: Final = _minimal_responses_api_payload("resp_stream_moderation", "gpt-5.4")
     moderation: Final = {"model": "omni-moderation-latest"}
@@ -317,7 +317,7 @@ async def test_aresponses_stream_forwards_moderation(monkeypatch: pytest.MonkeyP
 
     async_client: Final = AsyncHTTPHandler(transport=httpx.MockTransport(respond))
     try:
-        response: Final = await litellm.aresponses(
+        response: Final = await hangarllm.aresponses(
             model="openai/gpt-5.4", input="hi", moderation=moderation, stream=True, client=async_client
         )
         events: Final = tuple([event.type async for event in response])
@@ -337,13 +337,13 @@ async def test_acompletion_with_tools_forwards_non_enum_reasoning_effort_over_th
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ):
     monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_bridge_int", "gpt-5.4"))
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="openai/gpt-5.4",
         messages=[{"role": "user", "content": "What is the weather in Paris?"}],
         tools=[
@@ -382,20 +382,20 @@ async def test_aresponses_sends_the_declared_reasoning_effort_level_rounded_up(
     verbose_logger.addHandler(caplog.handler)
     verbose_logger.propagate = False
     verbose_logger.setLevel(logging.INFO)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post(url__regex=rf"{api_base}/responses.*").mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_declared_effort", "my-kimi"))
     )
 
-    response: Final = await litellm.aresponses(
+    response: Final = await hangarllm.aresponses(
         model=model,
         api_base=api_base,
         api_key="fake-api-key",
         input="hi",
         reasoning={"effort": "minimal", "summary": "auto"},
         model_info={"id": "kimi-1", "reasoning_effort_levels": ["low", "high", "max", "none"]},
-        litellm_metadata={"model_group": "kimi-k3"},
+        hangarllm_metadata={"model_group": "kimi-k3"},
     )
 
     assert upstream.call_count == 1
@@ -422,8 +422,8 @@ def _effort_levels_disabled_by(entry: dict) -> tuple[str, ...]:
 def _gpt_5_row_disabling_a_level(provider: str) -> tuple[str, str]:
     return next(
         (key.removeprefix(f"{provider}/"), _effort_levels_disabled_by(entry)[0])
-        for key, entry in litellm.model_cost.items()
-        if entry.get("litellm_provider") == provider and "gpt-5" in key and _effort_levels_disabled_by(entry)
+        for key, entry in hangarllm.model_cost.items()
+        if entry.get("hangarllm_provider") == provider and "gpt-5" in key and _effort_levels_disabled_by(entry)
     )
 
 
@@ -439,9 +439,9 @@ async def test_aresponses_sends_a_declared_level_the_model_map_disables(
     provider: str,
     api_base: str,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "drop_params", False)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     model, level = _gpt_5_row_disabling_a_level(provider)
     upstream: Final = respx_mock.post(url__regex=rf"{api_base}/.*responses.*").mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_declared_disabled", model))
@@ -455,9 +455,9 @@ async def test_aresponses_sends_a_declared_level_the_model_map_disables(
         "reasoning": {"effort": level},
     }
 
-    with pytest.raises(litellm.UnsupportedParamsError):
-        await litellm.aresponses(**request, model_info={"id": "undeclared"})
-    await litellm.aresponses(**request, model_info={"id": "declared", "reasoning_effort_levels": [level, "high"]})
+    with pytest.raises(hangarllm.UnsupportedParamsError):
+        await hangarllm.aresponses(**request, model_info={"id": "undeclared"})
+    await hangarllm.aresponses(**request, model_info={"id": "declared", "reasoning_effort_levels": [level, "high"]})
 
     assert upstream.call_count == 1
     assert json.loads(upstream.calls[0].request.read())["reasoning"] == {"effort": level}
@@ -467,16 +467,16 @@ async def test_aresponses_sends_a_declared_level_the_model_map_disables(
 async def test_aresponses_forwards_prompt_managed_reasoning_effort(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ):
-    from litellm.responses.main import _AsyncPromptManagementOutcome
+    from hangarllm.responses.main import _AsyncPromptManagementOutcome
 
     monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_prompt_effort", "gpt-5.4"))
     )
 
-    response: Final = await litellm.aresponses(
+    response: Final = await hangarllm.aresponses(
         model="openai/gpt-5.4",
         input="hi",
         _async_prompt_merged_params=_AsyncPromptManagementOutcome(
@@ -495,16 +495,16 @@ async def test_aresponses_forwards_prompt_managed_reasoning_effort(
 async def test_aresponses_forwards_prompt_managed_reasoning_dict(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ):
-    from litellm.responses.main import _AsyncPromptManagementOutcome
+    from hangarllm.responses.main import _AsyncPromptManagementOutcome
 
     monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_prompt_reasoning", "gpt-5.4"))
     )
 
-    response: Final = await litellm.aresponses(
+    response: Final = await hangarllm.aresponses(
         model="openai/gpt-5.4",
         input="hi",
         _async_prompt_merged_params=_AsyncPromptManagementOutcome(
@@ -522,14 +522,14 @@ async def test_aresponses_forwards_prompt_managed_reasoning_dict(
 async def test_aresponses_keeps_include_obfuscation_in_stream_options():
     """include_obfuscation is a valid Responses API stream option and must survive the include_usage strip."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(
             _minimal_responses_api_payload("resp_stream_options_obfuscation", "gpt-5.5"), 200
         )
 
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model="openai/gpt-5.5",
             api_key="fake-api-key",
             input="hi",
@@ -553,10 +553,10 @@ async def test_aresponses_request_level_drop_params_drops_bedrock_mantle_service
     reach the provider config so bedrock_mantle strips the unsupported
     service_tier before the request hits the wire.
     """
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(
@@ -564,7 +564,7 @@ async def test_aresponses_request_level_drop_params_drops_bedrock_mantle_service
             200,
         )
 
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model="bedrock_mantle/openai.gpt-5.5",
             api_key="fake-bearer-token",
             aws_region_name="us-east-1",
@@ -587,14 +587,14 @@ async def test_aresponses_bedrock_mantle_service_tier_raises_without_drop_params
     Without drop_params, an unsupported service_tier must fail fast with an
     error that names drop_params instead of sending a request Mantle rejects.
     """
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
-        with pytest.raises(litellm.BadRequestError) as excinfo:
-            await litellm.aresponses(
+        with pytest.raises(hangarllm.BadRequestError) as excinfo:
+            await hangarllm.aresponses(
                 model="bedrock_mantle/openai.gpt-5.5",
                 api_key="fake-bearer-token",
                 aws_region_name="us-east-1",
@@ -609,12 +609,12 @@ async def test_aresponses_bedrock_mantle_service_tier_raises_without_drop_params
 
 async def _aresponses_and_get_request_headers(**request_kwargs) -> dict:
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_headers_test", "gpt-4o"), 200)
 
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model="openai/gpt-4o",
             api_key="fake-api-key",
             input="hi",
@@ -677,7 +677,7 @@ async def test_aresponses_client_header_conflict_is_case_insensitive():
 )
 async def test_aresponses_strips_responses_routing_prefix_from_openai_model(model, custom_llm_provider):
     """
-    `responses/` is LiteLLM routing sugar, never part of the provider model id.
+    `responses/` is HangarLLM routing sugar, never part of the provider model id.
     Deployments configured as openai/responses/<model> reach this path directly via
     /v1/responses and via the /v1/messages adapter (which passes responses/<model>
     with custom_llm_provider="openai"), so both shapes must hit OpenAI as <model>.
@@ -686,7 +686,7 @@ async def test_aresponses_strips_responses_routing_prefix_from_openai_model(mode
     mock_post = AsyncMock(return_value=MockResponse(_minimal_responses_api_payload("resp_prefix_test", "gpt-5.6"), 200))
     injected_client.post = mock_post
 
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model=model,
         custom_llm_provider=custom_llm_provider,
         input="ping",
@@ -703,10 +703,10 @@ async def test_aresponses_strips_responses_routing_prefix_from_openai_model(mode
 async def test_aresponses_websocket_strips_responses_routing_prefix_from_openai_model():
     from unittest.mock import MagicMock
 
-    from litellm.responses.main import _aresponses_websocket
+    from hangarllm.responses.main import _aresponses_websocket
 
     with patch.object(
-        import_module("litellm.responses.main").base_llm_http_handler,
+        import_module("hangarllm.responses.main").base_llm_http_handler,
         "async_responses_websocket",
         new_callable=AsyncMock,
     ) as mock_ws:
@@ -714,7 +714,7 @@ async def test_aresponses_websocket_strips_responses_routing_prefix_from_openai_
             model="openai/responses/gpt-5.6",
             websocket=MagicMock(),
             api_key="sk-test",
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
         )
 
         mock_ws.assert_awaited_once()
@@ -726,10 +726,10 @@ async def test_aresponses_websocket_strips_responses_routing_prefix_from_openai_
 async def test_aresponses_websocket_keeps_routing_hints_out_of_the_relay_kwargs():  # test-quality-ok: the relay kwargs are the only place a dropped key is observable; the provider socket behind them is the boundary
     from unittest.mock import MagicMock
 
-    from litellm.responses.main import _aresponses_websocket
+    from hangarllm.responses.main import _aresponses_websocket
 
     with patch.object(
-        import_module("litellm.responses.main").base_llm_http_handler,
+        import_module("hangarllm.responses.main").base_llm_http_handler,
         "async_responses_websocket",
         new_callable=AsyncMock,
     ) as mock_ws:
@@ -737,7 +737,7 @@ async def test_aresponses_websocket_keeps_routing_hints_out_of_the_relay_kwargs(
             model="openai/gpt-5.6",
             websocket=MagicMock(),
             api_key="sk-test",
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
             input=[{"type": "message", "role": "user", "content": "hi"}],
             previous_response_id="resp_prev",
         )
@@ -761,7 +761,7 @@ async def test_aresponses_websocket_forwards_the_routed_input_in_the_first_frame
 ):  # test-quality-ok: the first frame handed to the relay is the only place the routed input is observable before the provider socket
     from unittest.mock import MagicMock
 
-    from litellm.responses.main import _aresponses_websocket
+    from hangarllm.responses.main import _aresponses_websocket
 
     body = {"model": "gpt-5.6", "input": _ORIGINAL_WS_INPUT, "store": False}
     first_message = json.dumps(
@@ -769,7 +769,7 @@ async def test_aresponses_websocket_forwards_the_routed_input_in_the_first_frame
     )
 
     with patch.object(
-        import_module("litellm.responses.main").base_llm_http_handler,
+        import_module("hangarllm.responses.main").base_llm_http_handler,
         "async_responses_websocket",
         new_callable=AsyncMock,
     ) as mock_ws:
@@ -777,7 +777,7 @@ async def test_aresponses_websocket_forwards_the_routed_input_in_the_first_frame
             model="openai/gpt-5.6",
             websocket=MagicMock(),
             api_key="sk-test",
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
             input=list(_STRIPPED_WS_INPUT),
             first_message=first_message,
         )
@@ -794,12 +794,12 @@ async def test_aresponses_websocket_forwards_the_routed_input_in_the_first_frame
 async def test_aresponses_websocket_forwards_the_first_frame_verbatim_when_routing_left_the_input_alone():  # test-quality-ok: the relay kwargs are the boundary; byte-identical passthrough is only observable there
     from unittest.mock import MagicMock
 
-    from litellm.responses.main import _aresponses_websocket
+    from hangarllm.responses.main import _aresponses_websocket
 
     first_message = '{"type": "response.create", "model": "gpt-5.6",  "input": [{"role": "user", "content": "hi"}]}'
 
     with patch.object(
-        import_module("litellm.responses.main").base_llm_http_handler,
+        import_module("hangarllm.responses.main").base_llm_http_handler,
         "async_responses_websocket",
         new_callable=AsyncMock,
     ) as mock_ws:
@@ -807,7 +807,7 @@ async def test_aresponses_websocket_forwards_the_first_frame_verbatim_when_routi
             model="openai/gpt-5.6",
             websocket=MagicMock(),
             api_key="sk-test",
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
             input=list(_STRIPPED_WS_INPUT),
             first_message=first_message,
         )
@@ -838,12 +838,12 @@ def _sent_body(mock_post) -> dict:
 @pytest.mark.asyncio
 async def test_aresponses_injection_point_marks_input_text_on_gpt_5_6():
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_pcb_async", "gpt-5.6"), 200)
 
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model="openai/gpt-5.6",
             api_key="fake-api-key",
             input=copy.deepcopy(_INJECTION_POINT_INPUT),
@@ -861,10 +861,10 @@ async def test_aresponses_injection_point_marks_input_text_on_gpt_5_6():
 
 
 def test_responses_injection_point_marks_input_text_on_gpt_5_6():
-    with patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_pcb_sync", "gpt-5.6"), 200)
 
-        litellm.responses(
+        hangarllm.responses(
             model="openai/gpt-5.6",
             api_key="fake-api-key",
             input=copy.deepcopy(_INJECTION_POINT_INPUT),
@@ -884,12 +884,12 @@ def test_responses_injection_point_marks_input_text_on_gpt_5_6():
 @pytest.mark.asyncio
 async def test_aresponses_injection_point_sends_nothing_extra_below_gpt_5_6():
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_pcb_old", "gpt-4.1"), 200)
 
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model="openai/gpt-4.1",
             api_key="fake-api-key",
             input=copy.deepcopy(_INJECTION_POINT_INPUT),
@@ -906,7 +906,7 @@ async def test_aresponses_injection_point_sends_nothing_extra_below_gpt_5_6():
 def _no_openai_api_base_override(monkeypatch):
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
 
 
 _CUSTOM_API_BASE = "http://127.0.0.1:9/v1"
@@ -914,11 +914,11 @@ _CUSTOM_API_BASE = "http://127.0.0.1:9/v1"
 
 async def _aresponses_body_with_system_point(**request_kwargs) -> dict:
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_pcb_gate", "gpt-5.6"), 200)
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             api_key="fake-api-key",
             input=copy.deepcopy(_INJECTION_POINT_INPUT),
             cache_control_injection_points=copy.deepcopy(_SYSTEM_INJECTION_POINT),
@@ -929,8 +929,8 @@ async def _aresponses_body_with_system_point(**request_kwargs) -> dict:
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("_no_openai_api_base_override")
-async def test_aresponses_litellm_proxy_target_sends_no_openai_markers():
-    body = await _aresponses_body_with_system_point(model="litellm_proxy/gpt-5.6", api_base=_CUSTOM_API_BASE)
+async def test_aresponses_hangarllm_proxy_target_sends_no_openai_markers():
+    body = await _aresponses_body_with_system_point(model="hangarllm_proxy/gpt-5.6", api_base=_CUSTOM_API_BASE)
     assert body["input"] == _INJECTION_POINT_INPUT
     assert "prompt_cache_options" not in body
 
@@ -967,10 +967,10 @@ async def test_aresponses_regional_openai_api_base_marks_input_text():
 
 @pytest.mark.usefixtures("_no_openai_api_base_override")
 def test_responses_custom_base_url_sends_no_openai_markers():
-    with patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_pcb_gate_base_url", "gpt-5.6"), 200)
 
-        litellm.responses(
+        hangarllm.responses(
             model="gpt-5.6",
             api_key="fake-api-key",
             base_url=_CUSTOM_API_BASE,
@@ -985,10 +985,10 @@ def test_responses_custom_base_url_sends_no_openai_markers():
 
 @pytest.mark.usefixtures("_no_openai_api_base_override")
 def test_responses_custom_api_base_sends_no_openai_markers():
-    with patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_pcb_gate_sync", "gpt-5.6"), 200)
 
-        litellm.responses(
+        hangarllm.responses(
             model="gpt-5.6",
             api_key="fake-api-key",
             api_base=_CUSTOM_API_BASE,
@@ -1009,7 +1009,7 @@ async def test_injection_points_still_reach_a_native_responses_provider():
     mock_post = AsyncMock(return_value=MockResponse(_minimal_responses_api_payload("resp_native", "gpt-5.6"), 200))
     injected_client.post = mock_post
 
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model="openai/gpt-5.6",
         api_key="fake-api-key",
         input=copy.deepcopy(_INJECTION_POINT_INPUT),
@@ -1033,7 +1033,7 @@ async def test_injection_points_reach_a_provider_prefixed_native_responses_model
     )
     injected_client.post = mock_post
 
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model="bedrock_mantle/openai.gpt-5.6-sol",
         api_key="fake-bearer-token",
         aws_region_name="us-east-1",
@@ -1060,7 +1060,7 @@ async def test_injection_points_reach_a_foundry_deployment_of_an_openai_model(mo
     mock_post = AsyncMock(return_value=MockResponse(_minimal_responses_api_payload("resp_foundry", "gpt-6-astra"), 200))
     injected_client.post = mock_post
 
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model="azure_ai/gpt-6-astra",
         custom_llm_provider="azure_ai",
         api_key="fake-api-key",
@@ -1080,7 +1080,7 @@ async def _bridged_body(mock_post, *, points, input, instructions="You are a doc
     injected_client = AsyncHTTPHandler()
     injected_client.post = mock_post
 
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model="anthropic/claude-sonnet-4-5",
         api_key="fake-api-key",
         instructions=instructions,
@@ -1112,7 +1112,7 @@ async def test_instructions_are_marked_when_the_bridge_builds_the_system_message
 
     Carrying it forward is what marks it at all. Carrying it *stamped* is what keeps a
     second point that did match from stranding it: without the stamp the next pass reads
-    litellm's own marks as client breakpoints and stands the whole configuration down.
+    hangarllm's own marks as client breakpoints and stands the whole configuration down.
     """
     mock_post = AsyncMock(return_value=MockResponse(_ANTHROPIC_MESSAGES_PAYLOAD, 200))
     body = await _bridged_body(mock_post, points=points, input=[{"role": "user", "content": content}])
@@ -1211,7 +1211,7 @@ async def test_a_native_responses_provider_places_every_point_itself():
         injected_client = AsyncHTTPHandler()
         mock_post = AsyncMock(return_value=MockResponse(_minimal_responses_api_payload("resp_native", "gpt-5.6"), 200))
         injected_client.post = mock_post
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model="openai/gpt-5.6",
             api_key="fake-api-key",
             input=copy.deepcopy(input_items),
@@ -1248,8 +1248,8 @@ _NEXT_TURN: Final = {"role": "user", "content": "What is my cat's name?"}
 @pytest.mark.parametrize(
     ("call", "upstream_url"),
     [
-        pytest.param(litellm.aresponses, "https://api.openai.com/v1/responses", id="create"),
-        pytest.param(litellm.acompact_responses, "https://api.openai.com/v1/responses/compact", id="compact"),
+        pytest.param(hangarllm.aresponses, "https://api.openai.com/v1/responses", id="create"),
+        pytest.param(hangarllm.acompact_responses, "https://api.openai.com/v1/responses/compact", id="compact"),
     ],
 )
 @pytest.mark.parametrize(
@@ -1274,8 +1274,8 @@ async def test_aresponses_sends_a_claude_compaction_item_to_openai_as_its_summar
     compaction_item: dict[str, str],
     sent_input: list[dict[str, str]],
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post(upstream_url).mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_compacted", "gpt-5.6"))
     )
@@ -1291,7 +1291,7 @@ def test_non_streamed_response_ignores_a_stream_timeout_it_never_uses() -> None:
         client=httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200, content=answer)))
     )
 
-    response: Final = litellm.responses(
+    response: Final = hangarllm.responses(
         model="openai/gpt-5.6", input="hi", stream_timeout="unset", api_key="fake-key", client=client
     )
 
@@ -1300,13 +1300,13 @@ def test_non_streamed_response_ignores_a_stream_timeout_it_never_uses() -> None:
 
 def test_faked_stream_accepts_a_text_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "slow-faked-responses-model",
-        {"litellm_provider": "openai", "mode": "responses", "supports_native_streaming": False},
+        {"hangarllm_provider": "openai", "mode": "responses", "supports_native_streaming": False},
     )
     answer: Final = json.dumps(_minimal_responses_api_payload("resp_faked", "slow-faked-responses-model")).encode()
 
-    response: Final = litellm.responses(
+    response: Final = hangarllm.responses(
         model="openai/slow-faked-responses-model",
         input="hi",
         stream=True,
@@ -1323,9 +1323,9 @@ def test_faked_stream_accepts_a_text_timeout(monkeypatch: pytest.MonkeyPatch) ->
 
 async def _invoke_responses(sync_mode: bool, model: str, pricing: Mapping[str, float]) -> ResponsesAPIResponse:
     response: Final = (
-        litellm.responses(model=model, input="hi", **pricing)
+        hangarllm.responses(model=model, input="hi", **pricing)
         if sync_mode
-        else await litellm.aresponses(model=model, input="hi", **pricing)
+        else await hangarllm.aresponses(model=model, input="hi", **pricing)
     )
     assert isinstance(response, ResponsesAPIResponse)
     return response
@@ -1343,10 +1343,10 @@ async def test_responses_bills_per_call_custom_pricing_from_usage(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter, sync_mode: bool, model: str
 ):
     monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    model_cost: Final[dict[str, object]] = getattr(litellm, "model_cost")
-    monkeypatch.setattr(litellm, "model_cost", dict(model_cost))
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    model_cost: Final[dict[str, object]] = getattr(hangarllm, "model_cost")
+    monkeypatch.setattr(hangarllm, "model_cost", dict(model_cost))
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_custom_price", model.split("/")[1]))
     )
@@ -1367,10 +1367,10 @@ async def test_concurrent_responses_calls_keep_their_own_per_call_prices(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ):
     monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     model: Final = "openai/gpt-5.4-nano"
-    model_cost: Final[dict[str, object]] = getattr(litellm, "model_cost")
+    model_cost: Final[dict[str, object]] = getattr(hangarllm, "model_cost")
     cost_map_row_before: Final = copy.deepcopy(model_cost.get(model))
     respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_concurrent", "gpt-5.4-nano"))
@@ -1429,14 +1429,14 @@ async def test_responses_opencode_session_header(
         "input": "hello",
         "api_base": api_base,
         "api_key": "test-key",
-        "litellm_session_id": "conversation-123",
+        "hangarllm_session_id": "conversation-123",
         "stream": stream,
         "extra_headers": {"X-OpenCode-Session": explicit_header} if explicit_header else {"x-existing": "unchanged"},
     }
     if asynchronous:
         async_client: Final = AsyncHTTPHandler(transport=httpx.MockTransport(respond))
         try:
-            response: Final = await litellm.aresponses(**args, client=async_client)
+            response: Final = await hangarllm.aresponses(**args, client=async_client)
             if stream:
                 events: Final = tuple([event.type async for event in response])
                 assert "response.completed" in events
@@ -1447,7 +1447,7 @@ async def test_responses_opencode_session_header(
     else:
         sync_client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(respond)))
         try:
-            result: Final = litellm.responses(**args, client=sync_client)
+            result: Final = hangarllm.responses(**args, client=sync_client)
             if stream:
                 assert "response.completed" in tuple(event.type for event in result)
             else:
@@ -1463,7 +1463,7 @@ async def test_responses_opencode_session_header(
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
-@pytest.mark.parametrize("source", ["OPENAI_BASE_URL", "OPENAI_API_BASE", "litellm.api_base"])
+@pytest.mark.parametrize("source", ["OPENAI_BASE_URL", "OPENAI_API_BASE", "hangarllm.api_base"])
 @pytest.mark.parametrize("explicit_base", [None, "https://other.example/v1"])
 @pytest.mark.asyncio
 async def test_responses_opencode_session_uses_effective_destination(
@@ -1476,9 +1476,9 @@ async def test_responses_opencode_session_uses_effective_destination(
     default_base: Final = "https://opencode.ai/inference/go/openai/v1"
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "api_base", default_base if source == "litellm.api_base" else None)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    if source != "litellm.api_base":
+    monkeypatch.setattr(hangarllm, "api_base", default_base if source == "hangarllm.api_base" else None)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    if source != "hangarllm.api_base":
         monkeypatch.setenv(source, default_base)
     endpoint: Final = respx_mock.post(f"{explicit_base or default_base}/responses").respond(
         json=_minimal_responses_api_payload("resp_test", "gpt-6-luna")
@@ -1488,9 +1488,9 @@ async def test_responses_opencode_session_uses_effective_destination(
         "input": "hello",
         "api_base": explicit_base,
         "api_key": "test-key",
-        "litellm_session_id": "conversation-123",
+        "hangarllm_session_id": "conversation-123",
     }
-    response: Final = await litellm.aresponses(**args) if asynchronous else litellm.responses(**args)
+    response: Final = await hangarllm.aresponses(**args) if asynchronous else hangarllm.responses(**args)
     assert response.output[0].content[0].text == "Done."
     assert endpoint.call_count == 1
     sent: Final = endpoint.calls[0].request
@@ -1506,16 +1506,16 @@ _JSON_OBJECT: Final = TypeAdapter(dict[str, object])
 async def test_router_responses_deployment_pricing_keeps_inherited_cache_rates(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    model_cost: Final[dict[str, object]] = getattr(litellm, "model_cost")
-    monkeypatch.setattr(litellm, "model_cost", dict(model_cost))
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    model_cost: Final[dict[str, object]] = getattr(hangarllm, "model_cost")
+    monkeypatch.setattr(hangarllm, "model_cost", dict(model_cost))
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     rates: Final = {"input_cost_per_token": 1e-5, "output_cost_per_token": 2e-5}
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "nano",
-                "litellm_params": {"model": "openai/gpt-5.4-nano", "api_key": "fake-api-key", **rates},
+                "hangarllm_params": {"model": "openai/gpt-5.4-nano", "api_key": "fake-api-key", **rates},
                 "model_info": {"id": "nano-deployment"},
             }
         ]

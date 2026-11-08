@@ -1,6 +1,6 @@
 """The sync SDK paths of the response cache, which the proxy never reaches.
 
-``litellm.completion`` and ``litellm.text_completion`` read and write the Redis cache in process. An upstream
+``hangarllm.completion`` and ``hangarllm.text_completion`` read and write the Redis cache in process. An upstream
 answer with no choices is never stored, a stored entry whose choices were emptied is a miss, and the real answer
 the refill brings back is the one served afterwards.
 """
@@ -15,11 +15,11 @@ from typing import Final
 import pytest
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.caching.caching import Cache
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.types.caching import LiteLLMCacheType
-from litellm.types.utils import ModelResponse, TextCompletionResponse
+import hangarllm
+from hangarllm.caching.caching import Cache
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.types.caching import HangarLLMCacheType
+from hangarllm.types.utils import ModelResponse, TextCompletionResponse
 from tests.integration._support.client import JSON_OBJECT
 from tests.integration.caching.response_cache_case import (
     CHAT,
@@ -45,14 +45,14 @@ from tests.integration.cost_calculation.cost_tracking_case import SseResponse
 
 @pytest.fixture
 def sdk_cache(monkeypatch: pytest.MonkeyPatch) -> Iterator[Cache]:
-    cache: Final = Cache(type=LiteLLMCacheType.REDIS, host=os.environ["REDIS_HOST"], port=os.environ["REDIS_PORT"])
-    monkeypatch.setattr(litellm, "cache", cache)
+    cache: Final = Cache(type=HangarLLMCacheType.REDIS, host=os.environ["REDIS_HOST"], port=os.environ["REDIS_PORT"])
+    monkeypatch.setattr(hangarllm, "cache", cache)
     yield cache
-    monkeypatch.setattr(litellm, "cache", None)
+    monkeypatch.setattr(hangarllm, "cache", None)
 
 
 def _completion(api_base: str, text: str) -> ModelResponse:
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=CHAT_MODEL, messages=[{"role": "user", "content": text}], api_base=api_base, api_key=PROVIDER_KEY
     )
     assert isinstance(response, ModelResponse), type(response)
@@ -60,7 +60,7 @@ def _completion(api_base: str, text: str) -> ModelResponse:
 
 
 def _text_completion(api_base: str, text: str) -> TextCompletionResponse:
-    response: Final = litellm.text_completion(model=TEXT_MODEL, prompt=text, api_base=api_base, api_key=PROVIDER_KEY)
+    response: Final = hangarllm.text_completion(model=TEXT_MODEL, prompt=text, api_base=api_base, api_key=PROVIDER_KEY)
     assert isinstance(response, TextCompletionResponse), type(response)
     return response
 
@@ -150,7 +150,7 @@ _UNVALIDATED_USAGE_DETAILS: Final[dict[str, JsonValue]] = {
 
 
 def _stream(api_base: str, text: str) -> tuple[dict[str, JsonValue], ...]:
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model=CHAT_MODEL,
         messages=[{"role": "user", "content": text}],
         api_base=api_base,

@@ -90,7 +90,7 @@ def _config(directory: Path, wire: Wire) -> Path:
         *configuration["model_list"],
         {
             "model_name": _NATIVE_MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "deepseek/deepseek-v4-pro",
                 "api_base": f"{wire.url}/deepseek",
                 "api_key": "synthetic-deepseek-key",
@@ -98,7 +98,7 @@ def _config(directory: Path, wire: Wire) -> Path:
         },
         {
             "model_name": _CLASSIFIER_MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-5.4-mini",
                 "api_base": f"{wire.url}/classifier/v1",
                 "api_key": "synthetic-classifier-key",

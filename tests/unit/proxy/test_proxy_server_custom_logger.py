@@ -9,7 +9,7 @@ import pytest
 import respx
 from fastapi.testclient import TestClient
 
-import litellm
+import hangarllm
 
 CONFIG_DIR: Final = Path(__file__).resolve().parent / "test_configs"
 CUSTOM_CALLBACKS_PATH: Final = CONFIG_DIR / "custom_callbacks.py"
@@ -23,7 +23,7 @@ CHAT_COMPLETION_BODY: Final = {
     "choices": [
         {
             "index": 0,
-            "message": {"role": "assistant", "content": "litellm poem"},
+            "message": {"role": "assistant", "content": "hangarllm poem"},
             "finish_reason": "stop",
         }
     ],
@@ -62,20 +62,20 @@ STREAM_BODY: Final = (
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch, httpx_transport: None) -> TestClient:
-    from litellm.proxy.proxy_server import (
+    from hangarllm.proxy.proxy_server import (
         app,
         cleanup_router_config_variables,
         initialize,
     )
 
-    monkeypatch.setenv("LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
+    monkeypatch.setenv("HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
     cleanup_router_config_variables()
     asyncio.run(initialize(config=str(CONFIG_DIR / "test_custom_logger.yaml")))
     return TestClient(app)
 
 
 def _custom_logger() -> object:
-    from litellm.proxy.types_utils.utils import get_instance_fn
+    from hangarllm.proxy.types_utils.utils import get_instance_fn
 
     return get_instance_fn(
         value="custom_callbacks.my_custom_logger",
@@ -88,13 +88,13 @@ def test_chat_completion(client: TestClient, respx_mock: respx.MockRouter) -> No
         return_value=httpx.Response(200, json=CHAT_COMPLETION_BODY)
     )
     my_custom_logger = _custom_logger()
-    litellm.callbacks = [my_custom_logger]
+    hangarllm.callbacks = [my_custom_logger]
 
     response: Final = client.post(
         "/chat/completions",
         json={
             "model": "Azure OpenAI GPT-4 Canada",
-            "messages": [{"role": "user", "content": "write a litellm poem"}],
+            "messages": [{"role": "user", "content": "write a hangarllm poem"}],
             "max_tokens": 10,
         },
     )
@@ -103,26 +103,26 @@ def test_chat_completion(client: TestClient, respx_mock: respx.MockRouter) -> No
     assert my_custom_logger.done_event.wait(10)
     assert my_custom_logger.async_success is True
     assert my_custom_logger.async_completion_kwargs["model"] == "gpt-4.1-nano"
-    litellm_params: Final = my_custom_logger.async_completion_kwargs["litellm_params"]
+    hangarllm_params: Final = my_custom_logger.async_completion_kwargs["hangarllm_params"]
 
-    metadata: Final = litellm_params.get("metadata")
+    metadata: Final = hangarllm_params.get("metadata")
     assert "user_api_key" in metadata
     assert "user_api_key_metadata" in metadata
     assert "headers" in metadata
 
-    model_info: Final = litellm_params.get("model_info")
+    model_info: Final = hangarllm_params.get("model_info")
     assert model_info.get("id") == "gm"
     assert model_info.get("mode") == "chat"
     assert model_info.get("input_cost_per_token") == 0.0002
 
-    proxy_server_request: Final = litellm_params.get("proxy_server_request")
+    proxy_server_request: Final = hangarllm_params.get("proxy_server_request")
     assert proxy_server_request.get("url") == "http://testserver/chat/completions"
     assert proxy_server_request.get("method") == "POST"
     assert "authorization" not in proxy_server_request["headers"]
     body: Final = proxy_server_request["body"]
     assert body.get("model") == "Azure OpenAI GPT-4 Canada"
     assert body.get("messages") == [
-        {"role": "user", "content": "write a litellm poem"}
+        {"role": "user", "content": "write a hangarllm poem"}
     ]
     assert body.get("max_tokens") == 10
     assert upstream.call_count == 1
@@ -135,14 +135,14 @@ def test_chat_completion_stream(client: TestClient, respx_mock: respx.MockRouter
         )
     )
     my_custom_logger = _custom_logger()
-    litellm.callbacks = [my_custom_logger]
+    hangarllm.callbacks = [my_custom_logger]
     assert my_custom_logger.streaming_response_obj is None
 
     response: Final = client.post(
         "/chat/completions",
         json={
             "model": "Azure OpenAI GPT-4 Canada",
-            "messages": [{"role": "user", "content": "write 1 line poem about LiteLLM"}],
+            "messages": [{"role": "user", "content": "write 1 line poem about HangarLLM"}],
             "max_tokens": 40,
             "stream": True,
         },
@@ -157,7 +157,7 @@ def test_chat_completion_stream(client: TestClient, respx_mock: respx.MockRouter
         if "[DONE]" not in data
     )
 
-    assert complete_response == "LiteLLM"
+    assert complete_response == "HangarLLM"
     assert my_custom_logger.done_event.wait(10)
     assert (
         complete_response
@@ -171,7 +171,7 @@ def test_embedding(client: TestClient, respx_mock: respx.MockRouter) -> None:
         return_value=httpx.Response(200, json=EMBEDDING_BODY)
     )
     my_custom_logger = _custom_logger()
-    litellm.callbacks = [my_custom_logger]
+    hangarllm.callbacks = [my_custom_logger]
     assert my_custom_logger.async_success_embedding is False
 
     response: Final = client.post(
@@ -183,20 +183,20 @@ def test_embedding(client: TestClient, respx_mock: respx.MockRouter) -> None:
     assert my_custom_logger.done_event.wait(10)
     assert my_custom_logger.async_success_embedding is True
     assert my_custom_logger.async_embedding_kwargs["model"] == "text-embedding-ada-002"
-    litellm_params: Final = my_custom_logger.async_embedding_kwargs["litellm_params"]
+    hangarllm_params: Final = my_custom_logger.async_embedding_kwargs["hangarllm_params"]
 
-    metadata: Final = litellm_params.get("metadata")
+    metadata: Final = hangarllm_params.get("metadata")
     assert "user_api_key" in metadata
     assert "headers" in metadata
 
-    proxy_server_request: Final = litellm_params.get("proxy_server_request")
+    proxy_server_request: Final = hangarllm_params.get("proxy_server_request")
     assert proxy_server_request.get("url") == "http://testserver/embeddings"
     assert proxy_server_request.get("method") == "POST"
     body: Final = proxy_server_request["body"]
     assert body.get("model") == "azure-embedding-model"
     assert body.get("input") == ["hello"]
 
-    model_info: Final = litellm_params.get("model_info")
+    model_info: Final = hangarllm_params.get("model_info")
     assert model_info.get("mode") == "embedding"
     assert model_info.get("id") == "hello"
     assert model_info.get("input_cost_per_token") == 0.002

@@ -14,12 +14,12 @@ pytestmark: Final = [pytest.mark.e2e, pytest.mark.migration_startup]
 
 def seed_spend_logs(database: Database, rows: int) -> None:
     database.execute(
-        'INSERT INTO "LiteLLM_SpendLogs" (request_id, call_type, "startTime", "endTime") '
+        'INSERT INTO "HangarLLM_SpendLogs" (request_id, call_type, "startTime", "endTime") '
         "SELECT 'upgrade-shape-' || g, 'acompletion', now() - (g || ' seconds')::interval, "
         "now() - (g || ' seconds')::interval FROM generate_series(1, %s) AS g",
         (rows,),
     )
-    assert database.query('SELECT count(*) FROM "LiteLLM_SpendLogs"') == ((rows,),)
+    assert database.query('SELECT count(*) FROM "HangarLLM_SpendLogs"') == ((rows,),)
 
 
 class TestPopulatedDatabaseUpgrade:
@@ -41,9 +41,9 @@ class TestPopulatedDatabaseUpgrade:
             assert_upgraded(before, migration_names(baseline_database))
             confirm(new, key, alias)
         assert_history_clean(baseline_database)
-        assert baseline_database.query('SELECT count(*) FROM "LiteLLM_SpendLogs"') == ((SPEND_ROWS,),), (
+        assert baseline_database.query('SELECT count(*) FROM "HangarLLM_SpendLogs"') == ((SPEND_ROWS,),), (
             "The upgrade lost spend rows"
         )
         assert baseline_database.query(
-            'SELECT count(*) FROM "LiteLLM_SpendLogs" WHERE "startTime" IS NULL OR "endTime" IS NULL'
+            'SELECT count(*) FROM "HangarLLM_SpendLogs" WHERE "startTime" IS NULL OR "endTime" IS NULL'
         ) == ((0,),), "The upgrade nulled timestamps on existing spend rows"

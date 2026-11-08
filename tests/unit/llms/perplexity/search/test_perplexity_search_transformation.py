@@ -8,20 +8,20 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.perplexity.search.transformation import PerplexitySearchConfig
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from hangarllm.llms.perplexity.search.transformation import PerplexitySearchConfig
 
 PERPLEXITY_SEARCH_URL: Final = "https://api.perplexity.ai/search"
 
 
 @pytest.fixture
 def httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.fixture(autouse=True)
@@ -46,7 +46,7 @@ def test_search_maps_perplexity_results_to_search_response(respx_mock: respx.Moc
         }
     )
 
-    response: Final = litellm.search(query="artificial intelligence recent news", search_provider="perplexity")
+    response: Final = hangarllm.search(query="artificial intelligence recent news", search_provider="perplexity")
 
     assert response.object == "search"
     assert isinstance(response.results, list)
@@ -65,7 +65,7 @@ def test_search_sends_max_results_in_request_body(respx_mock: respx.MockRouter) 
         json={"results": [{"title": "ML", "url": "https://example.com/ml", "snippet": "Machine learning."}]}
     )
 
-    response: Final = litellm.search(query="machine learning", search_provider="perplexity", max_results=5)
+    response: Final = hangarllm.search(query="machine learning", search_provider="perplexity", max_results=5)
 
     assert json.loads(route.calls.last.request.content) == {"query": "machine learning", "max_results": 5}
     assert route.calls.last.request.headers["Authorization"] == "Bearer test-perplexity-key"
@@ -94,14 +94,14 @@ async def test_search_forwards_provider_filters_without_internal_params(
         "search_provider": "perplexity",
         "metadata": {"private": "local-only"},
         "input_cost_per_query": 0.01,
-        "_litellm_private_marker": "local-only",
+        "_hangarllm_private_marker": "local-only",
         **filters,
     }
 
     if is_async:
-        response = await litellm.asearch(**params)
+        response = await hangarllm.asearch(**params)
     else:
-        response = litellm.search(**params)
+        response = hangarllm.search(**params)
 
     assert response.object == "search"
     assert json.loads(route.calls.last.request.content) == {
@@ -145,7 +145,7 @@ def _transform(payload: object) -> SearchResponse:
         stream=False,
         call_type="search",
         start_time=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-id",
+        hangarllm_call_id="call-id",
         function_id="function-id",
     )
     return PerplexitySearchConfig().transform_search_response(
@@ -160,8 +160,8 @@ def test_perplexity_results_keep_provider_order_fields_and_dates():
             "server_time": None,
             "results": [
                 {
-                    "title": "LiteLLM",
-                    "url": "https://example.com/litellm",
+                    "title": "HangarLLM",
+                    "url": "https://example.com/hangarllm",
                     "snippet": "Call every LLM API",
                     "date": "2024-01-05",
                     "last_updated": "2024-02-01",
@@ -180,8 +180,8 @@ def test_perplexity_results_keep_provider_order_fields_and_dates():
     assert response.object == "search"
     assert response.results == [
         SearchResult(
-            title="LiteLLM",
-            url="https://example.com/litellm",
+            title="HangarLLM",
+            url="https://example.com/hangarllm",
             snippet="Call every LLM API",
             date="2024-01-05",
             last_updated="2024-02-01",
@@ -263,11 +263,11 @@ async def test_router_search_with_search_tools(
             ]
         }
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         search_tools=[
             {
-                "search_tool_name": "litellm-search",
-                "litellm_params": {
+                "search_tool_name": "hangarllm-search",
+                "hangarllm_params": {
                     "search_provider": "perplexity",
                     "api_key": "test-perplexity-key",
                 },
@@ -277,7 +277,7 @@ async def test_router_search_with_search_tools(
 
     response: Final = await router.asearch(
         query="latest AI developments",
-        search_tool_name="litellm-search",
+        search_tool_name="hangarllm-search",
         max_results=3,
         search_recency_filter="week",
         search_language_filter=["en"],
@@ -308,7 +308,7 @@ def test_search_ignores_a_trailing_slash_on_api_base(respx_mock: respx.MockRoute
         json={"results": [{"title": "ML", "url": "https://example.com/ml", "snippet": "Machine learning."}]}
     )
 
-    response: Final = litellm.search(
+    response: Final = hangarllm.search(
         query="machine learning", search_provider="perplexity", api_base=api_base, api_key="test-perplexity-key"
     )
 

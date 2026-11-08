@@ -6,7 +6,7 @@ import anthropic
 import httpx
 import pytest
 
-from litellm.llms.anthropic.messages.native.fake_stream_iterator import (
+from hangarllm.llms.anthropic.messages.native.fake_stream_iterator import (
     FakeAnthropicMessagesStreamIterator,
 )
 

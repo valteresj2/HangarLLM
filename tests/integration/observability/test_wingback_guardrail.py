@@ -51,7 +51,7 @@ def _echo_provider(request: Request) -> Reply:
 def _wingback(name: str, mode: str, policy: str) -> dict[str, object]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "wingback",
             "mode": mode,
             "default_on": False,
@@ -79,7 +79,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
         wire_server(_echo_provider) as provider,
     ):
         config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-        config["litellm_settings"]["cache"] = False
+        config["hangarllm_settings"]["cache"] = False
         config["guardrails"] = [
             _wingback(PRE_CALL, "pre_call", policy.url),
             _wingback(POST_CALL, "post_call", policy.url),
@@ -107,7 +107,7 @@ def _chat(rig: Rig, guardrail: str, text: str) -> httpx.Response:
 
 
 def _assert_wingback_request(request: Request, input_type: str, text: str) -> None:
-    assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+    assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
     assert request.headers.get("x-api-key") == API_KEY
     body: Final = json.loads(request.body)
     assert body["input_type"] == input_type, body
@@ -142,12 +142,12 @@ def test_allowed_call_is_checked_once_and_logged_once(rig: Rig) -> None:
     assert response.status_code == 200, response.text
     assert response.json()["choices"][0]["message"]["content"] == f"echo {prompt}"
     assert len(rig.provider.drain()) == 1
-    assert response.headers["x-litellm-applied-guardrails"] == PRE_CALL, dict(response.headers)
+    assert response.headers["x-hangarllm-applied-guardrails"] == PRE_CALL, dict(response.headers)
     checks: Final = rig.policy.drain()
     assert len(checks) == 1, checks
     _assert_wingback_request(checks[0], "request", prompt)
     rows: Final = eventually(
-        lambda: read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (response.json()["id"],)),
+        lambda: read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (response.json()["id"],)),
         lambda values: len(values) == 1,
         seconds=70,
     )

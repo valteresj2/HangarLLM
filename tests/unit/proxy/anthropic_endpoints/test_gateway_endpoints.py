@@ -19,31 +19,31 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from litellm.caching.dual_cache import DualCache
-from litellm.proxy._types import ProxyException
-from litellm.proxy.anthropic_endpoints import gateway_endpoints
-from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
-from litellm.proxy.management_endpoints.ui_sso import (
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.proxy._types import ProxyException
+from hangarllm.proxy.anthropic_endpoints import gateway_endpoints
+from hangarllm.proxy.auth.auth_checks import ExperimentalUIJWTToken
+from hangarllm.proxy.management_endpoints.ui_sso import (
     _get_cli_sso_flow_cache_key,
     _hash_cli_sso_secret,
     _set_cli_sso_flow,
 )
-from litellm.proxy.mcp_server.gateway_dcr_flow import (
+from hangarllm.proxy.mcp_server.gateway_dcr_flow import (
     MintedProxyCredential,
     ProxyCredentialMintFailure,
 )
-from litellm.proxy.mcp_server.outbound_credentials.session_credentials import (
+from hangarllm.proxy.mcp_server.outbound_credentials.session_credentials import (
     SessionRefreshOpened,
     open_session_refresh_bearer,
     session_keys_from_master_key,
 )
-from litellm.proxy.mcp_server.outbound_credentials.session_token import (
+from hangarllm.proxy.mcp_server.outbound_credentials.session_token import (
     SESSION_REFRESH_PREFIX,
     MintedSessionToken,
     SessionPrincipal,
     mint_session_refresh_token,
 )
-from litellm.proxy.middleware.prometheus_auth_middleware import PrometheusAuthMiddleware
+from hangarllm.proxy.middleware.prometheus_auth_middleware import PrometheusAuthMiddleware
 
 _DEVICE_CODE_GRANT: Final = "urn:ietf:params:oauth:grant-type:device_code"
 _MASTER_KEY: Final = "sk-master-key"
@@ -52,7 +52,7 @@ _REVOKE_URL: Final = "/claude_code_gateway/oauth/revoke"
 _SHARED_LOGIN_ID: Final = "cli-shared-login-code"
 _SHARED_POLL_SECRET: Final = "shared-poll-secret"
 _SHARED_DEVICE_CODE: Final = f"{_SHARED_LOGIN_ID}.{_SHARED_POLL_SECRET}"
-_MINT: Final = "litellm.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token"
+_MINT: Final = "hangarllm.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token"
 _PROTOBUF_BODY: Final = b"\x0a\x05hello\x12\x03{{{"
 _COMPLETED_SESSION: Final = MappingProxyType(
     {
@@ -146,7 +146,7 @@ def _real_auth_proxy_attrs() -> Mapping[str, object]:
             "llm_router": None,
             "llm_model_list": [],
             "user_custom_auth": None,
-            "litellm_proxy_admin_name": "admin",
+            "hangarllm_proxy_admin_name": "admin",
             "jwt_handler": None,
             "open_telemetry_logger": None,
             "model_max_budget_limiter": MagicMock(),
@@ -183,32 +183,32 @@ def _gateway_env(
     with ExitStack() as stack:
         stack.enter_context(
             patch(  # test-quality-ok: the gateway reads this proxy_server module global and has no injection seam
-                "litellm.proxy.proxy_server.general_settings", general_settings
+                "hangarllm.proxy.proxy_server.general_settings", general_settings
             )
         )
         stack.enter_context(
             patch(  # test-quality-ok: the CLI SSO flow cache is this proxy_server module global shared with ui_sso
-                "litellm.proxy.proxy_server.cli_sso_session_cache", session_cache
+                "hangarllm.proxy.proxy_server.cli_sso_session_cache", session_cache
             )
         )
         stack.enter_context(
             patch(  # test-quality-ok: the refresh token is signed under this proxy_server module global
-                "litellm.proxy.proxy_server.master_key", _MASTER_KEY
+                "hangarllm.proxy.proxy_server.master_key", _MASTER_KEY
             )
         )
         stack.enter_context(
             patch(  # test-quality-ok: the single-use record lives in this proxy_server module global
-                "litellm.proxy.proxy_server.user_api_key_cache", claim_cache or DualCache()
+                "hangarllm.proxy.proxy_server.user_api_key_cache", claim_cache or DualCache()
             )
         )
         stack.enter_context(
             patch(  # test-quality-ok: the single-use guard prefers this proxy_server module global when set
-                "litellm.proxy.proxy_server.redis_usage_cache", None
+                "hangarllm.proxy.proxy_server.redis_usage_cache", None
             )
         )
         if real_auth:
             for name, value in _real_auth_proxy_attrs().items():
-                stack.enter_context(patch(f"litellm.proxy.proxy_server.{name}", value))
+                stack.enter_context(patch(f"hangarllm.proxy.proxy_server.{name}", value))
         else:
             app.dependency_overrides[gateway_endpoints.user_api_key_auth] = _fake_auth
         with TestClient(app) as client:
@@ -234,7 +234,7 @@ def _revoke(client: TestClient, token: str, hint: str | None = None) -> httpx.Re
 def _signed_in(client: TestClient, cache: DualCache) -> Mapping[str, object]:
     device_code: Final = _start_device_flow(client)
     _complete_flow(cache, device_code)
-    with patch(_MINT, return_value="sk-litellm-session-token"):
+    with patch(_MINT, return_value="sk-hangarllm-session-token"):
         resp: Final = _request_token(client, device_code)
     assert resp.status_code == 200
     return MappingProxyType(resp.json())
@@ -348,7 +348,7 @@ def test_device_authorization_returns_rfc8628_shape_and_persists_flow():
         assert body["expires_in"] == 600
         assert body["interval"] == 5
         assert "verification_uri_complete" not in body
-        assert body["verification_uri"].endswith(f"/sso/key/generate?source=litellm-cli&key={login_id}")
+        assert body["verification_uri"].endswith(f"/sso/key/generate?source=hangarllm-cli&key={login_id}")
         assert poll_secret not in body["verification_uri"]
         stored = cache.get_cache(key=_get_cli_sso_flow_cache_key(login_id))
         assert isinstance(stored, dict)
@@ -366,7 +366,7 @@ def test_verification_uri_complete_carries_the_user_code_only_when_the_operator_
         assert "verification_uri_complete" not in body
         return
     assert body["verification_uri_complete"].endswith(
-        f"/sso/key/generate?source=litellm-cli&key={login_id}&user_code={body['user_code']}"
+        f"/sso/key/generate?source=hangarllm-cli&key={login_id}&user_code={body['user_code']}"
     )
     assert "user_code=" not in body["verification_uri"]
 
@@ -399,12 +399,12 @@ def test_token_success_mints_bearer_and_is_single_use():
         device_code = _start_device_flow(client)
         _complete_flow(cache, device_code)
 
-        with patch(_MINT, return_value="sk-litellm-session-token") as mint:
+        with patch(_MINT, return_value="sk-hangarllm-session-token") as mint:
             resp = _request_token(client, device_code)
             assert resp.status_code == 200
             assert resp.headers["cache-control"] == "no-store"
             body = resp.json()
-            assert body["access_token"] == "sk-litellm-session-token"
+            assert body["access_token"] == "sk-hangarllm-session-token"
             assert body["token_type"] == "Bearer"
             assert body["expires_in"] > 0
             assert body["refresh_token"].startswith(SESSION_REFRESH_PREFIX)
@@ -456,7 +456,7 @@ def test_token_teamless_user_mints_without_a_team():
     with _gateway_env() as (client, cache):
         device_code = _start_device_flow(client)
         _complete_flow(cache, device_code, session_data={**_COMPLETED_SESSION, "teams": [], "team_details": []})
-        with patch(_MINT, return_value="sk-litellm-session-token") as mint:
+        with patch(_MINT, return_value="sk-hangarllm-session-token") as mint:
             resp = _request_token(client, device_code)
     assert resp.status_code == 200
     assert mint.call_args.kwargs["team_id"] is None
@@ -559,16 +559,16 @@ def test_token_signs_in_without_a_refresh_token_when_session_signing_is_unusable
     """An ``mcp_session_token_signing`` block whose key reference does not resolve must not turn the device
     sign-in that worked before refresh tokens existed into a 500: the login still answers the session token
     and consumes the device code, only the refresh token is left out, and the refresh grant stays fail-closed."""
-    unusable_signing: Final = {"algorithm": "RS256", "kid": "rotated", "private_key": "os.environ/LITELLM_TEST_NO_PEM"}
+    unusable_signing: Final = {"algorithm": "RS256", "kid": "rotated", "private_key": "os.environ/HANGARLLM_TEST_NO_PEM"}
     with _gateway_env(extra_settings={"mcp_session_token_signing": unusable_signing}) as (client, cache):
         device_code = _start_device_flow(client)
         _complete_flow(cache, device_code)
-        with patch(_MINT, return_value="sk-litellm-session-token"):
+        with patch(_MINT, return_value="sk-hangarllm-session-token"):
             resp = _request_token(client, device_code)
         assert resp.status_code == 200
         assert resp.headers["cache-control"] == "no-store"
         body = resp.json()
-        assert body["access_token"] == "sk-litellm-session-token"
+        assert body["access_token"] == "sk-hangarllm-session-token"
         assert body["token_type"] == "Bearer"
         assert body["expires_in"] > 0
         assert "refresh_token" not in body
@@ -874,15 +874,15 @@ def test_messages_gated_by_enable_flag():
 def test_gateway_model_discovery_preserves_grants_and_format(
     monkeypatch: pytest.MonkeyPatch, headers: dict[str, str]
 ) -> None:
-    from litellm import Router
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+    from hangarllm import Router
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
     model_router: Final = Router(
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {"model": f"openai/{name}", "api_key": "local-placeholder"},
+                "hangarllm_params": {"model": f"openai/{name}", "api_key": "local-placeholder"},
             }
             for name in ("discovery-example", "restricted-example")
         ]
@@ -893,7 +893,7 @@ def test_gateway_model_discovery_preserves_grants_and_format(
     monkeypatch.setattr(proxy_server, "user_model", None)
     monkeypatch.setattr(proxy_server, "general_settings", {"enable_claude_code_gateway": True})
     caller: Final = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         models=["discovery-example"],
     )
     app: Final = FastAPI()
@@ -919,7 +919,7 @@ def test_gateway_model_discovery_requires_authentication() -> None:
 
 @pytest.mark.parametrize("settings", [{}, {"enable_claude_code_gateway": False}])
 def test_gateway_model_discovery_disabled(monkeypatch: pytest.MonkeyPatch, settings: dict[str, bool]) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     with _gateway_env(real_auth=True) as (client, _):
         monkeypatch.setattr(proxy_server, "general_settings", settings)
@@ -932,17 +932,17 @@ def test_gateway_model_discovery_disabled(monkeypatch: pytest.MonkeyPatch, setti
 @pytest.mark.asyncio
 @pytest.mark.parametrize("route", ["/models", "/v1/models", "/claude_code_gateway/v1/models"])
 async def test_gateway_model_discovery_preserves_route_exemptions(monkeypatch: pytest.MonkeyPatch, route: str) -> None:
-    from litellm.hangar.proxy.route_checks import EnterpriseRouteChecks
+    from hangarllm.hangar.proxy.route_checks import EnterpriseRouteChecks
 
-    import litellm
-    from litellm.proxy._types import LiteLLM_TeamTable, UserAPIKeyAuth
-    from litellm.proxy.auth.auth_checks import common_checks
-    from litellm.proxy.auth.route_checks import RouteChecks
+    import hangarllm
+    from hangarllm.proxy._types import HangarLLM_TeamTable, UserAPIKeyAuth
+    from hangarllm.proxy.auth.auth_checks import common_checks
+    from hangarllm.proxy.auth.route_checks import RouteChecks
 
-    monkeypatch.setattr(litellm, "max_budget", 1.0)
+    monkeypatch.setattr(hangarllm, "max_budget", 1.0)
     result: Final = await common_checks(
         request_body={},
-        team_object=LiteLLM_TeamTable(team_id="test-team", spend=150.0, max_budget=100.0),
+        team_object=HangarLLM_TeamTable(team_id="test-team", spend=150.0, max_budget=100.0),
         user_object=None,
         end_user_object=None,
         global_proxy_spend=2.0,
@@ -958,5 +958,5 @@ async def test_gateway_model_discovery_preserves_route_exemptions(monkeypatch: p
     assert RouteChecks.is_llm_api_route(route)
     monkeypatch.setenv("DISABLE_LLM_API_ENDPOINTS", "true")
     monkeypatch.setenv("DISABLE_ADMIN_ENDPOINTS", "true")
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     EnterpriseRouteChecks.should_call_route(route)

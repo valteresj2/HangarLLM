@@ -16,7 +16,7 @@ from integration._support.wire import Reply, Request, wire_server
 pytestmark: Final = pytest.mark.timeout(2 * graceful_stop_seconds() + 120)
 
 _DENIAL: Final = "This request is not allowed by policy."
-_CALL_ID_HEADER: Final = "x-litellm-call-id"
+_CALL_ID_HEADER: Final = "x-hangarllm-call-id"
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,7 +46,7 @@ def denying_rail(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rail]:
                 "guardrails": [
                     {
                         "guardrail_name": name,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "guardrail": "custom_code",
                             "mode": "pre_call",
                             "default_on": False,
@@ -57,7 +57,7 @@ def denying_rail(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rail]:
                     },
                     {
                         "guardrail_name": post_call_name,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "guardrail": "custom_code",
                             "mode": "post_call",
                             "default_on": False,

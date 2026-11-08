@@ -6,12 +6,12 @@ import aiohttp
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.aiohttp_openai.chat.transformation import AiohttpOpenAIChatConfig
-from litellm.llms.custom_httpx.aiohttp_handler import BaseLLMAIOHTTPHandler
-from litellm.llms.custom_httpx.aiohttp_transport import LiteLLMAiohttpTransport
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.types.utils import ModelResponseStream
+import hangarllm
+from hangarllm.llms.aiohttp_openai.chat.transformation import AiohttpOpenAIChatConfig
+from hangarllm.llms.custom_httpx.aiohttp_handler import BaseLLMAIOHTTPHandler
+from hangarllm.llms.custom_httpx.aiohttp_transport import HangarLLMAiohttpTransport
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.types.utils import ModelResponseStream
 
 
 class TestBaseLLMAIOHTTPHandler:
@@ -181,7 +181,7 @@ class TestBaseLLMAIOHTTPHandler:
         # Verify cleanup happened
         mock_session.close.assert_called_once()
 
-    @patch("litellm.llms.custom_httpx.aiohttp_handler.aiohttp.ClientSession")
+    @patch("hangarllm.llms.custom_httpx.aiohttp_handler.aiohttp.ClientSession")
     def test_lazy_session_creation(self, mock_client_session):
         """Test that session is created lazily only when needed"""
         handler = BaseLLMAIOHTTPHandler()
@@ -218,7 +218,7 @@ class TestBaseLLMAIOHTTPHandler:
 
     def test_init_with_transport(self):
         """Test handler initialization with provided transport"""
-        mock_transport = Mock(spec=LiteLLMAiohttpTransport)
+        mock_transport = Mock(spec=HangarLLMAiohttpTransport)
 
         handler = BaseLLMAIOHTTPHandler(transport=mock_transport)
 
@@ -236,7 +236,7 @@ class TestBaseLLMAIOHTTPHandler:
 
     def test_init_with_transport_and_session(self):
         """Test handler initialization with both transport and session"""
-        mock_transport = Mock(spec=LiteLLMAiohttpTransport)
+        mock_transport = Mock(spec=HangarLLMAiohttpTransport)
         mock_session = Mock()
 
         handler = BaseLLMAIOHTTPHandler(
@@ -268,7 +268,7 @@ class TestBaseLLMAIOHTTPHandler:
 
         mock_session = MockSession()
 
-        mock_transport = Mock(spec=LiteLLMAiohttpTransport)
+        mock_transport = Mock(spec=HangarLLMAiohttpTransport)
         mock_transport.client = mock_session
 
         handler = BaseLLMAIOHTTPHandler(transport=mock_transport)
@@ -279,7 +279,7 @@ class TestBaseLLMAIOHTTPHandler:
 
     def test_get_connector_from_transport_with_callable_client(self):
         """Test _get_connector with transport that has callable client"""
-        mock_transport = Mock(spec=LiteLLMAiohttpTransport)
+        mock_transport = Mock(spec=HangarLLMAiohttpTransport)
         mock_transport.client = lambda: Mock()  # Callable client
 
         handler = BaseLLMAIOHTTPHandler(transport=mock_transport)
@@ -293,7 +293,7 @@ class TestBaseLLMAIOHTTPHandler:
         """Test session creation using transport"""
         mock_session_from_transport = Mock()
 
-        mock_transport = Mock(spec=LiteLLMAiohttpTransport)
+        mock_transport = Mock(spec=HangarLLMAiohttpTransport)
         mock_transport.get_valid_client_session = Mock(return_value=mock_session_from_transport)
 
         handler = BaseLLMAIOHTTPHandler(transport=mock_transport)
@@ -318,10 +318,10 @@ class TestBaseLLMAIOHTTPHandler:
     async def test_create_client_session_default_honors_global_ssl_verify_false(
         self, monkeypatch: pytest.MonkeyPatch
     ):
-        """Regression test for LIT-3369: `litellm.ssl_verify = False` (set via
-        `litellm_settings.ssl_verify: false`) must reach the default session's
+        """Regression test for LIT-3369: `hangarllm.ssl_verify = False` (set via
+        `hangarllm_settings.ssl_verify: false`) must reach the default session's
         connector instead of being ignored by a bare `aiohttp.ClientSession()`."""
-        monkeypatch.setattr(litellm, "ssl_verify", False)
+        monkeypatch.setattr(hangarllm, "ssl_verify", False)
 
         handler = BaseLLMAIOHTTPHandler()
         session = handler._create_client_session_with_transport()
@@ -348,7 +348,7 @@ class TestBaseLLMAIOHTTPHandler:
         self, monkeypatch: pytest.MonkeyPatch
     ):
         """The lazily created transport must carry the resolved global ssl config."""
-        monkeypatch.setattr(litellm, "ssl_verify", False)
+        monkeypatch.setattr(hangarllm, "ssl_verify", False)
 
         handler = BaseLLMAIOHTTPHandler()
         transport = handler._get_or_create_transport()
@@ -372,7 +372,7 @@ class TestBaseLLMAIOHTTPHandler:
         if result is not None:
             assert handler.transport is result
             assert handler._owns_transport is True
-            assert isinstance(result, LiteLLMAiohttpTransport)
+            assert isinstance(result, HangarLLMAiohttpTransport)
         else:
             # Creation can fail in test environments without full aiohttp setup
             # This is the graceful fallback path
@@ -380,7 +380,7 @@ class TestBaseLLMAIOHTTPHandler:
 
     def test_get_or_create_transport_with_existing(self):
         """Test _get_or_create_transport returns existing transport"""
-        mock_transport = Mock(spec=LiteLLMAiohttpTransport)
+        mock_transport = Mock(spec=HangarLLMAiohttpTransport)
         handler = BaseLLMAIOHTTPHandler(transport=mock_transport)
 
         result = handler._get_or_create_transport()
@@ -390,7 +390,7 @@ class TestBaseLLMAIOHTTPHandler:
     @pytest.mark.asyncio
     async def test_close_with_owned_transport(self):
         """Test close() method with owned transport"""
-        mock_transport = Mock(spec=LiteLLMAiohttpTransport)
+        mock_transport = Mock(spec=HangarLLMAiohttpTransport)
         mock_transport.aclose = AsyncMock()
 
         handler = BaseLLMAIOHTTPHandler()
@@ -405,7 +405,7 @@ class TestBaseLLMAIOHTTPHandler:
     @pytest.mark.asyncio
     async def test_close_with_non_owned_transport(self):
         """Test close() method with non-owned transport (should not close)"""
-        mock_transport = Mock(spec=LiteLLMAiohttpTransport)
+        mock_transport = Mock(spec=HangarLLMAiohttpTransport)
         mock_transport.aclose = AsyncMock()
 
         handler = BaseLLMAIOHTTPHandler(transport=mock_transport)
@@ -430,7 +430,7 @@ class TestBaseLLMAIOHTTPHandler:
     def test_transport_priority_hierarchy(self):
         """Test that session creation follows the right priority: transport > connector > default"""
         # Test with transport having get_valid_client_session
-        mock_transport = Mock(spec=LiteLLMAiohttpTransport)
+        mock_transport = Mock(spec=HangarLLMAiohttpTransport)
         mock_session_from_transport = Mock()
         mock_transport.get_valid_client_session = Mock(return_value=mock_session_from_transport)
 
@@ -465,7 +465,7 @@ def test_make_sync_call_stream_keeps_unicode_line_separators_inside_a_delta() ->
         model="gpt-5.5",
         messages=[],
         logging_obj=Mock(),
-        litellm_params={},
+        hangarllm_params={},
         timeout=5.0,
         client=HTTPHandler(client=httpx.Client(transport=transport)),
     )

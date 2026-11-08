@@ -133,7 +133,7 @@ def _create_exa_tool(
         {
             "search_tool": {
                 "search_tool_name": name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "search_provider": "exa_ai",
                     "api_key": _EXA_KEY,
                     "api_base": api_base,
@@ -347,7 +347,7 @@ def _create_tavily_tool(gateway: Gateway, scenario: Scenario, name: str, api_bas
         {
             "search_tool": {
                 "search_tool_name": name,
-                "litellm_params": {"search_provider": "tavily", "api_key": _TAVILY_KEY, "api_base": api_base},
+                "hangarllm_params": {"search_provider": "tavily", "api_key": _TAVILY_KEY, "api_base": api_base},
             }
         },
     )
@@ -435,10 +435,10 @@ def test_unpriced_fallback_search_tool_is_billed_at_its_own_price_not_the_failed
         _create_exa_tool(gateway, scenario, backup, f"{wire.url}/exa")
         direct: Final = gateway.request("POST", f"/v1/search/{backup}", {"query": _QUERY})
         assert direct.status_code == 200, direct.text
-        backup_price: Final = float(direct.headers["x-litellm-response-cost"])
+        backup_price: Final = float(direct.headers["x-hangarllm-response-cost"])
         assert backup_price not in (0.0, primary_price), direct.headers
 
         fallback: Final = gateway.request("POST", f"/v1/search/{primary}", {"query": _QUERY, "fallbacks": [backup]})
         assert fallback.status_code == 200, fallback.text
-        assert float(fallback.headers["x-litellm-response-cost"]) == pytest.approx(backup_price), fallback.headers
+        assert float(fallback.headers["x-hangarllm-response-cost"]) == pytest.approx(backup_price), fallback.headers
         assert [request.target for request in wire.drain()] == ["/exa/search", "/down/search", "/exa/search"]

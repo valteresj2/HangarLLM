@@ -9,9 +9,9 @@ import pytest
 
 from fastapi import HTTPException
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.guardrails import ApplyGuardrailRequest, ApplyGuardrailResponse
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.types.guardrails import ApplyGuardrailRequest, ApplyGuardrailResponse
 
 
 @pytest.mark.asyncio
@@ -19,12 +19,12 @@ async def test_apply_guardrail_endpoint_returns_correct_response(
     mock_proxy_logging_ctx,
 ):
     """Test that apply_guardrail endpoint returns ApplyGuardrailResponse object"""
-    from litellm.proxy.guardrails.guardrail_endpoints import apply_guardrail
+    from hangarllm.proxy.guardrails.guardrail_endpoints import apply_guardrail
 
     # Mock the guardrail registry
     with (
         patch(
-            "litellm.proxy.guardrails.guardrail_endpoints.GUARDRAIL_REGISTRY"
+            "hangarllm.proxy.guardrails.guardrail_endpoints.GUARDRAIL_REGISTRY"
         ) as mock_registry,
         mock_proxy_logging_ctx(),
     ):
@@ -71,13 +71,13 @@ async def test_apply_guardrail_endpoint_returns_correct_response(
 @pytest.mark.asyncio
 async def test_apply_guardrail_endpoint_guardrail_not_found(mock_proxy_logging_ctx):
     """Test that apply_guardrail endpoint raises exception when guardrail not found"""
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.guardrails.guardrail_endpoints import apply_guardrail
+    from hangarllm.proxy._types import ProxyException
+    from hangarllm.proxy.guardrails.guardrail_endpoints import apply_guardrail
 
     # Mock the guardrail registry to return None
     with (
         patch(
-            "litellm.proxy.guardrails.guardrail_endpoints.GUARDRAIL_REGISTRY"
+            "hangarllm.proxy.guardrails.guardrail_endpoints.GUARDRAIL_REGISTRY"
         ) as mock_registry,
         mock_proxy_logging_ctx(),
     ):
@@ -106,12 +106,12 @@ async def test_apply_guardrail_endpoint_guardrail_not_found(mock_proxy_logging_c
 @pytest.mark.asyncio
 async def test_apply_guardrail_endpoint_with_presidio_guardrail(mock_proxy_logging_ctx):
     """Test apply_guardrail endpoint with a Presidio-like guardrail"""
-    from litellm.proxy.guardrails.guardrail_endpoints import apply_guardrail
+    from hangarllm.proxy.guardrails.guardrail_endpoints import apply_guardrail
 
     # Mock the guardrail registry
     with (
         patch(
-            "litellm.proxy.guardrails.guardrail_endpoints.GUARDRAIL_REGISTRY"
+            "hangarllm.proxy.guardrails.guardrail_endpoints.GUARDRAIL_REGISTRY"
         ) as mock_registry,
         mock_proxy_logging_ctx(),
     ):
@@ -158,12 +158,12 @@ async def test_apply_guardrail_endpoint_with_presidio_guardrail(mock_proxy_loggi
 @pytest.mark.asyncio
 async def test_apply_guardrail_endpoint_without_optional_params(mock_proxy_logging_ctx):
     """Test apply_guardrail endpoint without optional language and entities parameters"""
-    from litellm.proxy.guardrails.guardrail_endpoints import apply_guardrail
+    from hangarllm.proxy.guardrails.guardrail_endpoints import apply_guardrail
 
     # Mock the guardrail registry
     with (
         patch(
-            "litellm.proxy.guardrails.guardrail_endpoints.GUARDRAIL_REGISTRY"
+            "hangarllm.proxy.guardrails.guardrail_endpoints.GUARDRAIL_REGISTRY"
         ) as mock_registry,
         mock_proxy_logging_ctx(),
     ):

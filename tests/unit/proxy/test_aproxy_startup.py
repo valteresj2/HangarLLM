@@ -7,11 +7,11 @@ from dotenv import load_dotenv
 load_dotenv()
 import io
 
-# this file is to test litellm/proxy
+# this file is to test hangarllm/proxy
 
 import pytest, logging, asyncio
-import litellm
-from litellm.proxy.proxy_server import (
+import hangarllm
+from hangarllm.proxy.proxy_server import (
     router,
     save_worker_config,
     initialize,
@@ -30,14 +30,14 @@ async def test_proxy_gunicorn_startup_direct_config(monkeypatch):
 
     Test both approaches
     """
-    monkeypatch.setenv("LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
+    monkeypatch.setenv("HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
     try:
-        from litellm._logging import verbose_proxy_logger, verbose_router_logger
+        from hangarllm._logging import verbose_proxy_logger, verbose_router_logger
         import logging
 
         # unset set DATABASE_URL in env for this test
         # set prisma client to None
-        setattr(litellm.proxy.proxy_server, "prisma_client", None)
+        setattr(hangarllm.proxy.proxy_server, "prisma_client", None)
         database_url = os.environ.pop("DATABASE_URL", None)
 
         verbose_proxy_logger.setLevel(level=logging.DEBUG)
@@ -61,16 +61,16 @@ async def test_proxy_gunicorn_startup_direct_config(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_proxy_gunicorn_startup_config_dict(monkeypatch):
-    monkeypatch.setenv("LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
+    monkeypatch.setenv("HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
     try:
-        from litellm._logging import verbose_proxy_logger, verbose_router_logger
+        from hangarllm._logging import verbose_proxy_logger, verbose_router_logger
         import logging
 
         verbose_proxy_logger.setLevel(level=logging.DEBUG)
         verbose_router_logger.setLevel(level=logging.DEBUG)
         # unset set DATABASE_URL in env for this test
         # set prisma client to None
-        setattr(litellm.proxy.proxy_server, "prisma_client", None)
+        setattr(hangarllm.proxy.proxy_server, "prisma_client", None)
         database_url = os.environ.pop("DATABASE_URL", None)
 
         filepath = os.path.dirname(os.path.abspath(__file__))

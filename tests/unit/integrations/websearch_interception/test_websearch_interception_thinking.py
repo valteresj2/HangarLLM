@@ -9,10 +9,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from litellm.integrations.websearch_interception.handler import (
+from hangarllm.integrations.websearch_interception.handler import (
     WebSearchInterceptionLogger,
 )
-from litellm.integrations.websearch_interception.transformation import (
+from hangarllm.integrations.websearch_interception.transformation import (
     WebSearchTransformation,
 )
 
@@ -26,7 +26,7 @@ class TestTransformResponseWithThinking:
             {
                 "id": "toolu_01",
                 "type": "tool_use",
-                "name": "litellm_web_search",
+                "name": "hangarllm_web_search",
                 "input": {"query": "latest news"},
             }
         ]
@@ -62,7 +62,7 @@ class TestTransformResponseWithThinking:
             {
                 "id": "toolu_01",
                 "type": "tool_use",
-                "name": "litellm_web_search",
+                "name": "hangarllm_web_search",
                 "input": {"query": "test"},
             }
         ]
@@ -84,7 +84,7 @@ class TestTransformResponseWithThinking:
             {
                 "id": "toolu_01",
                 "type": "tool_use",
-                "name": "litellm_web_search",
+                "name": "hangarllm_web_search",
                 "input": {"query": "test"},
             }
         ]
@@ -106,7 +106,7 @@ class TestTransformResponseWithThinking:
             {
                 "id": "toolu_01",
                 "type": "tool_use",
-                "name": "litellm_web_search",
+                "name": "hangarllm_web_search",
                 "input": {"query": "test"},
             }
         ]
@@ -136,9 +136,9 @@ class TestTransformResponseWithThinking:
             {
                 "id": "call_01",
                 "type": "function",
-                "name": "litellm_web_search",
+                "name": "hangarllm_web_search",
                 "function": {
-                    "name": "litellm_web_search",
+                    "name": "hangarllm_web_search",
                     "arguments": {"query": "test"},
                 },
                 "input": {"query": "test"},
@@ -184,7 +184,7 @@ class TestAgenticLoopThinkingExtraction:
                 {
                     "type": "tool_use",
                     "id": "toolu_01",
-                    "name": "litellm_web_search",
+                    "name": "hangarllm_web_search",
                     "input": {"query": "latest news"},
                 },
             ]
@@ -230,7 +230,7 @@ class TestAgenticLoopThinkingExtraction:
 
         tool_block = Mock()
         tool_block.type = "tool_use"
-        tool_block.name = "litellm_web_search"
+        tool_block.name = "hangarllm_web_search"
         tool_block.id = "toolu_01"
         tool_block.input = {"query": "test"}
 
@@ -270,7 +270,7 @@ class TestAgenticLoopThinkingExtraction:
                 {
                     "type": "tool_use",
                     "id": "toolu_01",
-                    "name": "litellm_web_search",
+                    "name": "hangarllm_web_search",
                     "input": {"query": "test"},
                 },
             ]

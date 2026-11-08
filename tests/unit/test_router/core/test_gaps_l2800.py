@@ -15,13 +15,13 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.constants import BAGGAGE_MAPPED_TAGS_METADATA_KEY, KUBERNETES_POD_ROUTING_KEY
-from litellm.router_api import ChangeSet
-from litellm.router_core import RouterCore
-from litellm.router_strategy.budget_limiter import RouterBudgetLimiting
-from litellm.types.litellm_params import STREAM_USAGE_INJECTED_FIELD
-from litellm.types.router import BaggageMappedTagsStamp
+import hangarllm
+from hangarllm.constants import BAGGAGE_MAPPED_TAGS_METADATA_KEY, KUBERNETES_POD_ROUTING_KEY
+from hangarllm.router_api import ChangeSet
+from hangarllm.router_core import RouterCore
+from hangarllm.router_strategy.budget_limiter import RouterBudgetLimiting
+from hangarllm.types.hangarllm_params import STREAM_USAGE_INJECTED_FIELD
+from hangarllm.types.router import BaggageMappedTagsStamp
 from tests.unit.test_router.core.construction_precall_helpers import CallbackHost, host_callback_names
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment, rate_limit
 
@@ -214,7 +214,7 @@ async def test_a_num_retries_already_on_the_error_wins_over_the_deployment_num_r
     error.num_retries = 0  # pyright: ignore[reportAttributeAccessIssue]
     host.answer("openai/d1", error)
     core: Final = make_core(model_list=[deployment("g", "d1", num_retries=2)])
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await core.acompletion(model="g", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
     assert len(host.calls) == 1
 
@@ -222,7 +222,7 @@ async def test_a_num_retries_already_on_the_error_wins_over_the_deployment_num_r
 async def test_a_string_deployment_num_retries_is_used_as_an_int(make_core: MakeCore, host: ScriptedHost) -> None:
     host.answer("openai/d1", rate_limit())
     core: Final = make_core(model_list=[deployment("g", "d1", num_retries="1")])
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await core.acompletion(model="g", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
     assert len(host.calls) == 2
     assert getattr(raised.value, "num_retries") == 1
@@ -232,7 +232,7 @@ async def test_a_non_numeric_deployment_num_retries_is_ignored(make_core: MakeCo
     """The router's own default (2 retries) applies when the deployment value cannot be read as an int."""
     host.answer("openai/d1", rate_limit())
     core: Final = make_core(model_list=[deployment("g", "d1", num_retries="abc")])
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await core.acompletion(model="g", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
     assert len(host.calls) == 3
 
@@ -243,7 +243,7 @@ async def test_a_non_numeric_deployment_num_retries_is_ignored(make_core: MakeCo
 async def test_responses_replace_kubernetes_pod_routing_in_the_request_metadata(
     make_core: MakeCore, host: ScriptedHost
 ) -> None:
-    """On the Responses path the routing goes to ``litellm_metadata``; a pod routing key the caller put
+    """On the Responses path the routing goes to ``hangarllm_metadata``; a pod routing key the caller put
     in ``metadata`` is overwritten with the serving deployment's (none here)."""
     core: Final = make_core(model_list=[deployment("g", "d1")])
     await core.aresponses(  # pyright: ignore[reportAttributeAccessIssue]
@@ -251,7 +251,7 @@ async def test_responses_replace_kubernetes_pod_routing_in_the_request_metadata(
     )
     sent: Final = host.calls[0].kwargs
     assert _metadata(sent) == {KUBERNETES_POD_ROUTING_KEY: None, "keep": 1}
-    assert _metadata(sent, "litellm_metadata")[KUBERNETES_POD_ROUTING_KEY] is None
+    assert _metadata(sent, "hangarllm_metadata")[KUBERNETES_POD_ROUTING_KEY] is None
 
 
 async def test_a_baggage_stamp_records_the_serving_deployment_tags(make_core: MakeCore, host: ScriptedHost) -> None:
@@ -308,15 +308,15 @@ async def test_a_per_user_github_copilot_deployment_rejects_another_credential_n
                 "g",
                 "d1",
                 model="github_copilot/gpt-4o",
-                litellm_credential_name="copilot-cred",
+                hangarllm_credential_name="copilot-cred",
                 github_copilot_auth_type="per_user_oauth",
             )
         ],
         num_retries=0,
     )
-    with pytest.raises(litellm.BadRequestError) as raised:
-        await core.acompletion(model="g", messages=MESSAGES, litellm_credential_name="someone-else")  # pyright: ignore[reportAttributeAccessIssue]
-    assert "litellm_credential_name cannot be overridden on a deployment that uses per-user GitHub OAuth" in str(
+    with pytest.raises(hangarllm.BadRequestError) as raised:
+        await core.acompletion(model="g", messages=MESSAGES, hangarllm_credential_name="someone-else")  # pyright: ignore[reportAttributeAccessIssue]
+    assert "hangarllm_credential_name cannot be overridden on a deployment that uses per-user GitHub OAuth" in str(
         raised.value
     )
     assert host.calls == []
@@ -328,9 +328,9 @@ async def test_a_per_user_github_copilot_deployment_rejects_another_credential_n
 async def test_the_process_request_timeout_outranks_the_router_timeout_once_a_router_timeout_is_set(
     make_core: MakeCore, host: ScriptedHost, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Oddity: this per-attempt timeout is read from ``litellm.request_timeout`` itself (not the host's
+    """Oddity: this per-attempt timeout is read from ``hangarllm.request_timeout`` itself (not the host's
     process settings), and only when the router has a ``timeout`` of its own."""
-    monkeypatch.setattr(litellm, "request_timeout", 33.0)
+    monkeypatch.setattr(hangarllm, "request_timeout", 33.0)
     core: Final = make_core(model_list=[deployment("g", "d1")], timeout=42)
     await core.acompletion(model="g", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
     assert host.calls[0].kwargs["timeout"] == 33.0
@@ -341,29 +341,29 @@ async def test_the_process_request_timeout_is_the_stream_timeout_without_a_strea
 ) -> None:
     from tests.unit.test_router.core.streaming_helpers import chat_stream, collect_texts
 
-    monkeypatch.setattr(litellm, "request_timeout", 33.0)
+    monkeypatch.setattr(hangarllm, "request_timeout", 33.0)
     host.answer("openai/d1", chat_stream("A"))
     core: Final = make_core(model_list=[deployment("g", "d1")], timeout=42)
     await collect_texts(await core.acompletion(model="g", messages=MESSAGES, stream=True))  # pyright: ignore[reportAttributeAccessIssue]
     assert (host.calls[0].kwargs["stream_timeout"], host.calls[0].kwargs["timeout"]) == (33.0, 33.0)
 
 
-async def test_default_litellm_params_timeout_applies_when_no_router_or_process_timeout_is_set(
+async def test_default_hangarllm_params_timeout_applies_when_no_router_or_process_timeout_is_set(
     make_core: MakeCore, host: ScriptedHost
 ) -> None:
     host.set_dynamic(request_timeout=None)
-    core: Final = make_core(model_list=[deployment("g", "d1")], default_litellm_params={"timeout": 9})
+    core: Final = make_core(model_list=[deployment("g", "d1")], default_hangarllm_params={"timeout": 9})
     await core.acompletion(model="g", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
     assert host.calls[0].kwargs["timeout"] == 9
 
 
-async def test_default_litellm_params_stream_timeout_is_the_last_stream_timeout_fallback(
+async def test_default_hangarllm_params_stream_timeout_is_the_last_stream_timeout_fallback(
     make_core: MakeCore, host: ScriptedHost
 ) -> None:
     from tests.unit.test_router.core.streaming_helpers import chat_stream, collect_texts
 
     host.answer("openai/d1", chat_stream("A"))
-    core: Final = make_core(model_list=[deployment("g", "d1")], default_litellm_params={"stream_timeout": 4})
+    core: Final = make_core(model_list=[deployment("g", "d1")], default_hangarllm_params={"stream_timeout": 4})
     await collect_texts(await core.acompletion(model="g", messages=MESSAGES, stream=True))  # pyright: ignore[reportAttributeAccessIssue]
     assert host.calls[0].kwargs["stream_timeout"] == 4
 
@@ -374,7 +374,7 @@ async def test_default_litellm_params_stream_timeout_is_the_last_stream_timeout_
 def test_sync_completion_runs_routing_pre_call_checks_for_a_group_but_not_a_deployment_id(
     make_core: MakeCore, host: ScriptedHost
 ) -> None:
-    from litellm.integrations.custom_logger import CustomLogger
+    from hangarllm.integrations.custom_logger import CustomLogger
 
     checked: Final[list[object]] = []
 
@@ -392,15 +392,15 @@ def test_sync_completion_runs_routing_pre_call_checks_for_a_group_but_not_a_depl
 
 
 def test_a_sync_routing_pre_call_check_error_stops_the_call(make_core: MakeCore, host: ScriptedHost) -> None:
-    from litellm.integrations.custom_logger import CustomLogger
+    from hangarllm.integrations.custom_logger import CustomLogger
 
     class OverLimit(CustomLogger):
         def pre_call_check(self, deployment: dict) -> dict | None:  # pyright: ignore[reportIncompatibleMethodOverride]
-            raise litellm.RateLimitError(message="over the rpm limit", llm_provider="openai", model="d1")
+            raise hangarllm.RateLimitError(message="over the rpm limit", llm_provider="openai", model="d1")
 
     host.lists["callbacks"].append(OverLimit())
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=0)
-    with pytest.raises(litellm.RateLimitError, match="over the rpm limit"):
+    with pytest.raises(hangarllm.RateLimitError, match="over the rpm limit"):
         core.completion(model="g", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
     assert host.calls == []
 
@@ -414,7 +414,7 @@ async def test_acompletion_counts_total_success_and_failed_calls_per_deployment_
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=0)
     await core.acompletion(model="g", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
     host.answer("openai/d1", rate_limit())
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await core.acompletion(model="g", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
     counts: Final = (
         core.total_calls["openai/d1"],  # pyright: ignore[reportAttributeAccessIssue]

@@ -12,10 +12,10 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.bedrock.base_aws_llm import Boto3CredentialsInfo
-from litellm.llms.bedrock.rerank.handler import BedrockRerankHandler
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+import hangarllm
+from hangarllm.llms.bedrock.base_aws_llm import Boto3CredentialsInfo
+from hangarllm.llms.bedrock.rerank.handler import BedrockRerankHandler
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
 
 @pytest.fixture(autouse=True)
@@ -97,7 +97,7 @@ def test_bedrock_rerank_header_forwarding_sync(model):
     with (
         patch.object(client, "post") as mock_post,
         patch(  # test-quality-ok: boto credential lookup needs live AWS; the HTTP boundary is already a MockTransport
-            "litellm.llms.bedrock.rerank.handler.BedrockRerankHandler._get_boto_credentials_from_optional_params",
+            "hangarllm.llms.bedrock.rerank.handler.BedrockRerankHandler._get_boto_credentials_from_optional_params",
             return_value=mock_credentials_info,
         ),
         patch("botocore.auth.SigV4Auth") as mock_sigv4,
@@ -117,7 +117,7 @@ def test_bedrock_rerank_header_forwarding_sync(model):
         try:
             # Call rerank with custom headers via kwargs
             # This simulates what the proxy does when forward_client_headers_to_llm_api is set
-            response = litellm.rerank(
+            response = hangarllm.rerank(
                 model=model,
                 query=test_query,
                 documents=test_documents,
@@ -129,7 +129,7 @@ def test_bedrock_rerank_header_forwarding_sync(model):
                 api_key=test_api_key,
             )
 
-            assert isinstance(response, litellm.RerankResponse)
+            assert isinstance(response, hangarllm.RerankResponse)
 
             # Verify that the request was made
             assert mock_post.called, "HTTP client post should be called"
@@ -190,7 +190,7 @@ async def test_bedrock_rerank_header_forwarding_async(model):
     with (
         patch.object(client, "post", new_callable=AsyncMock) as mock_post,
         patch(  # test-quality-ok: boto credential lookup needs live AWS; the HTTP boundary is already a MockTransport
-            "litellm.llms.bedrock.rerank.handler.BedrockRerankHandler._get_boto_credentials_from_optional_params",
+            "hangarllm.llms.bedrock.rerank.handler.BedrockRerankHandler._get_boto_credentials_from_optional_params",
             return_value=mock_credentials_info,
         ),
         patch("botocore.auth.SigV4Auth") as mock_sigv4,
@@ -209,7 +209,7 @@ async def test_bedrock_rerank_header_forwarding_async(model):
 
         try:
             # Call rerank with custom headers via kwargs
-            response = await litellm.arerank(
+            response = await hangarllm.arerank(
                 model=model,
                 query=test_query,
                 documents=test_documents,
@@ -221,7 +221,7 @@ async def test_bedrock_rerank_header_forwarding_async(model):
                 api_key=test_api_key,
             )
 
-            assert isinstance(response, litellm.RerankResponse)
+            assert isinstance(response, hangarllm.RerankResponse)
 
             # Verify that the request was made
             assert mock_post.called, "HTTP client post should be called"
@@ -261,7 +261,7 @@ def test_bedrock_rerank_timeout_sync():
     with (
         patch.object(client, "post") as mock_post,
         patch(  # test-quality-ok: boto credential lookup needs live AWS; the HTTP boundary is already a MockTransport
-            "litellm.llms.bedrock.rerank.handler.BedrockRerankHandler._get_boto_credentials_from_optional_params",
+            "hangarllm.llms.bedrock.rerank.handler.BedrockRerankHandler._get_boto_credentials_from_optional_params",
             return_value=mock_credentials_info,
         ),
         patch("botocore.auth.SigV4Auth") as mock_sigv4,
@@ -275,7 +275,7 @@ def test_bedrock_rerank_timeout_sync():
         mock_response.raise_for_status = lambda: None
         mock_post.return_value = mock_response
 
-        litellm.rerank(
+        hangarllm.rerank(
             model=model,
             query=test_query,
             documents=test_documents,
@@ -305,7 +305,7 @@ async def test_bedrock_rerank_timeout_async():
     with (
         patch.object(client, "post", new_callable=AsyncMock) as mock_post,
         patch(  # test-quality-ok: boto credential lookup needs live AWS; the HTTP boundary is already a MockTransport
-            "litellm.llms.bedrock.rerank.handler.BedrockRerankHandler._get_boto_credentials_from_optional_params",
+            "hangarllm.llms.bedrock.rerank.handler.BedrockRerankHandler._get_boto_credentials_from_optional_params",
             return_value=mock_credentials_info,
         ),
         patch("botocore.auth.SigV4Auth") as mock_sigv4,
@@ -319,7 +319,7 @@ async def test_bedrock_rerank_timeout_async():
         mock_response.raise_for_status = lambda: None
         mock_post.return_value = mock_response
 
-        await litellm.arerank(
+        await hangarllm.arerank(
             model=model,
             query=test_query,
             documents=test_documents,
@@ -360,7 +360,7 @@ def test_bedrock_rerank_extra_headers_and_headers_merge():
     with (
         patch.object(client, "post") as mock_post,
         patch(  # test-quality-ok: boto credential lookup needs live AWS; the HTTP boundary is already a MockTransport
-            "litellm.llms.bedrock.rerank.handler.BedrockRerankHandler._get_boto_credentials_from_optional_params",
+            "hangarllm.llms.bedrock.rerank.handler.BedrockRerankHandler._get_boto_credentials_from_optional_params",
             return_value=mock_credentials_info,
         ),
         patch("botocore.auth.SigV4Auth") as mock_sigv4,
@@ -378,7 +378,7 @@ def test_bedrock_rerank_extra_headers_and_headers_merge():
         mock_post.return_value = mock_response
 
         try:
-            response = litellm.rerank(
+            response = hangarllm.rerank(
                 model=model,
                 query=test_query,
                 documents=test_documents,
@@ -391,7 +391,7 @@ def test_bedrock_rerank_extra_headers_and_headers_merge():
                 api_key=test_api_key,
             )
 
-            assert isinstance(response, litellm.RerankResponse)
+            assert isinstance(response, hangarllm.RerankResponse)
 
             call_kwargs = mock_post.call_args.kwargs
             headers = call_kwargs.get("headers", {})
@@ -423,7 +423,7 @@ def test_bedrock_rerank_extra_headers_and_headers_merge():
 
 def test_bedrock_rerank_forwarded_headers_excluded_from_sigv4_signature():
     """
-    A forwarded header like x-forwarded-for can be rewritten between LiteLLM
+    A forwarded header like x-forwarded-for can be rewritten between HangarLLM
     signing the request and AWS receiving it (e.g. by an intermediate load
     balancer), which invalidates the signature if that header was part of
     the signed set. It must still reach Bedrock, just unsigned.
@@ -484,7 +484,7 @@ def test_bedrock_rerank_signs_with_sigv4_even_when_bedrock_api_key_is_set(monkey
 @pytest.mark.asyncio
 async def test_bedrock_rerank_records_llm_api_duration():
     """The bedrock rerank handler must feed httpx timing into the logging obj, so the
-    proxy can emit x-litellm-overhead-duration-ms / x-litellm-timing-* on /rerank."""
+    proxy can emit x-hangarllm-overhead-duration-ms / x-hangarllm-timing-* on /rerank."""
     import httpx
 
     def handle(request: httpx.Request) -> httpx.Response:
@@ -494,10 +494,10 @@ async def test_bedrock_rerank_records_llm_api_duration():
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
     with patch(  # test-quality-ok: boto credential lookup needs live AWS; the HTTP boundary is already a MockTransport
-        "litellm.llms.bedrock.rerank.handler.BedrockRerankHandler._get_boto_credentials_from_optional_params",
+        "hangarllm.llms.bedrock.rerank.handler.BedrockRerankHandler._get_boto_credentials_from_optional_params",
         return_value=create_mock_credentials(),
     ):
-        response = await litellm.arerank(
+        response = await hangarllm.arerank(
             model="bedrock/arn:aws:bedrock:us-east-1::foundation-model/cohere.rerank-v3-5:0",
             query=test_query,
             documents=test_documents,
@@ -506,8 +506,8 @@ async def test_bedrock_rerank_records_llm_api_duration():
             aws_region_name="us-east-1",
         )
 
-    assert response._hidden_params["litellm_overhead_time_ms"] is not None
-    assert response._hidden_params["_response_ms"] >= response._hidden_params["litellm_overhead_time_ms"]
+    assert response._hidden_params["hangarllm_overhead_time_ms"] is not None
+    assert response._hidden_params["_response_ms"] >= response._hidden_params["hangarllm_overhead_time_ms"]
 
 
 RERANK_MODEL_ARN = "arn:aws:bedrock:us-west-2::foundation-model/amazon.rerank-v1:0"
@@ -534,7 +534,7 @@ def _rerank_through_transport(payload: object, *, is_async: bool):
     )
 
 
-def _assert_is_the_bedrock_ranking(response: litellm.RerankResponse) -> None:
+def _assert_is_the_bedrock_ranking(response: hangarllm.RerankResponse) -> None:
     assert response.results == [
         {"index": 2, "relevance_score": 0.95},
         {"index": 0, "relevance_score": 0.1},

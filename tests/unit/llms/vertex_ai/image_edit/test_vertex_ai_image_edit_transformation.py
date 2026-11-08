@@ -11,17 +11,17 @@ import httpx
 import pytest
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.gemini.common_utils import map_openai_size_to_gemini_image_config
-from litellm.llms.vertex_ai.image_edit.vertex_gemini_transformation import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.gemini.common_utils import map_openai_size_to_gemini_image_config
+from hangarllm.llms.vertex_ai.image_edit.vertex_gemini_transformation import (
     VertexAIGeminiImageEditConfig,
 )
-from litellm.llms.vertex_ai.image_edit.vertex_imagen_transformation import (
+from hangarllm.llms.vertex_ai.image_edit.vertex_imagen_transformation import (
     VertexAIImagenImageEditConfig,
 )
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.types.router import GenericHangarLLMParams
 
 
 @pytest.mark.parametrize("size", ("1536x1024", "1024x1536", "3072x2048", "256x256", "512x512", "4096x4096"))
@@ -33,7 +33,7 @@ def test_vertex_gemini_edit_size_reaches_request(size: str, model: str) -> None:
         "mountains",
         BytesIO(b"image"),
         config.map_openai_params({"size": size}, model, False),
-        GenericLiteLLMParams(),
+        GenericHangarLLMParams(),
         {},
     )
     request: Final = TypeAdapter(dict[str, JsonValue]).validate_json(TypeAdapter(str).validate_python(payload))
@@ -60,7 +60,7 @@ def test_vertex_imagen_edit_size_reaches_request(size: str, expected_ratio: str 
         "mountains",
         BytesIO(b"image"),
         config.map_openai_params({"size": size, "n": 2}, model, False),
-        GenericLiteLLMParams(),
+        GenericHangarLLMParams(),
         {},
     )
     request: Final = TypeAdapter(dict[str, JsonValue]).validate_json(TypeAdapter(str).validate_python(payload))
@@ -111,7 +111,7 @@ def test_vertex_edit_preserves_legacy_size_fallback(
         "mountains",
         BytesIO(b"image"),
         config.map_openai_params({"size": size}, model, False),
-        GenericLiteLLMParams(),
+        GenericHangarLLMParams(),
         {},
     )
     request: Final = TypeAdapter(dict[str, JsonValue]).validate_json(TypeAdapter(str).validate_python(payload))
@@ -151,7 +151,7 @@ class TestVertexAIGeminiImageEditTransformation:
             url = self.config.get_complete_url(
                 model="gemini-2.5-flash",
                 api_base=None,
-                litellm_params={},
+                hangarllm_params={},
             )
             assert "test-project" in url
             assert "us-central1" in url
@@ -170,7 +170,7 @@ class TestVertexAIGeminiImageEditTransformation:
             prompt=self.prompt,
             image=image,
             image_edit_optional_request_params=optional_params,
-            litellm_params=MagicMock(),
+            hangarllm_params=MagicMock(),
             headers={},
         )
 
@@ -240,12 +240,12 @@ class TestVertexAIGeminiImageEditTransformation:
                 prompt=self.prompt,
                 image=[],
                 image_edit_optional_request_params=optional_params,
-                litellm_params=MagicMock(),
+                hangarllm_params=MagicMock(),
                 headers={},
             )
 
-    def test_validate_environment_with_litellm_params(self) -> None:
-        """Test validate_environment uses credentials from litellm_params"""
+    def test_validate_environment_with_hangarllm_params(self) -> None:
+        """Test validate_environment uses credentials from hangarllm_params"""
         with patch.object(
             self.config,
             "_ensure_access_token",
@@ -256,7 +256,7 @@ class TestVertexAIGeminiImageEditTransformation:
                 "set_headers",
                 return_value={"Authorization": "Bearer test-token"},
             ) as mock_headers:
-                litellm_params = {
+                hangarllm_params = {
                     "vertex_ai_project": "custom-project",
                     "vertex_ai_credentials": "/path/to/custom/credentials.json",
                 }
@@ -264,7 +264,7 @@ class TestVertexAIGeminiImageEditTransformation:
                 result = self.config.validate_environment(
                     headers={"X-Custom": "header"},
                     model=self.model,
-                    litellm_params=litellm_params,
+                    hangarllm_params=hangarllm_params,
                     api_base=None,
                 )
 
@@ -275,12 +275,12 @@ class TestVertexAIGeminiImageEditTransformation:
                 assert call_kwargs["project_id"] == "custom-project"
                 assert result == {"Authorization": "Bearer test-token"}
 
-    def test_get_complete_url_from_litellm_params(self) -> None:
-        """Test vertex_project/vertex_location read from litellm_params first"""
+    def test_get_complete_url_from_hangarllm_params(self) -> None:
+        """Test vertex_project/vertex_location read from hangarllm_params first"""
         url = self.config.get_complete_url(
             model="gemini-2.5-flash",
             api_base=None,
-            litellm_params={
+            hangarllm_params={
                 "vertex_project": "params-project",
                 "vertex_location": "us-east1",
             },
@@ -293,7 +293,7 @@ class TestVertexAIGeminiImageEditTransformation:
         url = self.config.get_complete_url(
             model="gemini-2.5-flash",
             api_base=None,
-            litellm_params={
+            hangarllm_params={
                 "vertex_project": "test-project",
                 "vertex_location": "global",
             },
@@ -302,8 +302,8 @@ class TestVertexAIGeminiImageEditTransformation:
         assert "global-aiplatform.googleapis.com" not in url
         assert "/locations/global/" in url
 
-    def test_get_complete_url_litellm_params_overrides_env(self) -> None:
-        """Test litellm_params takes precedence over environment variables"""
+    def test_get_complete_url_hangarllm_params_overrides_env(self) -> None:
+        """Test hangarllm_params takes precedence over environment variables"""
         with patch.dict(
             os.environ,
             {
@@ -314,7 +314,7 @@ class TestVertexAIGeminiImageEditTransformation:
             url = self.config.get_complete_url(
                 model="gemini-2.5-flash",
                 api_base=None,
-                litellm_params={
+                hangarllm_params={
                     "vertex_project": "params-project",
                     "vertex_location": "eu-west1",
                 },
@@ -362,7 +362,7 @@ class TestVertexAIImagenImageEditTransformation:
             url = self.config.get_complete_url(
                 model="imagen-3.0-capability-001",
                 api_base=None,
-                litellm_params={},
+                hangarllm_params={},
             )
             assert "test-project" in url
             assert "us-central1" in url
@@ -381,7 +381,7 @@ class TestVertexAIImagenImageEditTransformation:
             prompt=self.prompt,
             image=image,
             image_edit_optional_request_params=optional_params,
-            litellm_params=MagicMock(),
+            hangarllm_params=MagicMock(),
             headers={},
         )
 
@@ -423,7 +423,7 @@ class TestVertexAIImagenImageEditTransformation:
             prompt=self.prompt,
             image=image,
             image_edit_optional_request_params=optional_params,
-            litellm_params=MagicMock(),
+            hangarllm_params=MagicMock(),
             headers={},
         )
 
@@ -494,7 +494,7 @@ class TestVertexAIImagenImageEditTransformation:
                 prompt=self.prompt,
                 image=[],
                 image_edit_optional_request_params=optional_params,
-                litellm_params=MagicMock(),
+                hangarllm_params=MagicMock(),
                 headers={},
             )
 
@@ -555,7 +555,7 @@ def _imagen_edit_response_images(payload: object) -> list[tuple[object, object]]
             stream=False,
             call_type="image_edit",
             start_time=datetime(2026, 1, 1),
-            litellm_call_id="imagen-edit-call",
+            hangarllm_call_id="imagen-edit-call",
             function_id="imagen-edit-function",
         ),
     )
@@ -570,7 +570,7 @@ def _imagen_edit_rejection_text(payload: object) -> str:
 
 def _edited_imagen_images(payload: object) -> list[tuple[object, object]]:
     transport = httpx.MockTransport(lambda request: _imagen_edit_predict_response(payload))
-    response = litellm.image_edit(
+    response = hangarllm.image_edit(
         model="vertex_ai/imagen-3.0-capability-001",
         image=BytesIO(b"image-bytes"),
         prompt="add a hat",
@@ -709,11 +709,11 @@ def test_imagen_image_edit_returns_the_prediction_images_of_the_predict_endpoint
     ],
 )
 def test_imagen_image_edit_maps_malformed_predictions_to_a_connection_error_without_echoing_them(payload: object):
-    with pytest.raises(litellm.APIConnectionError) as mapped:
+    with pytest.raises(hangarllm.APIConnectionError) as mapped:
         _edited_imagen_images(payload)
 
     assert (type(mapped.value), mapped.value.status_code, "vertex-secret" in str(mapped.value)) == (
-        litellm.APIConnectionError,
+        hangarllm.APIConnectionError,
         500,
         False,
     )

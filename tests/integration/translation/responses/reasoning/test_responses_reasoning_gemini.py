@@ -278,7 +278,7 @@ GEMINI_3_8_FLASH_THOUGHTS_OFF_TEST_CASE: Final = replace(
         GEMINI_3_8_FLASH_TEST_CASE.expected_provider_request, {"thinkingLevel": "high", "includeThoughts": False}
     ),
     mock_provider_response=GEMINI_3_8_FLASH_THOUGHTS_OFF_RESPONSE,
-    expected_litellm_response={
+    expected_hangarllm_response={
         **GEMINI_RESPONSES_RESPONSE,
         "model": "gemini/gemini-3.8-flash",
         "output": [
@@ -334,8 +334,8 @@ def with_summary(case: TranslationTestCase, scenario: str, summary: JsonValue) -
     return replace(
         case,
         scenario=scenario,
-        litellm_request={**case.litellm_request, "reasoning": dict(reasoning)},
-        expected_litellm_response={**case.expected_litellm_response, "reasoning": dict(reasoning)},
+        hangarllm_request={**case.hangarllm_request, "reasoning": dict(reasoning)},
+        expected_hangarllm_response={**case.expected_hangarllm_response, "reasoning": dict(reasoning)},
     )
 
 
@@ -373,7 +373,7 @@ def test_a_streamed_turn_keeps_thinking_and_billing_reasoning_without_thought_te
         )
     )
     response: Final = thoughts_off.request(
-        "POST", "/v1/responses", {**GEMINI_3_8_FLASH_TEST_CASE.litellm_request, "stream": True}
+        "POST", "/v1/responses", {**GEMINI_3_8_FLASH_TEST_CASE.hangarllm_request, "stream": True}
     )
     assert_provider_request(
         provider.received(),

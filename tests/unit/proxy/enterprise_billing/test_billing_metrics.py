@@ -8,9 +8,9 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, Sum
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
-from litellm.proxy._types import EnterpriseLicenseData
-from litellm.proxy.enterprise_billing import billing_metrics as bm
-from litellm.proxy.middleware.billable_request_metrics_middleware import BillableCategory
+from hangarllm.proxy._types import EnterpriseLicenseData
+from hangarllm.proxy.enterprise_billing import billing_metrics as bm
+from hangarllm.proxy.middleware.billable_request_metrics_middleware import BillableCategory
 
 
 class _RecordedRequest(BaseModel):
@@ -28,7 +28,7 @@ def _request_history(http_mock: requests_mock.Mocker) -> tuple[_RecordedRequest,
 def _metric_category(attributes: Mapping[str, object] | None) -> str:
     if attributes is None:
         return ""
-    return str(attributes.get("litellm.endpoint.category"))
+    return str(attributes.get("hangarllm.endpoint.category"))
 
 
 _ENV_VARS: Final = (
@@ -62,7 +62,7 @@ def _config(license_id: str | None = "org-1") -> bm.BillingMetricsConfig:
         client_id="client-id",
         client_secret="client-secret",
         export_interval_ms=60_000,
-        litellm_version="1.2.3",
+        hangarllm_version="1.2.3",
         license_id=license_id,
     )
 
@@ -77,7 +77,7 @@ def test_missing_required_env_disables_metrics_without_logging_values(
     monkeypatch.setenv(bm.CLIENT_SECRET_ENV, "secret-for-test")
     monkeypatch.delenv(missing_env)
 
-    assert bm.load_billing_metrics_config(license_data=None, litellm_version="1.0") is None
+    assert bm.load_billing_metrics_config(license_data=None, hangarllm_version="1.0") is None
     assert f"licensed deployment missing config ({missing_env})" in caplog.text
     assert "secret-for-test" not in caplog.text
 
@@ -86,7 +86,7 @@ def test_empty_required_env_disables_metrics(monkeypatch: pytest.MonkeyPatch, ca
     _set_full_env(monkeypatch)
     monkeypatch.setenv(bm.ENDPOINT_ENV, "")
 
-    assert bm.load_billing_metrics_config(license_data=None, litellm_version="1.0") is None
+    assert bm.load_billing_metrics_config(license_data=None, hangarllm_version="1.0") is None
     assert bm.ENDPOINT_ENV in caplog.text
 
 
@@ -106,7 +106,7 @@ def test_http_urls_disable_metrics(
     _set_full_env(monkeypatch)
     monkeypatch.setenv(env_name, url)
 
-    assert bm.load_billing_metrics_config(license_data=None, litellm_version="1.0") is None
+    assert bm.load_billing_metrics_config(license_data=None, hangarllm_version="1.0") is None
     assert f"{env_name} must use HTTPS" in caplog.text
 
 
@@ -114,7 +114,7 @@ def test_valid_config_contains_bearer_credentials(monkeypatch: pytest.MonkeyPatc
     _set_full_env(monkeypatch)
 
     license_data: Final[EnterpriseLicenseData] = {"user_id": "org-1"}
-    config: Final = bm.load_billing_metrics_config(license_data=license_data, litellm_version="1.0")
+    config: Final = bm.load_billing_metrics_config(license_data=license_data, hangarllm_version="1.0")
     assert config is not None
 
     assert config == bm.BillingMetricsConfig(
@@ -123,7 +123,7 @@ def test_valid_config_contains_bearer_credentials(monkeypatch: pytest.MonkeyPatc
         client_id="client-id",
         client_secret="client-secret",
         export_interval_ms=bm.DEFAULT_EXPORT_INTERVAL_MS,
-        litellm_version="1.0",
+        hangarllm_version="1.0",
         license_id="org-1",
     )
     assert "client-secret" not in repr(config)
@@ -135,12 +135,12 @@ def test_not_premium_returns_none_without_warning(
 ) -> None:
     _set_full_env(monkeypatch)
 
-    assert bm.build_billing_metrics_recorder(premium=False, license_data=None, litellm_version="1.0") is None
+    assert bm.build_billing_metrics_recorder(premium=False, license_data=None, hangarllm_version="1.0") is None
     assert "Enterprise billing metrics disabled" not in caplog.text
 
 
 def test_premium_without_config_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    assert bm.build_billing_metrics_recorder(premium=True, license_data={"user_id": "x"}, litellm_version="1.0") is None
+    assert bm.build_billing_metrics_recorder(premium=True, license_data={"user_id": "x"}, hangarllm_version="1.0") is None
 
 
 def test_premium_builds_recorder_and_logs_enabled(
@@ -155,7 +155,7 @@ def test_premium_builds_recorder_and_logs_enabled(
         http_mock.post(token_url, json={"access_token": "access-token", "expires_in": 3600})
         http_mock.post(export_url, status_code=200)
         recorder: Final = bm.build_billing_metrics_recorder(
-            premium=True, license_data={"user_id": "org-1"}, litellm_version="1.0"
+            premium=True, license_data={"user_id": "org-1"}, hangarllm_version="1.0"
         )
         assert recorder is not None
         assert "Enterprise billing metrics enabled: exporting to https://collector.example:4318 every 60000 ms" in caplog.text
@@ -180,7 +180,7 @@ def test_shutdown_flushes_active_recorder_once(monkeypatch: pytest.MonkeyPatch) 
         return provider
 
     monkeypatch.setattr(bm, "build_bearer_meter_provider", create_provider)
-    recorder: Final = bm.build_billing_metrics_recorder(premium=True, license_data=None, litellm_version="1.0")
+    recorder: Final = bm.build_billing_metrics_recorder(premium=True, license_data=None, hangarllm_version="1.0")
     assert recorder is not None
 
     bm.shutdown_billing_metrics_recorder()
@@ -344,15 +344,15 @@ def test_failed_bearer_token_fetch_does_not_raise_from_export() -> None:
 
 def test_export_interval_default_and_override(monkeypatch: pytest.MonkeyPatch) -> None:
     _set_full_env(monkeypatch)
-    default_config: Final = bm.load_billing_metrics_config(license_data=None, litellm_version="1.0")
+    default_config: Final = bm.load_billing_metrics_config(license_data=None, hangarllm_version="1.0")
     assert default_config is not None
     assert default_config.export_interval_ms == bm.DEFAULT_EXPORT_INTERVAL_MS
     monkeypatch.setenv(bm.EXPORT_INTERVAL_ENV, "5000")
-    override_config: Final = bm.load_billing_metrics_config(license_data=None, litellm_version="1.0")
+    override_config: Final = bm.load_billing_metrics_config(license_data=None, hangarllm_version="1.0")
     assert override_config is not None
     assert override_config.export_interval_ms == 5000
     monkeypatch.setenv(bm.EXPORT_INTERVAL_ENV, "not-a-number")
-    invalid_config: Final = bm.load_billing_metrics_config(license_data=None, litellm_version="1.0")
+    invalid_config: Final = bm.load_billing_metrics_config(license_data=None, hangarllm_version="1.0")
     assert invalid_config is not None
     assert invalid_config.export_interval_ms == bm.DEFAULT_EXPORT_INTERVAL_MS
 
@@ -360,24 +360,24 @@ def test_export_interval_default_and_override(monkeypatch: pytest.MonkeyPatch) -
 def test_resource_attributes_include_license_id() -> None:
     attributes: Final = bm.resource_attributes(_config(license_id="org-7"))
     assert attributes == {
-        "service.name": "litellm-proxy",
-        "litellm.version": "1.2.3",
-        "litellm.license.id": "org-7",
+        "service.name": "hangarllm-proxy",
+        "hangarllm.version": "1.2.3",
+        "hangarllm.license.id": "org-7",
     }
 
 
 def test_resource_attributes_omit_license_id_when_absent() -> None:
-    assert "litellm.license.id" not in bm.resource_attributes(_config(license_id=None))
+    assert "hangarllm.license.id" not in bm.resource_attributes(_config(license_id=None))
 
 
 def test_billable_attributes_include_model_id() -> None:
     assert bm.billable_attributes(
         BillableCategory.LLM, "/chat/completions", 200, "deploy-3"
     ) == {
-        "litellm.endpoint.category": "llm",
+        "hangarllm.endpoint.category": "llm",
         "http.route": "/chat/completions",
         "http.response.status_code": 200,
-        "litellm.model_id": "deploy-3",
+        "hangarllm.model_id": "deploy-3",
     }
 
 
@@ -385,7 +385,7 @@ def test_billable_attributes_omit_model_id_when_none() -> None:
     attributes: Final = bm.billable_attributes(
         BillableCategory.MCP, "/mcp", 200, None
     )
-    assert "litellm.model_id" not in attributes
+    assert "hangarllm.model_id" not in attributes
 
 
 def _counter_points(reader: InMemoryMetricReader) -> tuple[tuple[str, int], ...]:

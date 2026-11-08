@@ -108,7 +108,7 @@ def _completion(response: httpx.Response, marker: str) -> str:
     assert pcb.answers(string_value(body["id"]), marker), body
     (choice,) = rv.ITEMS.validate_python(body["choices"])
     assert rv.JSON_OBJECT.validate_python(choice["message"])["content"] == rv.answer(marker), body
-    return response.headers["x-litellm-call-id"]
+    return response.headers["x-hangarllm-call-id"]
 
 
 def _wire_body(request: Request, *, stream: bool = False) -> dict[str, JsonValue]:
@@ -136,7 +136,7 @@ def test_openai_sdk_sends_a_valid_marker_through_the_bridge(bridge: _Bridge) -> 
     assert pcb.answers(completion.id, marker), completion
     assert completion.choices[0].message.content == rv.answer(marker), completion
     pcb.assert_marker(_user_block_on_wire(bridge, marker), pcb.EXPLICIT)
-    bridge.spend.landed(bridge.on, raw.headers["x-litellm-call-id"], marker)
+    bridge.spend.landed(bridge.on, raw.headers["x-hangarllm-call-id"], marker)
 
 
 def test_openai_sdk_stream_carries_the_system_list_marker(bridge: _Bridge) -> None:
@@ -158,7 +158,7 @@ def test_openai_sdk_stream_carries_the_system_list_marker(bridge: _Bridge) -> No
     (system_block,) = pcb.content_of(pcb.input_items(request), "system")
     assert system_block["type"] == "input_text" and system_block["text"] == "sys", system_block
     pcb.assert_marker(system_block, pcb.EXPLICIT)
-    bridge.spend.landed(bridge.on, raw.headers["x-litellm-call-id"], marker)
+    bridge.spend.landed(bridge.on, raw.headers["x-hangarllm-call-id"], marker)
 
 
 async def test_async_openai_sdk_keeps_the_ttl_without_drop_params(bridge: _Bridge) -> None:
@@ -171,7 +171,7 @@ async def test_async_openai_sdk_keeps_the_ttl_without_drop_params(bridge: _Bridg
     assert pcb.answers(completion.id, marker), completion
     assert completion.choices[0].message.content == rv.answer(marker), completion
     pcb.assert_marker(_user_block_on_wire(bridge, marker), pcb.EXPLICIT_30M)
-    bridge.spend.landed(bridge.off, raw.headers["x-litellm-call-id"], marker)
+    bridge.spend.landed(bridge.off, raw.headers["x-hangarllm-call-id"], marker)
 
 
 @pytest.mark.parametrize("mode", ("on", "off"))
@@ -359,7 +359,7 @@ def test_anthropic_sdk_marker_on_user_text(
         )
     _anthropic_text(raw.parse(), marker)
     pcb.assert_marker(_user_block_on_wire(bridge, marker), expected)
-    bridge.spend.landed(bridge.model(mode), raw.headers["x-litellm-call-id"], None)
+    bridge.spend.landed(bridge.model(mode), raw.headers["x-hangarllm-call-id"], None)
 
 
 def test_anthropic_sdk_system_string_gets_the_injected_marker(bridge: _Bridge) -> None:
@@ -378,7 +378,7 @@ def test_anthropic_sdk_system_string_gets_the_injected_marker(bridge: _Bridge) -
     assert body["prompt_cache_options"] == {"mode": "explicit"}, body
     instruction: Final = pcb.instruction_block(pcb.input_items(request))
     assert instruction == {"type": "input_text", "text": "Answer briefly", "prompt_cache_breakpoint": pcb.EXPLICIT}
-    bridge.spend.landed(bridge.injecting_off, raw.headers["x-litellm-call-id"], None)
+    bridge.spend.landed(bridge.injecting_off, raw.headers["x-hangarllm-call-id"], None)
 
 
 _EPHEMERAL: Final[anthropic.types.CacheControlEphemeralParam] = {"type": "ephemeral"}
@@ -577,7 +577,7 @@ def test_native_responses_marker_with_an_unknown_key(bridge: _Bridge, mode: Mode
     _wire_body(request)
     on_wire: Final = pcb.single_block(pcb.input_items(request), "user")
     assert on_wire == pcb.marked(block, expected), on_wire
-    bridge.spend.landed(bridge.model(mode), response.headers["x-litellm-call-id"], marker)
+    bridge.spend.landed(bridge.model(mode), response.headers["x-hangarllm-call-id"], marker)
 
 
 @pytest.mark.parametrize(("mode", "breakpoint", "expected"), _CASE_VALUES, ids=_CASE_IDS)
@@ -600,7 +600,7 @@ def test_openai_sdk_native_responses_marker_on_user_text(
     on_wire: Final = pcb.single_block(pcb.input_items(request), "user")
     assert on_wire["type"] == "input_text" and on_wire["text"] == pcb.prompt(marker), on_wire
     pcb.assert_marker(on_wire, expected)
-    bridge.spend.landed(bridge.model(mode), raw.headers["x-litellm-call-id"], marker)
+    bridge.spend.landed(bridge.model(mode), raw.headers["x-hangarllm-call-id"], marker)
 
 
 @pytest.mark.parametrize("breakpoint", _MALFORMED_VALUES, ids=_MALFORMED_IDS)
@@ -655,7 +655,7 @@ def test_upstream_error_reaches_the_caller_once(bridge: _Bridge, mode: Mode, sta
     assert f"scripted {status} marker-{marker}" in response.text, response.text
     (request,) = pcb.with_marker(pcb.drained_posts(bridge.wire), marker)
     pcb.assert_marker(pcb.single_block(pcb.input_items(request), "user"), pcb.EXPLICIT)
-    bridge.spend.landed(bridge.model(mode), response.headers["x-litellm-call-id"], None, status="failure")
+    bridge.spend.landed(bridge.model(mode), response.headers["x-hangarllm-call-id"], None, status="failure")
     follow_up: Final = uuid.uuid4().hex
     call_id: Final = _completion(_chat(bridge, bridge.model(mode), [_user(follow_up, pcb.EXPLICIT)]), follow_up)
     pcb.assert_marker(_user_block_on_wire(bridge, follow_up), pcb.EXPLICIT)
@@ -710,7 +710,7 @@ async def test_flipping_drop_params_mid_burst_keeps_every_marked_request_answere
                 "/model/update",
                 {
                     "model_name": model,
-                    "litellm_params": {"model": pcb.MODEL, "drop_params": False},
+                    "hangarllm_params": {"model": pcb.MODEL, "drop_params": False},
                     "model_info": {"id": identity},
                 },
             )
@@ -726,7 +726,7 @@ async def test_flipping_drop_params_mid_burst_keeps_every_marked_request_answere
         flipped: Final = eventually(lambda: _probe_marker(bridge, model), lambda seen: seen == "yes", seconds=70)
         assert flipped == "yes"
         for marker, response in zip(markers, responses, strict=True):
-            bridge.spend.landed(model, response.headers["x-litellm-call-id"], marker)
+            bridge.spend.landed(model, response.headers["x-hangarllm-call-id"], marker)
 
 
 def test_three_identical_marked_requests_are_each_sent_and_logged(bridge: _Bridge) -> None:

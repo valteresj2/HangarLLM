@@ -26,10 +26,10 @@ table without a default is still free on every version.
 
 An index on a request-log table cannot ship as a migration at all. A plain `CREATE
 INDEX` blocks writes to the table until the build finishes, and `CREATE INDEX
-CONCURRENTLY` is refused by Postgres on a partitioned parent, which LiteLLM_SpendLogs
+CONCURRENTLY` is refused by Postgres on a partitioned parent, which HangarLLM_SpendLogs
 is wherever the operator ran db_scripts/partition_spend_logs.sql. The migration job builds
 those indexes after `migrate deploy`, concurrently and per partition, from the list in
-litellm_proxy_extras/request_log_indexes.py, so that list is where a new one goes.
+hangarllm_proxy_extras/request_log_indexes.py, so that list is where a new one goes.
 
 Flagged, per statement, by its leading keyword:
 
@@ -123,7 +123,7 @@ from pathlib import Path
 from typing import Final
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MIGRATIONS_DIR = REPO_ROOT / "litellm-proxy-extras" / "litellm_proxy_extras" / "migrations"
+MIGRATIONS_DIR = REPO_ROOT / "hangarllm-proxy-extras" / "hangarllm_proxy_extras" / "migrations"
 
 GRANDFATHERED = frozenset(
     {
@@ -137,7 +137,7 @@ GRANDFATHERED = frozenset(
     }
 )
 
-REQUEST_LOG_TABLES = frozenset({"LiteLLM_SpendLogs", "LiteLLM_ErrorLogs"})
+REQUEST_LOG_TABLES = frozenset({"HangarLLM_SpendLogs", "HangarLLM_ErrorLogs"})
 
 MARKER = re.compile(r"--[ \t]*data-migration-ok:[ \t]*(\S.*?)[ \t]*$", re.MULTILINE)
 DOLLAR_TAG = re.compile(r"\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$")
@@ -220,7 +220,7 @@ statement with the bound spelled out:
 
 An index on a request-log table is not a migration, and no marker exempts one. Declare it with `@@index` in
 schema.prisma and add it to REQUEST_LOG_INDEXES in
-litellm_proxy_extras/request_log_indexes.py under the name Prisma derives for it; the
+hangarllm_proxy_extras/request_log_indexes.py under the name Prisma derives for it; the
 migration job builds it after `migrate deploy`, concurrently on a plain table and per
 partition on a partitioned one, which no single migration statement can do.
 
@@ -623,7 +623,7 @@ def consequence_of(found: str) -> str:
     if found.startswith("CREATE INDEX"):
         return (
             "blocks writes until the build finishes, or fails on a partitioned table; "
-            "add it to REQUEST_LOG_INDEXES in litellm_proxy_extras/request_log_indexes.py instead"
+            "add it to REQUEST_LOG_INDEXES in hangarllm_proxy_extras/request_log_indexes.py instead"
         )
     return "rewrites existing rows at boot"
 

@@ -11,7 +11,7 @@ calls with the request kwargs and that answers with a fresh stream:
   optionally raising.
 
 A stream built with ``logged=True`` logs through the ``ScriptedHost`` that served it when it ends
-(``HostLogging``), as litellm's stream logging does, rather than when the call returns it.
+(``HostLogging``), as hangarllm's stream logging does, rather than when the call returns it.
 """
 
 import datetime
@@ -21,10 +21,10 @@ import types
 from collections.abc import AsyncIterator, Callable, Coroutine, Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Final
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
-from litellm.types.utils import ModelResponseStream
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
+from hangarllm.types.utils import ModelResponseStream
 
 if TYPE_CHECKING:
     from tests.unit.test_router.core.scripted_host import Call, ScriptedHost
@@ -53,28 +53,28 @@ def install_orjson_stub_if_missing() -> None:
         sys.modules["soundfile"] = types.ModuleType("soundfile")
 
 
-def _logging_obj(model: str, call_type: str = "acompletion", logged: bool = False) -> LiteLLMLogging:
-    logging_obj: Final = (HostLogging if logged else LiteLLMLogging)(
+def _logging_obj(model: str, call_type: str = "acompletion", logged: bool = False) -> HangarLLMLogging:
+    logging_obj: Final = (HostLogging if logged else HangarLLMLogging)(
         model=model,
         messages=MESSAGES,
         stream=True,
         call_type=call_type,
         start_time=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id=f"stream-{model}",
+        hangarllm_call_id=f"stream-{model}",
         function_id=f"stream-{model}",
     )
-    logging_obj.update_environment_variables(model=model, user=None, optional_params={}, litellm_params={})
+    logging_obj.update_environment_variables(model=model, user=None, optional_params={}, hangarllm_params={})
     return logging_obj
 
 
-def request_logging(model: str = "a") -> LiteLLMLogging:
-    """The logging object a request shares across its attempts (``litellm_logging_obj``)."""
+def request_logging(model: str = "a") -> HangarLLMLogging:
+    """The logging object a request shares across its attempts (``hangarllm_logging_obj``)."""
     return _logging_obj(model)
 
 
-class HostLogging(LiteLLMLogging):
-    """A stream's logging object that runs the serving ``ScriptedHost``'s callbacks where litellm's
-    stream logging runs litellm's: once with the assembled response when the stream ends, and once
+class HostLogging(HangarLLMLogging):
+    """A stream's logging object that runs the serving ``ScriptedHost``'s callbacks where hangarllm's
+    stream logging runs hangarllm's: once with the assembled response when the stream ends, and once
     per failure the stream raises (``dispatch_attempt_failure_handlers``). The host binds itself and
     the call when it returns the stream (``ScriptedHost._logs_at_stream_end``)."""
 
@@ -123,7 +123,7 @@ class _EndLogged:
     ``total_tokens`` (the usage the provider's own stream logging would assemble)."""
 
     def __init__(self, model: str, call_type: str, logged: bool, total_tokens: int) -> None:
-        self.logging_obj: Final[LiteLLMLogging | None] = _logging_obj(model, call_type, True) if logged else None
+        self.logging_obj: Final[HangarLLMLogging | None] = _logging_obj(model, call_type, True) if logged else None
         self._total_tokens: Final = total_tokens
         self._logged = False
 
@@ -374,7 +374,7 @@ class ScriptedResponsesStream(BaseResponsesAPIStreamingIterator):
         self.model = model
         self.custom_llm_provider = custom_llm_provider
         self.logging_obj = self._end.logging_obj or _logging_obj(model, "aresponses")
-        self.litellm_metadata = None
+        self.hangarllm_metadata = None
         self.responses_api_provider_config = None
         self.finished = False
         self.completed_response = completed_response

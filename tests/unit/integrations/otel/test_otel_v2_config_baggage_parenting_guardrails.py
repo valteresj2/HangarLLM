@@ -23,19 +23,19 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (  # noqa: E4
     InMemorySpanExporter,
 )
 
-from litellm.integrations.otel import LiteLLM, OpenTelemetryV2Config  # noqa: E402
-from litellm.integrations.otel.logger import OpenTelemetryV2  # noqa: E402
-from litellm.integrations.otel.model.baggage import (  # noqa: E402
+from hangarllm.integrations.otel import HangarLLM, OpenTelemetryV2Config  # noqa: E402
+from hangarllm.integrations.otel.logger import OpenTelemetryV2  # noqa: E402
+from hangarllm.integrations.otel.model.baggage import (  # noqa: E402
     BAGGAGE_PROMOTED_KEYS,
     DEFAULT_BAGGAGE_METADATA_KEYS,
 )
-from litellm.integrations.otel.model.config import excluded_db_systems_from  # noqa: E402
-from litellm.integrations.otel.model.payloads import GuardrailSpanData  # noqa: E402
-from litellm.integrations.otel.model.spans import (  # noqa: E402
-    LITELLM_PROXY_REQUEST_SPAN_NAME,
+from hangarllm.integrations.otel.model.config import excluded_db_systems_from  # noqa: E402
+from hangarllm.integrations.otel.model.payloads import GuardrailSpanData  # noqa: E402
+from hangarllm.integrations.otel.model.spans import (  # noqa: E402
+    HANGARLLM_PROXY_REQUEST_SPAN_NAME,
     SpanRole,
 )
-from litellm.integrations.otel.plumbing import providers  # noqa: E402
+from hangarllm.integrations.otel.plumbing import providers  # noqa: E402
 
 # --------------------------------------------------------------------------- #
 #  Area 1 — baggage allowlists configurable
@@ -50,16 +50,16 @@ def test_baggage_keys_default_when_unset():
 
 def test_baggage_promoted_keys_from_env_csv(monkeypatch):
     monkeypatch.setenv(
-        "LITELLM_OTEL_BAGGAGE_PROMOTED_KEYS",
-        f"{LiteLLM.TEAM_ID}, {LiteLLM.KEY_HASH}",
+        "HANGARLLM_OTEL_BAGGAGE_PROMOTED_KEYS",
+        f"{HangarLLM.TEAM_ID}, {HangarLLM.KEY_HASH}",
     )
     monkeypatch.setenv(
-        "LITELLM_OTEL_BAGGAGE_METADATA_KEYS",
+        "HANGARLLM_OTEL_BAGGAGE_METADATA_KEYS",
         "user_api_key_user_id,requester_ip_address",
     )
     cfg = OpenTelemetryV2Config()
     # Whitespace around comma-separated entries is trimmed.
-    assert cfg.baggage_promoted_keys == [LiteLLM.TEAM_ID, LiteLLM.KEY_HASH]
+    assert cfg.baggage_promoted_keys == [HangarLLM.TEAM_ID, HangarLLM.KEY_HASH]
     assert cfg.baggage_metadata_keys == [
         "user_api_key_user_id",
         "requester_ip_address",
@@ -69,26 +69,26 @@ def test_baggage_promoted_keys_from_env_csv(monkeypatch):
 def test_baggage_keys_from_config_yaml_kwargs():
     """``callback_settings.otel.*`` reaches the config through the logger kwargs."""
     logger = OpenTelemetryV2(
-        baggage_promoted_keys=[LiteLLM.TEAM_ALIAS],
+        baggage_promoted_keys=[HangarLLM.TEAM_ALIAS],
         baggage_metadata_keys=["user_api_key_alias"],
     )
-    assert logger.config.baggage_promoted_keys == [LiteLLM.TEAM_ALIAS]
+    assert logger.config.baggage_promoted_keys == [HangarLLM.TEAM_ALIAS]
     assert logger.config.baggage_metadata_keys == ["user_api_key_alias"]
 
 
 def test_baggage_processor_allowlist_uses_config_keys():
-    cfg = OpenTelemetryV2Config(exporter="in_memory", baggage_promoted_keys=[LiteLLM.TEAM_ID])
+    cfg = OpenTelemetryV2Config(exporter="in_memory", baggage_promoted_keys=[HangarLLM.TEAM_ID])
     provider, exporter = providers.in_memory_provider(cfg)
-    from litellm.integrations.otel.emitter import SpanEmitter
-    from litellm.integrations.otel.model.payloads import ServiceSpanData
-    from litellm.integrations.otel.plumbing import context as ctx_mod
+    from hangarllm.integrations.otel.emitter import SpanEmitter
+    from hangarllm.integrations.otel.model.payloads import ServiceSpanData
+    from hangarllm.integrations.otel.plumbing import context as ctx_mod
 
     engine = SpanEmitter(providers.get_tracer(provider, "t"), cfg)
-    ctx = ctx_mod.set_request_baggage({LiteLLM.TEAM_ID: "t1", LiteLLM.TEAM_ALIAS: "ta"})
+    ctx = ctx_mod.set_request_baggage({HangarLLM.TEAM_ID: "t1", HangarLLM.TEAM_ALIAS: "ta"})
     engine.emit(SpanRole.SERVICE, ServiceSpanData("redis"), ctx)
     (span,) = exporter.get_finished_spans()
-    assert span.attributes.get(LiteLLM.TEAM_ID) == "t1"
-    assert LiteLLM.TEAM_ALIAS not in span.attributes  # not in this allowlist
+    assert span.attributes.get(HangarLLM.TEAM_ID) == "t1"
+    assert HangarLLM.TEAM_ALIAS not in span.attributes  # not in this allowlist
 
 
 @pytest.mark.parametrize(
@@ -107,13 +107,13 @@ def test_excluded_services_normalize_to_db_system_names(given, expected):
 
 
 def test_excluded_services_from_env_csv(monkeypatch):
-    monkeypatch.setenv("LITELLM_OTEL_EXCLUDED_SERVICES", "redis, postgres")
+    monkeypatch.setenv("HANGARLLM_OTEL_EXCLUDED_SERVICES", "redis, postgres")
     assert OpenTelemetryV2Config().excluded_services == frozenset({"redis", "postgresql"})
 
 
 @pytest.mark.parametrize("name", ["EXCLUDED_SERVICES", "excluded_services", "Excluded_Services"])
 def test_a_bare_excluded_services_env_var_is_ignored(monkeypatch, name):
-    for env_name in ("LITELLM_OTEL_EXCLUDED_SERVICES", "EXCLUDED_SERVICES", "excluded_services", "Excluded_Services"):
+    for env_name in ("HANGARLLM_OTEL_EXCLUDED_SERVICES", "EXCLUDED_SERVICES", "excluded_services", "Excluded_Services"):
         monkeypatch.delenv(env_name, raising=False)
     monkeypatch.setenv(name, "redis,postgres")
     assert OpenTelemetryV2Config().excluded_services == frozenset()
@@ -141,7 +141,7 @@ def test_env_source_preserves_runtime_options(
         "otel_service_name",
         "OTEL_ENDPOINT",
         "OTEL_EXPORTER_OTLP_ENDPOINT",
-        "LITELLM_OTEL_EXCLUDED_SERVICES",
+        "HANGARLLM_OTEL_EXCLUDED_SERVICES",
         "EXCLUDED_SERVICES",
         "excluded_services",
         "Excluded_Services",
@@ -153,34 +153,34 @@ def test_env_source_preserves_runtime_options(
         _env_ignore_empty=env_ignore_empty,
         _env_parse_none_str=env_parse_none_str,
     )
-    assert config.service_name == "litellm"
+    assert config.service_name == "hangarllm"
     assert config.endpoint is None
     assert config.excluded_services == frozenset()
 
 
 def test_the_documented_env_var_wins_over_a_bare_excluded_services(monkeypatch):
-    for env_name in ("LITELLM_OTEL_EXCLUDED_SERVICES", "EXCLUDED_SERVICES", "excluded_services", "Excluded_Services"):
+    for env_name in ("HANGARLLM_OTEL_EXCLUDED_SERVICES", "EXCLUDED_SERVICES", "excluded_services", "Excluded_Services"):
         monkeypatch.delenv(env_name, raising=False)
     monkeypatch.setenv("EXCLUDED_SERVICES", "postgres")
-    monkeypatch.setenv("LITELLM_OTEL_EXCLUDED_SERVICES", "redis")
+    monkeypatch.setenv("HANGARLLM_OTEL_EXCLUDED_SERVICES", "redis")
     assert OpenTelemetryV2Config().excluded_services == frozenset({"redis"})
 
 
 def test_excluded_services_config_wins_over_env(monkeypatch):
-    monkeypatch.setenv("LITELLM_OTEL_EXCLUDED_SERVICES", "redis")
+    monkeypatch.setenv("HANGARLLM_OTEL_EXCLUDED_SERVICES", "redis")
     assert OpenTelemetryV2Config(excluded_services=["postgres"]).excluded_services == frozenset({"postgresql"})
 
 
 def test_excluded_services_drops_a_non_datastore_service_and_logs(caplog):
-    with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM"):
         config = OpenTelemetryV2Config(excluded_services=["auth", "redis"])
     assert config.excluded_services == frozenset({"redis"})
     assert any("'auth' is not a datastore service; ignored" in record.message for record in caplog.records)
 
 
 def test_excluded_services_env_drops_a_bad_value_and_logs(monkeypatch, caplog):
-    monkeypatch.setenv("LITELLM_OTEL_EXCLUDED_SERVICES", "auth,postgres")
-    with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+    monkeypatch.setenv("HANGARLLM_OTEL_EXCLUDED_SERVICES", "auth,postgres")
+    with caplog.at_level(logging.ERROR, logger="HangarLLM"):
         config = OpenTelemetryV2Config()
     assert config.excluded_services == frozenset({"postgresql"})
     assert any("'auth' is not a datastore service; ignored" in record.message for record in caplog.records)
@@ -199,7 +199,7 @@ def test_excluded_services_env_drops_a_bad_value_and_logs(monkeypatch, caplog):
     ],
 )
 def test_malformed_excluded_services_logs_and_still_builds_the_config(given, expected, logged, caplog):
-    with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM"):
         config = OpenTelemetryV2Config(excluded_services=given)
         resolved = excluded_db_systems_from(given)
     assert config.excluded_services == expected
@@ -229,7 +229,7 @@ def _payload():
         "completion_tokens": 1,
         "total_tokens": 2,
         "status": "success",
-        "litellm_call_id": "call_pt",
+        "hangarllm_call_id": "call_pt",
         "metadata": {},
         "hidden_params": {},
     }
@@ -238,14 +238,14 @@ def _payload():
 def test_passthrough_llm_span_parents_to_ambient_server_span():
     """Pass-through calls ``logging_obj.pre_call`` in the request task, where the
     server span is the ambient context — so the LLM-call span is opened there and
-    parents to it natively, with no ``litellm_parent_otel_span`` threading. The
+    parents to it natively, with no ``hangarllm_parent_otel_span`` threading. The
     later (possibly detached) success callback only closes the already-parented
     span, so it never becomes a separate root trace."""
     logger, exporter = _logger()
-    server = logger._emitter.start_span(SpanRole.PROXY_REQUEST, LITELLM_PROXY_REQUEST_SPAN_NAME)
+    server = logger._emitter.start_span(SpanRole.PROXY_REQUEST, HANGARLLM_PROXY_REQUEST_SPAN_NAME)
     kwargs = {
         "standard_logging_object": _payload(),
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
     }
     # pre_call runs in the request task (server span ambient); success closes it.
     with trace.use_span(server, end_on_exit=False):
@@ -266,10 +266,10 @@ def test_llm_span_unaffected_by_phase_span_active_at_close():
     successor to the old auth-failure-401 case where the LLM log nested under
     ``auth``: the span is now born after auth, parented to the request root."""
     logger, exporter = _logger()
-    server = logger._emitter.start_span(SpanRole.PROXY_REQUEST, LITELLM_PROXY_REQUEST_SPAN_NAME)
+    server = logger._emitter.start_span(SpanRole.PROXY_REQUEST, HANGARLLM_PROXY_REQUEST_SPAN_NAME)
     kwargs = {
         "standard_logging_object": _payload(),
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
     }
     with trace.use_span(server, end_on_exit=False):
         logger.log_pre_api_call(model="gpt-4o", messages=[], kwargs=kwargs)
@@ -290,7 +290,7 @@ def test_llm_span_unaffected_by_phase_span_active_at_close():
 
 
 def test_guardrail_mode_enum_normalized_to_value():
-    from litellm.types.guardrails import GuardrailEventHooks
+    from hangarllm.types.guardrails import GuardrailEventHooks
 
     d = GuardrailSpanData.from_logging_entry(
         {
@@ -304,7 +304,7 @@ def test_guardrail_mode_enum_normalized_to_value():
 
 
 def test_guardrail_mode_list_of_enums_joined():
-    from litellm.types.guardrails import GuardrailEventHooks
+    from hangarllm.types.guardrails import GuardrailEventHooks
 
     d = GuardrailSpanData.from_logging_entry(
         {
@@ -320,7 +320,7 @@ def test_guardrail_mode_list_of_enums_joined():
 
 
 def test_guardrail_typed_metadata_fields_mapped_to_span():
-    from litellm.integrations.otel.mappers.genai import GenAIMapper
+    from hangarllm.integrations.otel.mappers.genai import GenAIMapper
 
     d = GuardrailSpanData.from_logging_entry(
         {
@@ -335,9 +335,9 @@ def test_guardrail_typed_metadata_fields_mapped_to_span():
     assert d.policy_template == "EU AI Act Article 5"
     assert d.detection_method == "presidio"
     attrs = GenAIMapper().map(d)
-    assert attrs[LiteLLM.GUARDRAIL_ID] == "gd-eu-pii-001"
-    assert attrs[LiteLLM.GUARDRAIL_POLICY_TEMPLATE] == "EU AI Act Article 5"
-    assert attrs[LiteLLM.GUARDRAIL_DETECTION_METHOD] == "presidio"
+    assert attrs[HangarLLM.GUARDRAIL_ID] == "gd-eu-pii-001"
+    assert attrs[HangarLLM.GUARDRAIL_POLICY_TEMPLATE] == "EU AI Act Article 5"
+    assert attrs[HangarLLM.GUARDRAIL_DETECTION_METHOD] == "presidio"
 
 
 def test_guardrail_ignores_non_canonical_provider_keys():

@@ -1,21 +1,21 @@
-# litellm_prompts Data Source
+# hangarllm_prompts Data Source
 
-Retrieves the list of all prompts configured on the LiteLLM proxy.
+Retrieves the list of all prompts configured on the HangarLLM proxy.
 
 ## Example Usage
 
 ```hcl
-data "litellm_prompts" "all" {}
+data "hangarllm_prompts" "all" {}
 
 output "prompt_ids" {
-  value = data.litellm_prompts.all.ids
+  value = data.hangarllm_prompts.all.ids
 }
 ```
 
 ### Filter by Environment
 
 ```hcl
-data "litellm_prompts" "production" {
+data "hangarllm_prompts" "production" {
   environment = "production"
 }
 ```

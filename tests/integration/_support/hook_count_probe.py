@@ -7,13 +7,13 @@ from typing import Final
 import httpx
 from fastapi import HTTPException
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 def _record(hook: str, kwargs: Mapping[str, object]) -> bytes:
     return json.dumps(
-        {"hook": hook, "litellm_call_id": kwargs.get("litellm_call_id"), "call_type": kwargs.get("call_type")}
+        {"hook": hook, "hangarllm_call_id": kwargs.get("hangarllm_call_id"), "call_type": kwargs.get("call_type")}
     ).encode()
 
 

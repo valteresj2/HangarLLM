@@ -43,7 +43,7 @@ def wire_parts(wire: Wire) -> list[JsonValue]:
     return parts
 
 
-def vertex_model(gateway: Gateway, scenario: Scenario, url: str, **litellm_params: JsonValue) -> str:
+def vertex_model(gateway: Gateway, scenario: Scenario, url: str, **hangarllm_params: JsonValue) -> str:
     return scenario.model(
         model=f"vertex_ai/{BACKEND}",
         api_key=None,
@@ -51,7 +51,7 @@ def vertex_model(gateway: Gateway, scenario: Scenario, url: str, **litellm_param
         vertex_project=PROJECT,
         vertex_location=LOCATION,
         vertex_credentials=service_account_json(PROJECT, gateway.upstream_url),
-        **litellm_params,
+        **hangarllm_params,
     )
 
 

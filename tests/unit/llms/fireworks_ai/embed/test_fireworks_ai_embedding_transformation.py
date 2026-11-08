@@ -5,8 +5,8 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.fireworks_ai.embed.fireworks_ai_transformation import FireworksAIEmbeddingConfig
+import hangarllm
+from hangarllm.llms.fireworks_ai.embed.fireworks_ai_transformation import FireworksAIEmbeddingConfig
 
 
 def test_fireworks_nomic_embedding_supports_and_maps_dimensions():
@@ -37,7 +37,7 @@ def test_fireworks_non_nomic_embedding_drops_dimensions():
 @respx.mock
 def test_fireworks_embeddings_forwards_supported_dimensions(monkeypatch: pytest.MonkeyPatch):
     model_key: Final = "fireworks_ai/nomic-ai/nomic-embed-text-v1.5"
-    monkeypatch.setitem(litellm.model_cost, model_key, {**litellm.model_cost[model_key], "input_cost_per_token": 2.5e-08})
+    monkeypatch.setitem(hangarllm.model_cost, model_key, {**hangarllm.model_cost[model_key], "input_cost_per_token": 2.5e-08})
     route: Final = respx.post("https://fireworks.example/v1/embeddings").mock(
         return_value=httpx.Response(
             200,
@@ -50,7 +50,7 @@ def test_fireworks_embeddings_forwards_supported_dimensions(monkeypatch: pytest.
         )
     )
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="fireworks_ai/nomic-ai/nomic-embed-text-v1.5",
         input=["hello"],
         api_base="https://fireworks.example/v1",

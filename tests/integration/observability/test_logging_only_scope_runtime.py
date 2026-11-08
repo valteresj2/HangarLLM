@@ -345,30 +345,30 @@ def test_logging_only_monitor_counts_only_the_observed_direction(
             )
             with wire_server(policy) as input_guardrail, wire_server(policy) as output_guardrail:
                 config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-                config["litellm_settings"]["cache"] = False
+                config["hangarllm_settings"]["cache"] = False
                 config["guardrails"] = [
                     {
                         "guardrail_name": input_identity,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "guardrail": "generic_guardrail_api",
                             "mode": "logging_only",
                             "logging_only_scope": "input",
                             "default_on": False,
                             "api_base": input_guardrail.url,
                             "api_key": "synthetic-guardrail-key",
-                            "extra_headers": ["x-litellm-call-id"],
+                            "extra_headers": ["x-hangarllm-call-id"],
                         },
                     },
                     {
                         "guardrail_name": output_identity,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "guardrail": "generic_guardrail_api",
                             "mode": "logging_only",
                             "logging_only_scope": "output",
                             "default_on": False,
                             "api_base": output_guardrail.url,
                             "api_key": "synthetic-guardrail-key",
-                            "extra_headers": ["x-litellm-call-id"],
+                            "extra_headers": ["x-hangarllm-call-id"],
                         },
                     },
                 ]
@@ -385,7 +385,7 @@ def test_logging_only_monitor_counts_only_the_observed_direction(
                                     "model": model,
                                     "messages": [{"role": "user", "content": prompt_by_identity[identity]}],
                                 },
-                                headers={"x-litellm-call-id": f"{scenario_id}-{identity}-baseline"},
+                                headers={"x-hangarllm-call-id": f"{scenario_id}-{identity}-baseline"},
                             ),
                             candidate.request(
                                 "POST",
@@ -395,7 +395,7 @@ def test_logging_only_monitor_counts_only_the_observed_direction(
                                     "messages": [{"role": "user", "content": prompt_by_identity[identity]}],
                                     "guardrails": [identity],
                                 },
-                                headers={"x-litellm-call-id": f"{scenario_id}-{identity}"},
+                                headers={"x-hangarllm-call-id": f"{scenario_id}-{identity}"},
                             ),
                         )
                         for identity in (input_identity, output_identity)
@@ -455,7 +455,7 @@ def test_logging_only_monitor_counts_only_the_observed_direction(
                             call_summary: Final = tuple(
                                 (
                                     _direction(payload),
-                                    payload.get("litellm_call_id"),
+                                    payload.get("hangarllm_call_id"),
                                     _policy_call_id(payload),
                                     tuple(payload["texts"]),
                                 )
@@ -739,7 +739,7 @@ def test_combined_modes_preserve_blocking_and_directional_observation(
                         "POST",
                         "/v1/chat/completions",
                         {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                        headers={"x-litellm-call-id": f"{scenario_id}-baseline"},
+                        headers={"x-hangarllm-call-id": f"{scenario_id}-baseline"},
                     )
                     assert baseline.status_code == 200, baseline.text
                     assert baseline.json()["choices"][0]["message"]["content"] == reply, baseline.text
@@ -749,7 +749,7 @@ def test_combined_modes_preserve_blocking_and_directional_observation(
                         "POST",
                         "/v1/chat/completions",
                         {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                        headers={"x-litellm-call-id": call_id},
+                        headers={"x-hangarllm-call-id": call_id},
                     )
                     leg_expected_directions: Final = (
                         ("request", "request", "response")
@@ -858,7 +858,7 @@ def test_logging_only_scope_respects_guardrail_selection_level(
                         "/v1/chat/completions",
                         {"model": model, "messages": [{"role": "user", "content": prompt}]},
                         key=key,
-                        headers={"x-litellm-call-id": f"{scenario_id}-baseline"},
+                        headers={"x-hangarllm-call-id": f"{scenario_id}-baseline"},
                     )
                     assert baseline.status_code == 200, baseline.text
                     assert baseline.json()["choices"][0]["message"]["content"] == reply, baseline.text
@@ -869,7 +869,7 @@ def test_logging_only_scope_respects_guardrail_selection_level(
                         "/v1/chat/completions",
                         request_body,
                         key=key,
-                        headers={"x-litellm-call-id": call_id},
+                        headers={"x-hangarllm-call-id": call_id},
                     )
                     assert guarded.status_code == 200, guarded.text
                     assert _response_body_without_ids(JSON_OBJECT.validate_python(guarded.json())) == (
@@ -925,7 +925,7 @@ def test_X1_missing_and_null_scope_have_identical_scans(gateway: Gateway, tmp_pa
             "POST",
             "/v1/chat/completions",
             {"model": model, "messages": [{"role": "user", "content": identity}]},
-            headers={"x-litellm-call-id": f"{identity}-baseline"},
+            headers={"x-hangarllm-call-id": f"{identity}-baseline"},
         )
         assert baseline.status_code == 200, baseline.text
         baseline_body: Final = JSON_OBJECT.validate_json(baseline.content)
@@ -953,7 +953,7 @@ def test_X1_missing_and_null_scope_have_identical_scans(gateway: Gateway, tmp_pa
                             "messages": [{"role": "user", "content": identity}],
                             "guardrails": [name],
                         },
-                        headers={"x-litellm-call-id": call_id},
+                        headers={"x-hangarllm-call-id": call_id},
                     )
                     assert response.status_code == baseline.status_code, response.text
                     body: Final = JSON_OBJECT.validate_json(response.content)
@@ -998,7 +998,7 @@ def test_X3_five_identical_requests_each_receive_one_response_scan(gateway: Gate
             "POST",
             "/v1/chat/completions",
             {"model": model, "messages": [{"role": "user", "content": prompt}]},
-            headers={"x-litellm-call-id": f"{identity}-baseline"},
+            headers={"x-hangarllm-call-id": f"{identity}-baseline"},
         )
         assert baseline.status_code == 200, baseline.text
         assert len(_upstream_requests(gateway.upstream_url)) == 1
@@ -1012,7 +1012,7 @@ def test_X3_five_identical_requests_each_receive_one_response_scan(gateway: Gate
                         "POST",
                         "/v1/chat/completions",
                         {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                        headers={"x-litellm-call-id": f"{identity}-{index}"},
+                        headers={"x-hangarllm-call-id": f"{identity}-{index}"},
                     )
                     for index in range(5)
                 )
@@ -1140,7 +1140,7 @@ def test_X2_scope_patch_toggles_during_concurrent_requests_keep_one_scan_per_res
                             candidate.request(
                                 "PATCH",
                                 f"/guardrails/{guardrail_id}",
-                                {"litellm_params": {"logging_only_scope": "input" if index % 2 == 0 else "output"}},
+                                {"hangarllm_params": {"logging_only_scope": "input" if index % 2 == 0 else "output"}},
                             )
                             for index in range(10)
                         )
@@ -1209,7 +1209,7 @@ def test_S1_logging_only_output_scope_fails_open_on_policy_500(gateway: Gateway,
     upstream_handle: Final = register_scenario(scenario_id, _provider_response("chat", scenario_id, reply, False))
 
     def policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(status=500, body=b'{"error":"synthetic policy outage"}')
 
     try:
@@ -1295,7 +1295,7 @@ def test_S2_logging_only_output_scope_scans_both_chat_choices(gateway: Gateway, 
     upstream_handle: Final = register_scenario(scenario_id, provider_response)
 
     def policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(body=b'{"action":"BLOCKED","blocked_reason":"synthetic multiple choice monitor"}')
 
     try:
@@ -1309,7 +1309,7 @@ def test_S2_logging_only_output_scope_scans_both_chat_choices(gateway: Gateway, 
                 "POST",
                 "/v1/chat/completions",
                 {"model": model, "messages": [{"role": "user", "content": prompt}], "n": 2},
-                headers={"x-litellm-call-id": control_call_id},
+                headers={"x-hangarllm-call-id": control_call_id},
             )
             assert control.status_code == 200, control.text
             assert len(control.json()["choices"]) == 2, control.text
@@ -1322,7 +1322,7 @@ def test_S2_logging_only_output_scope_scans_both_chat_choices(gateway: Gateway, 
                         "POST",
                         "/v1/chat/completions",
                         {"model": model, "messages": [{"role": "user", "content": prompt}], "n": 2},
-                        headers={"x-litellm-call-id": guarded_call_id},
+                        headers={"x-hangarllm-call-id": guarded_call_id},
                     )
                     assert result.status_code == control.status_code, result.text
                     assert _response_body_without_ids(JSON_OBJECT.validate_python(result.json())) == (
@@ -1402,7 +1402,7 @@ def test_logging_only_scope_on_upstream_401_uses_measured_base_default(
     upstream_handle: Final = register_scenario(scenario_id, provider_response)
 
     def policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(body=b'{"action":"NONE"}')
 
     try:
@@ -1441,7 +1441,7 @@ def test_logging_only_scope_on_upstream_401_uses_measured_base_default(
                 json=request_body,
                 headers={
                     "Authorization": f"Bearer {gateway.key}",
-                    "x-litellm-call-id": control_call_id,
+                    "x-hangarllm-call-id": control_call_id,
                 },
                 timeout=60,
             )
@@ -1461,7 +1461,7 @@ def test_logging_only_scope_on_upstream_401_uses_measured_base_default(
                         json=request_body,
                         headers={
                             "Authorization": f"Bearer {candidate.key}",
-                            "x-litellm-call-id": candidate_call_id,
+                            "x-hangarllm-call-id": candidate_call_id,
                         },
                         timeout=60,
                     )
@@ -1503,7 +1503,7 @@ def test_S4_logging_only_input_scope_scans_every_multipart_text_part(gateway: Ga
     upstream_handle: Final = register_scenario(scenario_id, _provider_response("chat", scenario_id, reply, False))
 
     def policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(body=b'{"action":"BLOCKED","blocked_reason":"synthetic multipart monitor"}')
 
     try:
@@ -1529,7 +1529,7 @@ def test_S4_logging_only_input_scope_scans_every_multipart_text_part(gateway: Ga
                 "POST",
                 "/v1/chat/completions",
                 request_body,
-                headers={"x-litellm-call-id": control_call_id},
+                headers={"x-hangarllm-call-id": control_call_id},
             )
             assert control.status_code == 200, control.text
             assert control.json()["choices"][0]["message"]["content"] == reply, control.text
@@ -1542,7 +1542,7 @@ def test_S4_logging_only_input_scope_scans_every_multipart_text_part(gateway: Ga
                         "POST",
                         "/v1/chat/completions",
                         request_body,
-                        headers={"x-litellm-call-id": guarded_call_id},
+                        headers={"x-hangarllm-call-id": guarded_call_id},
                     )
                     assert result.status_code == control.status_code, result.text
                     assert _response_body_without_ids(JSON_OBJECT.validate_python(result.json())) == (

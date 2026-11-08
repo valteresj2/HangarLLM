@@ -55,12 +55,12 @@ TOKEN_EXCHANGE_SETTINGS: Final = {
     "client_secret": "synthetic-obo-client-secret",
 }
 
-FAILURES: Final = "litellm_deployment_failure_responses_total"
-TOTALS: Final = "litellm_deployment_total_requests_total"
-LLM_FAILED: Final = "litellm_llm_api_failed_requests_metric_total"
-STATE: Final = "litellm_deployment_state"
-PROXY_FAILED: Final = "litellm_proxy_failed_requests_metric_total"
-SUCCESSES: Final = "litellm_deployment_success_responses_total"
+FAILURES: Final = "hangarllm_deployment_failure_responses_total"
+TOTALS: Final = "hangarllm_deployment_total_requests_total"
+LLM_FAILED: Final = "hangarllm_llm_api_failed_requests_metric_total"
+STATE: Final = "hangarllm_deployment_state"
+PROXY_FAILED: Final = "hangarllm_proxy_failed_requests_metric_total"
+SUCCESSES: Final = "hangarllm_deployment_success_responses_total"
 DEPLOYMENT_SERIES: Final = (FAILURES, TOTALS, LLM_FAILED, STATE)
 
 ENDPOINT_CELLS: Final = (
@@ -97,7 +97,7 @@ GUARDRAIL_ROWS: Final = (
     "SELECT COALESCE(jsonb_path_query_first(metadata, "
     "'$.guardrail_information[*] ? (@.guardrail_name == $name).guardrail_status', "
     "jsonb_build_object('name', %s::text)) #>> '{}', 'none') AS status "
-    'FROM "LiteLLM_SpendLogs" WHERE api_key = %s AND call_type = %s'
+    'FROM "HangarLLM_SpendLogs" WHERE api_key = %s AND call_type = %s'
 )
 
 
@@ -167,7 +167,7 @@ class Provider:
 def deployment(cell: str, upstream_model: str, api_base: str) -> dict[str, JsonValue]:
     return {
         "model_name": name(cell),
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"openai/{upstream_model}",
             "api_key": f"sk-deployment-credential-{cell}",
             "api_base": api_base,
@@ -179,7 +179,7 @@ def deployment(cell: str, upstream_model: str, api_base: str) -> dict[str, JsonV
 def anthropic_deployment(cell: str, api_base: str) -> dict[str, JsonValue]:
     return {
         "model_name": name(cell),
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"anthropic/{REJECTS}",
             "api_key": f"sk-ant-api03-deployment-credential-{cell}",
             "api_base": api_base,
@@ -191,7 +191,7 @@ def anthropic_deployment(cell: str, api_base: str) -> dict[str, JsonValue]:
 def bedrock_deployment(cell: str, opt_in: dict[str, JsonValue]) -> dict[str, JsonValue]:
     return {
         "model_name": name(cell),
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"bedrock/converse/{REJECTS}",
             "aws_access_key_id": "AKIADEPLOYMENTCREDENTIAL",
             "aws_secret_access_key": f"deployment-credential-{cell}",
@@ -205,7 +205,7 @@ def bedrock_deployment(cell: str, opt_in: dict[str, JsonValue]) -> dict[str, Jso
 def keyless_anthropic_deployment(cell: str, api_base: str) -> dict[str, JsonValue]:
     return {
         "model_name": name(cell),
-        "litellm_params": {"model": f"anthropic/{REJECTS}", "api_base": api_base},
+        "hangarllm_params": {"model": f"anthropic/{REJECTS}", "api_base": api_base},
         "model_info": {"id": identity(cell)},
     }
 
@@ -213,7 +213,7 @@ def keyless_anthropic_deployment(cell: str, api_base: str) -> dict[str, JsonValu
 def azure_deployment(cell: str, api_base: str, credential: dict[str, JsonValue]) -> dict[str, JsonValue]:
     return {
         "model_name": name(cell),
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"azure/{REJECTS}",
             "api_base": api_base,
             "api_version": AZURE_API_VERSION,
@@ -228,7 +228,7 @@ def caller_credential_deployment(cell: str, field: str, api_base: str) -> dict[s
     project: Final[dict[str, JsonValue]] = {"project_id": f"project-{RUN}"} if provider == "watsonx" else {}
     return {
         "model_name": name(cell),
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"{provider}/{REJECTS}",
             "api_base": api_base,
             field: f"deployment-credential-{cell}",
@@ -240,11 +240,11 @@ def caller_credential_deployment(cell: str, field: str, api_base: str) -> dict[s
 
 def token_exchange_deployment(cell: str) -> dict[str, JsonValue]:
     settings: Final[dict[str, JsonValue]] = (
-        {"litellm_credential_name": f"m365-obo-{RUN}"} if cell.endswith("-credential") else {**TOKEN_EXCHANGE_SETTINGS}
+        {"hangarllm_credential_name": f"m365-obo-{RUN}"} if cell.endswith("-credential") else {**TOKEN_EXCHANGE_SETTINGS}
     )
     return {
         "model_name": name(cell),
-        "litellm_params": {"model": "microsoft_365_copilot/chat", **settings},
+        "hangarllm_params": {"model": "microsoft_365_copilot/chat", **settings},
         "model_info": {"id": identity(cell)},
     }
 
@@ -285,7 +285,7 @@ def config(directory: Path, upstream: Wire) -> Path:
         *(token_exchange_deployment(cell) for cell in TOKEN_EXCHANGE_CELLS),
         {
             "model_name": name("caller-api-base"),
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{REJECTS}",
                 "api_key": "sk-deployment-credential-caller-api-base",
                 "api_base": api_base,
@@ -295,19 +295,19 @@ def config(directory: Path, upstream: Wire) -> Path:
         },
         {
             "model_name": name("caller-credential"),
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "github_copilot/gpt-4o",
-                "litellm_credential_name": f"copilot-per-user-{RUN}",
+                "hangarllm_credential_name": f"copilot-per-user-{RUN}",
                 "github_copilot_auth_type": "per_user_oauth",
             },
             "model_info": {"id": identity("caller-credential")},
         },
         {
             "model_name": name("caller-credential-name"),
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{HEALTHY}",
                 "api_base": api_base,
-                "litellm_credential_name": f"deployment-key-{RUN}",
+                "hangarllm_credential_name": f"deployment-key-{RUN}",
             },
             "model_info": {"id": identity("caller-credential-name")},
         },
@@ -329,7 +329,7 @@ def config(directory: Path, upstream: Wire) -> Path:
     configuration["guardrails"] = [
         {
             "guardrail_name": AGENT_365_GUARDRAIL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "agent_365",
                 "mode": "pre_mcp_call",
                 "default_on": True,
@@ -339,8 +339,8 @@ def config(directory: Path, upstream: Wire) -> Path:
             },
         }
     ]
-    configuration["litellm_settings"]["callbacks"] = ["prometheus"]
-    configuration["litellm_settings"]["model_group_settings"] = {
+    configuration["hangarllm_settings"]["callbacks"] = ["prometheus"]
+    configuration["hangarllm_settings"]["model_group_settings"] = {
         "forward_client_headers_to_llm_api": [
             name("forwarded-provider-header"),
             name("forwarded-plain-header"),
@@ -348,7 +348,7 @@ def config(directory: Path, upstream: Wire) -> Path:
             name("forwarded-user-information"),
         ]
     }
-    configuration["litellm_settings"]["add_user_information_to_llm_headers"] = True
+    configuration["hangarllm_settings"]["add_user_information_to_llm_headers"] = True
     configuration["general_settings"]["forward_llm_provider_auth_headers"] = True
     configuration["general_settings"]["forward_openai_org_id"] = True
     configuration.setdefault("router_settings", {}).update({"num_retries": 0, "disable_cooldowns": True})
@@ -397,7 +397,7 @@ def opted_in_config(directory: Path, upstream: Wire) -> Path:
         bedrock_deployment("proxy-wide-caller-bedrock-endpoint", {}),
     ]
     configuration["general_settings"]["allow_client_side_credentials"] = True
-    configuration["litellm_settings"]["callbacks"] = ["prometheus"]
+    configuration["hangarllm_settings"]["callbacks"] = ["prometheus"]
     configuration.setdefault("router_settings", {}).update({"num_retries": 0, "disable_cooldowns": True})
     path: Final = directory / "prometheus-caller-credentials-opted-in.yaml"
     path.write_text(yaml.safe_dump(configuration))
@@ -467,7 +467,7 @@ def series_of(samples: Sequence[Sample], **labels: str) -> tuple[Sample, ...]:
     return tuple(
         sample
         for sample in samples
-        if sample.name.startswith("litellm_")
+        if sample.name.startswith("hangarllm_")
         and all(sample.labels.get(label) == value for label, value in labels.items())
     )
 
@@ -627,7 +627,7 @@ def test_a_provider_401_on_a_stored_credential_the_caller_names_leaves_a_healthy
     response: Final = rig.gateway.request(
         "POST",
         "/v1/chat/completions",
-        {"model": name(cell), "messages": messages(cell), "litellm_credential_name": f"revoked-key-{RUN}"},
+        {"model": name(cell), "messages": messages(cell), "hangarllm_credential_name": f"revoked-key-{RUN}"},
     )
     assert response.status_code == 401, response.text
     assert [request.headers["authorization"] for request in rig.upstream.drain()] == [f"Bearer {REVOKED_STORED_KEY}"]
@@ -749,7 +749,7 @@ def test_a_provider_401_on_the_deployments_own_key_counts_when_the_proxy_forward
     assert response.status_code == 401, response.text
     reached: Final = rig.upstream.drain()
     assert [
-        (request.headers["authorization"], "x-litellm-user_api_key_hash" in request.headers) for request in reached
+        (request.headers["authorization"], "x-hangarllm-user_api_key_hash" in request.headers) for request in reached
     ] == [("Bearer sk-deployment-credential-forwarded-user-information", True)]
     assert_recorded_as_a_deployment_failure(rig, "forwarded-user-information", "401")
 
@@ -825,7 +825,7 @@ def test_a_provider_401_on_an_anthropic_oauth_token_the_caller_sent_stays_out_of
             rig.gateway,
             "caller-oauth",
             CALLER_OAUTH_TOKEN,
-            {"x-litellm-api-key": key},
+            {"x-hangarllm-api-key": key},
         )
         assert response.status_code == 401, response.text
         assert [request.headers.get("authorization") for request in rig.upstream.drain()] == [
@@ -979,7 +979,7 @@ def _gated_key(scenario: Scenario, cell: str) -> str | None:
     key: Final = scenario.key(models=[name(cell)])
     if cell == "expired-key":
         write_rows(
-            "UPDATE \"LiteLLM_VerificationToken\" SET expires = now() - interval '1 hour' WHERE token = %s",
+            "UPDATE \"HangarLLM_VerificationToken\" SET expires = now() - interval '1 hour' WHERE token = %s",
             (sha256(key.encode()).hexdigest(),),
             database_url=scenario.gateway.database_url,
         )

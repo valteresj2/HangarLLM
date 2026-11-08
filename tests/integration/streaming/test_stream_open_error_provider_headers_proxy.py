@@ -159,8 +159,8 @@ def _provider_request_id(row: Mapping[str, JsonValue]) -> JsonValue:
 def _rows(call_ids: Sequence[str]) -> Sequence[Mapping[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT litellm_call_id, status, metadata FROM "LiteLLM_SpendLogs" '
-            "WHERE litellm_call_id = ANY(string_to_array(%s, %s))",
+            'SELECT hangarllm_call_id, status, metadata FROM "HangarLLM_SpendLogs" '
+            "WHERE hangarllm_call_id = ANY(string_to_array(%s, %s))",
             (",".join(call_ids), ","),
         ),
         lambda found: len(found) >= len(call_ids),
@@ -170,7 +170,7 @@ def _rows(call_ids: Sequence[str]) -> Sequence[Mapping[str, JsonValue]]:
 
 def _rows_by_call(call_ids: Sequence[str]) -> Mapping[str, Mapping[str, JsonValue]]:
     rows: Final = _rows(call_ids)
-    by_call: Final = MappingProxyType({string_value(row["litellm_call_id"]): row for row in rows})
+    by_call: Final = MappingProxyType({string_value(row["hangarllm_call_id"]): row for row in rows})
     assert len(by_call) == len(rows) == len(call_ids), rows
     return by_call
 
@@ -233,7 +233,7 @@ async def _send(client: httpx.AsyncClient, key: str, model: str, call: _Call) ->
         response.status_code,
         MappingProxyType(dict(response.headers)),
         raw.decode(),
-        response.headers["x-litellm-call-id"],
+        response.headers["x-hangarllm-call-id"],
     )
 
 
@@ -337,7 +337,7 @@ def test_openai_sdk_chat_stream_open_rate_limit_raises_with_the_provider_request
     headers: Final = raised.value.response.headers
     if (serving, "chat_stream") in _FORWARDS_PROVIDER_HEADERS:
         _assert_provider_headers_forwarded(headers, marker)
-    _assert_failure_row_names_its_provider_request(headers["x-litellm-call-id"], marker)
+    _assert_failure_row_names_its_provider_request(headers["x-hangarllm-call-id"], marker)
 
 
 @pytest.mark.parametrize("serving", _SERVINGS)
@@ -360,7 +360,7 @@ def test_anthropic_sdk_messages_stream_open_rate_limit_ends_with_a_rate_limit_er
     assert raised.value.status_code == 200, raised.value
     error: Final = object_value(JSON_OBJECT.validate_python(raised.value.body)["error"])
     assert error["type"] == "rate_limit_error", raised.value.body
-    _assert_failure_row_names_its_provider_request(raised.value.response.headers["x-litellm-call-id"], marker)
+    _assert_failure_row_names_its_provider_request(raised.value.response.headers["x-hangarllm-call-id"], marker)
 
 
 @pytest.mark.parametrize("serving", _SERVINGS)
@@ -378,7 +378,7 @@ def test_openai_sdk_responses_stream_open_rate_limit_ends_with_a_failed_response
     failed: Final = events[-1]
     assert isinstance(failed, ResponseFailedEvent), events
     assert failed.response.error is not None and failed.response.error.code == "rate_limit_exceeded", failed
-    _assert_failure_row_names_its_provider_request(raw.headers["x-litellm-call-id"], marker)
+    _assert_failure_row_names_its_provider_request(raw.headers["x-hangarllm-call-id"], marker)
 
 
 def test_router_stream_fallback_answers_from_the_healthy_deployment_after_the_stream_open_rate_limit(
@@ -455,7 +455,7 @@ def test_pass_through_stream_rate_limit_relays_the_provider_status_and_headers(r
     assert response.headers["x-request-id"] == _request_id(marker), response.headers
     assert response.headers["retry-after"] == "7", response.headers
     assert "scripted rate limit" in response.text, response.text
-    call_id: Final = response.headers["x-litellm-call-id"]
+    call_id: Final = response.headers["x-hangarllm-call-id"]
     assert _rows_by_call((call_id,))[call_id]["status"] == "failure", call_id
 
 

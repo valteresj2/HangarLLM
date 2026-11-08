@@ -8,7 +8,7 @@ from pathlib import Path
 import boto3
 import pytest
 
-from litellm.proxy.types_utils.utils import get_instance_fn
+from hangarllm.proxy.types_utils.utils import get_instance_fn
 
 _PLUGIN_SOURCE = """
 class Handler:
@@ -194,7 +194,7 @@ def test_get_instance_fn_loads_the_attribute_from_the_bucket_object_unchanged(
     plugin_bucket: _FakeS3, attribute: str, expected_type: str, expected_repr: str
 ):
     result = get_instance_fn(
-        f"s3://plugins-bucket/loggers/remote_plugin.{attribute}", config_file_path="/etc/litellm/config.yaml"
+        f"s3://plugins-bucket/loggers/remote_plugin.{attribute}", config_file_path="/etc/hangarllm/config.yaml"
     )
 
     assert (type(result).__name__, repr(result)) == (expected_type, expected_repr)
@@ -205,7 +205,7 @@ def test_get_instance_fn_runs_the_bucket_module_from_a_temporary_file_and_remove
     plugin_bucket: _FakeS3, downloads: Path
 ):
     location = get_instance_fn(
-        "s3://plugins-bucket/loggers/remote_plugin.location", config_file_path="/etc/litellm/config.yaml"
+        "s3://plugins-bucket/loggers/remote_plugin.location", config_file_path="/etc/hangarllm/config.yaml"
     )
 
     assert (Path(location).parent, Path(location).suffix) == (downloads, ".py")
@@ -217,7 +217,7 @@ def test_get_instance_fn_reports_a_name_the_bucket_module_lacks_as_a_failed_load
 
     with pytest.raises(ImportError, match=f"^{re.escape(prefix)}") as raised:
         get_instance_fn(
-            "s3://plugins-bucket/loggers/remote_plugin.missing", config_file_path="/etc/litellm/config.yaml"
+            "s3://plugins-bucket/loggers/remote_plugin.missing", config_file_path="/etc/hangarllm/config.yaml"
         )
 
     assert type(raised.value) is ImportError
@@ -242,7 +242,7 @@ def test_get_instance_fn_attributes_a_stacklevel_four_warning_from_a_bucket_plug
 ):
     with pytest.warns(DeprecationWarning, match=r"^old_handler is deprecated$") as recorded:
         result = get_instance_fn(
-            "s3://plugins-bucket/loggers/warning_plugin.old_handler", config_file_path="/etc/litellm/config.yaml"
+            "s3://plugins-bucket/loggers/warning_plugin.old_handler", config_file_path="/etc/hangarllm/config.yaml"
         )
 
     assert result == "OLD_HANDLER"

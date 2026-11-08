@@ -7,15 +7,15 @@ import pytest
 from fastapi import HTTPException
 from pydantic import JsonValue, TypeAdapter
 
-from litellm import DualCache
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.azure.text_moderation import (
+from hangarllm import DualCache
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.azure.text_moderation import (
     AzureContentSafetyTextModerationGuardrail,
 )
-from litellm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import CallTypesLiteral, Choices, Message, ModelResponse
+from hangarllm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
+from hangarllm.types.llms.openai import AllMessageValues
+from hangarllm.types.utils import CallTypesLiteral, Choices, Message, ModelResponse
 
 
 @pytest.mark.asyncio
@@ -155,7 +155,7 @@ async def test_azure_text_moderation_does_not_log_responses_prompt_above_debug(
     )
     prompt: Final = "unique benign responses prompt e5f8a2c1"
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
         with patch.object(guardrail.async_handler, "post", return_value=_moderation_response(0)):
             await guardrail.async_pre_call_hook(
                 user_api_key_dict=UserAPIKeyAuth(api_key="azure_text_moderation_api_key"),
@@ -716,7 +716,7 @@ async def test_config_without_api_version_calls_documented_azure_api_version():
     registered = handler.initialize_guardrail(
         guardrail={
             "guardrail_name": "azure-text-moderation-no-api-version",
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "azure/text_moderations",
                 "mode": "pre_call",
                 "api_key": "azure_text_moderation_api_key",
@@ -747,7 +747,7 @@ async def test_guardrail_loaded_with_stored_api_version_calls_azure_at(stored_ap
     registered = handler.initialize_guardrail(
         guardrail={
             "guardrail_name": f"azure-text-moderation-stored-{stored_api_version}",
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "azure/text_moderations",
                 "mode": "pre_call",
                 "api_key": "azure_text_moderation_api_key",

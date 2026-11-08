@@ -37,9 +37,9 @@ from integration.providers._gemini_long_decode_support import (
 )
 from pydantic import JsonValue
 
-import litellm
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.types.utils import ModelResponse
+import hangarllm
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.types.utils import ModelResponse
 
 Respond = Callable[[Request], Reply]
 
@@ -80,7 +80,7 @@ def _route(provider: Provider, wire: Wire) -> _Route:
 
 def _complete(provider: Provider, wire: Wire, stream: bool) -> Seen:
     route: Final = _route(provider, wire)
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=f"{provider}/{BACKEND}",
         messages=[{"role": "user", "content": PROMPT}],
         max_tokens=CAP,
