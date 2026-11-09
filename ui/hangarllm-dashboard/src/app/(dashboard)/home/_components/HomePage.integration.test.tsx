@@ -38,7 +38,7 @@ const post = (title: string, date: string, tags: string[] = []) => ({
   title,
   description: `${title} description`,
   date,
-  url: title === "Post one" ? "https://x/1" : `https://github.com/valteresj2/HangarLLM#readme}`,
+  url: title === "Post one" ? "https://x/1" : `https://example.test/blog/${title}`,
   tags,
 });
 
@@ -184,9 +184,9 @@ describe("HomePage", () => {
         .getAllByRole("link")
         .map((link) => link.getAttribute("href")),
     ).toEqual([
-      "https://github.com/valteresj2/HangarLLM#readme",
-      "https://github.com/valteresj2/HangarLLM#readme",
-      "https://github.com/valteresj2/HangarLLM#readme",
+      "https://example.test/blog/new",
+      "https://example.test/blog/mid",
+      "https://example.test/blog/old",
     ]);
     expect(within(section).getByText("Oct 11")).toBeInTheDocument();
     expect(within(section).queryByText("townhall")).not.toBeInTheDocument();

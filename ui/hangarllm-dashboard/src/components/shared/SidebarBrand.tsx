@@ -43,11 +43,15 @@ export function SidebarBrand({
       <div className="flex items-center justify-between gap-2 group-data-[collapsed=true]/sidebar:flex-col group-data-[collapsed=true]/sidebar:gap-1">
         <div className="flex min-w-0 items-center gap-2">
           <Link href={homeHref} onClick={onHomeClick} className="flex min-w-0 items-center" aria-label={homeLabel}>
-            {logoUrl ? (
+            {darkLogoSrc ? (
               <>
-                <img src={logoUrl} alt="HangarLLM" className={cn(LOGO_CLASS_NAME, "dark:hidden")} />
+                {logoUrl ? (
+                  <img src={logoUrl} alt="HangarLLM" className={cn(LOGO_CLASS_NAME, "dark:hidden")} />
+                ) : (
+                  <HangarLogo compact={collapsed} markClassName="size-6" className="dark:hidden" />
+                )}
                 <img
-                  src={darkLogoSrc ?? logoUrl}
+                  src={darkLogoSrc}
                   alt=""
                   aria-hidden
                   onError={() => setErroredDarkLogo(logoUrlDark)}

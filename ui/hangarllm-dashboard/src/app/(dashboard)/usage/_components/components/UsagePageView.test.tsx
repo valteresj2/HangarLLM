@@ -1490,18 +1490,18 @@ describe("UsagePage", () => {
       // Default should be the "groups" view, which feeds Model Activity from model_groups
       expect(screen.getByText("activity-source:model_groups")).toBeInTheDocument();
       expect(screen.getAllByText("Public Model Name").length).toBeGreaterThan(0);
-      expect(screen.getAllByText("Hangarllm Model Name").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("HangarLLM Model Name").length).toBeGreaterThan(0);
     });
 
-    it("should switch to Hangarllm Model Name view on toggle click", async () => {
+    it("should switch to HangarLLM Model Name view on toggle click", async () => {
       renderWithProviders(<UsagePage {...defaultProps} />);
 
       await waitFor(() => {
         expect(mockUserDailyActivityAggregatedCall).toHaveBeenCalled();
       });
 
-      // Click the "Hangarllm Model Name" toggle
-      const hangarllmToggle = screen.getAllByText("Hangarllm Model Name")[0];
+      // Click the "HangarLLM Model Name" toggle
+      const hangarllmToggle = screen.getAllByText("HangarLLM Model Name")[0];
       act(() => {
         fireEvent.click(hangarllmToggle);
       });
@@ -1520,7 +1520,7 @@ describe("UsagePage", () => {
       });
 
       // Switch to individual first
-      const hangarllmToggle = screen.getAllByText("Hangarllm Model Name")[0];
+      const hangarllmToggle = screen.getAllByText("HangarLLM Model Name")[0];
       act(() => {
         fireEvent.click(hangarllmToggle);
       });
@@ -1560,7 +1560,7 @@ describe("UsagePage", () => {
       });
 
       act(() => {
-        fireEvent.click(screen.getAllByText("Hangarllm Model Name")[0]);
+        fireEvent.click(screen.getAllByText("HangarLLM Model Name")[0]);
       });
 
       await waitFor(() => {

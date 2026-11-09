@@ -311,7 +311,7 @@ func createOrUpdateModel(d *schema.ResourceData, m interface{}, isUpdate bool) e
 	}
 
 	modelReq := ModelRequest{
-		ModelName:     d.Get("model_name").(string),
+		ModelName:       d.Get("model_name").(string),
 		HangarLLMParams: hangarllmParams,
 		ModelInfo: ModelInfo{
 			ID:          modelID,

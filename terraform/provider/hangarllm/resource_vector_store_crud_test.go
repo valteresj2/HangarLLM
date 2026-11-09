@@ -82,7 +82,7 @@ func TestVectorStoreHangarllmParamsWarnsOnSecretKeys(t *testing.T) {
 	clean := resourceHangarLLMVectorStore().Validate(terraform.NewResourceConfigRaw(map[string]interface{}{
 		"vector_store_name":   "kb",
 		"custom_llm_provider": "openai",
-		"hangarllm_params":      map[string]interface{}{"vector_store_id": "vs-123"},
+		"hangarllm_params":    map[string]interface{}{"vector_store_id": "vs-123"},
 	}))
 	if len(clean) != 0 {
 		t.Fatalf("non-secret keys must not warn, got %v", clean)

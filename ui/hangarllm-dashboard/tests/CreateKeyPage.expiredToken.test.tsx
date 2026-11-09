@@ -146,6 +146,7 @@ vi.mock("@/contexts/ThemeContext", () => {
   };
 });
 vi.mock("@/lib/cva.config", () => ({
+  cn: (...args: string[]) => args.join(" "),
   cx: (...args: string[]) => args.join(" "),
 }));
 

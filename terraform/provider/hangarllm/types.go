@@ -19,10 +19,10 @@ type ErrorResponse struct {
 
 // ModelResponse represents a response from the API containing model information.
 type ModelResponse struct {
-	ModelName     string                 `json:"model_name"`
-	HangarLLMParams HangarLLMParams          `json:"hangarllm_params"`
-	ModelInfo     ModelInfo              `json:"model_info"`
-	Additional    map[string]interface{} `json:"additional"`
+	ModelName       string                 `json:"model_name"`
+	HangarLLMParams HangarLLMParams        `json:"hangarllm_params"`
+	ModelInfo       ModelInfo              `json:"model_info"`
+	Additional      map[string]interface{} `json:"additional"`
 }
 
 // ModelInfoPatch is the body for PATCH /model/{id}/update; display_name is sent even when empty so it can be cleared.
@@ -37,10 +37,10 @@ type ModelInfoPatchFields struct {
 
 // ModelRequest represents a request to create or update a model.
 type ModelRequest struct {
-	ModelName     string                 `json:"model_name"`
+	ModelName       string                 `json:"model_name"`
 	HangarLLMParams map[string]interface{} `json:"hangarllm_params"`
-	ModelInfo     ModelInfo              `json:"model_info"`
-	Additional    map[string]interface{} `json:"additional"`
+	ModelInfo       ModelInfo              `json:"model_info"`
+	Additional      map[string]interface{} `json:"additional"`
 }
 
 type TeamInfoResponse struct {
@@ -260,26 +260,26 @@ type CredentialResponse struct {
 
 // VectorStoreRequest represents a request to create or update a vector store.
 type VectorStoreRequest struct {
-	VectorStoreID          string                 `json:"vector_store_id,omitempty"`
-	CustomLLMProvider      string                 `json:"custom_llm_provider"`
-	VectorStoreName        string                 `json:"vector_store_name"`
-	VectorStoreDescription string                 `json:"vector_store_description,omitempty"`
-	VectorStoreMetadata    map[string]interface{} `json:"vector_store_metadata,omitempty"`
-	HangarLLMCredentialName  string                 `json:"hangarllm_credential_name,omitempty"`
-	HangarLLMParams          map[string]interface{} `json:"hangarllm_params,omitempty"`
+	VectorStoreID           string                 `json:"vector_store_id,omitempty"`
+	CustomLLMProvider       string                 `json:"custom_llm_provider"`
+	VectorStoreName         string                 `json:"vector_store_name"`
+	VectorStoreDescription  string                 `json:"vector_store_description,omitempty"`
+	VectorStoreMetadata     map[string]interface{} `json:"vector_store_metadata,omitempty"`
+	HangarLLMCredentialName string                 `json:"hangarllm_credential_name,omitempty"`
+	HangarLLMParams         map[string]interface{} `json:"hangarllm_params,omitempty"`
 }
 
 // VectorStoreResponse represents a response from the API containing vector store information.
 type VectorStoreResponse struct {
-	VectorStoreID          string                 `json:"vector_store_id"`
-	CustomLLMProvider      string                 `json:"custom_llm_provider"`
-	VectorStoreName        string                 `json:"vector_store_name"`
-	VectorStoreDescription string                 `json:"vector_store_description,omitempty"`
-	VectorStoreMetadata    map[string]interface{} `json:"vector_store_metadata,omitempty"`
-	CreatedAt              string                 `json:"created_at,omitempty"`
-	UpdatedAt              string                 `json:"updated_at,omitempty"`
-	HangarLLMCredentialName  string                 `json:"hangarllm_credential_name,omitempty"`
-	HangarLLMParams          map[string]interface{} `json:"hangarllm_params,omitempty"`
+	VectorStoreID           string                 `json:"vector_store_id"`
+	CustomLLMProvider       string                 `json:"custom_llm_provider"`
+	VectorStoreName         string                 `json:"vector_store_name"`
+	VectorStoreDescription  string                 `json:"vector_store_description,omitempty"`
+	VectorStoreMetadata     map[string]interface{} `json:"vector_store_metadata,omitempty"`
+	CreatedAt               string                 `json:"created_at,omitempty"`
+	UpdatedAt               string                 `json:"updated_at,omitempty"`
+	HangarLLMCredentialName string                 `json:"hangarllm_credential_name,omitempty"`
+	HangarLLMParams         map[string]interface{} `json:"hangarllm_params,omitempty"`
 }
 
 // VectorStoreListResponse represents a response from the API containing a list of vector stores.

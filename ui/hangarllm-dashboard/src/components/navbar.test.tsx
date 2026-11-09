@@ -244,6 +244,18 @@ describe("Navbar", () => {
     },
   );
 
+  it("should show a dark only logo in dark mode and keep the Hangar logo in light mode", () => {
+    const logoUrlDark = "https://example.com/dark-logo.png";
+    mockUseThemeImpl = () => ({ logoUrl: null, logoUrlDark });
+
+    renderWithProviders(<Navbar {...defaultProps} />);
+
+    const brand = within(screen.getByRole("link", { name: /hangarllm/i }));
+    expect(brand.getByAltText("")).toHaveAttribute("src", logoUrlDark);
+    expect(brand.queryByAltText("HangarLLM")).not.toBeInTheDocument();
+    expect(brand.getByText("Hangar").parentElement).toHaveClass("dark:hidden");
+  });
+
   it("should hide user dropdown and notifications on public pages", () => {
     const publicPageProps = { ...defaultProps, isPublicPage: true };
     renderWithProviders(<Navbar {...publicPageProps} />);

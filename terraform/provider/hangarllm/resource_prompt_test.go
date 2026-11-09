@@ -59,7 +59,7 @@ func TestPromptCreate_SendsPayloadAndSetsID(t *testing.T) {
 		"prompt_id":          "p1",
 		"prompt_integration": "langfuse",
 		"api_key":            "sk-langfuse",
-		"hangarllm_params":     `{"prompt_id": "external-prompt", "prompt_directory": "/prompts"}`,
+		"hangarllm_params":   `{"prompt_id": "external-prompt", "prompt_directory": "/prompts"}`,
 		"prompt_type":        "db",
 	})
 

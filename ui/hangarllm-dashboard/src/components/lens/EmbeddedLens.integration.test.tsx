@@ -106,11 +106,11 @@ it("keeps manual installation on the unconfigured gateway landing and copies its
   expect(setup.getByRole("button", { name: /Install Lens/ })).toHaveAttribute("aria-expanded", "true");
   expect(await setup.findByRole("link", { name: "Helm setup" })).toHaveAttribute(
     "href",
-    "https://github.com/valteresj2/HangarLLM#readme",
+    expect.stringMatching(/^https:\/\/github\.com\/valteresj2\/HangarLLM#readme/),
   );
   expect(setup.getByRole("link", { name: "Docker setup" })).toHaveAttribute(
     "href",
-    "https://github.com/valteresj2/HangarLLM#readme",
+    expect.stringMatching(/^https:\/\/github\.com\/valteresj2\/HangarLLM#readme/),
   );
   expect(setup.getByRole("button", { name: "Check setup" })).toBeEnabled();
 

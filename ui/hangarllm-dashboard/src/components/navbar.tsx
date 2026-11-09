@@ -86,15 +86,19 @@ const Navbar: React.FC<NavbarProps> = ({
                       isPublicPage && "h-8 max-w-36 sm:h-10 sm:max-w-48",
                     )}
                   >
-                    {logoUrl ? (
+                    {darkImageUrl ? (
                       <>
+                        {logoUrl ? (
+                          <img
+                            src={logoUrl}
+                            alt={t("shell.navbar.logoAlt")}
+                            className={cn(NAV_LOGO_CLASS_NAME, "dark:hidden")}
+                          />
+                        ) : (
+                          <HangarLogo markClassName="size-7" className="dark:hidden" />
+                        )}
                         <img
-                          src={logoUrl}
-                          alt={t("shell.navbar.logoAlt")}
-                          className={cn(NAV_LOGO_CLASS_NAME, "dark:hidden")}
-                        />
-                        <img
-                          src={darkImageUrl ?? logoUrl}
+                          src={darkImageUrl}
                           alt=""
                           aria-hidden
                           className={cn(NAV_LOGO_CLASS_NAME, "hidden dark:block")}

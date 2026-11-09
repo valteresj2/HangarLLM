@@ -105,7 +105,7 @@ func buildGuardrailData(d *schema.ResourceData, guardrailID string) (map[string]
 	}
 
 	guardrail := map[string]interface{}{
-		"guardrail_name": d.Get("guardrail_name").(string),
+		"guardrail_name":   d.Get("guardrail_name").(string),
 		"hangarllm_params": hangarllmParams,
 	}
 

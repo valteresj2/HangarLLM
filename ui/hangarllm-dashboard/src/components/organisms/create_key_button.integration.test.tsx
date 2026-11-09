@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, renderWithProviders, screen, testQueryClient, waitFor } from "../../../tests/test-utils";
+import { act, fireEvent, renderWithProviders, screen, testQueryClient, waitFor } from "../../../tests/test-utils";
 import type { Team } from "../key_team_helpers/key_list";
 import { keyCreateCall, keyCreateServiceAccountCall, modelAvailableCall, userFilterUICall } from "../networking";
 import { toast } from "@/lib/toast";
@@ -182,13 +182,14 @@ const SECTION_PAYLOAD_ADDITIONS: Record<keyof typeof SECTIONS, Record<string, un
   logging: {},
   router: { router_settings: ROUTER_SETTINGS_DEFAULT },
   aliases: {},
-  lifecycle: {},
+  lifecycle: { duration: "30d" },
   advanced: { key: undefined, soft_budget: undefined, blocked: undefined },
 };
 
 const ALL_OPEN_PAYLOAD = {
   ...OPTIONAL_OPEN_PAYLOAD,
   ...SECTION_PAYLOAD_ADDITIONS.mcp,
+  ...SECTION_PAYLOAD_ADDITIONS.lifecycle,
   ...SECTION_PAYLOAD_ADDITIONS.agent,
   ...SECTION_PAYLOAD_ADDITIONS.router,
   ...SECTION_PAYLOAD_ADDITIONS.advanced,
@@ -431,7 +432,7 @@ describe("CreateKey", () => {
       await nameTheKey();
       await openSection(/Optional Settings/i);
       await openSection(SECTIONS.lifecycle);
-      await userEvent.type(await screen.findByLabelText("Expire Key"), "45d");
+      fireEvent.change(await screen.findByLabelText("Expire Key"), { target: { value: "45d" } });
       await submit();
 
       expect((await createdPayload()).duration).toBe("45d");
@@ -442,7 +443,7 @@ describe("CreateKey", () => {
       await nameTheKey();
       await openSection(/Optional Settings/i);
       await openSection(SECTIONS.lifecycle);
-      await userEvent.type(await screen.findByLabelText("Expire Key"), "45d");
+      fireEvent.change(await screen.findByLabelText("Expire Key"), { target: { value: "45d" } });
       await openSection(SECTIONS.lifecycle);
       await submit();
 

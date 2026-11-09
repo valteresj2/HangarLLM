@@ -35,9 +35,9 @@ type modelInfoMeta struct {
 }
 
 type modelInfoEntry struct {
-	ModelName     string          `json:"model_name"`
+	ModelName       string          `json:"model_name"`
 	HangarLLMParams modelInfoParams `json:"hangarllm_params"`
-	ModelInfo     modelInfoMeta   `json:"model_info"`
+	ModelInfo       modelInfoMeta   `json:"model_info"`
 }
 
 type modelInfoEnvelope struct {

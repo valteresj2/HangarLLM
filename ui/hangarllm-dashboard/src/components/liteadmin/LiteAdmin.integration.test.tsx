@@ -357,7 +357,7 @@ describe("Aria Agent in the gateway", () => {
 
   it.each([
     ["proxy_admin", true, "global", true],
-    ["proxy_admin", false, "global", false],
+    ["proxy_admin", false, "global", true],
     ["proxy_admin_viewer", true, "global", false],
     ["internal_user", true, "user", false],
     ["internal_user_viewer", false, "user", false],
@@ -529,7 +529,7 @@ describe("Aria Agent in the gateway", () => {
   it.each([
     ["sidebar", SidebarAccountMenu],
     ["navbar", UserDropdown],
-  ] as const)("persists Hide Aria Agent only for enterprise users in the %s account menu", async (_name, Menu) => {
+  ] as const)("persists Hide Aria Agent whatever the license claim in the %s account menu", async (_name, Menu) => {
     gateway([]);
     const user = userEvent.setup();
     const view = renderWidget(Menu, true);
@@ -559,17 +559,17 @@ describe("Aria Agent in the gateway", () => {
       session("proxy_admin", "first-admin", { premium_user: premiumUser });
       restored.refresh();
       expect(screen.getByRole("switch", { name: "Toggle hide all prompts" })).toBeInTheDocument();
-      expect(screen.queryByRole("switch", { name: "Toggle hide Aria Agent" })).not.toBeInTheDocument();
+      expect(screen.getByRole("switch", { name: "Toggle hide Aria Agent" })).toBeInTheDocument();
     }
   });
 
-  it("discards admin state and preserves scoped page access when enterprise access is lost", async () => {
+  it("discards admin state and preserves scoped page access when admin access is lost", async () => {
     const requests = gateway([answer("Your usage remains available.")]);
     const view = renderWidget();
     await openWidget();
-    fireEvent.change(screen.getByPlaceholderText("Ask Aria…"), { target: { value: "Previous enterprise draft" } });
+    fireEvent.change(screen.getByPlaceholderText("Ask Aria…"), { target: { value: "Previous admin draft" } });
     await waitFor(() => expect(view.client.isFetching()).toBe(0));
-    session("proxy_admin", "first-admin", { premium_user: false });
+    session("proxy_admin_viewer", "first-admin", { premium_user: true }, "sk-session-first-admin-viewer");
     view.refresh();
     await waitFor(() => expect(screen.getByPlaceholderText("Ask Aria…")).toBeEnabled());
     expect(screen.getByPlaceholderText("Ask Aria…")).toHaveValue("");
@@ -586,7 +586,7 @@ describe("Aria Agent in the gateway", () => {
     view.refresh();
     fireEvent.keyDown(document, { key: "j", ctrlKey: true });
     expect(await screen.findByRole("region", { name: "Aria Agent", exact: true })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Ask Aria…")).toHaveValue("");
+    expect(await screen.findByPlaceholderText("Ask Aria…")).toHaveValue("");
   });
 
   it("isolates Hide Aria Agent by admin and gateway and reacts to another tab clearing it", async () => {

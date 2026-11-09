@@ -94,7 +94,7 @@ func buildSearchToolData(d *schema.ResourceData) (map[string]interface{}, error)
 
 	searchToolData := map[string]interface{}{
 		"search_tool_name": d.Get("search_tool_name").(string),
-		"hangarllm_params":   hangarllmParams,
+		"hangarllm_params": hangarllmParams,
 	}
 
 	if raw, ok := d.GetOk("search_tool_info"); ok && raw.(string) != "" {

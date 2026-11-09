@@ -29,12 +29,12 @@ type tagBudgetTable struct {
 }
 
 type tagInfoEntry struct {
-	Name               string          `json:"name"`
-	Description        string          `json:"description"`
-	Models             []string        `json:"models"`
-	CreatedAt          string          `json:"created_at"`
-	UpdatedAt          string          `json:"updated_at"`
-	CreatedBy          string          `json:"created_by"`
+	Name                 string          `json:"name"`
+	Description          string          `json:"description"`
+	Models               []string        `json:"models"`
+	CreatedAt            string          `json:"created_at"`
+	UpdatedAt            string          `json:"updated_at"`
+	CreatedBy            string          `json:"created_by"`
 	HangarllmBudgetTable *tagBudgetTable `json:"hangarllm_budget_table"`
 }
 

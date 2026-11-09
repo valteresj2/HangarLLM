@@ -16,7 +16,7 @@ func newAgentTestResourceData(t *testing.T) *schema.ResourceData {
 	return schema.TestResourceDataRaw(t, resourceHangarLLMAgent().Schema, map[string]interface{}{
 		"agent_name":        "my-agent",
 		"agent_card_params": testAgentCardJSON,
-		"hangarllm_params":    `{"model": "gpt-5.2", "api_key": "sk-secret"}`,
+		"hangarllm_params":  `{"model": "gpt-5.2", "api_key": "sk-secret"}`,
 		"extra_headers":     []interface{}{"x-request-id"},
 		"tpm_limit":         1000,
 	})
@@ -33,13 +33,13 @@ func agentReadResponseBody() []byte {
 			"supportedInterfaces": []string{"http://proxy/a2a/agent-123"},
 		},
 		"hangarllm_params": map[string]interface{}{"model": "gpt-5.2", "api_key": "sk-1****"},
-		"extra_headers":  []string{"x-request-id"},
-		"tpm_limit":      1000,
-		"spend":          1.5,
-		"created_at":     "2026-01-01T00:00:00",
-		"updated_at":     "2026-01-02T00:00:00",
-		"created_by":     "admin",
-		"updated_by":     "admin",
+		"extra_headers":    []string{"x-request-id"},
+		"tpm_limit":        1000,
+		"spend":            1.5,
+		"created_at":       "2026-01-01T00:00:00",
+		"updated_at":       "2026-01-02T00:00:00",
+		"created_by":       "admin",
+		"updated_by":       "admin",
 	})
 	return body
 }

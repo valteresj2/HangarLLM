@@ -27,9 +27,9 @@ func modelInfoBody(displayName string) string {
 		modelInfo["display_name"] = displayName
 	}
 	body, _ := json.Marshal(map[string]interface{}{
-		"model_name":     "sonnet-4-5-anthropic",
+		"model_name":       "sonnet-4-5-anthropic",
 		"hangarllm_params": map[string]interface{}{"model": "anthropic/claude-sonnet-4-5", "custom_llm_provider": "anthropic"},
-		"model_info":     modelInfo,
+		"model_info":       modelInfo,
 	})
 	return string(body)
 }
@@ -218,9 +218,9 @@ func TestResourceHangarLLMModelChecksAdditionalDropParams(t *testing.T) {
 
 			res := resourceHangarLLMModel()
 			config := map[string]interface{}{
-				"model_name":                "vertex-claude-haiku",
-				"custom_llm_provider":       "vertex_ai",
-				"base_model":                "claude-haiku-4-5",
+				"model_name":                  "vertex-claude-haiku",
+				"custom_llm_provider":         "vertex_ai",
+				"base_model":                  "claude-haiku-4-5",
 				"additional_hangarllm_params": map[string]interface{}{"additional_drop_params": tc.dropParams},
 			}
 			if _, err := res.Diff(context.Background(), nil, terraform.NewResourceConfigRaw(config), nil); (err != nil) != tc.wantErr {
@@ -251,8 +251,8 @@ func TestResourceHangarLLMModelChecksAdditionalDropParams(t *testing.T) {
 
 func TestResourceHangarLLMModelPlanAcceptsDropParamsUnknownUntilApply(t *testing.T) {
 	config := terraform.NewResourceConfigRaw(map[string]interface{}{
-		"model_name":                "vertex-claude-haiku",
-		"custom_llm_provider":       "vertex_ai",
+		"model_name":                  "vertex-claude-haiku",
+		"custom_llm_provider":         "vertex_ai",
 		"additional_hangarllm_params": map[string]interface{}{"additional_drop_params": terraformUnknownValue},
 	})
 	if _, err := resourceHangarLLMModel().Diff(context.Background(), nil, config, nil); err != nil {
@@ -310,9 +310,9 @@ func TestResourceHangarLLMModelPlanComparesAdditionalDropParamsWithProxy(t *test
 				hangarllmParams["vertex_location"] = tc.storedLocation
 			}
 			body, _ := json.Marshal(map[string]interface{}{
-				"model_name":     "vertex-claude-haiku",
+				"model_name":       "vertex-claude-haiku",
 				"hangarllm_params": hangarllmParams,
-				"model_info":     map[string]interface{}{"id": "model-123", "db_model": true, "base_model": "claude-haiku-4-5"},
+				"model_info":       map[string]interface{}{"id": "model-123", "db_model": true, "base_model": "claude-haiku-4-5"},
 			})
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Write(body)
@@ -325,10 +325,10 @@ func TestResourceHangarLLMModelPlanComparesAdditionalDropParamsWithProxy(t *test
 				additionalParams["additional_drop_params"] = tc.configured
 			}
 			config := map[string]interface{}{
-				"model_name":                "vertex-claude-haiku",
-				"custom_llm_provider":       "vertex_ai",
-				"base_model":                "claude-haiku-4-5",
-				"tpm":                       1000,
+				"model_name":                  "vertex-claude-haiku",
+				"custom_llm_provider":         "vertex_ai",
+				"base_model":                  "claude-haiku-4-5",
+				"tpm":                         1000,
 				"additional_hangarllm_params": additionalParams,
 			}
 			if tc.configLocation != "" {

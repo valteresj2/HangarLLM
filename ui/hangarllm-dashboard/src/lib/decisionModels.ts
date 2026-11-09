@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const DECISIONS_DOCS_URL = "https://github.com/valteresj2/HangarLLM#readme";
-export const DECISIONS_PROVIDERS_DOCS_URL = `${DECISIONS_DOCS_URL}#supported-providers`;
-export const DECISIONS_SELF_HOSTED_DOCS_URL = `${DECISIONS_DOCS_URL}#self-hosted-laya-and-nimble`;
+export const DECISIONS_PROVIDERS_DOCS_URL = DECISIONS_DOCS_URL;
+export const DECISIONS_SELF_HOSTED_DOCS_URL = DECISIONS_DOCS_URL;
 export const SYSTEM_ONE_PLAYGROUND_ROUTE = "playground?tab=system-one";
 
 const DECISION_ENDPOINTS: ReadonlySet<string> = new Set(["/v1/decisions", "/v1/systemone"]);

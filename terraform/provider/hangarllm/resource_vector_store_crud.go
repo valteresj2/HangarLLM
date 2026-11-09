@@ -30,12 +30,12 @@ func resourceHangarLLMVectorStoreCreate(d *schema.ResourceData, m interface{}) e
 	}
 
 	vectorStoreRequest := VectorStoreRequest{
-		CustomLLMProvider:      customLLMProvider,
-		VectorStoreName:        vectorStoreName,
-		VectorStoreDescription: vectorStoreDescription,
-		VectorStoreMetadata:    metadataMap,
-		HangarLLMCredentialName:  hangarllmCredentialName,
-		HangarLLMParams:          paramsMap,
+		CustomLLMProvider:       customLLMProvider,
+		VectorStoreName:         vectorStoreName,
+		VectorStoreDescription:  vectorStoreDescription,
+		VectorStoreMetadata:     metadataMap,
+		HangarLLMCredentialName: hangarllmCredentialName,
+		HangarLLMParams:         paramsMap,
 	}
 
 	resp, err := MakeRequest(client, "POST", "/vector_store/new", vectorStoreRequest)

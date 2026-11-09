@@ -44,7 +44,9 @@ describe("SCIMConfig", () => {
       expect(keyCreateCall).toHaveBeenCalledWith(ACCESS_TOKEN, USER_ID, {
         key_alias: "My SCIM Token",
         team_id: null,
-        models: [],
+        models: ["no-default-models"],
+        duration: "90d",
+        max_budget: 1,
         allowed_routes: ["/scim/*"],
       });
     });
@@ -71,7 +73,9 @@ describe("SCIMConfig", () => {
       expect(keyCreateCall).toHaveBeenCalledWith(ACCESS_TOKEN, USER_ID, {
         key_alias: "Entered With Return",
         team_id: null,
-        models: [],
+        models: ["no-default-models"],
+        duration: "90d",
+        max_budget: 1,
         allowed_routes: ["/scim/*"],
       });
     });

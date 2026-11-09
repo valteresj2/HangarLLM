@@ -79,7 +79,6 @@ GET /search_tools/ui/available_providers
 GET /team/available
 GET /team/metadata_schema
 GET /team/{team_id}/members/me
-GET /user/available_users
 
 # Imperative one-shot operations: bulk edits, rotation, health probes, test hooks,
 # migrations, and approval workflows; procedural, not declarative state
@@ -101,6 +100,7 @@ POST /guardrails/submissions/{guardrail_id}/approve
 POST /guardrails/submissions/{guardrail_id}/reject
 POST /guardrails/test_custom_code
 POST /guardrails/validate_blocked_words_file
+POST /key/leak-report # called by secret scanners with a signed payload, not a managed resource
 POST /key/bulk_update
 POST /key/health
 POST /key/regenerate

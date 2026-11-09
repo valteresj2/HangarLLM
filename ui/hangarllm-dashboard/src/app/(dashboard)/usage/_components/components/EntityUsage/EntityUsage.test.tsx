@@ -870,7 +870,7 @@ describe("EntityUsage", () => {
     expect(showingCount("metrics-source:model_groups")).toBeGreaterThan(0);
 
     act(() => {
-      fireEvent.click(showingText("Hangarllm Model Name"));
+      fireEvent.click(showingText("HangarLLM Model Name"));
     });
 
     expect(showingCount("metrics-source:models")).toBeGreaterThan(0);

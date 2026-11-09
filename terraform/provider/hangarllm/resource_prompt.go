@@ -134,7 +134,7 @@ func buildPromptData(d *schema.ResourceData) (map[string]interface{}, error) {
 	}
 
 	promptData := map[string]interface{}{
-		"prompt_id":      d.Get("prompt_id").(string),
+		"prompt_id":        d.Get("prompt_id").(string),
 		"hangarllm_params": hangarllmParams,
 	}
 
@@ -146,13 +146,13 @@ func buildPromptData(d *schema.ResourceData) (map[string]interface{}, error) {
 }
 
 type promptSpecAPIResponse struct {
-	PromptID      string                 `json:"prompt_id"`
+	PromptID        string                 `json:"prompt_id"`
 	HangarllmParams map[string]interface{} `json:"hangarllm_params"`
-	PromptInfo    map[string]interface{} `json:"prompt_info"`
-	Version       int                    `json:"version"`
-	Environment   string                 `json:"environment"`
-	CreatedAt     string                 `json:"created_at"`
-	UpdatedAt     string                 `json:"updated_at"`
+	PromptInfo      map[string]interface{} `json:"prompt_info"`
+	Version         int                    `json:"version"`
+	Environment     string                 `json:"environment"`
+	CreatedAt       string                 `json:"created_at"`
+	UpdatedAt       string                 `json:"updated_at"`
 }
 
 func resourceHangarLLMPromptCreate(d *schema.ResourceData, m interface{}) error {

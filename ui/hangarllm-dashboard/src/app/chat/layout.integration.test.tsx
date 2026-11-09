@@ -81,15 +81,15 @@ describe("Chat layout product navigation", () => {
     vi.clearAllMocks();
   });
 
+  const logoSource = (path: string) => (path.startsWith("/") ? `${getProxyBaseUrl()}${path}` : path);
+
   it.each([
     ["public", [LIGHT_LOGO, DARK_LOGO], [false, false], [LIGHT_LOGO, DARK_LOGO]],
     ["local", [null, null], [true, true], ["/get_image", "/get_image?theme=dark"]],
     ["public light and local dark", [LIGHT_LOGO, null], [false, true], [LIGHT_LOGO, "/get_image?theme=dark"]],
     ["local light and public dark", [null, DARK_LOGO], [true, false], ["/get_image", DARK_LOGO]],
     ["public light only", [LIGHT_LOGO, null], [false, false], [LIGHT_LOGO, LIGHT_LOGO]],
-    ["public dark only", [null, DARK_LOGO], [false, false], ["/get_image", DARK_LOGO]],
     ["local light only", [null, null], [true, false], ["/get_image", "/get_image"]],
-    ["local dark only", [null, null], [false, true], ["/get_image", "/get_image?theme=dark"]],
   ] as const)(
     "should render %s organization logos from the theme response",
     async (
@@ -110,11 +110,34 @@ describe("Chat layout product navigation", () => {
       const logo = await screen.findByRole("link", { name: "Chat home" });
       const light = within(logo).getByAltText("HangarLLM");
       const dark = within(logo).getByAltText("");
-      const source = (path: string) => (path.startsWith("/") ? `${getProxyBaseUrl()}${path}` : path);
-      expect(light).toHaveAttribute("src", source(lightSource));
-      expect(dark).toHaveAttribute("src", source(darkSource));
+      expect(light).toHaveAttribute("src", logoSource(lightSource));
+      expect(dark).toHaveAttribute("src", logoSource(darkSource));
       expect(light).toHaveClass("dark:hidden");
       expect(dark).toHaveClass("hidden", "dark:block");
+    },
+  );
+
+  it.each([
+    ["public", [null, DARK_LOGO], [false, false], DARK_LOGO],
+    ["local", [null, null], [false, true], "/get_image?theme=dark"],
+  ] as const)(
+    "should keep the Hangar logo in light mode with a %s dark only organization logo",
+    async (_label, [logo_url, logo_url_dark], [logo_url_via_proxy, logo_url_dark_via_proxy], darkSource) => {
+      themeResponse = { values: { logo_url, logo_url_dark }, logo_url_via_proxy, logo_url_dark_via_proxy };
+      const user = userEvent.setup();
+      renderWithProviders(
+        <ChatLayout>
+          <h1>Chat content</h1>
+        </ChatLayout>,
+      );
+
+      await user.click(screen.getByRole("button", { name: "Open chat navigation" }));
+      const logo = await screen.findByRole("link", { name: "Chat home" });
+      const dark = await within(logo).findByAltText("");
+      expect(dark).toHaveAttribute("src", logoSource(darkSource));
+      expect(dark).toHaveClass("hidden", "dark:block");
+      expect(within(logo).queryByAltText("HangarLLM")).not.toBeInTheDocument();
+      expect(within(logo).getByText("Hangar").parentElement).toHaveClass("dark:hidden");
     },
   );
 
@@ -128,7 +151,9 @@ describe("Chat layout product navigation", () => {
 
     await user.click(screen.getByRole("button", { name: "Open chat navigation" }));
     expect(await screen.findByRole("dialog", { name: "HangarLLM Chat" })).toBeInTheDocument();
-    expect(screen.getByAltText("HangarLLM")).toHaveAttribute("src", `${getProxyBaseUrl()}/get_image`);
+    const logo = screen.getByRole("link", { name: "Chat home" });
+    expect(within(logo).getByText("Hangar")).toBeVisible();
+    expect(within(logo).queryByRole("img")).not.toBeInTheDocument();
   });
 
   it.each([

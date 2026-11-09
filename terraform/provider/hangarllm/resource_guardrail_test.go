@@ -47,12 +47,12 @@ func TestGuardrailCreate_SendsPayloadAndSetsID(t *testing.T) {
 
 	client := NewClient(srv.URL, "test-key", true)
 	d := newGuardrailTestData(t, map[string]interface{}{
-		"guardrail_name": "guard1",
-		"guardrail":      "bedrock",
-		"mode":           "pre_call",
-		"default_on":     true,
+		"guardrail_name":   "guard1",
+		"guardrail":        "bedrock",
+		"mode":             "pre_call",
+		"default_on":       true,
 		"hangarllm_params": `{"api_key": "sk-123", "guardrailIdentifier": "abc"}`,
-		"guardrail_info": map[string]interface{}{"description": "test guardrail"},
+		"guardrail_info":   map[string]interface{}{"description": "test guardrail"},
 	})
 
 	if err := resourceHangarLLMGuardrailCreate(d, client); err != nil {
@@ -120,9 +120,9 @@ func TestGuardrailCreate_ModeJSONArray(t *testing.T) {
 func TestGuardrailCreate_InvalidHangarllmParamsJSON(t *testing.T) {
 	client := NewClient("http://unused.invalid", "test-key", true)
 	d := newGuardrailTestData(t, map[string]interface{}{
-		"guardrail_name": "guard1",
-		"guardrail":      "bedrock",
-		"mode":           "pre_call",
+		"guardrail_name":   "guard1",
+		"guardrail":        "bedrock",
+		"mode":             "pre_call",
 		"hangarllm_params": "{not json",
 	})
 
@@ -143,9 +143,9 @@ func TestGuardrailRead_MapsFieldsAndKeepsConfiguredParams(t *testing.T) {
 
 	client := NewClient(srv.URL, "test-key", true)
 	d := newGuardrailTestData(t, map[string]interface{}{
-		"guardrail_name": "old-name",
-		"guardrail":      "bedrock",
-		"mode":           "pre_call",
+		"guardrail_name":   "old-name",
+		"guardrail":        "bedrock",
+		"mode":             "pre_call",
 		"hangarllm_params": `{"api_key": "sk-123"}`,
 	})
 	d.SetId("gid-1")

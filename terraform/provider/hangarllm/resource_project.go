@@ -27,19 +27,19 @@ type projectBudgetTable struct {
 }
 
 type projectResponse struct {
-	ProjectID          string                 `json:"project_id"`
-	ProjectAlias       string                 `json:"project_alias"`
-	Description        string                 `json:"description"`
-	TeamID             string                 `json:"team_id"`
-	BudgetID           string                 `json:"budget_id"`
-	Metadata           map[string]interface{} `json:"metadata"`
-	Models             []string               `json:"models"`
-	Spend              float64                `json:"spend"`
-	Blocked            bool                   `json:"blocked"`
-	CreatedBy          string                 `json:"created_by"`
-	UpdatedBy          string                 `json:"updated_by"`
-	CreatedAt          string                 `json:"created_at"`
-	UpdatedAt          string                 `json:"updated_at"`
+	ProjectID            string                 `json:"project_id"`
+	ProjectAlias         string                 `json:"project_alias"`
+	Description          string                 `json:"description"`
+	TeamID               string                 `json:"team_id"`
+	BudgetID             string                 `json:"budget_id"`
+	Metadata             map[string]interface{} `json:"metadata"`
+	Models               []string               `json:"models"`
+	Spend                float64                `json:"spend"`
+	Blocked              bool                   `json:"blocked"`
+	CreatedBy            string                 `json:"created_by"`
+	UpdatedBy            string                 `json:"updated_by"`
+	CreatedAt            string                 `json:"created_at"`
+	UpdatedAt            string                 `json:"updated_at"`
 	HangarllmBudgetTable *projectBudgetTable    `json:"hangarllm_budget_table"`
 }
 

@@ -15,7 +15,7 @@ func newSearchToolTestResourceData(t *testing.T) *schema.ResourceData {
 	t.Helper()
 	return schema.TestResourceDataRaw(t, resourceHangarLLMSearchTool().Schema, map[string]interface{}{
 		"search_tool_name": "my-search",
-		"hangarllm_params":   testSearchToolParamsJSON,
+		"hangarllm_params": testSearchToolParamsJSON,
 		"search_tool_info": `{"description": "Tavily search"}`,
 	})
 }
@@ -24,7 +24,7 @@ func searchToolReadResponseBody() []byte {
 	body, _ := json.Marshal(map[string]interface{}{
 		"search_tool_id":   "st-123",
 		"search_tool_name": "my-search",
-		"hangarllm_params":   map[string]interface{}{"search_provider": "tavily", "api_key": "sk-s****"},
+		"hangarllm_params": map[string]interface{}{"search_provider": "tavily", "api_key": "sk-s****"},
 		"search_tool_info": map[string]interface{}{"description": "Tavily search"},
 		"created_at":       "2026-01-01T00:00:00",
 		"updated_at":       "2026-01-02T00:00:00",
@@ -88,7 +88,7 @@ func TestResourceHangarLLMSearchToolCreate(t *testing.T) {
 func TestResourceHangarLLMSearchToolCreateInvalidParamsJSON(t *testing.T) {
 	d := schema.TestResourceDataRaw(t, resourceHangarLLMSearchTool().Schema, map[string]interface{}{
 		"search_tool_name": "my-search",
-		"hangarllm_params":   "not-json",
+		"hangarllm_params": "not-json",
 	})
 	client := NewClient("http://unused.invalid", "test-key", true)
 

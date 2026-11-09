@@ -29,7 +29,7 @@ describe("deploymentWarningContent", () => {
   it.each(["env_credential_login", "no_redis", "detailed_debug", "license_expiry:2026-10-20"])(
     "should link %s to the HangarLLM docs",
     (warningId) => {
-      expect(deploymentWarningContent(warningId, NOW).docsUrl).toMatch(/^https:\/\/docs\.hangarllm\.ai\/docs\//);
+      expect(deploymentWarningContent(warningId, NOW).docsUrl).toBe("https://github.com/valteresj2/HangarLLM#readme");
     },
   );
 

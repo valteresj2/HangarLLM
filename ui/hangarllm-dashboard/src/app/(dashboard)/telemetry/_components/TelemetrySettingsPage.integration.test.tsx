@@ -74,7 +74,7 @@ describe("TelemetrySettingsPage", () => {
 
   it.each([
     [false, "Telemetry is an enterprise-only feature"],
-    [true, "Contact your enterprise representative"],
+    [true, "Telemetry stays in your hangar"],
   ])("never turns telemetry on from the top switch (enterprise: %s)", async (premiumUser, title) => {
     auth.premiumUser = premiumUser;
     vi.spyOn(backgroundFetchClient, "GET").mockResolvedValue({ data: OFF, response: new Response() } as never);
