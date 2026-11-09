@@ -120,7 +120,10 @@ mod tests {
             "mode": null
         }));
 
-        assert_eq!(wire.attributes.hangarllm_provider.as_deref(), Some("openai"));
+        assert_eq!(
+            wire.attributes.hangarllm_provider.as_deref(),
+            Some("openai")
+        );
         assert_eq!(wire.attributes.max_tokens, Some(8192));
         assert_eq!(wire.attributes.mode, None);
         assert_eq!(

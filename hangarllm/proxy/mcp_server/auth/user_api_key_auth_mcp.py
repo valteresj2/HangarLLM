@@ -19,10 +19,9 @@ from starlette.types import Scope
 from typing_extensions import assert_never
 
 import hangarllm
-from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_logger
-from hangarllm.constants import MCP_ALL_TOOLS_WILDCARD, MCP_PEEKED_BODY_SCOPE_KEY
+from hangarllm.constants import MCP_ALL_TOOLS_WILDCARD, MCP_PEEKED_BODY_SCOPE_KEY, VIRTUAL_KEY_PREFIXES
 from hangarllm.mcp_client.client import strip_auth_scheme
 from hangarllm.proxy._types import (
     UI_TEAM_ID,
@@ -272,6 +271,7 @@ async def _bearer_is_hangarllm_credential(token: str) -> bool:
     (dashboard sessions, BYOK sessions), a sealed gateway bearer, or a virtual key the key table holds (a
     lookup fault counts as held). Only ``sk-`` tokens are looked up, because no other token can be a
     virtual key."""
+    from hangarllm.hangar.proxy.ui_session import session_secret  # noqa: PLC0415  # reads the salt key
     from hangarllm.proxy.mcp_server.bridge_token_flow import (  # noqa: PLC0415  # bridge flow imports this module
         is_sealed_gateway_bearer,
         virtual_key_may_exist,
@@ -279,7 +279,6 @@ async def _bearer_is_hangarllm_credential(token: str) -> bool:
     from hangarllm.proxy.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # manager imports this module
         HANGARLLM_VIRTUAL_KEY_PREFIX,
     )
-    from hangarllm.hangar.proxy.ui_session import session_secret  # noqa: PLC0415  # reads the salt key
     from hangarllm.proxy.proxy_server import master_key  # noqa: PLC0415  # startup owns the master key
 
     if master_key and (

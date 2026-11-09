@@ -1,5 +1,5 @@
-use hyper_util::client::proxy::matcher::Matcher;
 use hangarllm_core_utils::settings::Lookup;
+use hyper_util::client::proxy::matcher::Matcher;
 use veil::Redact;
 
 #[derive(Clone, Redact, Default, PartialEq, Eq, Hash)]

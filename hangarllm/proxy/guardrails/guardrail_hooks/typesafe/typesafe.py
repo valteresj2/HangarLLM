@@ -20,11 +20,11 @@ from pydantic import ConfigDict, Field, TypeAdapter, ValidationError
 
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.compression.compress import get_protected_indices
+from hangarllm.hangarllm_core_utils.prompt_templates.factory import group_tool_exchanges
 from hangarllm.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,  # pyright: ignore[reportUnknownVariableType]  # decorator is untyped in custom_guardrail
 )
-from hangarllm.hangarllm_core_utils.prompt_templates.factory import group_tool_exchanges
 from hangarllm.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]  # helper is untyped in http_handler

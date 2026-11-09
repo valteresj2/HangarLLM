@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, Final, TypeAlias, cast  # noqa: TID251  # tool
 import httpx
 
 import hangarllm
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.core_helpers import normalize_drop_params
 from hangarllm.hangarllm_core_utils.model_latest_aliases import is_model_latest_alias
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.rust_bridge.catalog import Feature
 from hangarllm.rust_bridge.public_call import NativeCall, optional_mapping, optional_sequence, optional_str
 

@@ -24,7 +24,7 @@ tests:
       - equal:
           path: spec.template.metadata.labels
           value:
-            app.kubernetes.io/name: hangarllm
+            app.kubernetes.io/name: hangarllm-components
             app.kubernetes.io/instance: RELEASE-NAME
             app.kubernetes.io/component: gateway
 
@@ -71,7 +71,7 @@ tests:
       - equal:
           path: spec.template.metadata.labels
           value:
-            app.kubernetes.io/name: hangarllm
+            app.kubernetes.io/name: hangarllm-components
             app.kubernetes.io/instance: RELEASE-NAME
             app.kubernetes.io/component: gateway
             egress-policy: restricted
@@ -79,7 +79,7 @@ tests:
       - equal:
           path: spec.selector.matchLabels
           value:
-            app.kubernetes.io/name: hangarllm
+            app.kubernetes.io/name: hangarllm-components
             app.kubernetes.io/instance: RELEASE-NAME
             app.kubernetes.io/component: gateway
 

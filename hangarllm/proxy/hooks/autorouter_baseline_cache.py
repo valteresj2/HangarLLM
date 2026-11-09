@@ -15,9 +15,9 @@ from pydantic import ConfigDict, Field, JsonValue, TypeAdapter
 
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.core_helpers import get_metadata_variable_name_from_kwargs
 from hangarllm.hangarllm_core_utils.logging_worker import optional_callback_budget
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.llms.anthropic.prompt_cache_prediction import (
     CountedPromptCachePlan,
     NativePredictionTarget,

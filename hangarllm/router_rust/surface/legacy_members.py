@@ -25,13 +25,13 @@ from typing_extensions import NotRequired, ReadOnly, TypedDict
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_router_logger
 from hangarllm.constants import ROUTER_USAGE_COUNTED_TOKENS_METADATA_KEY
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.add_retry_fallback_headers import response_total_token_count
 from hangarllm.hangarllm_core_utils.batch_utils import is_batch_retrieve_call_type
 from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping, get_parent_otel_span_from_kwargs
 from hangarllm.hangarllm_core_utils.coroutine_checker import coroutine_checker
 from hangarllm.hangarllm_core_utils.routing_groups import validate_routing_strategy
 from hangarllm.hangarllm_core_utils.token_counter import served_openai_models as _served_openai_models
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.redis.stores.router_cooldowns import ROUTER_COOLDOWNS_TARGET
 from hangarllm.redis.stores.router_usage import ROUTER_USAGE_TARGET, RouterUsage, UsageCounter
 from hangarllm.router_api import RoutingContext

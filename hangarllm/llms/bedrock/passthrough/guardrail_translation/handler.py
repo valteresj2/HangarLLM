@@ -51,8 +51,8 @@ from hangarllm.proxy.guardrails.auto_router_compression import is_compression_gu
 from hangarllm.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from hangarllm.integrations.custom_guardrail import CustomGuardrail, ModifyResponseException
     from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+    from hangarllm.integrations.custom_guardrail import CustomGuardrail, ModifyResponseException
     from hangarllm.llms.pass_through.guardrail_translation.handler import (
         PassThroughEndpointHandler,
     )

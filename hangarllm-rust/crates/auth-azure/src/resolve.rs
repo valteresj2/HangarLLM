@@ -707,10 +707,9 @@ mod tests {
                         expires_on: None,
                     })
                 } else {
-                    let error =
-                        Error::CredentialAcquisition(hangarllm_auth_types::ErrorDetail::Unresolved {
-                            subject: kind,
-                        });
+                    let error = Error::CredentialAcquisition(
+                        hangarllm_auth_types::ErrorDetail::Unresolved { subject: kind },
+                    );
                     if self.terminal_on == Some(kind) {
                         CredentialAttempt::Failed(error)
                     } else {
@@ -1171,9 +1170,9 @@ mod tests {
     fn caller_inputs(token: &'static str) -> AzureAuthInputs {
         let params = json!({"azure_ad_token": "static-token"});
         AzureAuthInputs {
-            azure_ad_token_provider: Some(hangarllm_auth_types::TokenProviderHandle::new(Arc::new(
-                CallerToken(token),
-            ))),
+            azure_ad_token_provider: Some(hangarllm_auth_types::TokenProviderHandle::new(
+                Arc::new(CallerToken(token)),
+            )),
             ..AzureAuthInputs::from_optional_params(params.as_object().unwrap()).unwrap()
         }
     }

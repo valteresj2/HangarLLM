@@ -35,6 +35,9 @@ from hangarllm.types.proxy.guardrails.guardrail_hooks.enkryptai import (
 from hangarllm.types.proxy.guardrails.guardrail_hooks.grayswan import (
     GraySwanGuardrailConfigModel,
 )
+from hangarllm.types.proxy.guardrails.guardrail_hooks.hangarllm_content_filter import (
+    ContentFilterCategoryConfig,
+)
 from hangarllm.types.proxy.guardrails.guardrail_hooks.headroom import (
     HeadroomGuardrailConfigModel,
 )
@@ -43,9 +46,6 @@ from hangarllm.types.proxy.guardrails.guardrail_hooks.hiddenlayer import (
 )
 from hangarllm.types.proxy.guardrails.guardrail_hooks.ibm import (
     IBMGuardrailsBaseConfigModel,
-)
-from hangarllm.types.proxy.guardrails.guardrail_hooks.hangarllm_content_filter import (
-    ContentFilterCategoryConfig,
 )
 from hangarllm.types.proxy.guardrails.guardrail_hooks.ovalix import (
     OvalixGuardrailConfigModel,

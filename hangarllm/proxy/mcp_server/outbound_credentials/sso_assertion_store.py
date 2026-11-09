@@ -317,7 +317,9 @@ async def ema_assertion_retention_enabled() -> bool:
 async def persist_sso_identity_assertion(
     user_id: str, assertion: SSOIdentityAssertion, cache: SSOAssertionCache = _ASSERTION_CACHE
 ) -> None:
-    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper  # noqa: PLC0415  # runtime global
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import (
+        encrypt_value_helper,  # noqa: PLC0415  # runtime global
+    )
     from hangarllm.proxy.proxy_server import prisma_client  # noqa: PLC0415  # runtime global
 
     if prisma_client is None:
@@ -361,7 +363,9 @@ async def persist_sso_identity_assertion(
 
 
 async def _read_assertion_from_db(user_id: str) -> SSOIdentityAssertion | None:
-    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_value_helper  # noqa: PLC0415  # runtime global
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import (
+        decrypt_value_helper,  # noqa: PLC0415  # runtime global
+    )
     from hangarllm.proxy.proxy_server import prisma_client  # noqa: PLC0415  # runtime global
 
     if prisma_client is None:

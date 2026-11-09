@@ -13,8 +13,8 @@ from typing import Final
 
 import hangarllm
 from hangarllm._logging import verbose_logger
-from hangarllm.integrations.otel.model.destination import OtelDestination
 from hangarllm.hangarllm_core_utils.url_utils import is_url_destination_allowed_by_host
+from hangarllm.integrations.otel.model.destination import OtelDestination
 from hangarllm.types.utils import OtelSpanScope, StandardCallbackDynamicParams
 
 #: An endpoint plus the OTLP transport to reach it with, or ``None`` when the backend

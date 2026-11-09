@@ -12,6 +12,9 @@ from pydantic import TypeAdapter
 import hangarllm
 from hangarllm._logging import verbose_logger
 from hangarllm.constants import REDACTED_BY_HANGARLLM
+from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping
+from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
+from hangarllm.hangarllm_core_utils.safe_json_loads import safe_json_loads
 from hangarllm.integrations._types.open_inference import ErrorAttributes
 from hangarllm.integrations.arize import _utils
 from hangarllm.integrations.langfuse.langfuse_otel_attributes import (
@@ -19,14 +22,11 @@ from hangarllm.integrations.langfuse.langfuse_otel_attributes import (
     serialize_langfuse_datetime,
 )
 from hangarllm.integrations.opentelemetry import (
-    HTTP_RESPONSE_STATUS_CODE_ATTRIBUTE,
     HANGARLLM_PROXY_REQUEST_SPAN_NAME,
+    HTTP_RESPONSE_STATUS_CODE_ATTRIBUTE,
     OpenTelemetry,
     OpenTelemetryConfig,
 )
-from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping
-from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
-from hangarllm.hangarllm_core_utils.safe_json_loads import safe_json_loads
 from hangarllm.llms.anthropic.common_utils import tool_calls_with_server_tool_calls
 from hangarllm.secret_managers.main import str_to_bool
 from hangarllm.types.integrations.langfuse_otel import (
@@ -295,8 +295,8 @@ class LangfuseOtelLogger(OpenTelemetry):
         values (lists/dicts) are serialised to JSON strings for OTEL
         compatibility.
         """
-        from hangarllm.integrations.arize._utils import safe_set_attribute
         from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
+        from hangarllm.integrations.arize._utils import safe_set_attribute
 
         dynamic_params: Final = as_str_mapping(kwargs.get("standard_callback_dynamic_params"))
         langfuse_environment: Final = (

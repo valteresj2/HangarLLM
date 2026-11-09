@@ -5,7 +5,12 @@ import hashlib
 from typing import TYPE_CHECKING, Final
 
 from hangarllm.hangar.skill_sync.apply import ExistingSkill
-from hangarllm.models.plugin_upload import PluginPublication, PluginPublicationBase, PluginPublicationError, PluginReview
+from hangarllm.models.plugin_upload import (
+    PluginPublication,
+    PluginPublicationBase,
+    PluginPublicationError,
+    PluginReview,
+)
 from hangarllm.proxy.anthropic_endpoints.claude_code_endpoints.skill_upload_archive import build_uploaded_skill_archive
 from hangarllm.proxy.discovery_endpoints.agent_skills_archive import SkillArchive, build_agent_skill_archive
 from hangarllm.repositories.plugin_upload_repository import PluginUploadRepository

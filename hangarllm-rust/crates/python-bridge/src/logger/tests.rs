@@ -198,7 +198,9 @@ fn native_events_reach_python_with_levels_context_reentry_and_http_deduplication
             .is_truthy()
             .unwrap();
         if !importable {
-            eprintln!("SKIP: hangarllm package dependencies are not importable in this interpreter");
+            eprintln!(
+                "SKIP: hangarllm package dependencies are not importable in this interpreter"
+            );
             return;
         }
         py.run(c"

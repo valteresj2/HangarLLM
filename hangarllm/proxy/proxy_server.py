@@ -68,7 +68,6 @@ from pydantic.main import IncEx
 from pydantic_core import PydanticSerializationError, to_jsonable_python
 from typing_extensions import NotRequired, ReadOnly, TypedDict, assert_never
 
-from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._uuid import uuid
 from hangarllm.constants import (
     AIOHTTP_CONNECTOR_LIMIT,
@@ -86,14 +85,15 @@ from hangarllm.constants import (
     DEFAULT_SHARED_HEALTH_CHECK_TTL,
     DEFAULT_SLACK_ALERTING_THRESHOLD,
     GRACEFUL_SHUTDOWN_TEARDOWN_HEADROOM_SECONDS,
-    INTERNAL_CALLBACK_NAMES,
-    LANGFUSE_SHUTDOWN_FLUSH_TIMEOUT_MILLIS,
     HANGARLLM_EMBEDDING_PROVIDERS_SUPPORTING_INPUT_ARRAY_OF_TOKENS,
     HANGARLLM_SETTINGS_SAFE_DB_OVERRIDES,
     HANGARLLM_UI_ALLOW_HEADERS,
     HANGARLLM_UI_SESSION_DURATION,
+    INTERNAL_CALLBACK_NAMES,
+    LANGFUSE_SHUTDOWN_FLUSH_TIMEOUT_MILLIS,
     OPENAI_LIVE_SESSION_START_TIMEOUT_SECONDS,
     RUNTIME_UPDATABLE_ROUTER_SETTINGS,
+    VIRTUAL_KEY_PREFIXES,
     VLLM_CHOICE_FIELDS,
 )
 from hangarllm.hangarllm_core_utils.access_windows import access_windows_config_error
@@ -145,11 +145,6 @@ from hangarllm.proxy._types import (
     CoordinationRedisParams,
     EnterpriseLicenseData,
     FieldDetail,
-    InvitationClaim,
-    InvitationDelete,
-    InvitationModel,
-    InvitationNew,
-    InvitationUpdate,
     HangarLLM_EndUserTable,
     Hangarllm_EntityType,
     HangarLLM_JWTAuth,
@@ -158,6 +153,11 @@ from hangarllm.proxy._types import (
     HangarLLM_TeamTableCachedObj,
     HangarLLM_UserTable,
     HangarllmUserRoles,
+    InvitationClaim,
+    InvitationDelete,
+    InvitationModel,
+    InvitationNew,
+    InvitationUpdate,
     PassThroughGenericEndpoint,
     ProxyErrorTypes,
     ProxyException,
@@ -188,7 +188,10 @@ from hangarllm.proxy.common_utils.token_count_settings import (
     cost_map_entry,
     resolve_token_count_settings,
 )
-from hangarllm.proxy.management_helpers.auto_router_availability import AutoRouterCatalogEntry, build_auto_router_catalog
+from hangarllm.proxy.management_helpers.auto_router_availability import (
+    AutoRouterCatalogEntry,
+    build_auto_router_catalog,
+)
 from hangarllm.proxy.management_helpers.model_group_custom_fields import model_group_custom_fields
 from hangarllm.proxy.management_helpers.utils import management_endpoint_span_wrapper
 from hangarllm.repositories import database as database_runtime
@@ -374,9 +377,6 @@ from hangarllm.constants import (
     WEEKLY_SPEND_REPORT_JOB_ID,
 )
 from hangarllm.exceptions import RejectedRequestError
-from hangarllm.integrations.custom_guardrail import CustomGuardrail, ModifyResponseException
-from hangarllm.integrations.custom_logger import CustomLogger
-from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
 from hangarllm.hangarllm_core_utils.agentic_loop_settings import (
     validated_max_agentic_loops,
 )
@@ -407,6 +407,9 @@ from hangarllm.hangarllm_core_utils.sensitive_data_masker import (
     mask_sensitive_keys,
 )
 from hangarllm.hangarllm_core_utils.stream_usage_chunks import is_injected_stream_usage_artifact
+from hangarllm.integrations.custom_guardrail import CustomGuardrail, ModifyResponseException
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
 from hangarllm.llms.anthropic.messages.context_management.inference_view import (
     InferenceRequestView,
     InferenceRequestViewError,
@@ -580,8 +583,8 @@ from hangarllm.proxy.common_utils.openai_error_payload import (
     HANGARLLM_CALL_ID_HEADER,
     attribute_of,
     error_status_code,
-    headers_with_hangarllm_call_id,
     hangarllm_call_id_headers,
+    headers_with_hangarllm_call_id,
     openai_error_param,
     openai_error_type,
     proxy_exception_for,
@@ -698,6 +701,12 @@ from hangarllm.proxy.guardrails.init_guardrails import (
     init_guardrails_v2,
     initialize_guardrails,
 )
+from hangarllm.proxy.hangarllm_pre_call_utils import (
+    SCHEDULER_PRIORITY_HEADER,
+    HangarLLMProxyRequestSetup,
+    add_hangarllm_data_to_request,
+    sanitize_for_log,
+)
 from hangarllm.proxy.health_check import (
     filter_deployments_to_model_groups,
     health_check_filter_kwargs_from_general_settings,
@@ -727,12 +736,6 @@ from hangarllm.proxy.list_api.common import (
     ManagementProblem,
     problem_response,
     request_validation_problem,
-)
-from hangarllm.proxy.hangarllm_pre_call_utils import (
-    SCHEDULER_PRIORITY_HEADER,
-    HangarLLMProxyRequestSetup,
-    add_hangarllm_data_to_request,
-    sanitize_for_log,
 )
 from hangarllm.proxy.logging_endpoints.callback_logs_endpoints import (
     rust_control_plane_router,
@@ -1043,12 +1046,12 @@ from hangarllm.proxy.utils import (  # noqa: F401, RUF100  # legacy module expor
     get_redoc_url,
     get_server_root_path,
     handle_exception_on_proxy,
+    hangarllm_config_cache,
     hash_password,
     hash_token,
     invalidate_config_param,
     is_projected_spend_over_limit,  # pyright: ignore[reportUnusedImport]  # backwards-compatible package export
     is_valid_team_configs,
-    hangarllm_config_cache,
     migrate_passwords_to_scrypt_async,
     model_dump_with_preserved_fields,
     prefetch_config_params,
@@ -1080,8 +1083,8 @@ from hangarllm.secret_managers.main import (
     str_to_bool,
 )
 from hangarllm.tracing.config import is_lens_tracing_enabled
-from hangarllm.types.integrations.slack_alerting import AlertType, SlackAlertingArgs
 from hangarllm.types.hangarllm_params import STREAM_USAGE_INJECTED_FIELD
+from hangarllm.types.integrations.slack_alerting import AlertType, SlackAlertingArgs
 from hangarllm.types.llms.anthropic import (
     AnthropicMessagesRequest,
     AnthropicResponse,
@@ -1187,9 +1190,9 @@ from fastapi.staticfiles import StaticFiles
 from hangarllm.hangar.guardrails.secret_detection import install_default_secret_guardrail
 from hangarllm.hangar.proxy.envelope import install_salt_key_from_kms
 from hangarllm.hangar.proxy.proxy_config import HangarProxyConfig
+from hangarllm.hangar.proxy.routes import router as _hangar_router
 from hangarllm.hangar.proxy.secret_separation import enforce_secret_separation
 from hangarllm.hangar.proxy.ui_session import UiSessionMiddleware, browser_session_token
-from hangarllm.hangar.proxy.routes import router as _hangar_router
 
 enterprise_router = _hangar_router  # name kept for code that imports it
 hangar_router = _hangar_router
@@ -1815,11 +1818,11 @@ async def _proxy_lifespan(app: FastAPI, resources: AsyncExitStack) -> AsyncGener
         if is_otel_v2_enabled():
             from opentelemetry import trace as _otel_trace
 
+            from hangarllm.hangarllm_core_utils.hangarllm_logging import _in_memory_loggers
             from hangarllm.integrations.otel.logger import (
                 OpenTelemetryV2,
                 publish_global_otel_v2_provider,
             )
-            from hangarllm.hangarllm_core_utils.hangarllm_logging import _in_memory_loggers
 
             registered: Final = open_telemetry_logger if isinstance(open_telemetry_logger, OpenTelemetryV2) else None
             publish_global_otel_v2_provider(
@@ -7171,10 +7174,10 @@ class ProxyConfig:
                     if key == "request_timeout":
                         hangarllm.request_timeout_explicitly_set = True
                     if key in {"s3_audit_callback_params", "s3_callback_params"}:
-                        from hangarllm.integrations.s3_v2 import S3Logger as S3V2Logger
                         from hangarllm.hangarllm_core_utils.hangarllm_logging import (
                             _in_memory_loggers,
                         )
+                        from hangarllm.integrations.s3_v2 import S3Logger as S3V2Logger
                         from hangarllm.proxy.management_helpers.audit_logs import (
                             reset_audit_log_callback_cache,
                         )

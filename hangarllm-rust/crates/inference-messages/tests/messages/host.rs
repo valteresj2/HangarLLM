@@ -78,8 +78,10 @@ impl hangarllm_host::lifecycle::CallObserver for RecordingHost {
         self.events.sender.emit(event);
     }
 }
-impl hangarllm_host::interceptors::Interceptors<<Messages as hangarllm_host::protocol::Protocol>::Error>
-    for RecordingHost
+impl
+    hangarllm_host::interceptors::Interceptors<
+        <Messages as hangarllm_host::protocol::Protocol>::Error,
+    > for RecordingHost
 {
     async fn result_ready(&self, facts: ExecutionFacts) -> Result<(), Error> {
         self.facts.lock().unwrap().push(facts);

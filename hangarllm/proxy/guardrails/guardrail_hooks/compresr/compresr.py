@@ -33,15 +33,15 @@ from pydantic import TypeAdapter
 import hangarllm
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.constants import PRE_CALL_EXECUTED_GUARDRAILS_KEY
-from hangarllm.integrations.custom_guardrail import (
-    CustomGuardrail,
-    log_guardrail_information,
-)
 from hangarllm.hangarllm_core_utils.core_helpers import require_attributes
 from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
     get_attribute_or_key,
     get_tool_calls_from_response,
     has_tool_with_name,
+)
+from hangarllm.integrations.custom_guardrail import (
+    CustomGuardrail,
+    log_guardrail_information,
 )
 from hangarllm.llms.custom_httpx.http_handler import (
     get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]  # helper is untyped in http_handler

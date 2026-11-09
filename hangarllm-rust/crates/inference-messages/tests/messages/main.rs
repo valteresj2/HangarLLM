@@ -159,8 +159,10 @@ impl LocalMessagesHost {
 impl hangarllm_host::lifecycle::CallObserver for LocalMessagesHost {
     fn observe(&self, _: hangarllm_host::lifecycle::CallEvent) {}
 }
-impl hangarllm_host::interceptors::Interceptors<<Messages as hangarllm_host::protocol::Protocol>::Error>
-    for LocalMessagesHost
+impl
+    hangarllm_host::interceptors::Interceptors<
+        <Messages as hangarllm_host::protocol::Protocol>::Error,
+    > for LocalMessagesHost
 {
     async fn before_provider_request(
         &self,

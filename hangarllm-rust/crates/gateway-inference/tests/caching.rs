@@ -69,7 +69,11 @@ async fn all_inference_endpoints_share_native_cache(
     let first = to_bytes(first.into_body(), 4096).await.unwrap();
     let second = support::post(app.clone(), path, request.clone()).await;
     assert_eq!(second.status(), 200);
-    let cache_key = second.headers().get("x-hangarllm-cache-key").unwrap().clone();
+    let cache_key = second
+        .headers()
+        .get("x-hangarllm-cache-key")
+        .unwrap()
+        .clone();
     assert!(!cache_key.as_bytes().is_empty());
     let stored = cache
         .lookup(

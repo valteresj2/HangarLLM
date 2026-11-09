@@ -22,9 +22,9 @@ from websockets.exceptions import ConnectionClosed
 from hangarllm import DualCache
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm._version import version as hangarllm_version
-from hangarllm.integrations.custom_guardrail import CustomGuardrail
 from hangarllm.hangarllm_core_utils.core_helpers import attribute_items, iter_items
 from hangarllm.hangarllm_core_utils.prompt_templates.mid_conversation_system import message_field
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
 from hangarllm.llms.anthropic.common_utils import (
     anthropic_server_tool_calls,
     write_anthropic_server_tool_call_arguments,

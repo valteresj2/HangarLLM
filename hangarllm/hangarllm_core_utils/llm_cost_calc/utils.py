@@ -2238,7 +2238,9 @@ def _model_priced_image_cost_calculator(
 
             return recraft_image_cost_calculator
         case hangarllm.LlmProviders.AIML.value:
-            from hangarllm.llms.aiml.image_generation.cost_calculator import cost_calculator as aiml_image_cost_calculator
+            from hangarllm.llms.aiml.image_generation.cost_calculator import (
+                cost_calculator as aiml_image_cost_calculator,
+            )
 
             return aiml_image_cost_calculator
         case hangarllm.LlmProviders.COMETAPI.value:

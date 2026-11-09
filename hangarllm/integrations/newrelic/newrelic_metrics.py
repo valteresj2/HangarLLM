@@ -33,8 +33,8 @@ from typing import Final
 from httpx import HTTPStatusError, Response
 
 from hangarllm._logging import verbose_logger
-from hangarllm.integrations.custom_batch_logger import CustomBatchLogger
 from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
+from hangarllm.integrations.custom_batch_logger import CustomBatchLogger
 from hangarllm.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,

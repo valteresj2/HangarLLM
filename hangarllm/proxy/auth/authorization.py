@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Final, TypeAlias
 
-from hangarllm.proxy._types import KeyManagementRoutes, HangarLLM_TeamTable, HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy._types import HangarLLM_TeamTable, HangarllmUserRoles, KeyManagementRoutes, UserAPIKeyAuth
 
 
 @dataclass(frozen=True, slots=True)

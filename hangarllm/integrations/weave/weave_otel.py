@@ -11,6 +11,8 @@ from opentelemetry.trace import Status, StatusCode
 from typing_extensions import override
 
 from hangarllm._logging import verbose_logger
+from hangarllm.hangarllm_core_utils.core_helpers import has_attributes, require_attributes
+from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 from hangarllm.integrations._types.open_inference import (
     SpanAttributes as OpenInferenceSpanAttributes,
 )
@@ -20,8 +22,6 @@ from hangarllm.integrations.opentelemetry_utils.base_otel_llm_obs_attributes imp
     BaseLLMObsOTELAttributes,
     safe_set_attribute,
 )
-from hangarllm.hangarllm_core_utils.core_helpers import has_attributes, require_attributes
-from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 from hangarllm.types.integrations.weave_otel import WeaveOtelConfig, WeaveSpanAttributes
 from hangarllm.types.utils import StandardCallbackDynamicParams
 

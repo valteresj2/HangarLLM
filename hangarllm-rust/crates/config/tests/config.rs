@@ -34,7 +34,12 @@ fn loads_model_list_from_file(directory: TempDir, model_list_yaml: &str) {
     assert_eq!(anthropic.model_name, "assistant");
     assert_eq!(anthropic.hangarllm_params.model, "anthropic/test-model");
     assert_eq!(
-        anthropic.hangarllm_params.api_key.as_ref().unwrap().expose(),
+        anthropic
+            .hangarllm_params
+            .api_key
+            .as_ref()
+            .unwrap()
+            .expose(),
         "os.environ/ANTHROPIC_API_KEY"
     );
     assert!(anthropic.hangarllm_params.api_base.is_none());

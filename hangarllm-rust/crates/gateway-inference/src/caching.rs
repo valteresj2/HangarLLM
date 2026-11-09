@@ -104,7 +104,9 @@ impl CacheHeaders {
         if let Some(key) = self.0.get()
             && let Ok(value) = axum::http::HeaderValue::from_str(key)
         {
-            response.headers_mut().insert("x-hangarllm-cache-key", value);
+            response
+                .headers_mut()
+                .insert("x-hangarllm-cache-key", value);
         }
         response
     }

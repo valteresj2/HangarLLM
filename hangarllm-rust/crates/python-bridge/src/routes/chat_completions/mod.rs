@@ -2,13 +2,13 @@ mod host;
 
 use std::sync::Arc;
 
-use host::ChatCompletionsPythonHost;
 use hangarllm_auth::AuthServices;
 use hangarllm_cache_response::CachePolicy;
 use hangarllm_callbacks_legacy_python::LoggingOperation;
 use hangarllm_host::{call::HostedMachine, protocol::Protocol};
 use hangarllm_inference_chat::{ChatCompletionsRoute, route::ChatCompletions};
 use hangarllm_secrets::source::SecretSource;
+use host::ChatCompletionsPythonHost;
 use pyo3::prelude::*;
 
 use super::{

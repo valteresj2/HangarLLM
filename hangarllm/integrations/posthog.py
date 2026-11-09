@@ -19,12 +19,12 @@ from typing_extensions import ReadOnly, TypedDict
 
 from hangarllm._logging import verbose_logger
 from hangarllm._uuid import uuid
+from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 from hangarllm.integrations.custom_batch_logger import CustomBatchLogger
 from hangarllm.integrations.posthog_mock_client import (
     create_mock_posthog_client,
     should_use_posthog_mock,
 )
-from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 from hangarllm.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     get_httpx_client,

@@ -12,10 +12,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import TypeAdapter
 
 from hangarllm.constants import VECTOR_STORE_CALLER_METADATA_KWARG
+from hangarllm.hangarllm_core_utils.core_helpers import as_object_list, decoded_json_object, require_attributes
 from hangarllm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
     HangarLLM_ManagedVectorStore,
 )
-from hangarllm.hangarllm_core_utils.core_helpers import as_object_list, decoded_json_object, require_attributes
 from hangarllm.proxy._types import CommonProxyErrors, UserAPIKeyAuth
 from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing

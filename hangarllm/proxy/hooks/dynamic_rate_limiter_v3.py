@@ -13,11 +13,11 @@ from hangarllm import ModelResponse, Router
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.caching.caching import DualCache
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.add_retry_fallback_headers import (
     ensure_response_additional_headers,
     response_has_hidden_params,
 )
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.proxy._types import UserAPIKeyAuth
 from hangarllm.proxy.common_utils.proxy_rate_limit_error import (
     ProxyRateLimitError,

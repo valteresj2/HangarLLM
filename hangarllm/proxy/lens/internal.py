@@ -9,8 +9,8 @@ from starlette.datastructures import Headers
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from hangarllm.integrations.clickhouse.context import lens_analysis
 from hangarllm.hangarllm_core_utils.initialize_dynamic_callback_params import inherit_message_logging_privacy
+from hangarllm.integrations.clickhouse.context import lens_analysis
 
 CLOCK_SKEW_SECONDS: Final = 5
 

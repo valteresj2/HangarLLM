@@ -26,7 +26,6 @@ from pydantic import ConfigDict, TypeAdapter
 from typing_extensions import LiteralString, ReadOnly, TypedDict
 
 import hangarllm
-from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._internal_context import service_target, with_service_target
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.caching import RedisCache
@@ -35,6 +34,7 @@ from hangarllm.constants import (
     DB_DAILY_TAG_SPEND_UPDATE_JOB_NAME,
     DB_SPEND_UPDATE_JOB_NAME,
     INTERNAL_CALL_ORIGIN_METADATA_KEY,
+    VIRTUAL_KEY_PREFIXES,
 )
 from hangarllm.hangarllm_core_utils.batch_utils import BATCH_COST_REQUEST_ID_SUFFIX
 from hangarllm.hangarllm_core_utils.core_helpers import finite_cost, single_log_line

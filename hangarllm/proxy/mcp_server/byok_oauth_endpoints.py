@@ -24,8 +24,8 @@ import jwt
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
-from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._logging import verbose_proxy_logger
+from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm.hangar.proxy.ui_session import session_claims
 from hangarllm.proxy._types import UserAPIKeyAuth
 from hangarllm.proxy.mcp_server.catalog import public_catalog_operation

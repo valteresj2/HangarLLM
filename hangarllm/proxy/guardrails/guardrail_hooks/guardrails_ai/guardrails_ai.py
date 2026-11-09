@@ -13,12 +13,12 @@ from fastapi import HTTPException
 
 import hangarllm
 from hangarllm._logging import verbose_proxy_logger
+from hangarllm.hangarllm_core_utils.prompt_templates.common_utils import (
+    get_content_from_model_response,
+)
 from hangarllm.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
-)
-from hangarllm.hangarllm_core_utils.prompt_templates.common_utils import (
-    get_content_from_model_response,
 )
 from hangarllm.proxy._types import UserAPIKeyAuth
 from hangarllm.types.guardrails import GuardrailEventHooks

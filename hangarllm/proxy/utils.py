@@ -57,7 +57,6 @@ import anyio
 import httpx
 from typing_extensions import Never, NotRequired, ReadOnly, TypedDict
 
-from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm import _custom_logger_compatible_callbacks_literal
 from hangarllm.constants import (
     DEFAULT_MODEL_CREATED_AT_TIME,
@@ -73,15 +72,16 @@ from hangarllm.constants import (
     SPEND_LOG_READ_STATEMENT_TIMEOUT_SECONDS,
     SPEND_LOG_WRITE_BATCH_MAX_BYTES,
     SPEND_LOG_WRITE_BATCH_MAX_ROWS,
+    VIRTUAL_KEY_PREFIXES,
     VLLM_CHOICE_FIELDS,
 )
 from hangarllm.cost_calculator import BaseTokenUsageProcessor
-from hangarllm.integrations.otel.runtime import seed_request_identity
 from hangarllm.hangarllm_core_utils.bug_report import (
     bug_report_notice,
     should_report_bug,
     strip_bug_report_notice,
 )
+from hangarllm.integrations.otel.runtime import seed_request_identity
 from hangarllm.proxy._types import (
     CommonProxyErrors,
     ProxyErrorTypes,
@@ -153,15 +153,6 @@ from hangarllm.exceptions import (
     RejectedRequestError,
     SensitiveDataRouteException,
 )
-from hangarllm.integrations.custom_guardrail import (
-    CustomGuardrail,
-    ModifyResponseException,
-    merged_guardrail_entries,
-)
-from hangarllm.integrations.custom_logger import CustomLogger
-from hangarllm.integrations.prometheus import PrometheusLogger
-from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
-from hangarllm.integrations.SlackAlerting.utils import add_langfuse_trace_id_to_alert
 from hangarllm.hangarllm_core_utils.api_route_to_call_types import get_call_types_for_route
 from hangarllm.hangarllm_core_utils.core_helpers import (
     attribute_or_none,
@@ -189,6 +180,15 @@ from hangarllm.hangarllm_core_utils.served_output_texts import (
     served_stream_output_texts,
 )
 from hangarllm.hangarllm_core_utils.token_counter import offload_token_count, usage_tokenizer_model
+from hangarllm.integrations.custom_guardrail import (
+    CustomGuardrail,
+    ModifyResponseException,
+    merged_guardrail_entries,
+)
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.prometheus import PrometheusLogger
+from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
+from hangarllm.integrations.SlackAlerting.utils import add_langfuse_trace_id_to_alert
 from hangarllm.llms import load_guardrail_translation_mappings
 from hangarllm.llms.base_llm.guardrail_translation.utils import stream_item_field, stream_item_items
 from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
@@ -255,6 +255,11 @@ from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardr
     UnifiedLLMGuardrails,
     resolve_endpoint_translation,
 )
+from hangarllm.proxy.hangarllm_pre_call_utils import (
+    HangarLLMProxyRequestSetup,
+    add_guardrails_from_auth_metadata,
+    normalized_metadata_slot,
+)
 from hangarllm.proxy.hooks import PROXY_HOOKS, get_proxy_hook
 from hangarllm.proxy.hooks.cache_control_check import (  # noqa: F401, RUF100  # legacy module exports
     PROXY_CacheControlCheck,
@@ -271,11 +276,6 @@ from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (  # noqa: F401, R
 from hangarllm.proxy.hooks.sensitive_data_routing import (  # noqa: F401, RUF100  # legacy module exports
     PROXY_SensitiveDataRoutingHandler,
     _PROXY_SensitiveDataRoutingHandler,  # pyright: ignore[reportPrivateUsage,reportUnusedImport]  # backwards-compatible package export
-)
-from hangarllm.proxy.hangarllm_pre_call_utils import (
-    HangarLLMProxyRequestSetup,
-    add_guardrails_from_auth_metadata,
-    normalized_metadata_slot,
 )
 from hangarllm.proxy.management_helpers.key_settings_audit import with_settings_updated_at
 from hangarllm.proxy.policy_engine.pipeline_executor import (
@@ -322,7 +322,7 @@ if TYPE_CHECKING:
     from prisma.client import TransactionManager
     from prisma.errors import UniqueViolationError
     from prisma.models import HangarLLM_DeprecatedVerificationToken
-    from prisma.types import HttpConfig, HangarLLM_VerificationTokenInclude
+    from prisma.types import HangarLLM_VerificationTokenInclude, HttpConfig
 
     from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
     from hangarllm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation

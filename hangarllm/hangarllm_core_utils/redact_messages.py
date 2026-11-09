@@ -18,7 +18,6 @@ from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 
 import hangarllm
 from hangarllm.constants import REDACTED_BY_HANGARLLM
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.classifier_logging import without_classifier_audit
 from hangarllm.hangarllm_core_utils.core_helpers import (
     attribute_or_none,
@@ -26,6 +25,7 @@ from hangarllm.hangarllm_core_utils.core_helpers import (
     has_attributes,
 )
 from hangarllm.hangarllm_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.llms.base_llm.guardrail_translation.utils import stream_item_field, stream_item_items
 from hangarllm.llms.vertex_ai.common_utils import (
     redact_vertex_ai_metadata_from_hangarllm_params,

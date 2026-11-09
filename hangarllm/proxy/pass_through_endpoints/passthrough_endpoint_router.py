@@ -8,10 +8,10 @@ from fastapi import HTTPException
 
 import hangarllm
 from hangarllm._logging import verbose_router_logger
+from hangarllm.hangarllm_core_utils.credential_accessor import CredentialAccessor
 from hangarllm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
     HangarLLM_ManagedVectorStore,
 )
-from hangarllm.hangarllm_core_utils.credential_accessor import CredentialAccessor
 from hangarllm.llms.azure.ptu_capacity import is_str_keyed_mapping
 from hangarllm.secret_managers.main import (
     GOOGLE_OIDC_SECRET_PREFIX,

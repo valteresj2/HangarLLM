@@ -669,7 +669,8 @@ async fn gcs_batch_reads_preserve_order_and_treat_invalid_entries_as_misses(
     assert_eq!(partial.missing_indices, vec![1, 2]);
 }
 
-type Gcs = ResponseCache<hangarllm_cache_gcs::GcsCache<hangarllm_cache_response::ResponseCacheCodec>>;
+type Gcs =
+    ResponseCache<hangarllm_cache_gcs::GcsCache<hangarllm_cache_response::ResponseCacheCodec>>;
 
 #[fixture]
 async fn gcs() -> (wiremock::MockServer, Gcs) {

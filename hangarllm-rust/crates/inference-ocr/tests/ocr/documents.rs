@@ -162,8 +162,10 @@ async fn an_empty_byte_document_fails_before_sending() {
 #[tokio::test]
 async fn a_missing_path_document_fails_before_sending() {
     let upstream = upstream([pages_response()]).await;
-    let path =
-        std::env::temp_dir().join(format!("hangarllm-ocr-missing-{}.png", rand::random::<u64>()));
+    let path = std::env::temp_dir().join(format!(
+        "hangarllm-ocr-missing-{}.png",
+        rand::random::<u64>()
+    ));
     let request = ocr_request("mistral/model", &upstream.uri(), json!({})).with_document(
         OcrDocumentInput::Path {
             path: path.clone(),

@@ -10,7 +10,6 @@ from typing import (
 from httpx._models import Headers, Response
 
 import hangarllm
-from hangarllm.integrations.anthropic_cache_control_hook import deployment_prompt_cache_breakpoint_support
 from hangarllm.hangarllm_core_utils.allowed_tools_tool_choice import is_allowed_tools_tool_choice
 from hangarllm.hangarllm_core_utils.core_helpers import drops_unsupported_params
 from hangarllm.hangarllm_core_utils.prompt_templates.common_utils import (
@@ -29,6 +28,7 @@ from hangarllm.hangarllm_core_utils.prompt_templates.prompt_cache_breakpoint_uti
     chat_completion_prompt_cache_breakpoints_for_wire,
     without_prompt_cache_breakpoints,
 )
+from hangarllm.integrations.anthropic_cache_control_hook import deployment_prompt_cache_breakpoint_support
 from hangarllm.llms.base_llm.base_utils import map_developer_role_to_system_role
 from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
 from hangarllm.llms.openai.chat.gpt_reasoning_transformation import GPT_REASONING_SERIES_MARKERS

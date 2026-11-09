@@ -1,7 +1,7 @@
 use axum::response::{IntoResponse, Response};
 use bytes::Bytes;
-use http::{HeaderValue, header::CONTENT_TYPE};
 use hangarllm_host::protocol::Protocol;
+use http::{HeaderValue, header::CONTENT_TYPE};
 
 use crate::{Error, ResponseEncoder, StreamEncoder, Unary};
 

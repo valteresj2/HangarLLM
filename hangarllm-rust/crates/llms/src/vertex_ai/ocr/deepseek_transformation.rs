@@ -1,5 +1,7 @@
 use hangarllm_auth_gcp as vertex;
-use hangarllm_core_utils::{call_arguments::CallArguments, params::OpaqueParams, url_utils::ApiUrl};
+use hangarllm_core_utils::{
+    call_arguments::CallArguments, params::OpaqueParams, url_utils::ApiUrl,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 

@@ -34,9 +34,9 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Final, Protocol
 
+from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 from hangarllm.integrations.otel.mappers.utils import drop_none
 from hangarllm.integrations.otel.model.semconv import PASSTHROUGH_OPERATION_KEY, GenAIOperation
-from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 
 if TYPE_CHECKING:
     from opentelemetry._logs import SeverityNumber as _SeverityNumber

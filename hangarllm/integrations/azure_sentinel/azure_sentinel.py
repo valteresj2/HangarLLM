@@ -25,13 +25,13 @@ import httpx
 from typing_extensions import ReadOnly, TypedDict
 
 from hangarllm._logging import verbose_logger
+from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 from hangarllm.integrations.batch_utils import (
     BatchSendCancelled,
     send_batch_with_413_split,
     undelivered_after_http_error,
 )
 from hangarllm.integrations.custom_batch_logger import CustomBatchLogger
-from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 from hangarllm.llms.custom_httpx.http_handler import (
     MaskedHTTPStatusError,
     get_async_httpx_client,

@@ -10,6 +10,7 @@ Create the wrapped value from an existing salt, so stored credentials stay reada
 import argparse
 import base64
 import os
+import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Final, Protocol
@@ -153,7 +154,7 @@ def main() -> None:
     args: Final = parser.parse_args()
     with open(args.salt_file, encoding="utf-8") as salt_file:
         salt: Final = salt_file.read().strip()
-    print(kms_client(os.environ).wrap(salt.encode()))
+    sys.stdout.write(f"{kms_client(os.environ).wrap(salt.encode())}\n")
 
 
 if __name__ == "__main__":

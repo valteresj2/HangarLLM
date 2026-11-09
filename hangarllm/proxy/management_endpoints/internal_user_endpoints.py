@@ -1535,7 +1535,12 @@ async def _update_single_user_helper(
 
     Returns the updated user data or raises an exception on failure.
     """
-    from hangarllm.proxy.proxy_server import general_settings, hangarllm_proxy_admin_name, prisma_client, user_api_key_cache
+    from hangarllm.proxy.proxy_server import (
+        general_settings,
+        hangarllm_proxy_admin_name,
+        prisma_client,
+        user_api_key_cache,
+    )
 
     if prisma_client is None:
         raise Exception("Not connected to DB!")

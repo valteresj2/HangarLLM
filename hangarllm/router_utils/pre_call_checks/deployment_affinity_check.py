@@ -29,8 +29,8 @@ from hangarllm.caching.affinity_cache import (
 )
 from hangarllm.caching.dual_cache import DualCache
 from hangarllm.constants import SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY, SESSION_ID_GENERATED_METADATA_KEY
-from hangarllm.integrations.custom_logger import CustomLogger, Span
 from hangarllm.hangarllm_core_utils.routing_common_utils import deployment_ids_failed_in_request
+from hangarllm.integrations.custom_logger import CustomLogger, Span
 from hangarllm.responses.utils import ResponsesAPIRequestUtils
 from hangarllm.types.llms.openai import AllMessageValues
 from hangarllm.types.utils import CallTypes

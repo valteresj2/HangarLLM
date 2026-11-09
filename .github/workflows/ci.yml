@@ -31,10 +31,10 @@ jobs:
         uses: ./.github/actions/cache-cargo-build
 
       - name: Install dependencies (builds the Rust extension)
-        run: uv sync --frozen --group proxy-dev --extra proxy
+        run: uv sync --frozen --group ci --group proxy-dev --extra proxy
 
       - name: Ruff
-        run: uv run --no-sync ruff check hangarllm hangarllm hangarllm_cli
+        run: uv run --no-sync ruff check hangarllm hangarllm_cli
 
       - name: Import smoke test
         run: |

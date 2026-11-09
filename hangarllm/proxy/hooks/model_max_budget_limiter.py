@@ -18,7 +18,6 @@ import hangarllm
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.caching.caching import DualCache
-from hangarllm.integrations.custom_logger import Span
 from hangarllm.hangarllm_core_utils.batch_utils import (
     ChargeOnceJob,
     defers_batch_cost,
@@ -28,6 +27,7 @@ from hangarllm.hangarllm_core_utils.batch_utils import (
 from hangarllm.hangarllm_core_utils.duration_parser import duration_in_seconds
 from hangarllm.hangarllm_core_utils.hangarllm_logging import StandardLoggingPayloadSetup
 from hangarllm.hangarllm_core_utils.model_latest_aliases import expand_model_latest_alias
+from hangarllm.integrations.custom_logger import Span
 from hangarllm.llms.bedrock.common_utils import get_bedrock_base_model, get_bedrock_cross_region_inference_regions
 from hangarllm.proxy._types import Hangarllm_EntityType, UserAPIKeyAuth
 from hangarllm.proxy.hooks.model_budget_shared_windows import (

@@ -2455,10 +2455,10 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         """
         ## VALIDATE REQUEST
         """Anthropic requires ``tools`` when messages include tool blocks; HangarLLM injects a dummy tool if omitted (no ``modify_params`` needed)."""
-        from hangarllm.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook, cache_control_count
         from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
             anthropic_messages_pt,
         )
+        from hangarllm.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook, cache_control_count
 
         drop_params: Final = drops_unsupported_params(hangarllm_params.get("drop_params"))
         translated_messages: Final = (

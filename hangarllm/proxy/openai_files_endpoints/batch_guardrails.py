@@ -22,8 +22,8 @@ from fastapi import HTTPException
 from typing_extensions import assert_never
 
 from hangarllm.exceptions import GuardrailRaisedException
-from hangarllm.integrations.custom_guardrail import is_guardrail_intervention
 from hangarllm.hangarllm_core_utils.api_route_to_call_types import get_call_types_for_route
+from hangarllm.integrations.custom_guardrail import is_guardrail_intervention
 from hangarllm.proxy._types import UserAPIKeyAuth
 from hangarllm.types.llms.openai import BatchGuardrailRecord, BatchGuardrailReport
 from hangarllm.types.utils import CallTypes, CallTypesLiteral

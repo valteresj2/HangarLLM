@@ -11,7 +11,7 @@ import httpx
 from pydantic import ConfigDict, Field
 from typing_extensions import ReadOnly, TypedDict
 
-from hangarllm.types.llms.base import HiddenParams, HangarLLMBaseModel
+from hangarllm.types.llms.base import HangarLLMBaseModel, HiddenParams
 
 if TYPE_CHECKING:
     import httpx2

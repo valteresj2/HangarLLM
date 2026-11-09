@@ -35,7 +35,6 @@ from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_router_logger
 from hangarllm.caching.caching import DualCache
 from hangarllm.caching.redis_cache import RedisCache, RedisPipelineIncrementOperation, log_redis_failure
-from hangarllm.integrations.custom_logger import CustomLogger, Span
 from hangarllm.hangarllm_core_utils.batch_utils import (
     ChargeOnceJob,
     defers_batch_cost,
@@ -47,6 +46,7 @@ from hangarllm.hangarllm_core_utils.core_helpers import (
     require_attributes,
 )
 from hangarllm.hangarllm_core_utils.duration_parser import duration_in_seconds_from
+from hangarllm.integrations.custom_logger import CustomLogger, Span
 from hangarllm.router_strategy.tag_based_routing import get_tags_from_request_kwargs
 from hangarllm.router_utils.cooldown_callbacks import (
     get_prometheus_logger_from_callbacks,

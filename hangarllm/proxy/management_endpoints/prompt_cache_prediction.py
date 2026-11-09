@@ -20,11 +20,11 @@ from hangarllm.proxy.common_utils.http_parsing_utils import (  # noqa: F401  # l
     read_request_body,  # pyright: ignore[reportPrivateUsage, reportUnknownVariableType]  # canonical parsed-body owner; validate its legacy result at the endpoint boundary
 )
 from hangarllm.proxy.common_utils.prompt_cache_prediction import has_request_transforms, predict_arm
+from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
 from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (  # noqa: F401  # legacy module exports
     PROXY_MaxParallelRequestsHandler_v3,
     _PROXY_MaxParallelRequestsHandler_v3,  # pyright: ignore[reportPrivateUsage,reportUnusedImport]  # backwards-compatible package export
 )
-from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
 from hangarllm.types.llms.base import HangarLLMBaseModel
 from hangarllm.types.management_endpoints.prompt_cache_prediction import (
     CachePredictionArm,

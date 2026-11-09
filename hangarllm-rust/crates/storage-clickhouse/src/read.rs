@@ -129,7 +129,11 @@ async fn execute_read_with_limits(
     }
 
     let mut body = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(hangarllm_http::Error::from)? {
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(hangarllm_http::Error::from)?
+    {
         if body.len() + chunk.len() > limits.response_bytes {
             return Err(Error::ResponseTooLarge);
         }

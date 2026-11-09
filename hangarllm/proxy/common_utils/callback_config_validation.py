@@ -399,10 +399,10 @@ def _arize_otlp_protocol_error(
         return None
     if callback_name != _ARIZE_CALLBACK:
         return f"{_ARIZE_OTLP_PROTOCOL_VAR} applies to the {_ARIZE_CALLBACK} callback only, not {callback_name!r}"
-    from hangarllm.integrations.otel.model.config import is_otel_v2_enabled
     from hangarllm.hangarllm_core_utils.initialize_dynamic_callback_params import (
         validate_arize_otlp_protocol_value,
     )
+    from hangarllm.integrations.otel.model.config import is_otel_v2_enabled
 
     try:
         validate_arize_otlp_protocol_value(value)

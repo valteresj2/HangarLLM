@@ -44,7 +44,6 @@ from hangarllm.constants import (
 )
 from hangarllm.cost_calculator import get_usage_object
 from hangarllm.exceptions import ServiceUnavailableError
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.add_retry_fallback_headers import (
     ensure_response_additional_headers,
     response_has_hidden_params,
@@ -65,6 +64,7 @@ from hangarllm.hangarllm_core_utils.token_counter import (
     offload_token_count,
     split_embedding_input_tokens,
 )
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.llms.azure.ptu_capacity import normalized_tokens
 from hangarllm.proxy._types import UserAPIKeyAuth
 from hangarllm.proxy.auth.auth_utils import (
@@ -109,7 +109,9 @@ from hangarllm.redis.stores.rate_limits import (
     RateLimitStore,
     WindowCount,
 )
-from hangarllm.responses.hangarllm_completion_transformation.compaction_items import billable_input_since_newest_compaction
+from hangarllm.responses.hangarllm_completion_transformation.compaction_items import (
+    billable_input_since_newest_compaction,
+)
 from hangarllm.types.extraction import ExtractionResponse
 from hangarllm.types.llms.openai import BaseHangarLLMOpenAIResponseObject, ResponseAPIUsage
 from hangarllm.types.mcp_server.mcp_server_manager import MCPServer

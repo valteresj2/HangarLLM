@@ -36,7 +36,9 @@ struct TraceSink(mpsc::Sender<(String, Value)>);
 
 impl Sink for TraceSink {
     fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-        metadata.target().starts_with("hangarllm_inference_messages")
+        metadata
+            .target()
+            .starts_with("hangarllm_inference_messages")
     }
 
     fn emit(&self, record: &Record) {
@@ -98,8 +100,10 @@ impl hangarllm_host_native::in_process::StreamConsumer<Messages> for RecordingSt
 impl hangarllm_host::lifecycle::CallObserver for RecordingStreamHost {
     fn observe(&self, _: hangarllm_host::lifecycle::CallEvent) {}
 }
-impl hangarllm_host::interceptors::Interceptors<<Messages as hangarllm_host::protocol::Protocol>::Error>
-    for RecordingStreamHost
+impl
+    hangarllm_host::interceptors::Interceptors<
+        <Messages as hangarllm_host::protocol::Protocol>::Error,
+    > for RecordingStreamHost
 {
     async fn before_provider_request(
         &self,

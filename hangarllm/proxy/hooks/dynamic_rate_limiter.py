@@ -12,8 +12,8 @@ from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.caching.caching import DualCache
 from hangarllm.exceptions import RateLimitType
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.hidden_params import set_hidden_param
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.proxy._types import UserAPIKeyAuth
 from hangarllm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
 from hangarllm.proxy.hooks.rate_limiter_utils import (

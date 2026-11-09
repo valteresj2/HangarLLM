@@ -7,7 +7,7 @@
       "schemas/types/SpanDetail.json": "cabd928822e83f48845742e7f96b9ef156dda5a09048f4525dab20b5defce506",
       "schemas/types/SpanErrorPage.json": "cabfbfe88984ef138f74b2e4550f2fa72547e367982b32cc60868dc80ce0bf67",
       "schemas/types/Tenant.json": "d1afb324d35c7e0a17d6df50d000351b552ee3fb722fec070b90a20596bd6b53",
-      "schemas/types/Trace.json": "886828ce09fd20881b4a9eb968e626e725dc3dd7aaab071d6f29b4b510f7ffbe",
+      "schemas/types/Trace.json": "ec93a722f1e42141e2f38b37ee261f91defa95397585b20b2b57d626706c1bdf",
       "schemas/types/TracePage.json": "751365bbe350d32f2d24f390391ce16112f582d8e8692c6da958d9f8c41d7160",
       "schemas/types/TraceScope.json": "41c69f94d1f5b487f6446b4d64420b585c4bedae7e9464181b90770241f95dde"
     },
@@ -31,11 +31,11 @@
   "fixtures": {
     "fixtures/traces/claude_agent_sdk_detailed_export.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/claude_agent_sdk_detailed_export.json",
-      "sha256": "f1547ad004fa59f11deedb4d7540a9af18d1da4ac9262148935ced192d951738"
+      "sha256": "e9df67178e837477b2ee9fe832a99054f216ccf0db61737d572cf153627983b8"
     },
     "fixtures/traces/claude_agent_sdk_export.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/claude_agent_sdk_export.json",
-      "sha256": "6657c841b7e1564ac6e373dee0b8e96e4113b6ad8de3169f7035e1a124f959fb"
+      "sha256": "3495918950f7f3c99491a229d59f070c7dc408705ee9a3b30e2d3d0101af7e73"
     },
     "fixtures/traces/claude_agent_sdk_missing_request_id_simple.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/claude_agent_sdk_missing_request_id_simple.json",
@@ -47,11 +47,11 @@
     },
     "fixtures/traces/claude_agent_sdk_simple.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/claude_agent_sdk_simple.json",
-      "sha256": "2080ba354ff62a5d13bb395f6ead40b02ca6676e414088297af5daeab9f48002"
+      "sha256": "1ff6e204a953060a568a4d7e0c86b6eba3622b8794178ab6a15adda074564dac"
     },
     "fixtures/traces/claude_agent_sdk_swarm.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/claude_agent_sdk_swarm.json",
-      "sha256": "8dac82fa28f1e79ba5039cb5ae62bd54f621ee4886118be6459e4e9d158c3a09"
+      "sha256": "b5dd28c04c3d4adff7eff47a7ec7f236c21bf752d1f25e63227f56dcc1df16ec"
     },
     "fixtures/traces/claude_code_native_logs.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/claude_code_native_logs.json",
@@ -83,23 +83,23 @@
     },
     "fixtures/traces/google_adk_billed_failure.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/google_adk_billed_failure.json",
-      "sha256": "cf036f832d55a59c16f2e29b52230b30fc1008901bc446c469d081a12cfc5267"
+      "sha256": "d875125d22a6b882eae6059c2901366b39eebe647dd1e2860932b780968e5163"
     },
     "fixtures/traces/google_adk_retry.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/google_adk_retry.json",
-      "sha256": "18aa74c7d36292209f8ee3f8497920145f054c493e09c66cc2a4bc6788b2f68e"
+      "sha256": "a2fabcafdcd3b08e244a4c1f244b7224aaf1fc6b1e503700ad58ecadeab3ba76"
     },
     "fixtures/traces/google_adk_simple.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/google_adk_simple.json",
-      "sha256": "7c4a2d01817e2fc43a807b5663aae4ea8f3ad4911e8ad4c2019c0b154c06adea"
+      "sha256": "f61ca9ad89753300e9aae3ca5e920f7c410fcf382eceb1052a43f9ea2353f2e0"
     },
     "fixtures/traces/google_adk_stream.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/google_adk_stream.json",
-      "sha256": "1e81499c7402e67597954362396e0e32ddaa037c9ac36ca895d7a78206fda4fb"
+      "sha256": "a225190c368a88aa1e43b83d743af39154b08938f73a29f13d60e0ad24419503"
     },
     "fixtures/traces/google_adk_swarm.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/google_adk_swarm.json",
-      "sha256": "b552d9e7f1d46e9145d572be568da8a7e78c7457ceb5b6c1327517f5341bff15"
+      "sha256": "ee22069451da25807ce070e0ba103e010e008ca6d28d115651ca0716d42c9c5b"
     },
     "fixtures/traces/langchain_simple.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/langchain_simple.json",
@@ -131,55 +131,55 @@
     },
     "fixtures/traces/mastra_simple.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/mastra_simple.json",
-      "sha256": "f0a91be7364b6d1b0c8637e13b31166686b17e6232c7074bec8a9eff4bc055cc"
+      "sha256": "10f9113b7ea75aff84c0a20b57d795fdd01ff7c95624850e7fbb070f7c29c0d8"
     },
     "fixtures/traces/mastra_swarm.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/mastra_swarm.json",
-      "sha256": "8288ed37046c56823cdba30055bd1da6ffd5b12ecb49bc84ed5160898d3477bf"
+      "sha256": "8f472baaa0385bbef0a60ee722e9750a2d497bf7ccb1f2716e5b44b9bd0c17e8"
     },
     "fixtures/traces/openai_agents_simple.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/openai_agents_simple.json",
-      "sha256": "5d2e86cedbffd3ddcc40e9c77603dd3906f843500f071aa2d3cd933a90dfc2cb"
+      "sha256": "d465d9afa193e06f4a762d92df40d606fdba6388c50877127735cf39095a8051"
     },
     "fixtures/traces/openai_agents_swarm.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/openai_agents_swarm.json",
-      "sha256": "60014bf48b5a057f54818b94726f01af8ab8b33195bc2da1d621d189a601c250"
+      "sha256": "ec551d342020bd0b8254dbb050ac0ec5612c233543fc3b19b912b94a33a36012"
     },
     "fixtures/traces/opentelemetry_simple.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/opentelemetry_simple.json",
-      "sha256": "d8bef6fb2829b192bf604d3f14f8ace573d5c5b73e91d2958fc3611d782c9d10"
+      "sha256": "c2878ffe510c109894d7972e854c38256cef91c676f42a16ac3acc2272b00c01"
     },
     "fixtures/traces/opentelemetry_swarm.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/opentelemetry_swarm.json",
-      "sha256": "3d5dd10b97a0d47337da32e14dbd2160e95458df6fb193b5a46a426094a60e3a"
+      "sha256": "2440c837fa296d1212d1c684eb4fbf728223f24241f6f167000146a13d063d82"
     },
     "fixtures/traces/pydantic_ai_billed_failure.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/pydantic_ai_billed_failure.json",
-      "sha256": "55771691dd5802acd10401b02dea48bd50fd8b16a26c31d414186609931b84de"
+      "sha256": "955e7411dedafca376ae3f544b214f7b50b4ea9983a54a1732f3dd497ed745f0"
     },
     "fixtures/traces/pydantic_ai_retry.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/pydantic_ai_retry.json",
-      "sha256": "e0992ef6b41296b2fbf4826f8f295cba0bcfa650d37ad7636870f737e0ad4c5f"
+      "sha256": "7cb5f251e1de70583693642c3a96536a5d52291134297e0074e746c17cbfcf4f"
     },
     "fixtures/traces/pydantic_ai_simple.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/pydantic_ai_simple.json",
-      "sha256": "93bed9e2a890e33205c01c507aee3537cb9167a6c4e9a2cd8dcbe3418f364e4b"
+      "sha256": "3910381910931c4e2d0ddf3e650378c485c606403f2eadd99e4045c55a90de0b"
     },
     "fixtures/traces/pydantic_ai_stream.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/pydantic_ai_stream.json",
-      "sha256": "65cc3fafbdb053710f79a74fb1e96416b429b58887398d6ad9ebeb51abf7dd35"
+      "sha256": "fbbce3f6b9d7cc7db979ac33d896d79d57de726162750c5faea3797126580a81"
     },
     "fixtures/traces/pydantic_ai_swarm.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/pydantic_ai_swarm.json",
-      "sha256": "b20ed2c759a85a12f612ee433baaf19f9d6c697e7a8f3c07ecf1944706a5242f"
+      "sha256": "de44872eed0a1e9b60a97b74c1d85c938de35ee4f99cce25bd21ca8dfdee5763"
     },
     "fixtures/traces/pydantic_ai_swarm_stream.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/pydantic_ai_swarm_stream.json",
-      "sha256": "6e10ef7e72550b980822bde79cb46d4592110c1b6f4a7071d8f33402ac513c67"
+      "sha256": "78efdff1cfb11061bbbab0aa9e7379f28a6e28a6751b7a0b912d2bc105777785"
     },
     "fixtures/traces/pydantic_ai_token_limit_swarm.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/pydantic_ai_token_limit_swarm.json",
-      "sha256": "f3db2529f68ac56f9c6fca48354d3a905e600b6433c8b3c1bc58d4197d81dcf2"
+      "sha256": "e191a80f32ca6349bd0bf9fb72a382efaf5e5f0ac04da30022f6c292d1789ab5"
     },
     "fixtures/traces/query_alternate.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/query_alternate.json",
@@ -199,175 +199,175 @@
     },
     "fixtures/traces/strands_billed_failure.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/strands_billed_failure.json",
-      "sha256": "02d6306f75299e1f729a1b058e845b8c185b6f750c1554d9f11c3438b34981d2"
+      "sha256": "92ec4b26b3f00a94032a43ab459954588de2ed898288d0eb318419b93f323806"
     },
     "fixtures/traces/strands_retry.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/strands_retry.json",
-      "sha256": "7feb9951c9bb9ee1c775f3c9ce50fbcd1268ad1762f16ccd04fbdf2f2a6e4ba8"
+      "sha256": "928749a368fb89b88bb9550b5451cf294c9e1da3d0779740451bf0dc47c7361d"
     },
     "fixtures/traces/strands_simple.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/strands_simple.json",
-      "sha256": "f9a8498ae4ea93c6dfd3794e39a01e0c650cb5f02ed51ee97eb4ac4851070a4c"
+      "sha256": "0fdeb1af7881a9f883603a0254004f5736373cda76781634a0e1846788e1b00a"
     },
     "fixtures/traces/strands_swarm.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/strands_swarm.json",
-      "sha256": "74166711f805d02ab0d614d99740079813a289866db17a76815bd0ea2214402b"
+      "sha256": "5a5fa9778b3215a1e3838505bc6c66daefcefff155eac2142a439b8b69e3eef0"
     },
     "fixtures/traces/vercel_ai_sdk_billed_failure.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/vercel_ai_sdk_billed_failure.json",
-      "sha256": "2c49da5b7b43aabb6540ab39e77dd2357d5cf4a75ede91a7acbe50102efc322b"
+      "sha256": "96f23d2dbacf2794b125c57bbff651f6d29a044293d05e088083d99836fc8806"
     },
     "fixtures/traces/vercel_ai_sdk_py_simple.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/vercel_ai_sdk_py_simple.json",
-      "sha256": "41595f4e943b3393d6e093b47c67cdaa22313e64299f8f6b3f816cc63573fd17"
+      "sha256": "3c748b202b893e55679088edc39e486a289062cb022e23a26f9b9063297311c4"
     },
     "fixtures/traces/vercel_ai_sdk_py_swarm.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/vercel_ai_sdk_py_swarm.json",
-      "sha256": "873dd7fe0eabee90d2cc4385497fb812d13936e09ff43e69a6460e028bcd0ecf"
+      "sha256": "15ed24c575ae020f8bda908364c75643db0a9f67132d7e26fa8c20c03fe5d8aa"
     },
     "fixtures/traces/vercel_ai_sdk_retry.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/vercel_ai_sdk_retry.json",
-      "sha256": "e58300bffc3b5d77f50e9e347583c7917ef21aa37b5019e171c55e1980d889e4"
+      "sha256": "249bce11fd5a47d31255aeda6ef649d62acca826a7157d39a6de52226667ac62"
     },
     "fixtures/traces/vercel_ai_sdk_simple.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/vercel_ai_sdk_simple.json",
-      "sha256": "d01ea686a242ebacc5d31b55d3d044139e03e0f349909e62b8439b6e160f2402"
+      "sha256": "f8e19e922732ccccdc25ab712ad99220b1e952d9902403c940d5277fe8e6a510"
     },
     "fixtures/traces/vercel_ai_sdk_stream.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/vercel_ai_sdk_stream.json",
-      "sha256": "9d48dc5d7278f9a954f8f6fa2604f889471eee009e24a67ad357838b419a5cb7"
+      "sha256": "ba9afb9d80d9a87d9f8c42a4457f89f3e76b4931654085d665fd02ec5e93e0d4"
     },
     "fixtures/traces/vercel_ai_sdk_swarm.json": {
       "source_path": "src/worker/crates/traces/tests/fixtures/vercel_ai_sdk_swarm.json",
-      "sha256": "522324544be07b25109ab10724fe859dddf48cedc68f29ac3750f9fbfb7306fe"
+      "sha256": "62b9aff2ac387fb73a052e3988e5d27b0d5cdc8d0d204f6723b260b1f05f95cb"
     },
     "fixtures/spend/claude_agent_sdk_missing_request_id_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/claude_agent_sdk_missing_request_id_simple_spend_logs.jsonl",
-      "sha256": "3f8853a18d8f44b4a97e7fd3185869e417dc6e24f635c424352df342c98d89c1"
+      "sha256": "a6b2d5ad441c5cb7b270f9ed3aa3be8eb17211363bbd01509c1dea10822b0602"
     },
     "fixtures/spend/claude_agent_sdk_missing_request_id_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/claude_agent_sdk_missing_request_id_swarm_spend_logs.jsonl",
-      "sha256": "7379cdd88191738ae86739052a2a3b19135f2ba37ac8c03d9cdfc92e15940d98"
+      "sha256": "4e0eb3ed088631e7cd79f0e1f2b2cf01cd5be620c25c7c870a633ac0ed350f20"
     },
     "fixtures/spend/claude_agent_sdk_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/claude_agent_sdk_simple_spend_logs.jsonl",
-      "sha256": "0bd0bc33ea6f2a139897108fb9da4820b7a40763f44ac7f900109ff0d0d5ec18"
+      "sha256": "08ab66f19401749964481b58e01b5f382f3a3d21ececedd902fbb137ecd64231"
     },
     "fixtures/spend/claude_agent_sdk_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/claude_agent_sdk_swarm_spend_logs.jsonl",
-      "sha256": "f36ee60056d061eb6673e1abc533110f90d89a93eeecb4e1ac9e458a6e430c8d"
+      "sha256": "faaac75b37823c391c105ca7694f30fcd5d8d7af725cc45b3dae2bb61c2d18fc"
     },
     "fixtures/spend/crewai_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/crewai_simple_spend_logs.jsonl",
-      "sha256": "bc5867deee8d328d99ed39cfd12495d45fa159d2a17611811eacc407288d374a"
+      "sha256": "b4f269c4b90dd9042c4933542c5b5b4e2a50e3cae0ab745c95421174446d8724"
     },
     "fixtures/spend/crewai_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/crewai_swarm_spend_logs.jsonl",
-      "sha256": "7fdc1c5ddc0b28dccc7b9b3f2a36c3028fe2b58dc934e086bc62c40ec52d5e93"
+      "sha256": "a08dc1b936bffa81363c2514593e370a1c7ea250605236b2ab347865adc7e7b3"
     },
     "fixtures/spend/deepagents_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/deepagents_simple_spend_logs.jsonl",
-      "sha256": "ee4b5e2b085ea3b7a8b43716810cfd265db8f02202d550575c21a5d2e9bf96a5"
+      "sha256": "433f03753867d7e327e926fda1ac28ffd7c1222a9f1381725329145878719b09"
     },
     "fixtures/spend/deepagents_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/deepagents_swarm_spend_logs.jsonl",
-      "sha256": "5fdf523cea6331e83ffdd6fff558e90025b16c9cd9ef8ca153c13b9c7ed3649a"
+      "sha256": "87331d902147a82672bd23d60f2e5c20d9372b1d2b9b824bf0c59880402f8d48"
     },
     "fixtures/spend/google_adk_billed_failure_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/google_adk_billed_failure_spend_logs.jsonl",
-      "sha256": "4b7b95636af9915152b66b591397269608a9189aba6db08e05e7c95afebe1200"
+      "sha256": "f62ccfb407fa0ecbe6207b6e5691d77f5f194733f4517e1cfb5f4dd50193200f"
     },
     "fixtures/spend/google_adk_retry_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/google_adk_retry_spend_logs.jsonl",
-      "sha256": "b889b8aecb8b43a6a7b2d12ddaff037854b782e7a8810518f0409fe6a058b266"
+      "sha256": "2170d5b4bfd863a98c46e40e65ce568b2444204de6dccbb230c3379f62a93b44"
     },
     "fixtures/spend/google_adk_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/google_adk_simple_spend_logs.jsonl",
-      "sha256": "05b99aebe1cd03350af233c5ecdd0c43bd9e00a3ced2fb7abc56fc2dde455089"
+      "sha256": "ea49ffa7d6dee08e2d0629c6435fc9bff14d782341370abb9c44947823f548e2"
     },
     "fixtures/spend/google_adk_stream_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/google_adk_stream_spend_logs.jsonl",
-      "sha256": "d66d06c77ccdf60ba9c84768bb7643058828a9626becc8261b227174cb17767c"
+      "sha256": "435eb122a0b1390433331eaf7190437e6ea36fffb29fa659499a3b64852a4488"
     },
     "fixtures/spend/google_adk_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/google_adk_swarm_spend_logs.jsonl",
-      "sha256": "2947fc4755e2d4ac7851b3576c51d2f0fcd26c0104fdd43f78c181d722cc9465"
+      "sha256": "0298560e051cbf641462797fc5d70d3ae5d8539e08820ebc134d3d01297260b6"
     },
     "fixtures/spend/langchain_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/langchain_simple_spend_logs.jsonl",
-      "sha256": "ad97511f84b64e313e5064c761eeff3dfe8a1f66877ce28b62cfe70ce5665127"
+      "sha256": "f8984f68b12db32ebcf24a0ef0012f6d3553c641e1b8e98b7e5da99635fc2c89"
     },
     "fixtures/spend/langchain_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/langchain_swarm_spend_logs.jsonl",
-      "sha256": "12608fa60affcefe5324ada98b5888676dee7cf1aabf538364c2e2ba7dc40ff7"
+      "sha256": "c2fec96f828c8fb856799d4aaf20c0b32a170ca2044d294e34397e6fb6f1dd33"
     },
     "fixtures/spend/langgraph_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/langgraph_simple_spend_logs.jsonl",
-      "sha256": "7184f6f7281a79e2031854adaddfb9d31bc67e0de2b8f0c5bdb3204513e3715e"
+      "sha256": "5e23c85bda732aef2b463c2197546eeabb7510e0546b4887304e1db35148ffb7"
     },
     "fixtures/spend/langgraph_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/langgraph_swarm_spend_logs.jsonl",
-      "sha256": "26d4292322d3a96c13d3716d8ef02de1913dccd6590b80f816ac78a5bdbc7067"
+      "sha256": "2d8c66d4f6c9dec8a3eae8bb68a5d9f62d89a3aeaa2fbe6e2362217b77f1f607"
     },
     "fixtures/spend/llamaindex_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/llamaindex_simple_spend_logs.jsonl",
-      "sha256": "392ce3e985aabfe13cf584d6780108f13167172f04262c52f270f15472d5ba21"
+      "sha256": "b3c9fd51e35bcebbabdf0b17335cd1f9386e9bc219c70931c539f17d71e56545"
     },
     "fixtures/spend/llamaindex_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/llamaindex_swarm_spend_logs.jsonl",
-      "sha256": "2ea5210212f8a991b1bd1175c0708743ac81be131ed89b8470ffc08c2389f7b2"
+      "sha256": "04d6f7be122058253425ade57c001f7219e74e4244c3bdc7cbb0e29310124515"
     },
     "fixtures/spend/mastra_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/mastra_simple_spend_logs.jsonl",
-      "sha256": "038e0c3f267baf446ddb6a4b66233b20d595e18a117d88921e21e1a7ea0aa833"
+      "sha256": "ac0c4fea654e9462fed9b1c1acf11e307b6efc10c0e0b3b24f80ec4910a65f8c"
     },
     "fixtures/spend/mastra_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/mastra_swarm_spend_logs.jsonl",
-      "sha256": "66497930bae67b2122d1deb6d0d8ca8b8e9864a16862141f0e72086e447473ad"
+      "sha256": "184732cc88cf766628a7ba0a78a8a6092a858484b1984de5b8559fdc2456f50e"
     },
     "fixtures/spend/openai_agents_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/openai_agents_simple_spend_logs.jsonl",
-      "sha256": "3acb06751e9c9111acda79f4516a7108df0afbd6a8040bfda89f7b6d8444bc13"
+      "sha256": "7f2377edbbdac8a6ec2d2198c8a15cb635d4aff9beb3dd794a632cd3836d6147"
     },
     "fixtures/spend/openai_agents_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/openai_agents_swarm_spend_logs.jsonl",
-      "sha256": "b52eaea95077012587a6d066520bd2b12fff476caa8b34f70713e9b584ee7a9d"
+      "sha256": "8e4b7c4849f3af33e9fcfdc0ef15d775f7e18268f2bac8077d812d845cc0c4ab"
     },
     "fixtures/spend/opentelemetry_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/opentelemetry_simple_spend_logs.jsonl",
-      "sha256": "2daf517a12c728e91881423a8ec7e9f1499c4a2ac9302d41cd37b0a01eba4bd1"
+      "sha256": "f1b4890c733208363ac49a479967d8ecfd66357908a75d2141d997bdce1ef7c2"
     },
     "fixtures/spend/opentelemetry_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/opentelemetry_swarm_spend_logs.jsonl",
-      "sha256": "23c4f08277ca6887a1ebcd073938eb840a2907d88e1d8d785e64731d76c53ad0"
+      "sha256": "43b326d3a7a862f22ec6b5f9f103f52b05fa479ba079cbe5673cc073db3f4ad4"
     },
     "fixtures/spend/pydantic_ai_billed_failure_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/pydantic_ai_billed_failure_spend_logs.jsonl",
-      "sha256": "56d64689b66db607606899426ab79c9ca51022bf7fa05839f92dbc6f63e39687"
+      "sha256": "3897f872e442c3dd2ffc2b72553c1ff6184c628d9ec545d222a65ab335233c41"
     },
     "fixtures/spend/pydantic_ai_retry_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/pydantic_ai_retry_spend_logs.jsonl",
-      "sha256": "265108a5eebd3e201a3920c74570a8e69bf461a572f021e98b439351a3b47541"
+      "sha256": "66d97f058abb55762dc6be0a1e3fc331179f041a8ff424ce2887ec8e6519069b"
     },
     "fixtures/spend/pydantic_ai_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/pydantic_ai_simple_spend_logs.jsonl",
-      "sha256": "148793c0f487a30ca073932ae80c3ac3762fe0fbd9470b7ae4b425497ff8e0fa"
+      "sha256": "74788a597893a6f27afaaf5823ded8ddfd1b54451406aff94aedf03d809d51e5"
     },
     "fixtures/spend/pydantic_ai_stream_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/pydantic_ai_stream_spend_logs.jsonl",
-      "sha256": "95294ab6906d8d881b9fd96081e1985aeaecd8c165b837b7445f2300d3e6bdaa"
+      "sha256": "3f9665c08e02fcced953807d434f71a229f04baf4d211248bc6bf23853d78f1d"
     },
     "fixtures/spend/pydantic_ai_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/pydantic_ai_swarm_spend_logs.jsonl",
-      "sha256": "e31e363aace8f32a70a2165ccf66c1f4cc6e3060637c962531c1a30b6ac35308"
+      "sha256": "dcf76538548abe377cc40a412e9fa3b3e3a717b5a8859d9c18676bb7c9a452aa"
     },
     "fixtures/spend/pydantic_ai_swarm_stream_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/pydantic_ai_swarm_stream_spend_logs.jsonl",
-      "sha256": "8d9e8f2953950888e19539cd345fdf6807e5678433b9110b9c48d8444bd12f21"
+      "sha256": "175fd17be08c52052dc71211877b3f03b39836948ae6b3b6afb1ba2e6a209284"
     },
     "fixtures/spend/pydantic_ai_token_limit_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/pydantic_ai_token_limit_swarm_spend_logs.jsonl",
-      "sha256": "61d037bc464deb9d3c83ab1f0b96994f65a8fd02840f6815d548204b02569e44"
+      "sha256": "b9723db23e922c2b66609dfcd12407ccd7c2c663fd3206def357d382e9ec91dc"
     },
     "fixtures/spend/spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/spend_logs.jsonl",
@@ -375,47 +375,47 @@
     },
     "fixtures/spend/strands_billed_failure_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/strands_billed_failure_spend_logs.jsonl",
-      "sha256": "594be14d615733d3b1dd967444f3c21b2cec3b065f54eab37d50ab6f00ffcdf2"
+      "sha256": "aca8e6a9d5c2227da3e3ba21bf225a98d8f1e54ab4b4d09c194abca747dddea6"
     },
     "fixtures/spend/strands_retry_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/strands_retry_spend_logs.jsonl",
-      "sha256": "aef18993d73172c724e181e58a1790f364fe56444313fdc37c3bb060e2f092db"
+      "sha256": "20c2f8d8f24eaa4f521bd2a7b4c1cbae63781970ac6c651c1d83f0d97206641c"
     },
     "fixtures/spend/strands_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/strands_simple_spend_logs.jsonl",
-      "sha256": "c7c7f34f0219b31cff5829e0f14ec4e2c51dc389f93d7558e4551a41f8c2b3b7"
+      "sha256": "e2e074ae5b49efce9bcc126f2515e65167ffa13dbc5eb92f346f22ec8244cbf4"
     },
     "fixtures/spend/strands_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/strands_swarm_spend_logs.jsonl",
-      "sha256": "5db45677655ebaa28d223e8612a9364bec00470e872fa4e11bef67c857feb19a"
+      "sha256": "a4879fdd11c54e1fea48a24d3b0f02916c6e6ef61f1c6fda29d3c60a2bdf3725"
     },
     "fixtures/spend/vercel_ai_sdk_billed_failure_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/vercel_ai_sdk_billed_failure_spend_logs.jsonl",
-      "sha256": "305aae48c7e158da7f49159d9bfb2387207dd6bae62671b1047c1c08297e129e"
+      "sha256": "3ed3d9071c341de431f3681dfc92cdb103a3bb66e46c0931d61fe61c787cc6e6"
     },
     "fixtures/spend/vercel_ai_sdk_py_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/vercel_ai_sdk_py_simple_spend_logs.jsonl",
-      "sha256": "a26322f990b720d2b20ea05773f0706a9cc9a9e5379db7a6301895d512ea33fd"
+      "sha256": "8d72be7f047bfadd3e4e99b3bfee0743ed77280532bbc71b290e724406bae310"
     },
     "fixtures/spend/vercel_ai_sdk_py_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/vercel_ai_sdk_py_swarm_spend_logs.jsonl",
-      "sha256": "01573cf07e4f81c438d76d7f6fee51dc27c4d8caf91e762f6370b1a02845393c"
+      "sha256": "888a09a1dd8cfe67e157a57cae64def2d3e8041c111cd9d0fbb482d6e99ecc38"
     },
     "fixtures/spend/vercel_ai_sdk_retry_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/vercel_ai_sdk_retry_spend_logs.jsonl",
-      "sha256": "0c7ab353f94aab5faaaf9bb007bfb9f74c466bd421a3fd56b42eb06582be3acb"
+      "sha256": "0449515ec18df311e60a6268cc94c03d62157d6924717aa6ca0938e4a14dab63"
     },
     "fixtures/spend/vercel_ai_sdk_simple_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/vercel_ai_sdk_simple_spend_logs.jsonl",
-      "sha256": "b0503b5b990f4c7c3f4db5f21315f30bd7ae9c1072d1c38c7a3f283b2756f9e0"
+      "sha256": "faaea68cb15546ad97fd82e024ff6a44b06f144478e34a8be86e27fa58a5a99d"
     },
     "fixtures/spend/vercel_ai_sdk_stream_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/vercel_ai_sdk_stream_spend_logs.jsonl",
-      "sha256": "f064f07e9a2d94ea9cdf4234aa18c8362b4dcc9347e75694eb87d7cc57b019ad"
+      "sha256": "264e024bda962c3792793de6067fbbc4de8732748434ed11f0014470c24f487e"
     },
     "fixtures/spend/vercel_ai_sdk_swarm_spend_logs.jsonl": {
       "source_path": "src/worker/crates/traces-clickhouse/tests/fixtures/vercel_ai_sdk_swarm_spend_logs.jsonl",
-      "sha256": "cadc58a7a8740ac7c687e523be6eb26ce769de67a89f942151ebb701e9454c7c"
+      "sha256": "8348ea5dc0f25f656d04489794923fa2fb9f341146ca5dda3d63aecc6a88a663"
     }
   }
 }

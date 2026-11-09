@@ -38,8 +38,8 @@ from hangarllm.proxy.a2a.agent_card import (
 )
 from hangarllm.proxy.agent_endpoints.agent_registry import (
     AgentIdWhere,
-    parse_agent_kill_switch,
     parse_agent_hangarllm_params,
+    parse_agent_kill_switch,
     redact_sensitive_agent_hangarllm_params,
 )
 from hangarllm.proxy.agent_endpoints.agent_search import (

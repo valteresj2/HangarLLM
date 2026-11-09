@@ -48,7 +48,12 @@ from hangarllm.router_utils.pre_call_checks.io_token_rate_limit_check import (
 )
 from hangarllm.router_utils.stream_usage_injection import router_config_requests_stream_usage
 from hangarllm.types.hangarllm_params import STREAM_USAGE_INJECTED_FIELD
-from hangarllm.types.router import Deployment, GenericHangarLLMParams, HangarLLM_Params, validate_hangarllm_params_strictly
+from hangarllm.types.router import (
+    Deployment,
+    GenericHangarLLMParams,
+    HangarLLM_Params,
+    validate_hangarllm_params_strictly,
+)
 from hangarllm.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN
 
 if TYPE_CHECKING:

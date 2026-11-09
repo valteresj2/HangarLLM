@@ -16,13 +16,13 @@ from pydantic import BaseModel, TypeAdapter
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_logger
 from hangarllm.caching import DualCache
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.core_helpers import (
     get_metadata_variable_name_from_kwargs,
     get_or_create_metadata_bucket,
     redact_nested_match_and_regex_keys,
     require_attributes,
 )
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.secret_managers.main import str_to_bool
 from hangarllm.types.guardrails import (
     DEFAULT_GUARDRAIL_STREAM_SCOPE,

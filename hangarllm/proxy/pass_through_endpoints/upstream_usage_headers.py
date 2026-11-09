@@ -19,8 +19,8 @@ import httpx
 
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.constants import MAX_SPEND_LOG_MODEL_NAME_LENGTH
-from hangarllm.integrations.otel.model.semconv import PASSTHROUGH_OPERATION_KEY, GenAIOperation
 from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.integrations.otel.model.semconv import PASSTHROUGH_OPERATION_KEY, GenAIOperation
 from hangarllm.types.utils import Usage
 
 UPSTREAM_RESPONSE_COST_HEADER: Final = "x-hangarllm-response-cost"

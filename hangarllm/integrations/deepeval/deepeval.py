@@ -3,6 +3,7 @@ from typing import Final
 
 from hangarllm._logging import verbose_logger
 from hangarllm._uuid import uuid
+from hangarllm.hangarllm_core_utils.internal_call_metadata import logged_event_key
 from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.integrations.deepeval.api import Api, Endpoints, HttpMethods
 from hangarllm.integrations.deepeval.types import (
@@ -15,7 +16,6 @@ from hangarllm.integrations.deepeval.utils import (
     to_zod_compatible_iso,
     validate_environment,
 )
-from hangarllm.hangarllm_core_utils.internal_call_metadata import logged_event_key
 
 
 # This file includes the custom callbacks for HangarLLM Proxy

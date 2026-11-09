@@ -17,7 +17,6 @@ from pydantic import TypeAdapter
 import hangarllm
 from hangarllm.anthropic_beta_headers_manager import aload_beta_headers_config
 from hangarllm.constants import PROVIDERS_THAT_AUTHENTICATE_ON_PROVIDER_INFO
-from hangarllm.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
 from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping
 from hangarllm.hangarllm_core_utils.exception_mapping_utils import exception_type
 from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
@@ -28,6 +27,7 @@ from hangarllm.hangarllm_core_utils.reasoning_effort_capability import (
     model_group_from_metadata,
     resolve_deployment_reasoning_effort,
 )
+from hangarllm.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
 from hangarllm.llms.anthropic.common_utils import (
     AnthropicModelInfo,
     strip_provider_specific_fields_from_anthropic_messages,

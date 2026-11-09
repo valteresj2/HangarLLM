@@ -18,9 +18,9 @@ from fastapi import HTTPException
 import hangarllm
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.constants import HANGARLLM_PROXY_ADMIN_NAME, HANGARLLM_UI_SESSION_DURATION
+from hangarllm.hangar.proxy.ui_session import sign_session
 from hangarllm.hangarllm_core_utils.duration_parser import duration_in_seconds
 from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from hangarllm.hangar.proxy.ui_session import sign_session
 from hangarllm.proxy._types import (
     HangarLLM_UserTable,
     HangarllmUserRoles,

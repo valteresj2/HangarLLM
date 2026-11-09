@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Final
 from pydantic import ConfigDict, TypeAdapter
 
 from hangarllm.constants import DEFAULT_MAX_RECURSE_DEPTH
+from hangarllm.hangarllm_core_utils.core_helpers import iter_items
 from hangarllm.harness.errors import HarnessError, OptionsMismatch
 from hangarllm.harness.options import CodexOptions
 from hangarllm.harness.types import (
@@ -31,7 +32,6 @@ from hangarllm.harness.types import (
     ToolCall,
     ToolResult,
 )
-from hangarllm.hangarllm_core_utils.core_helpers import iter_items
 from hangarllm.llms.base_llm.harness.transformation import (
     BaseCLIHarnessConfig,
     HarnessSessionSetup,

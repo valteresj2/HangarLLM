@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import ConfigDict, Field
 from typing_extensions import TypedDict
 
-from hangarllm.types.proxy.auth.user_roles import KeyManagementRoutes, HangarllmUserRoles
+from hangarllm.types.proxy.auth.user_roles import HangarllmUserRoles, KeyManagementRoutes
 from hangarllm.types.proxy.management_endpoints.user_requests import NewUserRequest
 from hangarllm.types.utils import HangarLLMPydanticObjectBase
 

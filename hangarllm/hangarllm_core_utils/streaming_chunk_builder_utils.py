@@ -27,7 +27,11 @@ from hangarllm.hangarllm_core_utils.hidden_params import (
     set_hidden_param,
     set_hidden_params,
 )
-from hangarllm.hangarllm_core_utils.llm_cost_calc.guardrail_cost import BEDROCK_TRACE_FIELDS, object_items, object_mapping
+from hangarllm.hangarllm_core_utils.llm_cost_calc.guardrail_cost import (
+    BEDROCK_TRACE_FIELDS,
+    object_items,
+    object_mapping,
+)
 from hangarllm.hangarllm_core_utils.llm_response_utils.convert_dict_to_response import partition_annotations
 from hangarllm.hangarllm_core_utils.prompt_templates.common_utils import (
     get_content_from_model_response,  # pyright: ignore[reportUnknownVariableType]  # response param accepts an untyped dict

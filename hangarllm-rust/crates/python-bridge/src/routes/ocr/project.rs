@@ -35,8 +35,10 @@ struct OcrArguments<'a, 'py> {
 
 impl<'py> OcrArguments<'_, 'py> {
     fn lookup(&self, name: &'static str) -> PyResult<Bound<'py, PyAny>> {
-        Ok(hangarllm_host_python::lookup(self.kwargs, self.bound, name)?
-            .ok_or(ArgumentError::Required(name))?)
+        Ok(
+            hangarllm_host_python::lookup(self.kwargs, self.bound, name)?
+                .ok_or(ArgumentError::Required(name))?,
+        )
     }
 
     fn model(&self) -> PyResult<String> {

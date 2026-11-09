@@ -18,10 +18,6 @@ import hangarllm
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.compression.compress import get_protected_indices
 from hangarllm.constants import HTTP_HANDLER_CONNECT_TIMEOUT_SECONDS
-from hangarllm.integrations.custom_guardrail import (
-    CustomGuardrail,
-    log_guardrail_information,
-)
 from hangarllm.hangarllm_core_utils.core_helpers import require_attributes
 from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
     get_attribute_or_key,
@@ -31,6 +27,10 @@ from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
 )
 from hangarllm.hangarllm_core_utils.provider_affinity import get_caller_session_id
 from hangarllm.hangarllm_core_utils.routing_common_utils import request_user_api_key_auth
+from hangarllm.integrations.custom_guardrail import (
+    CustomGuardrail,
+    log_guardrail_information,
+)
 from hangarllm.llms.custom_httpx.http_handler import (
     get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]
     httpxSpecialProvider,

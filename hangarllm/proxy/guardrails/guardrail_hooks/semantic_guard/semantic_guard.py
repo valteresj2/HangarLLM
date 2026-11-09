@@ -9,11 +9,11 @@ than an LLM call (~20-50ms per request for embedding).
 from typing import TYPE_CHECKING, Final, Protocol
 
 from hangarllm._logging import verbose_logger
+from hangarllm.hangarllm_core_utils.core_helpers import attribute_items, attribute_or_none, require_attributes
 from hangarllm.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from hangarllm.hangarllm_core_utils.core_helpers import attribute_items, attribute_or_none, require_attributes
 from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import (
     SemanticGuardRouteLoader,
 )

@@ -686,7 +686,8 @@ async fn a_cross_slot_token_script_on_the_post_call_batch_falls_back_to_plain_in
 
     for value in ["a", "b", "c", "d"] {
         let key = format!("{{api_key:{value}}}:tokens");
-        let written = hangarllm_redis_testing::eventually(async || raw_text(&raw, &key).await).await;
+        let written =
+            hangarllm_redis_testing::eventually(async || raw_text(&raw, &key).await).await;
         assert_eq!(written, "25");
     }
     let local = limits

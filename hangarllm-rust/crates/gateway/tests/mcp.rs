@@ -336,7 +336,10 @@ async fn mcp_uses_the_configured_ca_bundle() {
     let hangarllm_gateway::Error::Http(error) = error else {
         panic!("expected an HTTP configuration error");
     };
-    assert_eq!(error.tls_source(), Some(hangarllm_http::TlsSource::CaBundle));
+    assert_eq!(
+        error.tls_source(),
+        Some(hangarllm_http::TlsSource::CaBundle)
+    );
     assert_eq!(
         error.to_string(),
         format!("could not read {}", missing.display())

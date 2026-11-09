@@ -12,8 +12,8 @@ from typing import Final, Literal, TypeAlias
 import hangarllm
 from hangarllm._logging import verbose_logger
 from hangarllm.batches.batch_utils import batch_cost_and_usage, iter_batch_input_lines, parse_batch_output_line
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.hangarllm_logging import init_custom_logger_compatible_class, is_valid_sha256_hash
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.llms.vertex_ai.files.transformation import vertex_batch_row_custom_id
 from hangarllm.types.utils import (
     ModelInfo,

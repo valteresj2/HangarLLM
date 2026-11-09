@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, Any, Final, Protocol
 from jinja2 import DictLoader, select_autoescape
 from jinja2.sandbox import ImmutableSandboxedEnvironment
 
-from hangarllm.integrations.custom_prompt_management import CustomPromptManagement
 from hangarllm.hangarllm_core_utils.core_helpers import require_attributes
+from hangarllm.integrations.custom_prompt_management import CustomPromptManagement
 
 if TYPE_CHECKING:
     from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj

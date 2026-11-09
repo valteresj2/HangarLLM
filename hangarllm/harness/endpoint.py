@@ -34,10 +34,10 @@ from hangarllm.constants import (
     HARNESS_PROCESS_KILL_GRACE_SECONDS,
     HARNESS_SESSION_TOKEN_BYTES,
 )
+from hangarllm.hangarllm_core_utils.core_helpers import has_attributes
 from hangarllm.harness.context import GatewayTarget
 from hangarllm.harness.errors import HarnessError, HarnessInstallFailed
 from hangarllm.harness.types import Harness, Usage
-from hangarllm.hangarllm_core_utils.core_helpers import has_attributes
 from hangarllm.llms.custom_httpx.http_handler import get_async_httpx_client
 from hangarllm.types.hangarllm_params import STREAM_USAGE_INJECTED_FIELD
 from hangarllm.types.llms.custom_http import httpxSpecialProvider

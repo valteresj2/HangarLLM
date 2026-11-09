@@ -1,5 +1,7 @@
 use hangarllm_auth_gcp::{self as vertex, VertexConfig};
-use hangarllm_core_utils::{call_arguments::CallArguments, params::OpaqueParams, url_utils::ApiUrl};
+use hangarllm_core_utils::{
+    call_arguments::CallArguments, params::OpaqueParams, url_utils::ApiUrl,
+};
 use serde_json::Value;
 
 use super::common_utils::{validate_destination, vertex_config};

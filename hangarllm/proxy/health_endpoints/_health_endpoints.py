@@ -21,17 +21,17 @@ from typing_extensions import ReadOnly
 import hangarllm
 from hangarllm._logging import verbose_logger, verbose_proxy_logger
 from hangarllm.constants import HEALTH_CHECK_TIMEOUT_SECONDS, PROXY_DB_LOOKUP_STALL_WINDOW_SECONDS
-from hangarllm.integrations.SlackAlerting.ms_teams import (
-    MS_TEAMS_ALERT_HEADERS,
-    build_ms_teams_payload,
-    get_ms_teams_webhook_url,
-)
 from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
     _ADMIN_CONFIG_FIELDS_TO_CLEAR_ON_BASE_OVERRIDE,  # pyright: ignore[reportPrivateUsage]  # one canonical list, shared with the router path
     clientside_credential_keys,
 )
 from hangarllm.hangarllm_core_utils.custom_logger_registry import CustomLoggerRegistry
 from hangarllm.hangarllm_core_utils.routing_common_utils import resolve_model_group_alias
+from hangarllm.integrations.SlackAlerting.ms_teams import (
+    MS_TEAMS_ALERT_HEADERS,
+    build_ms_teams_payload,
+    get_ms_teams_webhook_url,
+)
 from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 from hangarllm.proxy._types import (
     AlertType,
@@ -477,11 +477,11 @@ async def health_services_endpoint(
                 "message": (response["error_message"] if response["status"] == "unhealthy" else "Datadog is healthy"),
             }
         elif service == "datadog_metrics":
-            from hangarllm.integrations.datadog.datadog_metrics import (
-                DatadogMetricsLogger,
-            )
             from hangarllm.hangarllm_core_utils.hangarllm_logging import (
                 get_custom_logger_compatible_class,
+            )
+            from hangarllm.integrations.datadog.datadog_metrics import (
+                DatadogMetricsLogger,
             )
 
             datadog_metrics_logger = get_custom_logger_compatible_class("datadog_metrics")

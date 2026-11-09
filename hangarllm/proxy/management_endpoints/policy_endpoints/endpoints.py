@@ -27,8 +27,8 @@ from hangarllm.constants import (
     DEFAULT_COMPETITOR_DISCOVERY_MODEL,
     MAX_COMPETITOR_NAMES,
 )
-from hangarllm.integrations.custom_guardrail import CustomGuardrail
 from hangarllm.hangarllm_core_utils.offline_mode import is_offline_mode
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
 from hangarllm.llms.openai.chat.guardrail_translation.handler import (
     OpenAIChatCompletionsHandler,
 )

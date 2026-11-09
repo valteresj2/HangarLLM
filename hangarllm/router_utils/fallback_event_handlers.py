@@ -12,7 +12,6 @@ from pydantic import TypeAdapter
 
 import hangarllm
 from hangarllm._logging import verbose_router_logger
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.add_retry_fallback_headers import (
     add_fallback_headers_to_response,
     get_fallback_error_info,
@@ -23,6 +22,7 @@ from hangarllm.hangarllm_core_utils.credential_accessor import reject_api_key_se
 from hangarllm.hangarllm_core_utils.get_llm_provider_logic import inferred_provider
 from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging, same_attempt_marker
 from hangarllm.hangarllm_core_utils.sensitive_data_masker import mask_sensitive_structure
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.router_deprecated import renamed_router_param
 from hangarllm.router_utils.cooldown_handlers import (
     _first_present,  # pyright: ignore[reportPrivateUsage] - shared internal helper, used across router_utils

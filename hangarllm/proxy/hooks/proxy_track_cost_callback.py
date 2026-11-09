@@ -15,7 +15,6 @@ import hangarllm
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.caching.redis_batch import flush_post_call_redis_batches
 from hangarllm.constants import BACKGROUND_INTERACTION_COST_POLLING_ENABLED, BILLED_RETRY_ATTEMPT_METADATA_KEY
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.batch_utils import defers_batch_cost, repeat_poll_cost
 from hangarllm.hangarllm_core_utils.core_helpers import (
     budget_reservation_from_metadata,
@@ -30,6 +29,7 @@ from hangarllm.hangarllm_core_utils.hangarllm_logging import (
 )
 from hangarllm.hangarllm_core_utils.llm_cost_calc.guardrail_cost import guardrail_information_cost
 from hangarllm.hangarllm_core_utils.redact_messages import MESSAGE_REDACTION_ENABLE_HEADERS
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.llms.azure.ptu_capacity import is_str_keyed_mapping
 from hangarllm.proxy._types import UserAPIKeyAuth
 from hangarllm.proxy.auth.auth_checks import (
@@ -44,8 +44,8 @@ from hangarllm.proxy.db.db_spend_update_writer import (
     debitable_model_access_groups,
     get_llm_router,
 )
-from hangarllm.proxy.hooks.search_free_tier import apply_search_free_tier
 from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup, metadata_variable_name_for_request
+from hangarllm.proxy.hooks.search_free_tier import apply_search_free_tier
 from hangarllm.proxy.route_llm_request import ProxyModelNotFoundError
 from hangarllm.proxy.spend_tracking.spend_counter_batch import post_call_counter_keys, spend_counter_batch_scope
 from hangarllm.proxy.spend_tracking.spend_event import (

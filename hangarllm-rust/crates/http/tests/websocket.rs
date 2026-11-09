@@ -5,11 +5,11 @@ use std::{
 };
 
 use futures_util::{SinkExt, StreamExt};
-use http::{HeaderMap, HeaderValue};
 use hangarllm_http::{
     ClientIdentity, ClientVariant, EnvironmentProxies, Error, HttpClientConfig, HttpClientPool,
     HttpSettings, Resolution, Verify, media::PublicDnsResolver, websocket::connect,
 };
+use http::{HeaderMap, HeaderValue};
 use rcgen::{BasicConstraints, CertificateParams, CertifiedIssuer, IsCa, KeyPair};
 use rstest::{Context, rstest};
 use rustls::{

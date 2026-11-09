@@ -24,8 +24,8 @@ from hangarllm.constants import UI_SESSION_TOKEN_TEAM_ID
 from hangarllm.hangar.proxy.ui_session import SESSION_COOKIE
 from hangarllm.proxy._types import (
     CommonProxyErrors,
-    HTTPExceptionErrorDetail,
     HangarLLM_VerificationToken,
+    HTTPExceptionErrorDetail,
     SessionLogoutResponse,
     UserAPIKeyAuth,
 )

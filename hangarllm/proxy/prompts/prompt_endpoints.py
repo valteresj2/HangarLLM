@@ -39,9 +39,9 @@ from hangarllm.repositories.table_repositories import PromptRepository
 from hangarllm.types.llms.base import HangarLLMBaseModel
 from hangarllm.types.prompts.init_prompts import (
     ListPromptsResponse,
+    PromptHangarLLMParams,
     PromptInfo,
     PromptInfoResponse,
-    PromptHangarLLMParams,
     PromptSpec,
     PromptTemplateBase,
 )

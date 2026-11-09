@@ -35,7 +35,6 @@ from pydantic import TypeAdapter
 
 from hangarllm._internal_context import service_target
 from hangarllm.constants import DEFAULT_COOLDOWN_TIME_SECONDS, HEALTH_CHECKS_TARGET
-from hangarllm.integrations.custom_guardrail import is_guardrail_intervention
 from hangarllm.hangarllm_core_utils.add_retry_fallback_headers import (
     add_fallback_headers_to_response,
     add_retry_headers_to_response,
@@ -63,6 +62,7 @@ from hangarllm.hangarllm_core_utils.routing_common_utils import (
 )
 from hangarllm.hangarllm_core_utils.routing_groups import validate_routing_strategy
 from hangarllm.hangarllm_core_utils.secret_redaction import redact_string
+from hangarllm.integrations.custom_guardrail import is_guardrail_intervention
 from hangarllm.redis.stores.connection import connect
 from hangarllm.redis.stores.router_cooldowns import ROUTER_COOLDOWNS_TARGET, RouterCooldownStore
 from hangarllm.redis.stores.router_usage import ROUTER_USAGE_TARGET, RouterUsage
@@ -237,9 +237,9 @@ if TYPE_CHECKING:
 
     from hangarllm.caching.dual_cache import DualCache
     from hangarllm.caching.redis_cache import RedisCache
-    from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
     from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
     from hangarllm.hangarllm_core_utils.ptu_shares import PTUTeamCeiling
+    from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
     from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
     from hangarllm.router_api import UntypedDict
     from hangarllm.router_utils.cooldown_cache import CooldownCache
@@ -502,7 +502,9 @@ def retry_after_seconds(error: BaseException) -> float | None:
     from hangarllm.hangarllm_core_utils.exception_mapping_utils import (
         _get_response_headers,  # pyright: ignore[reportPrivateUsage]  # the failure callback's own read
     )
-    from hangarllm.utils import _get_retry_after_from_exception_header  # pyright: ignore[reportPrivateUsage]  # see above
+    from hangarllm.utils import (
+        _get_retry_after_from_exception_header,  # pyright: ignore[reportPrivateUsage]  # see above
+    )
 
     headers: Final = _get_response_headers(original_exception=error)  # pyright: ignore[reportArgumentType]  # every attempt error is an Exception
     if headers is None:

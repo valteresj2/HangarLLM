@@ -46,7 +46,6 @@ from hangarllm._logging import verbose_proxy_logger
 from hangarllm.caching import DualCache
 from hangarllm.proxy._types import (  # re-exported
     CommonProxyErrors,
-    KeyRequestBase,
     HangarLLM_ManagementEndpoint_MetadataFields,
     HangarLLM_ManagementEndpoint_MetadataFields_Premium,
     HangarLLM_OrganizationTable,
@@ -54,6 +53,7 @@ from hangarllm.proxy._types import (  # re-exported
     HangarLLM_TeamTable,
     HangarLLM_UserTable,
     HangarllmUserRoles,
+    KeyRequestBase,
     NewProjectRequest,
     UpdateProjectRequest,
     UserAPIKeyAuth,

@@ -263,7 +263,10 @@ fn pickle_loads_matches_python_at_every_protocol(fixtures: &Fixtures) {
                     mismatches.check(row, &what, "a class-reference error", &repr(&value))
                 }
                 (Err(pickle_error), false) => assert!(
-                    matches!(pickle_error, hangarllm_python_compat::Error::InvalidPickle(_)),
+                    matches!(
+                        pickle_error,
+                        hangarllm_python_compat::Error::InvalidPickle(_)
+                    ),
                     "{}: {pickle_error}",
                     row.source
                 ),

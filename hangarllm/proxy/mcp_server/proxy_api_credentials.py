@@ -97,7 +97,9 @@ async def mint_proxy_credential(
 
 
 async def _team_details(teams: Sequence[str]) -> tuple[CliSsoTeamDetail, ...] | None:
-    from hangarllm.proxy.proxy_server import prisma_client  # noqa: PLC0415  # rebound after startup, so read it per call
+    from hangarllm.proxy.proxy_server import (
+        prisma_client,  # noqa: PLC0415  # rebound after startup, so read it per call
+    )
 
     if prisma_client is None:
         return None

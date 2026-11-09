@@ -11,8 +11,8 @@ from fastapi import HTTPException, Request, status
 import hangarllm
 from hangarllm._logging import verbose_proxy_logger, verbose_proxy_stdout_logger
 from hangarllm.constants import EMPTY_MAPPING
-from hangarllm.integrations.otel.runtime import seed_request_identity
 from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping, is_expected_client_error
+from hangarllm.integrations.otel.runtime import seed_request_identity
 from hangarllm.proxy._types import (
     HangarllmUserRoles,
     ModelAccessDeniedProxyException,

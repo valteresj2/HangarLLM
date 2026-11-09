@@ -38,8 +38,8 @@ from hangarllm.batches.batch_utils import (
 )
 from hangarllm.constants import BATCH_TPD_DESCRIPTOR_SUFFIX, BATCH_TPD_WINDOW_SECONDS
 from hangarllm.exceptions import RateLimitErrorCategory
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.core_helpers import decoded_json_object
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.proxy._types import (
     ProxyErrorTypes,
     ProxyException,

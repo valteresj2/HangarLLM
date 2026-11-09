@@ -53,9 +53,9 @@ from typing import Final, Protocol
 
 import hangarllm
 from hangarllm._logging import verbose_logger
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.core_helpers import has_attributes
 from hangarllm.hangarllm_core_utils.redact_messages import should_redact_message_logging
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.llms.anthropic.common_utils import tool_calls_with_server_tool_calls
 from hangarllm.types.integrations.base_health_check import IntegrationHealthCheckStatus
 from hangarllm.types.integrations.newrelic import NewRelicInitParams

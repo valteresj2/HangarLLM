@@ -36,8 +36,8 @@ from hangarllm.constants import (
     CLIENT_OUTPUT_CEILING_METADATA_KEY,
     COMPLEXITY_ROUTER_CHILD_SESSION_ID_METADATA_KEY,
     CONSUMED_REQUEST_TAGS_METADATA_KEY,
-    INTERNAL_CALL_ORIGIN_METADATA_KEY,
     HANGARLLM_PROXY_MASTER_KEY_ALIAS,
+    INTERNAL_CALL_ORIGIN_METADATA_KEY,
     MANAGED_BACKGROUND_RESPONSE_METADATA_KEY,
     OTEL_SERVICE_NAME_METADATA_KEYS,
     PRE_CALL_EXECUTED_GUARDRAILS_KEY,
@@ -50,7 +50,6 @@ from hangarllm.constants import (
     VECTOR_STORE_CALLER_METADATA_KWARG,
     X_HANGARLLM_DISABLE_CALLBACKS,
 )
-from hangarllm.integrations.custom_guardrail import merged_guardrail_entries, without_server_streaming_classification
 from hangarllm.hangarllm_core_utils.core_helpers import (
     as_str_mapping,
     attribute_or_none,
@@ -70,6 +69,7 @@ from hangarllm.hangarllm_core_utils.url_utils import (
     is_url_destination_allowed_by_host,
     provider_url_destination_candidates,
 )
+from hangarllm.integrations.custom_guardrail import merged_guardrail_entries, without_server_streaming_classification
 from hangarllm.llms.anthropic.common_utils import ANTHROPIC_OAUTH_FORWARD_PROVIDERS
 from hangarllm.proxy._types import (
     AddTeamCallback,
@@ -2593,8 +2593,8 @@ def refresh_proxy_server_request_body_snapshot(
     ``Logging`` instance, so it must be excluded here the same way ``secret_fields``
     and ``proxy_server_request`` are.
     """
-    from hangarllm.integrations.shadow_eval_logger import GuardrailRequestSnapshot
     from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.integrations.shadow_eval_logger import GuardrailRequestSnapshot
 
     logging_obj: Final = data.get("hangarllm_logging_obj")
     if isinstance(logging_obj, Logging):

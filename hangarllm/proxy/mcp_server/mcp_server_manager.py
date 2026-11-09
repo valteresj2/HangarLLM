@@ -62,7 +62,6 @@ from pydantic import AnyUrl, Field, SecretStr, TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, assert_never
 
 import hangarllm
-from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_logger
 from hangarllm.caching.in_memory_cache import InMemoryCache
@@ -72,6 +71,7 @@ from hangarllm.constants import (
     MCP_METADATA_TIMEOUT,
     MCP_TOOL_LISTING_TIMEOUT,
     MCP_UPSTREAM_SESSION_SHUTDOWN_TIMEOUT_SECONDS,
+    VIRTUAL_KEY_PREFIXES,
 )
 from hangarllm.exceptions import BlockedPiiEntityError, GuardrailRaisedException
 from hangarllm.hangarllm_core_utils.url_utils import SSRFError, async_safe_get

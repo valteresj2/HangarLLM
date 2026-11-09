@@ -12,8 +12,8 @@ fn accepts_only_clickhouse_http_urls(#[case] value: &str, #[case] expected: bool
 
 #[test]
 fn storage_uses_one_url_for_writes_and_bounded_reads() {
-    let storage =
-        Storage::new("hangarllm".to_owned(), "http://localhost:8123").expect("valid ClickHouse URLs");
+    let storage = Storage::new("hangarllm".to_owned(), "http://localhost:8123")
+        .expect("valid ClickHouse URLs");
 
     assert_eq!(storage.database(), "hangarllm");
     assert_eq!(storage.writer().url().host_str(), Some("localhost"));

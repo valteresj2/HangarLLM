@@ -19,6 +19,9 @@ from typing_extensions import ReadOnly, TypedDict
 
 import hangarllm
 from hangarllm._logging import verbose_logger
+from hangarllm.hangarllm_core_utils.core_helpers import attribute_or_none, require_attributes
+from hangarllm.hangarllm_core_utils.internal_call_metadata import is_unbilled_non_inference_call_from_params
+from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 from hangarllm.integrations.opentelemetry import (
     METRIC_METADATA_KEYS,
     TOKEN_TYPE_ATTRIBUTE,
@@ -35,9 +38,6 @@ from hangarllm.integrations.otel.model.semconv import (
     resolve_provider,
 )
 from hangarllm.integrations.otel.model.utils import to_seconds
-from hangarllm.hangarllm_core_utils.core_helpers import attribute_or_none, require_attributes
-from hangarllm.hangarllm_core_utils.internal_call_metadata import is_unbilled_non_inference_call_from_params
-from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 
 
 def _provider_attributes(custom_llm_provider: object) -> Mapping[str, str]:

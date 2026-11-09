@@ -44,8 +44,8 @@ from hangarllm._logging import verbose_proxy_logger
 from hangarllm._uuid import uuid
 from hangarllm.caching.redis_batch import active_request_redis_batches
 from hangarllm.constants import TEAM_DELETE_TRANSACTION_TIMEOUT_SECONDS
-from hangarllm.integrations.prometheus import PrometheusLogger
 from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
+from hangarllm.integrations.prometheus import PrometheusLogger
 from hangarllm.proxy._types import (
     UI_TEAM_ID,
     BlockTeamRequest,

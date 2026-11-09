@@ -14,8 +14,8 @@ from typing_extensions import ReadOnly, TypedDict
 
 from hangarllm._logging import verbose_logger
 from hangarllm.compression import compress
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.asyncify import asyncify
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.types.integrations.compression_interception import (
     CompressionInterceptionConfig,
     CompressionSavingsMetadata,

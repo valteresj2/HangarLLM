@@ -43,10 +43,9 @@ fn caller_token_provider(services: HostServices<Ocr>) -> TokenProviderHandle {
                 .call(OcrOp::AcquireAzureAdToken)
                 .await
                 .map_err(|error| {
-                    hangarllm_auth::Error::CredentialAcquisition(hangarllm_auth::ErrorDetail::failed(
-                        "host Azure AD token request",
-                        error,
-                    ))
+                    hangarllm_auth::Error::CredentialAcquisition(
+                        hangarllm_auth::ErrorDetail::failed("host Azure AD token request", error),
+                    )
                 })
         }
     })

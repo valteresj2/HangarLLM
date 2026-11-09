@@ -24,24 +24,28 @@ from pydantic import TypeAdapter
 from starlette.exceptions import WebSocketException
 
 import hangarllm
-from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._internal_context import service_target, set_request_parent_otel_span
 from hangarllm._logging import verbose_logger, verbose_proxy_logger
 from hangarllm._service_logger import ServiceLogging
 from hangarllm.constants import (
     CLIENT_REQUESTED_MODEL_SCOPE_KEY,
     GLOBAL_PROXY_SPEND_CACHE_KEY,
-    INVALID_VIRTUAL_KEY_ERROR_MARKER,
-    INVALID_VIRTUAL_KEY_ERROR_MESSAGE,
     HANGARLLM_PROXY_BUDGET_NAME,
     HANGARLLM_PROXY_MASTER_KEY_ALIAS,
+    INVALID_VIRTUAL_KEY_ERROR_MARKER,
+    INVALID_VIRTUAL_KEY_ERROR_MESSAGE,
     MODEL_GROUP_ALIAS_RESOLVED_SCOPE_KEY,
+    VIRTUAL_KEY_PREFIXES,
 )
-from hangarllm.integrations.otel.model.config import is_otel_v2_enabled
-from hangarllm.integrations.otel.runtime import phase_event, phase_span, seed_request_identity
+from hangarllm.hangar.proxy import proxy_config as _hangar_proxy_config
+from hangarllm.hangar.proxy.custom_auth import (
+    enterprise_custom_auth as _enterprise_custom_auth,
+)
 from hangarllm.hangarllm_core_utils.dd_tracing import tracer
 from hangarllm.hangarllm_core_utils.dot_notation_indexing import get_nested_value
 from hangarllm.hangarllm_core_utils.routing_common_utils import resolve_model_group_alias, resolve_served_model
+from hangarllm.integrations.otel.model.config import is_otel_v2_enabled
+from hangarllm.integrations.otel.runtime import phase_event, phase_span, seed_request_identity
 from hangarllm.models.end_user import HangarLLM_EndUserTable
 from hangarllm.proxy._types import *
 from hangarllm.proxy.agent_endpoints.auth.agent_caller import agent_caller_from_headers
@@ -198,11 +202,6 @@ from hangarllm.router_api import (
 from hangarllm.secret_managers.main import get_secret_bool
 from hangarllm.types.services import ServiceTypes
 
-from hangarllm.hangar.proxy import proxy_config as _hangar_proxy_config
-from hangarllm.hangar.proxy.custom_auth import (
-    enterprise_custom_auth as _enterprise_custom_auth,
-)
-
 # custom auth orchestration (custom_auth_settings.mode: on / auto / off)
 enterprise_custom_auth: Callable | None = _enterprise_custom_auth
 
@@ -352,7 +351,9 @@ async def _resolve_router_settings_model_group_alias(
     if target is None or target == requested:
         return
     if request_dispatched_to_provider_pass_through(request):
-        from hangarllm.proxy.pass_through_endpoints.codex_passthrough_endpoints import native_turn_serves_through_hangarllm
+        from hangarllm.proxy.pass_through_endpoints.codex_passthrough_endpoints import (
+            native_turn_serves_through_hangarllm,
+        )
 
         if not await native_turn_serves_through_hangarllm(requested, llm_router, request, valid_token):
             return
@@ -2247,8 +2248,8 @@ async def user_api_key_auth_builder(
 ) -> UserAPIKeyAuth:
     from hangarllm.proxy.proxy_server import (
         general_settings,
-        jwt_handler,
         hangarllm_proxy_admin_name,
+        jwt_handler,
         llm_router,
         master_key,
         model_max_budget_limiter,

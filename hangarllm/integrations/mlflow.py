@@ -4,8 +4,8 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
 from hangarllm._logging import verbose_logger
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.core_helpers import attribute_or_none, iter_items, require_attributes
+from hangarllm.integrations.custom_logger import CustomLogger
 
 if TYPE_CHECKING:
     from hangarllm.types.utils import StandardLoggingPayload

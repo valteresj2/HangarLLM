@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 from pydantic import ConfigDict, TypeAdapter
 
+from hangarllm.hangarllm_core_utils.core_helpers import iter_items
 from hangarllm.harness.errors import HarnessError, OptionsMismatch
 from hangarllm.harness.options import ClaudeCodeOptions
 from hangarllm.harness.types import (
@@ -30,7 +31,6 @@ from hangarllm.harness.types import (
     ToolCall,
     ToolResult,
 )
-from hangarllm.hangarllm_core_utils.core_helpers import iter_items
 from hangarllm.llms.base_llm.harness.transformation import (
     BaseCLIHarnessConfig,
     HarnessSessionSetup,

@@ -15,9 +15,9 @@ from hangarllm.constants import (
     AZURE_STORAGE_DEFAULT_ENDPOINT_SUFFIX,
     AZURE_STORAGE_MSFT_VERSION,
 )
-from hangarllm.integrations.custom_batch_logger import CustomBatchLogger
 from hangarllm.hangarllm_core_utils.internal_call_metadata import logged_event_key
 from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
+from hangarllm.integrations.custom_batch_logger import CustomBatchLogger
 from hangarllm.llms.azure.common_utils import get_azure_ad_token_from_entra_id
 from hangarllm.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,

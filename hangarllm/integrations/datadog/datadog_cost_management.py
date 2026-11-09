@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Final
 
 from hangarllm._logging import verbose_logger
+from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 from hangarllm.integrations.custom_batch_logger import CustomBatchLogger
 from hangarllm.integrations.datadog.datadog_handler import (
     get_datadog_env,
@@ -14,7 +15,6 @@ from hangarllm.integrations.datadog.datadog_handler import (
     get_datadog_service,
     normalize_datadog_tag_value,
 )
-from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 from hangarllm.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,

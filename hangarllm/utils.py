@@ -342,8 +342,6 @@ if TYPE_CHECKING:
         CachingHandlerResponse,
         LLMCachingHandler,
     )
-    from hangarllm.harness.types import Harness
-    from hangarllm.integrations.custom_logger import CustomLogger
 
     # Type stubs for lazy-loaded functions and classes
     from hangarllm.hangarllm_core_utils.cached_imports import (
@@ -361,6 +359,8 @@ if TYPE_CHECKING:
         delete_nested_value,
         is_nested_path,
     )
+    from hangarllm.harness.types import Harness
+    from hangarllm.integrations.custom_logger import CustomLogger
 
     # Type stubs for lazy-loaded functions to help mypy understand their types
     # These imports allow mypy to understand the types when these are accessed via __getattr__

@@ -2674,6 +2674,1501 @@ dependencies = [
 ]
 
 [[package]]
+name = "hangarllm"
+version = "0.0.1"
+
+[[package]]
+name = "hangarllm-auth"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-auth-aws",
+ "hangarllm-auth-azure",
+ "hangarllm-auth-gcp",
+ "hangarllm-auth-types",
+ "hangarllm-secret-value",
+]
+
+[[package]]
+name = "hangarllm-auth-aws"
+version = "0.1.0"
+dependencies = [
+ "aws-config",
+ "aws-credential-types",
+ "aws-runtime",
+ "aws-sdk-sts",
+ "aws-sigv4",
+ "aws-smithy-runtime-api",
+ "aws-smithy-types",
+ "aws-types",
+ "bytes",
+ "futures-util",
+ "hangarllm-auth-types",
+ "hangarllm-error",
+ "hangarllm-http",
+ "hangarllm-secret-value",
+ "hangarllm-secrets",
+ "moka",
+ "reqwest",
+ "rstest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.19",
+ "tokio",
+ "url",
+ "veil",
+]
+
+[[package]]
+name = "hangarllm-auth-azure"
+version = "0.1.0"
+dependencies = [
+ "azure_core",
+ "azure_identity",
+ "hangarllm-auth-types",
+ "hangarllm-error",
+ "hangarllm-secret-value",
+ "hangarllm-secrets",
+ "moka",
+ "rstest",
+ "serde_json",
+ "sha2 0.10.9",
+ "strum",
+ "tokio",
+ "url",
+]
+
+[[package]]
+name = "hangarllm-auth-gcp"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "gcp_auth",
+ "google-cloud-auth",
+ "hangarllm-auth-types",
+ "hangarllm-error",
+ "hangarllm-secret-value",
+ "http 1.4.2",
+ "moka",
+ "rstest",
+ "rustls 0.23.42",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "time",
+ "tokio",
+ "veil",
+]
+
+[[package]]
+name = "hangarllm-auth-types"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-error",
+ "hangarllm-secret-value",
+ "rstest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.19",
+ "tokio",
+ "veil",
+]
+
+[[package]]
+name = "hangarllm-cache"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-error",
+ "rstest",
+ "serde",
+ "serde_json",
+ "strum",
+ "thiserror 2.0.19",
+ "tokio",
+]
+
+[[package]]
+name = "hangarllm-cache-azure-blob"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "azure_core",
+ "azure_storage_blob",
+ "futures-util",
+ "hangarllm-auth-azure",
+ "hangarllm-auth-types",
+ "hangarllm-cache",
+ "hangarllm-cache-response",
+ "hangarllm-cache-testing",
+ "hangarllm-http",
+ "reqwest",
+ "rstest",
+ "serde_json",
+ "thiserror 2.0.19",
+ "tokio",
+ "url",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-cache-disk"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-cache",
+ "hangarllm-cache-testing",
+ "py_literal",
+ "rand 0.8.7",
+ "rstest",
+ "rusqlite",
+ "serde-pickle",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.19",
+ "tokio",
+]
+
+[[package]]
+name = "hangarllm-cache-gcs"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "hangarllm-auth-gcp",
+ "hangarllm-auth-types",
+ "hangarllm-cache",
+ "hangarllm-cache-testing",
+ "hangarllm-error",
+ "hangarllm-http",
+ "hangarllm-secret-value",
+ "percent-encoding",
+ "reqwest",
+ "rstest",
+ "serde_json",
+ "thiserror 2.0.19",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-cache-memory"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-cache",
+ "hangarllm-cache-testing",
+ "rstest",
+ "tokio",
+]
+
+[[package]]
+name = "hangarllm-cache-qdrant-semantic"
+version = "0.1.0"
+dependencies = [
+ "futures-executor",
+ "futures-util",
+ "hangarllm-cache",
+ "hangarllm-cache-testing",
+ "hangarllm-error",
+ "hangarllm-http",
+ "qdrant-client",
+ "reqwest",
+ "rstest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.19",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tonic-prost",
+ "uuid",
+]
+
+[[package]]
+name = "hangarllm-cache-response"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-cache",
+ "hangarllm-cache-gcs",
+ "hangarllm-cache-memory",
+ "hangarllm-http",
+ "py_literal",
+ "rstest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-cache-s3"
+version = "0.1.0"
+dependencies = [
+ "aws-credential-types",
+ "aws-sdk-s3",
+ "aws-smithy-runtime-api",
+ "aws-smithy-types",
+ "aws-types",
+ "futures-util",
+ "hangarllm-auth-aws",
+ "hangarllm-cache",
+ "hangarllm-cache-testing",
+ "hangarllm-error",
+ "hangarllm-http",
+ "http 1.4.2",
+ "reqwest",
+ "rstest",
+ "serde_json",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-cache-testing"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-cache",
+]
+
+[[package]]
+name = "hangarllm-callbacks-legacy-python"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-error",
+ "hangarllm-host",
+ "hangarllm-host-python",
+ "hangarllm-secret-value",
+ "proptest",
+ "pyo3",
+ "rstest",
+ "serde_json",
+ "strum",
+ "thiserror 2.0.19",
+]
+
+[[package]]
+name = "hangarllm-circuit-breaker"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "rstest",
+]
+
+[[package]]
+name = "hangarllm-config"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-error",
+ "hangarllm-router-types",
+ "hangarllm-secret-value",
+ "rstest",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "strum",
+ "tempfile",
+ "thiserror 2.0.19",
+ "veil",
+]
+
+[[package]]
+name = "hangarllm-core-utils"
+version = "0.1.0"
+dependencies = [
+ "fancy-regex 0.19.2",
+ "hangarllm-error",
+ "hangarllm-llms-types",
+ "hangarllm-tracing",
+ "rstest",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "strum",
+ "thiserror 2.0.19",
+ "url",
+]
+
+[[package]]
+name = "hangarllm-coroutine"
+version = "0.1.0"
+dependencies = [
+ "rstest",
+ "thiserror 2.0.19",
+ "tokio",
+]
+
+[[package]]
+name = "hangarllm-cost"
+version = "0.1.0"
+dependencies = [
+ "jiff",
+ "rstest",
+ "schemars 1.2.2",
+ "serde",
+ "serde_json",
+ "strum",
+ "thiserror 2.0.19",
+]
+
+[[package]]
+name = "hangarllm-db"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "macro_rules_attribute",
+ "rstest",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "strum",
+ "thiserror 2.0.19",
+ "tokio",
+]
+
+[[package]]
+name = "hangarllm-db-testing"
+version = "0.1.0"
+dependencies = [
+ "rstest",
+ "sqlx",
+ "tempfile",
+ "testcontainers-modules",
+ "thiserror 2.0.19",
+ "tokio",
+]
+
+[[package]]
+name = "hangarllm-error"
+version = "0.1.0"
+dependencies = [
+ "rstest",
+ "thiserror 2.0.19",
+]
+
+[[package]]
+name = "hangarllm-framer"
+version = "0.1.0"
+dependencies = [
+ "aws-smithy-eventstream",
+ "aws-smithy-types",
+ "bytes",
+ "futures-util",
+ "proptest",
+ "rstest",
+ "thiserror 2.0.19",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
+name = "hangarllm-gateway"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "envy",
+ "futures-util",
+ "hangarllm-circuit-breaker",
+ "hangarllm-config",
+ "hangarllm-core-utils",
+ "hangarllm-error",
+ "hangarllm-gateway-auth",
+ "hangarllm-gateway-forward",
+ "hangarllm-gateway-inference",
+ "hangarllm-gateway-mcp",
+ "hangarllm-gateway-ui",
+ "hangarllm-http",
+ "hangarllm-inference",
+ "hangarllm-llms",
+ "hangarllm-redis-client",
+ "hangarllm-redis-connect",
+ "hangarllm-redis-resolve",
+ "hangarllm-redis-testing",
+ "hangarllm-redis-types",
+ "hangarllm-secret-value",
+ "hangarllm-secrets",
+ "hangarllm-tracing",
+ "http-body-util",
+ "rstest",
+ "rustls 0.23.42",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.19",
+ "tokio",
+ "tokio-util",
+ "tower",
+ "tower-sessions-moka-store",
+ "tracing",
+ "uuid",
+ "veil",
+]
+
+[[package]]
+name = "hangarllm-gateway-auth"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "axum-login",
+ "futures-util",
+ "hangarllm-config",
+ "hangarllm-error",
+ "hangarllm-secret-value",
+ "hangarllm-secrets",
+ "rstest",
+ "serde",
+ "sha2 0.10.9",
+ "subtle",
+ "thiserror 2.0.19",
+ "tokio",
+ "tower",
+ "tower-sessions",
+ "veil",
+]
+
+[[package]]
+name = "hangarllm-gateway-forward"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "bytes",
+ "envy",
+ "futures-util",
+ "http-body-util",
+ "httparse",
+ "hyper 1.12.0",
+ "hyper-util",
+ "proptest",
+ "rstest",
+ "serde",
+ "thiserror 2.0.19",
+ "tokio",
+ "tokio-tungstenite",
+ "tokio-util",
+ "tower-service",
+ "tracing",
+]
+
+[[package]]
+name = "hangarllm-gateway-inference"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "bytes",
+ "futures-util",
+ "hangarllm-auth",
+ "hangarllm-cache-memory",
+ "hangarllm-cache-response",
+ "hangarllm-error",
+ "hangarllm-gateway-auth",
+ "hangarllm-host",
+ "hangarllm-host-http",
+ "hangarllm-http",
+ "hangarllm-inference",
+ "hangarllm-inference-chat",
+ "hangarllm-inference-messages",
+ "hangarllm-inference-ocr",
+ "hangarllm-inference-responses",
+ "hangarllm-inference-transcription",
+ "hangarllm-llms",
+ "hangarllm-llms-types",
+ "hangarllm-router",
+ "hangarllm-secret-value",
+ "hangarllm-secrets",
+ "rstest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.19",
+ "tokio",
+ "tokio-tungstenite",
+ "tower",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-gateway-management"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "hangarllm-error",
+ "hangarllm-gateway-auth",
+ "hangarllm-secret-value",
+ "rand 0.8.7",
+ "rstest",
+ "thiserror 2.0.19",
+ "tokio",
+]
+
+[[package]]
+name = "hangarllm-gateway-mcp"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "futures-util",
+ "hangarllm-config",
+ "hangarllm-error",
+ "hangarllm-secret-value",
+ "hangarllm-secrets",
+ "http 1.4.2",
+ "moka",
+ "rmcp",
+ "rstest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sse-stream",
+ "thiserror 2.0.19",
+ "tokio",
+ "tokio-util",
+ "tower",
+ "url",
+ "uuid",
+ "veil",
+]
+
+[[package]]
+name = "hangarllm-gateway-ui"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "axum-login",
+ "base64 0.22.1",
+ "futures-util",
+ "governor",
+ "hangarllm-error",
+ "hangarllm-gateway-auth",
+ "hangarllm-secret-value",
+ "jsonwebtoken",
+ "rand 0.8.7",
+ "rstest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.19",
+ "time",
+ "tokio",
+ "tower",
+ "tower-cookies",
+ "tower-http",
+ "tower-sessions",
+]
+
+[[package]]
+name = "hangarllm-host"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "hangarllm-coroutine",
+ "hangarllm-secret-value",
+ "rstest",
+ "serde_json",
+ "thiserror 2.0.19",
+ "tokio",
+]
+
+[[package]]
+name = "hangarllm-host-http"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "bytes",
+ "futures-util",
+ "hangarllm-host",
+ "hangarllm-host-native",
+ "http 1.4.2",
+ "rstest",
+ "serde_json",
+ "thiserror 2.0.19",
+ "tokio",
+]
+
+[[package]]
+name = "hangarllm-host-native"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "hangarllm-host",
+ "rstest",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "hangarllm-host-python"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "futures-util",
+ "hangarllm-coroutine",
+ "hangarllm-error",
+ "hangarllm-host",
+ "parking_lot",
+ "pyo3",
+ "pyo3-async-runtimes",
+ "pythonize",
+ "rstest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.19",
+ "tokio",
+]
+
+[[package]]
+name = "hangarllm-http"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "hangarllm-core-utils",
+ "hangarllm-error",
+ "http 1.4.2",
+ "hyper-util",
+ "rcgen",
+ "reqwest",
+ "rstest",
+ "rustls 0.23.42",
+ "rustls-native-certs",
+ "serde",
+ "serde_json",
+ "strum",
+ "tempfile",
+ "thiserror 2.0.19",
+ "tokio",
+ "tokio-rustls 0.26.4",
+ "tokio-tungstenite",
+ "tracing",
+ "url",
+ "veil",
+ "webpki-roots",
+]
+
+[[package]]
+name = "hangarllm-inference"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "futures-util",
+ "hangarllm-auth",
+ "hangarllm-cache",
+ "hangarllm-cache-memory",
+ "hangarllm-cache-response",
+ "hangarllm-core-utils",
+ "hangarllm-error",
+ "hangarllm-framer",
+ "hangarllm-host",
+ "hangarllm-http",
+ "hangarllm-llms",
+ "hangarllm-secrets",
+ "hangarllm-tracing",
+ "reqwest",
+ "rstest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.19",
+ "time",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "hangarllm-inference-chat"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "hangarllm-auth",
+ "hangarllm-cache-memory",
+ "hangarllm-cache-response",
+ "hangarllm-core-utils",
+ "hangarllm-error",
+ "hangarllm-host",
+ "hangarllm-host-native",
+ "hangarllm-http",
+ "hangarllm-inference",
+ "hangarllm-inference-testing",
+ "hangarllm-llms",
+ "hangarllm-llms-types",
+ "hangarllm-secret-value",
+ "hangarllm-secrets",
+ "hangarllm-tracing",
+ "rstest",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-inference-messages"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "futures-util",
+ "hangarllm-auth",
+ "hangarllm-auth-aws",
+ "hangarllm-cache-memory",
+ "hangarllm-cache-response",
+ "hangarllm-core-utils",
+ "hangarllm-error",
+ "hangarllm-framer",
+ "hangarllm-host",
+ "hangarllm-host-native",
+ "hangarllm-http",
+ "hangarllm-inference",
+ "hangarllm-inference-testing",
+ "hangarllm-llms",
+ "hangarllm-llms-types",
+ "hangarllm-router-types",
+ "hangarllm-secret-value",
+ "hangarllm-secrets",
+ "hangarllm-tracing",
+ "reqwest",
+ "rstest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-inference-ocr"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "futures-util",
+ "hangarllm-auth",
+ "hangarllm-auth-aws",
+ "hangarllm-auth-gcp",
+ "hangarllm-core-utils",
+ "hangarllm-error",
+ "hangarllm-host",
+ "hangarllm-host-native",
+ "hangarllm-http",
+ "hangarllm-inference",
+ "hangarllm-inference-testing",
+ "hangarllm-llms",
+ "hangarllm-llms-types",
+ "hangarllm-secret-value",
+ "hangarllm-secrets",
+ "hangarllm-tracing",
+ "mime_guess",
+ "rand 0.8.7",
+ "rstest",
+ "serde",
+ "serde_json",
+ "time",
+ "tokio",
+ "tracing",
+ "url",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-inference-responses"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "futures-util",
+ "hangarllm-auth",
+ "hangarllm-cache",
+ "hangarllm-cache-memory",
+ "hangarllm-cache-response",
+ "hangarllm-core-utils",
+ "hangarllm-error",
+ "hangarllm-host",
+ "hangarllm-host-native",
+ "hangarllm-http",
+ "hangarllm-inference",
+ "hangarllm-inference-testing",
+ "hangarllm-llms",
+ "hangarllm-llms-types",
+ "hangarllm-secret-value",
+ "hangarllm-secrets",
+ "hangarllm-tracing",
+ "reqwest",
+ "rstest",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite",
+ "tracing",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-inference-testing"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "hangarllm-auth",
+ "hangarllm-http",
+ "hangarllm-inference",
+ "hangarllm-secret-value",
+ "hangarllm-secrets",
+ "tokio",
+]
+
+[[package]]
+name = "hangarllm-inference-transcription"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "hangarllm-auth",
+ "hangarllm-core-utils",
+ "hangarllm-error",
+ "hangarllm-http",
+ "hangarllm-inference",
+ "hangarllm-inference-testing",
+ "hangarllm-llms",
+ "hangarllm-secrets",
+ "hangarllm-tracing",
+ "rstest",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-llms"
+version = "0.1.0"
+dependencies = [
+ "aws-smithy-eventstream",
+ "aws-smithy-types",
+ "base64 0.22.1",
+ "bytes",
+ "data-url",
+ "futures-util",
+ "hangarllm-auth",
+ "hangarllm-auth-aws",
+ "hangarllm-auth-azure",
+ "hangarllm-auth-gcp",
+ "hangarllm-core-utils",
+ "hangarllm-error",
+ "hangarllm-framer",
+ "hangarllm-host",
+ "hangarllm-http",
+ "hangarllm-llms-types",
+ "hangarllm-python-compat",
+ "hangarllm-router-types",
+ "hangarllm-secret-value",
+ "hangarllm-secrets",
+ "reqwest",
+ "rstest",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "serde_with",
+ "strum",
+ "thiserror 2.0.19",
+ "time",
+ "tokio",
+ "url",
+]
+
+[[package]]
+name = "hangarllm-llms-types"
+version = "0.1.0"
+dependencies = [
+ "indexmap 2.14.0",
+ "macro_rules_attribute",
+ "rstest",
+ "schemars 1.2.2",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "strum",
+]
+
+[[package]]
+name = "hangarllm-model-catalog"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-cost",
+ "hangarllm-error",
+ "indexmap 2.14.0",
+ "jiff",
+ "jsonschema",
+ "macro_rules_attribute",
+ "rstest",
+ "schemars 1.2.2",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "strum",
+ "thiserror 2.0.19",
+ "time",
+]
+
+[[package]]
+name = "hangarllm-model-catalog-refresh"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-error",
+ "hangarllm-http",
+ "hangarllm-model-catalog",
+ "reqwest",
+ "rstest",
+ "thiserror 2.0.19",
+ "tokio",
+ "url",
+]
+
+[[package]]
+name = "hangarllm-python-bridge"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "aws-sdk-secretsmanager",
+ "bytes",
+ "criterion",
+ "fancy-regex 0.19.2",
+ "futures-util",
+ "hangarllm-auth",
+ "hangarllm-auth-aws",
+ "hangarllm-cache",
+ "hangarllm-cache-response",
+ "hangarllm-callbacks-legacy-python",
+ "hangarllm-circuit-breaker",
+ "hangarllm-core-utils",
+ "hangarllm-error",
+ "hangarllm-host",
+ "hangarllm-host-python",
+ "hangarllm-http",
+ "hangarllm-inference",
+ "hangarllm-inference-chat",
+ "hangarllm-inference-messages",
+ "hangarllm-inference-ocr",
+ "hangarllm-inference-responses",
+ "hangarllm-inference-transcription",
+ "hangarllm-llms",
+ "hangarllm-llms-types",
+ "hangarllm-model-catalog",
+ "hangarllm-python-compat",
+ "hangarllm-redis-client",
+ "hangarllm-redis-connect",
+ "hangarllm-redis-resolve",
+ "hangarllm-redis-store",
+ "hangarllm-redis-types",
+ "hangarllm-router-core",
+ "hangarllm-router-types",
+ "hangarllm-secret-value",
+ "hangarllm-secrets",
+ "hangarllm-secrets-aws",
+ "hangarllm-secrets-types",
+ "hangarllm-spend-clickhouse",
+ "hangarllm-storage-clickhouse",
+ "hangarllm-token-counter",
+ "hangarllm-tracing",
+ "indexmap 2.14.0",
+ "prost",
+ "pyo3",
+ "pyo3-async-runtimes",
+ "reqwest",
+ "rstest",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "sqlx",
+ "strum",
+ "tempfile",
+ "thiserror 2.0.19",
+ "tokio",
+ "tokio-tungstenite",
+ "tracing",
+ "veil",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-python-compat"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "hex",
+ "num-bigint 0.4.8",
+ "num-traits",
+ "rstest",
+ "serde",
+ "serde-pickle",
+ "serde_json",
+ "thiserror 2.0.19",
+]
+
+[[package]]
+name = "hangarllm-redis-client"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "hangarllm-circuit-breaker",
+ "hangarllm-python-compat",
+ "hangarllm-redis-testing",
+ "hangarllm-redis-types",
+ "hangarllm-secret-value",
+ "pem",
+ "pkcs8",
+ "redis",
+ "rstest",
+ "rustls 0.23.42",
+ "rustls-native-certs",
+ "socket2 0.6.5",
+ "thiserror 2.0.19",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "hangarllm-redis-connect"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "hangarllm-auth-aws",
+ "hangarllm-auth-azure",
+ "hangarllm-auth-gcp",
+ "hangarllm-auth-types",
+ "hangarllm-circuit-breaker",
+ "hangarllm-core-utils",
+ "hangarllm-error",
+ "hangarllm-http",
+ "hangarllm-redis-client",
+ "hangarllm-redis-resolve",
+ "hangarllm-redis-testing",
+ "hangarllm-redis-types",
+ "hangarllm-secret-value",
+ "rstest",
+ "rustls 0.23.42",
+ "serde",
+ "serde_json",
+ "strum",
+ "thiserror 2.0.19",
+ "time",
+ "tokio",
+ "tracing",
+ "url",
+ "veil",
+]
+
+[[package]]
+name = "hangarllm-redis-resolve"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-python-compat",
+ "hangarllm-redis-types",
+ "hangarllm-secret-value",
+ "rstest",
+ "serde",
+ "serde_json",
+ "strum",
+ "thiserror 2.0.19",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "hangarllm-redis-store"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "hangarllm-cache",
+ "hangarllm-cache-memory",
+ "hangarllm-circuit-breaker",
+ "hangarllm-python-compat",
+ "hangarllm-redis-client",
+ "hangarllm-redis-testing",
+ "hangarllm-secret-value",
+ "hangarllm-tracing",
+ "rstest",
+ "strum",
+ "thiserror 2.0.19",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "hangarllm-redis-testing"
+version = "0.1.0"
+dependencies = [
+ "pkcs8",
+ "rcgen",
+ "tempfile",
+ "testcontainers-modules",
+ "thiserror 2.0.19",
+ "tokio",
+]
+
+[[package]]
+name = "hangarllm-redis-types"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-secret-value",
+ "rstest",
+ "url",
+]
+
+[[package]]
+name = "hangarllm-router"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-config",
+ "hangarllm-core-utils",
+ "hangarllm-inference",
+ "hangarllm-inference-messages",
+ "hangarllm-router-types",
+ "rstest",
+]
+
+[[package]]
+name = "hangarllm-router-core"
+version = "0.1.0"
+dependencies = [
+ "arc-swap",
+ "async-trait",
+ "hangarllm-cache",
+ "hangarllm-router-types",
+ "jiff",
+ "parking_lot",
+ "rand 0.8.7",
+ "rstest",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "sha2 0.10.9",
+ "strum",
+ "thiserror 2.0.19",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "hangarllm-router-types"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-auth-types",
+ "hangarllm-secret-value",
+ "rstest",
+ "serde",
+ "serde_json",
+ "serde_with",
+]
+
+[[package]]
+name = "hangarllm-secret-value"
+version = "0.1.0"
+dependencies = [
+ "rstest",
+ "serde",
+ "subtle",
+ "veil",
+]
+
+[[package]]
+name = "hangarllm-secrets"
+version = "0.1.0"
+dependencies = [
+ "aws-sdk-kms",
+ "base64 0.22.1",
+ "futures-util",
+ "google-cloud-auth",
+ "google-cloud-kms-v1",
+ "hangarllm-core-utils",
+ "hangarllm-error",
+ "hangarllm-http",
+ "hangarllm-python-compat",
+ "hangarllm-secret-value",
+ "hangarllm-secrets-aws",
+ "hangarllm-secrets-azure",
+ "hangarllm-secrets-cyberark",
+ "hangarllm-secrets-google",
+ "hangarllm-secrets-hashicorp",
+ "hangarllm-secrets-types",
+ "moka",
+ "reqwest",
+ "rstest",
+ "serde",
+ "serde_json",
+ "strum",
+ "tempfile",
+ "thiserror 2.0.19",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-secrets-aws"
+version = "0.1.0"
+dependencies = [
+ "aws-credential-types",
+ "aws-sdk-kms",
+ "aws-sdk-secretsmanager",
+ "base64 0.22.1",
+ "hangarllm-auth-aws",
+ "hangarllm-core-utils",
+ "hangarllm-secret-value",
+ "hangarllm-secrets-types",
+ "hangarllm-tracing",
+ "rstest",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.19",
+ "tokio",
+ "veil",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-secrets-azure"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-auth-azure",
+ "hangarllm-auth-types",
+ "hangarllm-core-utils",
+ "hangarllm-http",
+ "hangarllm-secret-value",
+ "hangarllm-secrets-types",
+ "percent-encoding",
+ "reqwest",
+ "rstest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.19",
+ "tokio",
+ "url",
+ "veil",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-secrets-cyberark"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "hangarllm-core-utils",
+ "hangarllm-http",
+ "hangarllm-secret-value",
+ "hangarllm-secrets-types",
+ "hangarllm-tracing",
+ "moka",
+ "percent-encoding",
+ "rcgen",
+ "reqwest",
+ "rstest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.19",
+ "tokio",
+ "url",
+ "veil",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-secrets-google"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "crc32c",
+ "google-cloud-auth",
+ "google-cloud-gax",
+ "google-cloud-kms-v1",
+ "hangarllm-auth-gcp",
+ "hangarllm-auth-types",
+ "hangarllm-core-utils",
+ "hangarllm-http",
+ "hangarllm-secret-value",
+ "hangarllm-secrets-types",
+ "moka",
+ "percent-encoding",
+ "reqwest",
+ "rstest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.19",
+ "tokio",
+ "url",
+ "veil",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-secrets-hashicorp"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-core-utils",
+ "hangarllm-error",
+ "hangarllm-http",
+ "hangarllm-secret-value",
+ "hangarllm-secrets-types",
+ "reqwest",
+ "rstest",
+ "rustify",
+ "rustify_derive",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.19",
+ "tokio",
+ "vaultrs",
+ "veil",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-secrets-types"
+version = "0.1.0"
+dependencies = [
+ "hangarllm-secret-value",
+ "moka",
+ "rstest",
+ "serde",
+ "serde_json",
+ "strum",
+ "thiserror 2.0.19",
+ "tokio",
+ "veil",
+]
+
+[[package]]
+name = "hangarllm-spend-clickhouse"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "hangarllm-error",
+ "hangarllm-http",
+ "hangarllm-storage-clickhouse",
+ "rstest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sqlx",
+ "testcontainers-modules",
+ "thiserror 2.0.19",
+ "time",
+ "tokio",
+ "uuid",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-storage-clickhouse"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "hangarllm-error",
+ "hangarllm-http",
+ "rstest",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "sqlx",
+ "testcontainers-modules",
+ "thiserror 2.0.19",
+ "tokio",
+ "url",
+ "wiremock",
+]
+
+[[package]]
+name = "hangarllm-testkit"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "futures-util",
+ "hangarllm-http",
+ "reqwest",
+ "rstest",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "strum",
+ "tar",
+ "target-lexicon",
+ "tempfile",
+ "thiserror 2.0.19",
+ "tokio",
+ "toml",
+ "zip",
+]
+
+[[package]]
+name = "hangarllm-token-counter"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "hangarllm-error",
+ "hangarllm-token-counter-fast",
+ "hangarllm-token-counter-huggingface",
+ "hangarllm-token-counter-tiktoken",
+ "indexmap 2.14.0",
+ "itoa",
+ "rand 0.8.7",
+ "rstest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.19",
+ "tokenizers",
+]
+
+[[package]]
+name = "hangarllm-token-counter-fast"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "hangarllm-error",
+ "rand 0.8.7",
+ "rstest",
+ "rustc-hash",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.19",
+ "tokenizers",
+ "unicode-normalization-alignments",
+]
+
+[[package]]
+name = "hangarllm-token-counter-huggingface"
+version = "0.1.0"
+dependencies = [
+ "rstest",
+ "serde_json",
+ "thiserror 2.0.19",
+ "tokenizers",
+]
+
+[[package]]
+name = "hangarllm-token-counter-tiktoken"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "hangarllm-error",
+ "once_cell",
+ "rstest",
+ "rustc-hash",
+ "thiserror 2.0.19",
+ "tiktoken-rs",
+]
+
+[[package]]
+name = "hangarllm-tracing"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "fancy-regex 0.19.2",
+ "percent-encoding",
+ "rstest",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3425,1501 +4920,6 @@ name = "linux-raw-sys"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
-
-[[package]]
-name = "hangarllm"
-version = "0.0.1"
-
-[[package]]
-name = "hangarllm-auth"
-version = "0.1.0"
-dependencies = [
- "hangarllm-auth-aws",
- "hangarllm-auth-azure",
- "hangarllm-auth-gcp",
- "hangarllm-auth-types",
- "hangarllm-secret-value",
-]
-
-[[package]]
-name = "hangarllm-auth-aws"
-version = "0.1.0"
-dependencies = [
- "aws-config",
- "aws-credential-types",
- "aws-runtime",
- "aws-sdk-sts",
- "aws-sigv4",
- "aws-smithy-runtime-api",
- "aws-smithy-types",
- "aws-types",
- "bytes",
- "futures-util",
- "hangarllm-auth-types",
- "hangarllm-error",
- "hangarllm-http",
- "hangarllm-secret-value",
- "hangarllm-secrets",
- "moka",
- "reqwest",
- "rstest",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "thiserror 2.0.19",
- "tokio",
- "url",
- "veil",
-]
-
-[[package]]
-name = "hangarllm-auth-azure"
-version = "0.1.0"
-dependencies = [
- "azure_core",
- "azure_identity",
- "hangarllm-auth-types",
- "hangarllm-error",
- "hangarllm-secret-value",
- "hangarllm-secrets",
- "moka",
- "rstest",
- "serde_json",
- "sha2 0.10.9",
- "strum",
- "tokio",
- "url",
-]
-
-[[package]]
-name = "hangarllm-auth-gcp"
-version = "0.1.0"
-dependencies = [
- "axum",
- "base64 0.22.1",
- "gcp_auth",
- "google-cloud-auth",
- "http 1.4.2",
- "hangarllm-auth-types",
- "hangarllm-error",
- "hangarllm-secret-value",
- "moka",
- "rstest",
- "rustls 0.23.42",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "tempfile",
- "time",
- "tokio",
- "veil",
-]
-
-[[package]]
-name = "hangarllm-auth-types"
-version = "0.1.0"
-dependencies = [
- "hangarllm-error",
- "hangarllm-secret-value",
- "rstest",
- "serde",
- "serde_json",
- "thiserror 2.0.19",
- "tokio",
- "veil",
-]
-
-[[package]]
-name = "hangarllm-cache"
-version = "0.1.0"
-dependencies = [
- "hangarllm-error",
- "rstest",
- "serde",
- "serde_json",
- "strum",
- "thiserror 2.0.19",
- "tokio",
-]
-
-[[package]]
-name = "hangarllm-cache-azure-blob"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "azure_core",
- "azure_storage_blob",
- "futures-util",
- "hangarllm-auth-azure",
- "hangarllm-auth-types",
- "hangarllm-cache",
- "hangarllm-cache-response",
- "hangarllm-cache-testing",
- "hangarllm-http",
- "reqwest",
- "rstest",
- "serde_json",
- "thiserror 2.0.19",
- "tokio",
- "url",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-cache-disk"
-version = "0.1.0"
-dependencies = [
- "hangarllm-cache",
- "hangarllm-cache-testing",
- "py_literal",
- "rand 0.8.7",
- "rstest",
- "rusqlite",
- "serde-pickle",
- "serde_json",
- "tempfile",
- "thiserror 2.0.19",
- "tokio",
-]
-
-[[package]]
-name = "hangarllm-cache-gcs"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "hangarllm-auth-gcp",
- "hangarllm-auth-types",
- "hangarllm-cache",
- "hangarllm-cache-testing",
- "hangarllm-error",
- "hangarllm-http",
- "hangarllm-secret-value",
- "percent-encoding",
- "reqwest",
- "rstest",
- "serde_json",
- "thiserror 2.0.19",
- "tokio",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-cache-memory"
-version = "0.1.0"
-dependencies = [
- "hangarllm-cache",
- "hangarllm-cache-testing",
- "rstest",
- "tokio",
-]
-
-[[package]]
-name = "hangarllm-cache-qdrant-semantic"
-version = "0.1.0"
-dependencies = [
- "futures-executor",
- "futures-util",
- "hangarllm-cache",
- "hangarllm-cache-testing",
- "hangarllm-error",
- "hangarllm-http",
- "qdrant-client",
- "reqwest",
- "rstest",
- "serde",
- "serde_json",
- "thiserror 2.0.19",
- "tokio",
- "tokio-stream",
- "tonic",
- "tonic-prost",
- "uuid",
-]
-
-[[package]]
-name = "hangarllm-cache-response"
-version = "0.1.0"
-dependencies = [
- "hangarllm-cache",
- "hangarllm-cache-gcs",
- "hangarllm-cache-memory",
- "hangarllm-http",
- "py_literal",
- "rstest",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "tokio",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-cache-s3"
-version = "0.1.0"
-dependencies = [
- "aws-credential-types",
- "aws-sdk-s3",
- "aws-smithy-runtime-api",
- "aws-smithy-types",
- "aws-types",
- "futures-util",
- "http 1.4.2",
- "hangarllm-auth-aws",
- "hangarllm-cache",
- "hangarllm-cache-testing",
- "hangarllm-error",
- "hangarllm-http",
- "reqwest",
- "rstest",
- "serde_json",
- "tokio",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-cache-testing"
-version = "0.1.0"
-dependencies = [
- "hangarllm-cache",
-]
-
-[[package]]
-name = "hangarllm-callbacks-legacy-python"
-version = "0.1.0"
-dependencies = [
- "hangarllm-error",
- "hangarllm-host",
- "hangarllm-host-python",
- "hangarllm-secret-value",
- "proptest",
- "pyo3",
- "rstest",
- "serde_json",
- "strum",
- "thiserror 2.0.19",
-]
-
-[[package]]
-name = "hangarllm-circuit-breaker"
-version = "0.1.0"
-dependencies = [
- "proptest",
- "rstest",
-]
-
-[[package]]
-name = "hangarllm-config"
-version = "0.1.0"
-dependencies = [
- "hangarllm-error",
- "hangarllm-router-types",
- "hangarllm-secret-value",
- "rstest",
- "serde",
- "serde_json",
- "serde_yaml_ng",
- "strum",
- "tempfile",
- "thiserror 2.0.19",
- "veil",
-]
-
-[[package]]
-name = "hangarllm-core-utils"
-version = "0.1.0"
-dependencies = [
- "fancy-regex 0.19.2",
- "hangarllm-error",
- "hangarllm-llms-types",
- "hangarllm-tracing",
- "rstest",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "strum",
- "thiserror 2.0.19",
- "url",
-]
-
-[[package]]
-name = "hangarllm-coroutine"
-version = "0.1.0"
-dependencies = [
- "rstest",
- "thiserror 2.0.19",
- "tokio",
-]
-
-[[package]]
-name = "hangarllm-cost"
-version = "0.1.0"
-dependencies = [
- "jiff",
- "rstest",
- "schemars 1.2.2",
- "serde",
- "serde_json",
- "strum",
- "thiserror 2.0.19",
-]
-
-[[package]]
-name = "hangarllm-db"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "macro_rules_attribute",
- "rstest",
- "serde",
- "serde_json",
- "sqlx",
- "strum",
- "thiserror 2.0.19",
- "tokio",
-]
-
-[[package]]
-name = "hangarllm-db-testing"
-version = "0.1.0"
-dependencies = [
- "rstest",
- "sqlx",
- "tempfile",
- "testcontainers-modules",
- "thiserror 2.0.19",
- "tokio",
-]
-
-[[package]]
-name = "hangarllm-error"
-version = "0.1.0"
-dependencies = [
- "rstest",
- "thiserror 2.0.19",
-]
-
-[[package]]
-name = "hangarllm-framer"
-version = "0.1.0"
-dependencies = [
- "aws-smithy-eventstream",
- "aws-smithy-types",
- "bytes",
- "futures-util",
- "proptest",
- "rstest",
- "thiserror 2.0.19",
- "tokio",
- "tokio-util",
-]
-
-[[package]]
-name = "hangarllm-gateway"
-version = "0.1.0"
-dependencies = [
- "axum",
- "base64 0.22.1",
- "envy",
- "futures-util",
- "http-body-util",
- "hangarllm-circuit-breaker",
- "hangarllm-config",
- "hangarllm-core-utils",
- "hangarllm-error",
- "hangarllm-gateway-auth",
- "hangarllm-gateway-forward",
- "hangarllm-gateway-inference",
- "hangarllm-gateway-mcp",
- "hangarllm-gateway-ui",
- "hangarllm-http",
- "hangarllm-inference",
- "hangarllm-llms",
- "hangarllm-redis-client",
- "hangarllm-redis-connect",
- "hangarllm-redis-resolve",
- "hangarllm-redis-testing",
- "hangarllm-redis-types",
- "hangarllm-secret-value",
- "hangarllm-secrets",
- "hangarllm-tracing",
- "rstest",
- "rustls 0.23.42",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.19",
- "tokio",
- "tokio-util",
- "tower",
- "tower-sessions-moka-store",
- "tracing",
- "uuid",
- "veil",
-]
-
-[[package]]
-name = "hangarllm-gateway-auth"
-version = "0.1.0"
-dependencies = [
- "axum",
- "axum-login",
- "futures-util",
- "hangarllm-config",
- "hangarllm-error",
- "hangarllm-secret-value",
- "hangarllm-secrets",
- "rstest",
- "serde",
- "sha2 0.10.9",
- "subtle",
- "thiserror 2.0.19",
- "tokio",
- "tower",
- "tower-sessions",
- "veil",
-]
-
-[[package]]
-name = "hangarllm-gateway-forward"
-version = "0.1.0"
-dependencies = [
- "axum",
- "bytes",
- "envy",
- "futures-util",
- "http-body-util",
- "httparse",
- "hyper 1.12.0",
- "hyper-util",
- "proptest",
- "rstest",
- "serde",
- "thiserror 2.0.19",
- "tokio",
- "tokio-tungstenite",
- "tokio-util",
- "tower-service",
- "tracing",
-]
-
-[[package]]
-name = "hangarllm-gateway-inference"
-version = "0.1.0"
-dependencies = [
- "axum",
- "base64 0.22.1",
- "bytes",
- "futures-util",
- "hangarllm-auth",
- "hangarllm-cache-memory",
- "hangarllm-cache-response",
- "hangarllm-error",
- "hangarllm-gateway-auth",
- "hangarllm-host",
- "hangarllm-host-http",
- "hangarllm-http",
- "hangarllm-inference",
- "hangarllm-inference-chat",
- "hangarllm-inference-messages",
- "hangarllm-inference-ocr",
- "hangarllm-inference-responses",
- "hangarllm-inference-transcription",
- "hangarllm-llms",
- "hangarllm-llms-types",
- "hangarllm-router",
- "hangarllm-secret-value",
- "hangarllm-secrets",
- "rstest",
- "serde",
- "serde_json",
- "thiserror 2.0.19",
- "tokio",
- "tokio-tungstenite",
- "tower",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-gateway-management"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "hangarllm-error",
- "hangarllm-gateway-auth",
- "hangarllm-secret-value",
- "rand 0.8.7",
- "rstest",
- "thiserror 2.0.19",
- "tokio",
-]
-
-[[package]]
-name = "hangarllm-gateway-mcp"
-version = "0.1.0"
-dependencies = [
- "axum",
- "base64 0.22.1",
- "futures-util",
- "http 1.4.2",
- "hangarllm-config",
- "hangarllm-error",
- "hangarllm-secret-value",
- "hangarllm-secrets",
- "moka",
- "rmcp",
- "rstest",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "sse-stream",
- "thiserror 2.0.19",
- "tokio",
- "tokio-util",
- "tower",
- "url",
- "uuid",
- "veil",
-]
-
-[[package]]
-name = "hangarllm-gateway-ui"
-version = "0.1.0"
-dependencies = [
- "axum",
- "axum-login",
- "base64 0.22.1",
- "futures-util",
- "governor",
- "jsonwebtoken",
- "hangarllm-error",
- "hangarllm-gateway-auth",
- "hangarllm-secret-value",
- "rand 0.8.7",
- "rstest",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.19",
- "time",
- "tokio",
- "tower",
- "tower-cookies",
- "tower-http",
- "tower-sessions",
-]
-
-[[package]]
-name = "hangarllm-host"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "hangarllm-coroutine",
- "hangarllm-secret-value",
- "rstest",
- "serde_json",
- "thiserror 2.0.19",
- "tokio",
-]
-
-[[package]]
-name = "hangarllm-host-http"
-version = "0.1.0"
-dependencies = [
- "axum",
- "bytes",
- "futures-util",
- "http 1.4.2",
- "hangarllm-host",
- "hangarllm-host-native",
- "rstest",
- "serde_json",
- "thiserror 2.0.19",
- "tokio",
-]
-
-[[package]]
-name = "hangarllm-host-native"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "hangarllm-host",
- "rstest",
- "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "hangarllm-host-python"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "futures-util",
- "hangarllm-coroutine",
- "hangarllm-error",
- "hangarllm-host",
- "parking_lot",
- "pyo3",
- "pyo3-async-runtimes",
- "pythonize",
- "rstest",
- "serde",
- "serde_json",
- "thiserror 2.0.19",
- "tokio",
-]
-
-[[package]]
-name = "hangarllm-http"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "http 1.4.2",
- "hyper-util",
- "hangarllm-core-utils",
- "hangarllm-error",
- "rcgen",
- "reqwest",
- "rstest",
- "rustls 0.23.42",
- "rustls-native-certs",
- "serde",
- "serde_json",
- "strum",
- "tempfile",
- "thiserror 2.0.19",
- "tokio",
- "tokio-rustls 0.26.4",
- "tokio-tungstenite",
- "tracing",
- "url",
- "veil",
- "webpki-roots",
-]
-
-[[package]]
-name = "hangarllm-inference"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "futures-util",
- "hangarllm-auth",
- "hangarllm-cache",
- "hangarllm-cache-memory",
- "hangarllm-cache-response",
- "hangarllm-core-utils",
- "hangarllm-error",
- "hangarllm-framer",
- "hangarllm-host",
- "hangarllm-http",
- "hangarllm-llms",
- "hangarllm-secrets",
- "hangarllm-tracing",
- "reqwest",
- "rstest",
- "serde",
- "serde_json",
- "thiserror 2.0.19",
- "time",
- "tokio",
- "tokio-util",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "hangarllm-inference-chat"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "hangarllm-auth",
- "hangarllm-cache-memory",
- "hangarllm-cache-response",
- "hangarllm-core-utils",
- "hangarllm-error",
- "hangarllm-host",
- "hangarllm-host-native",
- "hangarllm-http",
- "hangarllm-inference",
- "hangarllm-inference-testing",
- "hangarllm-llms",
- "hangarllm-llms-types",
- "hangarllm-secret-value",
- "hangarllm-secrets",
- "hangarllm-tracing",
- "rstest",
- "serde_json",
- "tokio",
- "tracing",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-inference-messages"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "futures-util",
- "hangarllm-auth",
- "hangarllm-auth-aws",
- "hangarllm-cache-memory",
- "hangarllm-cache-response",
- "hangarllm-core-utils",
- "hangarllm-error",
- "hangarllm-framer",
- "hangarllm-host",
- "hangarllm-host-native",
- "hangarllm-http",
- "hangarllm-inference",
- "hangarllm-inference-testing",
- "hangarllm-llms",
- "hangarllm-llms-types",
- "hangarllm-router-types",
- "hangarllm-secret-value",
- "hangarllm-secrets",
- "hangarllm-tracing",
- "reqwest",
- "rstest",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-inference-ocr"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "bytes",
- "futures-util",
- "hangarllm-auth",
- "hangarllm-auth-aws",
- "hangarllm-auth-gcp",
- "hangarllm-core-utils",
- "hangarllm-error",
- "hangarllm-host",
- "hangarllm-host-native",
- "hangarllm-http",
- "hangarllm-inference",
- "hangarllm-inference-testing",
- "hangarllm-llms",
- "hangarllm-llms-types",
- "hangarllm-secret-value",
- "hangarllm-secrets",
- "hangarllm-tracing",
- "mime_guess",
- "rand 0.8.7",
- "rstest",
- "serde",
- "serde_json",
- "time",
- "tokio",
- "tracing",
- "url",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-inference-responses"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "bytes",
- "futures-util",
- "hangarllm-auth",
- "hangarllm-cache",
- "hangarllm-cache-memory",
- "hangarllm-cache-response",
- "hangarllm-core-utils",
- "hangarllm-error",
- "hangarllm-host",
- "hangarllm-host-native",
- "hangarllm-http",
- "hangarllm-inference",
- "hangarllm-inference-testing",
- "hangarllm-llms",
- "hangarllm-llms-types",
- "hangarllm-secret-value",
- "hangarllm-secrets",
- "hangarllm-tracing",
- "reqwest",
- "rstest",
- "serde_json",
- "tokio",
- "tokio-tungstenite",
- "tracing",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-inference-testing"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "hangarllm-auth",
- "hangarllm-http",
- "hangarllm-inference",
- "hangarllm-secret-value",
- "hangarllm-secrets",
- "tokio",
-]
-
-[[package]]
-name = "hangarllm-inference-transcription"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "hangarllm-auth",
- "hangarllm-core-utils",
- "hangarllm-error",
- "hangarllm-http",
- "hangarllm-inference",
- "hangarllm-inference-testing",
- "hangarllm-llms",
- "hangarllm-secrets",
- "hangarllm-tracing",
- "rstest",
- "serde_json",
- "tokio",
- "tracing",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-llms"
-version = "0.1.0"
-dependencies = [
- "aws-smithy-eventstream",
- "aws-smithy-types",
- "base64 0.22.1",
- "bytes",
- "data-url",
- "futures-util",
- "hangarllm-auth",
- "hangarllm-auth-aws",
- "hangarllm-auth-azure",
- "hangarllm-auth-gcp",
- "hangarllm-core-utils",
- "hangarllm-error",
- "hangarllm-framer",
- "hangarllm-host",
- "hangarllm-http",
- "hangarllm-llms-types",
- "hangarllm-python-compat",
- "hangarllm-router-types",
- "hangarllm-secret-value",
- "hangarllm-secrets",
- "reqwest",
- "rstest",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "serde_with",
- "strum",
- "thiserror 2.0.19",
- "time",
- "tokio",
- "url",
-]
-
-[[package]]
-name = "hangarllm-llms-types"
-version = "0.1.0"
-dependencies = [
- "indexmap 2.14.0",
- "macro_rules_attribute",
- "rstest",
- "schemars 1.2.2",
- "serde",
- "serde_json",
- "serde_with",
- "strum",
-]
-
-[[package]]
-name = "hangarllm-model-catalog"
-version = "0.1.0"
-dependencies = [
- "indexmap 2.14.0",
- "jiff",
- "jsonschema",
- "hangarllm-cost",
- "hangarllm-error",
- "macro_rules_attribute",
- "rstest",
- "schemars 1.2.2",
- "serde",
- "serde_json",
- "serde_with",
- "strum",
- "thiserror 2.0.19",
- "time",
-]
-
-[[package]]
-name = "hangarllm-model-catalog-refresh"
-version = "0.1.0"
-dependencies = [
- "hangarllm-error",
- "hangarllm-http",
- "hangarllm-model-catalog",
- "reqwest",
- "rstest",
- "thiserror 2.0.19",
- "tokio",
- "url",
-]
-
-[[package]]
-name = "hangarllm-python-bridge"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "aws-sdk-secretsmanager",
- "bytes",
- "criterion",
- "fancy-regex 0.19.2",
- "futures-util",
- "indexmap 2.14.0",
- "hangarllm-auth",
- "hangarllm-auth-aws",
- "hangarllm-cache",
- "hangarllm-cache-response",
- "hangarllm-callbacks-legacy-python",
- "hangarllm-circuit-breaker",
- "hangarllm-core-utils",
- "hangarllm-error",
- "hangarllm-host",
- "hangarllm-host-python",
- "hangarllm-http",
- "hangarllm-inference",
- "hangarllm-inference-chat",
- "hangarllm-inference-messages",
- "hangarllm-inference-ocr",
- "hangarllm-inference-responses",
- "hangarllm-inference-transcription",
- "hangarllm-llms",
- "hangarllm-llms-types",
- "hangarllm-model-catalog",
- "hangarllm-python-compat",
- "hangarllm-redis-client",
- "hangarllm-redis-connect",
- "hangarllm-redis-resolve",
- "hangarllm-redis-store",
- "hangarllm-redis-types",
- "hangarllm-router-core",
- "hangarllm-router-types",
- "hangarllm-secret-value",
- "hangarllm-secrets",
- "hangarllm-secrets-aws",
- "hangarllm-secrets-types",
- "hangarllm-spend-clickhouse",
- "hangarllm-storage-clickhouse",
- "hangarllm-token-counter",
- "hangarllm-tracing",
- "prost",
- "pyo3",
- "pyo3-async-runtimes",
- "reqwest",
- "rstest",
- "serde",
- "serde_json",
- "serde_with",
- "sqlx",
- "strum",
- "tempfile",
- "thiserror 2.0.19",
- "tokio",
- "tokio-tungstenite",
- "tracing",
- "veil",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-python-compat"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "hex",
- "num-bigint 0.4.8",
- "num-traits",
- "rstest",
- "serde",
- "serde-pickle",
- "serde_json",
- "thiserror 2.0.19",
-]
-
-[[package]]
-name = "hangarllm-redis-client"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "hangarllm-circuit-breaker",
- "hangarllm-python-compat",
- "hangarllm-redis-testing",
- "hangarllm-redis-types",
- "hangarllm-secret-value",
- "pem",
- "pkcs8",
- "redis",
- "rstest",
- "rustls 0.23.42",
- "rustls-native-certs",
- "socket2 0.6.5",
- "thiserror 2.0.19",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "hangarllm-redis-connect"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "hangarllm-auth-aws",
- "hangarllm-auth-azure",
- "hangarllm-auth-gcp",
- "hangarllm-auth-types",
- "hangarllm-circuit-breaker",
- "hangarllm-core-utils",
- "hangarllm-error",
- "hangarllm-http",
- "hangarllm-redis-client",
- "hangarllm-redis-resolve",
- "hangarllm-redis-testing",
- "hangarllm-redis-types",
- "hangarllm-secret-value",
- "rstest",
- "rustls 0.23.42",
- "serde",
- "serde_json",
- "strum",
- "thiserror 2.0.19",
- "time",
- "tokio",
- "tracing",
- "url",
- "veil",
-]
-
-[[package]]
-name = "hangarllm-redis-resolve"
-version = "0.1.0"
-dependencies = [
- "hangarllm-python-compat",
- "hangarllm-redis-types",
- "hangarllm-secret-value",
- "rstest",
- "serde",
- "serde_json",
- "strum",
- "thiserror 2.0.19",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "hangarllm-redis-store"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "hangarllm-cache",
- "hangarllm-cache-memory",
- "hangarllm-circuit-breaker",
- "hangarllm-python-compat",
- "hangarllm-redis-client",
- "hangarllm-redis-testing",
- "hangarllm-secret-value",
- "hangarllm-tracing",
- "rstest",
- "strum",
- "thiserror 2.0.19",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "hangarllm-redis-testing"
-version = "0.1.0"
-dependencies = [
- "pkcs8",
- "rcgen",
- "tempfile",
- "testcontainers-modules",
- "thiserror 2.0.19",
- "tokio",
-]
-
-[[package]]
-name = "hangarllm-redis-types"
-version = "0.1.0"
-dependencies = [
- "hangarllm-secret-value",
- "rstest",
- "url",
-]
-
-[[package]]
-name = "hangarllm-router"
-version = "0.1.0"
-dependencies = [
- "hangarllm-config",
- "hangarllm-core-utils",
- "hangarllm-inference",
- "hangarllm-inference-messages",
- "hangarllm-router-types",
- "rstest",
-]
-
-[[package]]
-name = "hangarllm-router-core"
-version = "0.1.0"
-dependencies = [
- "arc-swap",
- "async-trait",
- "jiff",
- "hangarllm-cache",
- "hangarllm-router-types",
- "parking_lot",
- "rand 0.8.7",
- "rstest",
- "serde",
- "serde_json",
- "serde_with",
- "sha2 0.10.9",
- "strum",
- "thiserror 2.0.19",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "hangarllm-router-types"
-version = "0.1.0"
-dependencies = [
- "hangarllm-auth-types",
- "hangarllm-secret-value",
- "rstest",
- "serde",
- "serde_json",
- "serde_with",
-]
-
-[[package]]
-name = "hangarllm-secret-value"
-version = "0.1.0"
-dependencies = [
- "rstest",
- "serde",
- "subtle",
- "veil",
-]
-
-[[package]]
-name = "hangarllm-secrets"
-version = "0.1.0"
-dependencies = [
- "aws-sdk-kms",
- "base64 0.22.1",
- "futures-util",
- "google-cloud-auth",
- "google-cloud-kms-v1",
- "hangarllm-core-utils",
- "hangarllm-error",
- "hangarllm-http",
- "hangarllm-python-compat",
- "hangarllm-secret-value",
- "hangarllm-secrets-aws",
- "hangarllm-secrets-azure",
- "hangarllm-secrets-cyberark",
- "hangarllm-secrets-google",
- "hangarllm-secrets-hashicorp",
- "hangarllm-secrets-types",
- "moka",
- "reqwest",
- "rstest",
- "serde",
- "serde_json",
- "strum",
- "tempfile",
- "thiserror 2.0.19",
- "tokio",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-secrets-aws"
-version = "0.1.0"
-dependencies = [
- "aws-credential-types",
- "aws-sdk-kms",
- "aws-sdk-secretsmanager",
- "base64 0.22.1",
- "hangarllm-auth-aws",
- "hangarllm-core-utils",
- "hangarllm-secret-value",
- "hangarllm-secrets-types",
- "hangarllm-tracing",
- "rstest",
- "serde_json",
- "tempfile",
- "thiserror 2.0.19",
- "tokio",
- "veil",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-secrets-azure"
-version = "0.1.0"
-dependencies = [
- "hangarllm-auth-azure",
- "hangarllm-auth-types",
- "hangarllm-core-utils",
- "hangarllm-http",
- "hangarllm-secret-value",
- "hangarllm-secrets-types",
- "percent-encoding",
- "reqwest",
- "rstest",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "thiserror 2.0.19",
- "tokio",
- "url",
- "veil",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-secrets-cyberark"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "hangarllm-core-utils",
- "hangarllm-http",
- "hangarllm-secret-value",
- "hangarllm-secrets-types",
- "hangarllm-tracing",
- "moka",
- "percent-encoding",
- "rcgen",
- "reqwest",
- "rstest",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.19",
- "tokio",
- "url",
- "veil",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-secrets-google"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "crc32c",
- "google-cloud-auth",
- "google-cloud-gax",
- "google-cloud-kms-v1",
- "hangarllm-auth-gcp",
- "hangarllm-auth-types",
- "hangarllm-core-utils",
- "hangarllm-http",
- "hangarllm-secret-value",
- "hangarllm-secrets-types",
- "moka",
- "percent-encoding",
- "reqwest",
- "rstest",
- "serde",
- "serde_json",
- "thiserror 2.0.19",
- "tokio",
- "url",
- "veil",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-secrets-hashicorp"
-version = "0.1.0"
-dependencies = [
- "hangarllm-core-utils",
- "hangarllm-error",
- "hangarllm-http",
- "hangarllm-secret-value",
- "hangarllm-secrets-types",
- "reqwest",
- "rstest",
- "rustify",
- "rustify_derive",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.19",
- "tokio",
- "vaultrs",
- "veil",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-secrets-types"
-version = "0.1.0"
-dependencies = [
- "hangarllm-secret-value",
- "moka",
- "rstest",
- "serde",
- "serde_json",
- "strum",
- "thiserror 2.0.19",
- "tokio",
- "veil",
-]
-
-[[package]]
-name = "hangarllm-spend-clickhouse"
-version = "0.1.0"
-dependencies = [
- "flate2",
- "hangarllm-error",
- "hangarllm-http",
- "hangarllm-storage-clickhouse",
- "rstest",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "sqlx",
- "testcontainers-modules",
- "thiserror 2.0.19",
- "time",
- "tokio",
- "uuid",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-storage-clickhouse"
-version = "0.1.0"
-dependencies = [
- "flate2",
- "hangarllm-error",
- "hangarllm-http",
- "rstest",
- "serde",
- "serde_json",
- "serde_with",
- "sqlx",
- "testcontainers-modules",
- "thiserror 2.0.19",
- "tokio",
- "url",
- "wiremock",
-]
-
-[[package]]
-name = "hangarllm-testkit"
-version = "0.1.0"
-dependencies = [
- "flate2",
- "futures-util",
- "hangarllm-http",
- "reqwest",
- "rstest",
- "semver",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "strum",
- "tar",
- "target-lexicon",
- "tempfile",
- "thiserror 2.0.19",
- "tokio",
- "toml",
- "zip",
-]
-
-[[package]]
-name = "hangarllm-token-counter"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "indexmap 2.14.0",
- "itoa",
- "hangarllm-error",
- "hangarllm-token-counter-fast",
- "hangarllm-token-counter-huggingface",
- "hangarllm-token-counter-tiktoken",
- "rand 0.8.7",
- "rstest",
- "serde",
- "serde_json",
- "thiserror 2.0.19",
- "tokenizers",
-]
-
-[[package]]
-name = "hangarllm-token-counter-fast"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "hangarllm-error",
- "rand 0.8.7",
- "rstest",
- "rustc-hash",
- "serde",
- "serde_json",
- "thiserror 2.0.19",
- "tokenizers",
- "unicode-normalization-alignments",
-]
-
-[[package]]
-name = "hangarllm-token-counter-huggingface"
-version = "0.1.0"
-dependencies = [
- "rstest",
- "serde_json",
- "thiserror 2.0.19",
- "tokenizers",
-]
-
-[[package]]
-name = "hangarllm-token-counter-tiktoken"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "hangarllm-error",
- "once_cell",
- "rstest",
- "rustc-hash",
- "thiserror 2.0.19",
- "tiktoken-rs",
-]
-
-[[package]]
-name = "hangarllm-tracing"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "fancy-regex 0.19.2",
- "percent-encoding",
- "rstest",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "litemap"

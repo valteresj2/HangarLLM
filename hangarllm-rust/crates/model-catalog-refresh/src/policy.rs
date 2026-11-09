@@ -16,5 +16,4 @@ pub struct RetryPolicy {
 }
 
 /// Main's default `HANGARLLM_MODEL_COST_MAP_URL`
-pub const DEFAULT_REGISTRY_URL: &str =
-    "https://raw.githubusercontent.com/valteresj2/HangarLLM/main/model_prices_and_context_window.json";
+pub const DEFAULT_REGISTRY_URL: &str = "https://raw.githubusercontent.com/valteresj2/HangarLLM/main/model_prices_and_context_window.json";

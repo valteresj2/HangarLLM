@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from hangarllm.proxy._types import (
     CreateJWTKeyMappingRequest,
     DeleteJWTKeyMappingRequest,
-    JWTKeyMappingResponse,
     HangarllmUserRoles,
+    JWTKeyMappingResponse,
     UpdateJWTKeyMappingRequest,
     UserAPIKeyAuth,
     hash_token,

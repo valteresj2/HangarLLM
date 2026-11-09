@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use google_cloud_auth::credentials::{CacheableResource, CredentialsProvider, EntityTag};
 use google_cloud_auth::errors::CredentialsError;
-use http::{Extensions, HeaderMap, HeaderName, HeaderValue};
 use hangarllm_auth_types::Error;
+use http::{Extensions, HeaderMap, HeaderName, HeaderValue};
 
 use crate::{VertexAuth, VertexConfig};
 

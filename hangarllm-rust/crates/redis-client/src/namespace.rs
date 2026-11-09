@@ -33,7 +33,11 @@ mod tests {
     use super::Namespace;
 
     #[rstest]
-    #[case::plain(Namespace::new("hangarllm"), "spend:key:abc", "hangarllm:spend:key:abc")]
+    #[case::plain(
+        Namespace::new("hangarllm"),
+        "spend:key:abc",
+        "hangarllm:spend:key:abc"
+    )]
     #[case::no_namespace(Namespace::default(), "spend:key:abc", "spend:key:abc")]
     #[case::empty_namespace(Namespace::new(""), "spend:key:abc", "spend:key:abc")]
     #[case::already_prefixed(Namespace::new("hangarllm"), "hangarllm:abc", "hangarllm:abc")]

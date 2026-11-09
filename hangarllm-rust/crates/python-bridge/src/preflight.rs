@@ -375,7 +375,9 @@ arguments = {'hangarllm_credential_name': 'ocr-test'}
         Python::attach(|py| {
             for name in [py.None(), py.eval(c"''", None, None).unwrap().unbind()] {
                 let arguments = PyDict::new(py);
-                arguments.set_item("hangarllm_credential_name", name).unwrap();
+                arguments
+                    .set_item("hangarllm_credential_name", name)
+                    .unwrap();
                 inherit_credentials(py, &arguments, || panic!("credentials must not be loaded"))
                     .unwrap();
             }
@@ -386,7 +388,8 @@ arguments = {'hangarllm_credential_name': 'ocr-test'}
     fn every_borrowed_function_is_in_the_python_contract() {
         Python::initialize();
         Python::attach(|py| {
-            let contract = hangarllm_host_python::json_loads(py, PYTHON_CONTRACT.as_bytes()).unwrap();
+            let contract =
+                hangarllm_host_python::json_loads(py, PYTHON_CONTRACT.as_bytes()).unwrap();
             let declared: BTreeSet<String> = contract
                 .bind(py)
                 .cast::<PyDict>()

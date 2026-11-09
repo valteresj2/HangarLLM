@@ -40,8 +40,8 @@ if TYPE_CHECKING:
     from hangarllm.types.utils import (
         AdapterCompletionStreamWrapper,
         EmbeddingResponse,
-        ImageResponse,
         HangarLLMBatch,
+        ImageResponse,
         ModelInfo,
         ModelResponse,
         TextCompletionResponse,

@@ -117,8 +117,10 @@ mod tests {
     #[tokio::test]
     async fn a_body_never_shows_what_the_backend_said() {
         let backend = std::io::Error::other("vault token rejected");
-        let response = Error::Auth(AuthError::Unavailable(hangarllm_error::Source::new(backend)))
-            .into_response();
+        let response = Error::Auth(AuthError::Unavailable(hangarllm_error::Source::new(
+            backend,
+        )))
+        .into_response();
         let body = axum::body::to_bytes(response.into_body(), 4096)
             .await
             .unwrap();

@@ -11,8 +11,8 @@ from pydantic import ConfigDict, TypeAdapter
 import hangarllm
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.constants import VERTEX_BATCH_PREDICTION_JOBS_ROUTE
-from hangarllm.hangarllm_core_utils.hidden_params import get_hidden_params
 from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.hangarllm_core_utils.hidden_params import get_hidden_params
 from hangarllm.hangarllm_core_utils.llm_cost_calc.usage_object_transformation import (
     InteractionsUsageObjectTransformation,
 )

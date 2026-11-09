@@ -23,11 +23,11 @@ from typing_extensions import NotRequired, ReadOnly, TypedDict, Unpack, override
 
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.exceptions import GuardrailRaisedException, Timeout
+from hangarllm.hangarllm_core_utils.prompt_templates.factory import get_tool_calls_from_response
 from hangarllm.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from hangarllm.hangarllm_core_utils.prompt_templates.factory import get_tool_calls_from_response
 from hangarllm.llms.base_llm.guardrail_translation.utils import (
     effective_scan_only_tool_results_for_guardrail,
     effective_skip_system_message_for_guardrail,

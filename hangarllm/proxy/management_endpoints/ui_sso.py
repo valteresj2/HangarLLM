@@ -45,7 +45,6 @@ from fastapi.responses import RedirectResponse
 from pydantic import AliasPath, BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, field_validator
 
 import hangarllm
-from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm._uuid import uuid
@@ -65,7 +64,9 @@ from hangarllm.constants import (
     MICROSOFT_USER_FIRST_NAME_ATTRIBUTE,
     MICROSOFT_USER_ID_ATTRIBUTE,
     MICROSOFT_USER_LAST_NAME_ATTRIBUTE,
+    VIRTUAL_KEY_PREFIXES,
 )
+from hangarllm.hangar.proxy.ui_session import SESSION_COOKIE, browser_session_token, seal
 from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping, decoded_json_object
 from hangarllm.hangarllm_core_utils.dot_notation_indexing import get_nested_value
 from hangarllm.llms.custom_httpx.http_handler import (
@@ -73,7 +74,6 @@ from hangarllm.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from hangarllm.hangar.proxy.ui_session import SESSION_COOKIE, browser_session_token, seal
 from hangarllm.proxy._types import (
     CommonProxyErrors,
     HangarLLM_UserTable,
@@ -3942,7 +3942,6 @@ class SSOAuthenticationHandler:
         from hangarllm.proxy.proxy_server import (
             general_settings,
             generate_key_helper_fn,
-            master_key,
             premium_user,
             proxy_logging_obj,
             redis_usage_cache,

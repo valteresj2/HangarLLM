@@ -9,9 +9,9 @@ from typing import Final, Protocol
 import httpx
 
 import hangarllm
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping, require_attributes
 from hangarllm.hangarllm_core_utils.internal_call_metadata import logged_event_key
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.llms.custom_httpx.http_handler import (
     HTTPHandler,
     get_async_httpx_client,

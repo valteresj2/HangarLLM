@@ -32,8 +32,8 @@ from hangarllm.integrations.otel.model.semconv import (
     MCP,
     Error,
     GenAI,
-    JsonRpc,
     HangarLLM,
+    JsonRpc,
     RpcSystem,
     Server,
 )

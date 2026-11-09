@@ -2,7 +2,9 @@ mod support;
 
 use axum::{body::Body, http::Request};
 use hangarllm_gateway_inference::Error;
-use hangarllm_llms::base_llm::ocr::{error::Error as OcrError, transformation::decode_request_value};
+use hangarllm_llms::base_llm::ocr::{
+    error::Error as OcrError, transformation::decode_request_value,
+};
 use hangarllm_llms_types::formats::ocr::OcrDocument;
 use rstest::rstest;
 use serde_json::{Value, json};

@@ -24,7 +24,10 @@ pub fn no_secrets() -> Arc<dyn SecretSource> {
     Arc::new(RecordingSecrets::empty())
 }
 
-pub fn provider_http(resources: &CoreResources, config: &HttpClientConfig) -> hangarllm_http::Client {
+pub fn provider_http(
+    resources: &CoreResources,
+    config: &HttpClientConfig,
+) -> hangarllm_http::Client {
     resources
         .pool
         .client(config, ClientVariant::Provider)

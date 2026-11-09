@@ -43,9 +43,9 @@ if TYPE_CHECKING:
     from opentelemetry.trace import Span
 
     from hangarllm.caching.caching import RedisCache
-    from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
     from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
     from hangarllm.hangarllm_core_utils.ptu_shares import PTUTeamCeiling
+    from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
     from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
     from hangarllm.router import Router
     from hangarllm.router_strategy.budget_limiter import RouterBudgetLimiting

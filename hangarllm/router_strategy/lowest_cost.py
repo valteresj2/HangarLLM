@@ -10,7 +10,6 @@ from hangarllm import ModelResponse, verbose_logger
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_router_logger
 from hangarllm.caching.caching import DualCache
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.batch_utils import is_batch_retrieve_call_type
 from hangarllm.hangarllm_core_utils.deployment_pricing import (
     deployment_backend_models,
@@ -18,6 +17,7 @@ from hangarllm.hangarllm_core_utils.deployment_pricing import (
     str_keyed,
 )
 from hangarllm.hangarllm_core_utils.token_counter import embedding_aware_token_count
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.redis.stores.router_usage import ROUTER_USAGE_TARGET
 
 

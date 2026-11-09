@@ -1,6 +1,8 @@
 use hangarllm_auth::{InputSource, Sourced};
 use hangarllm_auth_azure::{AzureAuthInputs, SECRET_NAMES as AZURE_AUTH_SECRET_NAMES};
-use hangarllm_core_utils::{call_arguments::CallArguments, params::OpaqueParams, url_utils::ApiUrl};
+use hangarllm_core_utils::{
+    call_arguments::CallArguments, params::OpaqueParams, url_utils::ApiUrl,
+};
 use serde_json::Value;
 
 use crate::{

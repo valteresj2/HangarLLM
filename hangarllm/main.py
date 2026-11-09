@@ -72,7 +72,6 @@ from hangarllm.constants import (
     OPENAI_AUDIO_TRANSCRIPTION_PROVIDERS,
 )
 from hangarllm.exceptions import HangarLLMUnknownProvider
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.allowed_tools_tool_choice import (
     raise_if_allowed_tools_tool_choice_unsupported,
 )
@@ -104,12 +103,12 @@ from hangarllm.hangarllm_core_utils.get_llm_provider_logic import (
 from hangarllm.hangarllm_core_utils.get_provider_specific_headers import (
     ProviderSpecificHeaderUtils,
 )
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
 from hangarllm.hangarllm_core_utils.health_check_utils import (
     _filter_model_params,
     create_health_check_response,
 )
 from hangarllm.hangarllm_core_utils.hidden_params import HIDDEN_PARAMS_ATTR, get_hidden_params
-from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
 from hangarllm.hangarllm_core_utils.mock_functions import (
     mock_embedding,
     mock_image_generation,
@@ -133,6 +132,7 @@ from hangarllm.hangarllm_core_utils.request_timeout_resolver import (
 )
 from hangarllm.hangarllm_core_utils.tokenizer import Encoding as Tokenizer
 from hangarllm.hangarllm_core_utils.url_utils import ensure_api_route
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.llms.base_llm import BaseConfig, BaseImageGenerationConfig
 from hangarllm.llms.base_llm.base_model_iterator import (
     convert_model_response_to_streaming,

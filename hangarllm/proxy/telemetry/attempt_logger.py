@@ -5,8 +5,8 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.exceptions import APIConnectionError, BadRequestError, Timeout
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.proxy.telemetry.blocks import count_blocks
 from hangarllm.proxy.telemetry.request_context import AttemptObservation, RequestAccumulator, current_request
 from hangarllm.telemetry.records import AttemptRecord, BlockCounts, StatusClass, TokenCounts

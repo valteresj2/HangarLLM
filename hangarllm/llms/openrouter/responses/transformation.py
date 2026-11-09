@@ -16,8 +16,8 @@ from pydantic import TypeAdapter
 
 import hangarllm
 from hangarllm.hangarllm_core_utils.core_helpers import RESPONSE_COST_HEADER
-from hangarllm.hangarllm_core_utils.hidden_params import set_hidden_params
 from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.hangarllm_core_utils.hidden_params import set_hidden_params
 from hangarllm.hangarllm_core_utils.url_utils import join_api_base
 from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
 from hangarllm.secret_managers.main import get_secret_str

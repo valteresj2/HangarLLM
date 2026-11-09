@@ -20,8 +20,8 @@ from hangarllm.proxy._types import (
     ChangePasswordRequest,
     ChangePasswordResponse,
     CommonProxyErrors,
-    HTTPExceptionErrorDetail,
     HangarllmTableNames,
+    HTTPExceptionErrorDetail,
     UserAPIKeyAuth,
 )
 from hangarllm.proxy.auth.login_utils import PASSWORD_SESSION_METADATA

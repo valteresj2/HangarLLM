@@ -21,10 +21,10 @@ from hangarllm.constants import (
     DEFAULT_PROMPT_INJECTION_SIMILARITY_THRESHOLD,
     PROMPT_INJECTION_HEURISTICS_MAX_THREADS,
 )
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
     prompt_injection_detection_default_pt,
 )
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.proxy._types import HangarLLMPromptInjectionParams, UserAPIKeyAuth
 from hangarllm.router import Router
 from hangarllm.utils import get_formatted_prompt

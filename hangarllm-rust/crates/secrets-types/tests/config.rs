@@ -14,7 +14,10 @@ fn config_preserves_defaults_nulls_and_serialized_names(default_settings: KeyMan
     assert_eq!(default_settings, KeyManagementSettings::default());
     assert_eq!(default_settings.access_mode, AccessMode::ReadOnly);
     assert_eq!(default_settings.store_virtual_keys, Some(false));
-    assert_eq!(default_settings.prefix_for_stored_virtual_keys, "hangarllm/");
+    assert_eq!(
+        default_settings.prefix_for_stored_virtual_keys,
+        "hangarllm/"
+    );
     let configured: KeyManagementSettings = serde_json::from_value(json!({
         "hosted_keys": [], "store_virtual_keys": null, "access_mode": "write_only",
         "aws_web_identity_token": "private-token", "aws_external_id": "private-id",

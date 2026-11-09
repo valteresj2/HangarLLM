@@ -526,10 +526,10 @@ class LoggingCallbackManager:
         )
 
     def _get_callback_string(self, callback: CustomLogger | Callable[..., object] | str) -> str:
-        from hangarllm.integrations.opentelemetry import OpenTelemetry
         from hangarllm.hangarllm_core_utils.custom_logger_registry import (
             CustomLoggerRegistry,
         )
+        from hangarllm.integrations.opentelemetry import OpenTelemetry
 
         """Convert a callback to its string representation"""
         if isinstance(callback, str):

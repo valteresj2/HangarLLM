@@ -13,10 +13,10 @@ from hangarllm.models.project import HangarLLM_ProjectTable
 from hangarllm.proxy._types import (
     UI_TEAM_ID,
     CommonProxyErrors,
-    KeyManagementRoutes,
     HangarLLM_TeamMembership,
     HangarLLM_TeamTable,
     HangarllmUserRoles,
+    KeyManagementRoutes,
     UserAPIKeyAuth,
 )
 from hangarllm.proxy.auth.auth_checks import (  # noqa: F401  # legacy module exports

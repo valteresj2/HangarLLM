@@ -38,9 +38,9 @@ from pydantic import ConfigDict
 
 import hangarllm
 from hangarllm._logging import verbose_logger
+from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 from hangarllm.integrations.langfuse.langfuse import PROMPT_CACHE_TTL_ENV, parse_langfuse_debug, whole_number
 from hangarllm.integrations.langfuse.langfuse_otel_attributes import serialize_langfuse_datetime
-from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 from hangarllm.llms.custom_httpx.http_handler import HTTPHandler, get_httpx_client
 from hangarllm.types.llms.base import HangarLLMBaseModel
 

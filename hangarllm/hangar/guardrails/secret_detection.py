@@ -23,14 +23,14 @@ YAML and JSON. Tune it with ``detect_secrets_config``::
 A key can opt out with ``metadata: {"hide_secrets": false}`` (admins only).
 """
 
-import hangarllm
-import os
 import json
+import os
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 
+import hangarllm
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.integrations.custom_guardrail import CustomGuardrail
 from hangarllm.types.guardrails import GuardrailEventHooks

@@ -9,16 +9,16 @@ from urllib.parse import unquote
 import httpx
 
 from hangarllm import LlmProviders
-from hangarllm.integrations.gcs_bucket.gcs_bucket_base import (
-    GCSBucketBase,
-    GCSLoggingConfig,
-)
 from hangarllm.hangarllm_core_utils.cloud_storage_security import (
     VERTEX_AI_MANAGED_GCS_PREFIX,
     should_allow_legacy_cloud_file_ids,
     validate_managed_cloud_file_id,
 )
 from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.integrations.gcs_bucket.gcs_bucket_base import (
+    GCSBucketBase,
+    GCSLoggingConfig,
+)
 from hangarllm.llms.custom_httpx.http_handler import get_async_httpx_client
 from hangarllm.types.llms.openai import (
     FileContentRequest,

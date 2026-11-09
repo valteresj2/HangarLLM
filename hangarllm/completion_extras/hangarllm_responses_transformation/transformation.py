@@ -34,7 +34,6 @@ from hangarllm.completion_extras.hangarllm_responses_transformation.history impo
     replay_items,
     requested_phase,
 )
-from hangarllm.integrations.anthropic_cache_control_hook import routed_model_info, supports_openai_prompt_cache_breakpoint
 from hangarllm.hangarllm_core_utils.allowed_tools_tool_choice import (
     parse_chat_allowed_tools_tool_choice,
     responses_allowed_tools_tool_choice,
@@ -48,6 +47,10 @@ from hangarllm.hangarllm_core_utils.prompt_templates.prompt_cache_breakpoint_uti
 )
 from hangarllm.hangarllm_core_utils.prompt_templates.reasoning_utils import (
     responses_reasoning_items_from_thinking_blocks,
+)
+from hangarllm.integrations.anthropic_cache_control_hook import (
+    routed_model_info,
+    supports_openai_prompt_cache_breakpoint,
 )
 from hangarllm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
 from hangarllm.llms.base_llm.bridges.completion_transformation import (

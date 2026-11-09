@@ -244,7 +244,8 @@ fn a_missing_tls_file_names_the_path() {
 
 #[rstest]
 fn a_legacy_encrypted_pem_key_is_refused_with_a_conversion_hint() {
-    let directory = std::env::temp_dir().join(format!("hangarllm-legacy-key-{}", std::process::id()));
+    let directory =
+        std::env::temp_dir().join(format!("hangarllm-legacy-key-{}", std::process::id()));
     std::fs::create_dir_all(&directory).unwrap();
     let keyfile = directory.join("client.key");
     std::fs::write(

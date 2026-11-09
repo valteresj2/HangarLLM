@@ -7,10 +7,10 @@ use std::{
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use futures_util::future::try_join_all;
-use http::{HeaderName, HeaderValue};
 use hangarllm_config::{McpAuth, McpServer, McpTransport};
 use hangarllm_secret_value::SecretValue;
 use hangarllm_secrets::source::SecretSource;
+use http::{HeaderName, HeaderValue};
 use rmcp::{
     RoleClient, ServiceExt,
     service::RunningService,
@@ -384,8 +384,10 @@ mod tests {
         fn get_secret_str<'a>(
             &'a self,
             name: &'a str,
-        ) -> futures_util::future::BoxFuture<'a, Result<Option<SecretValue>, hangarllm_secrets::Error>>
-        {
+        ) -> futures_util::future::BoxFuture<
+            'a,
+            Result<Option<SecretValue>, hangarllm_secrets::Error>,
+        > {
             Box::pin(async move { Ok((name == "KEY").then(|| SecretValue::new("resolved-token"))) })
         }
     }

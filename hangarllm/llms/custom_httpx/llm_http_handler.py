@@ -261,9 +261,9 @@ if TYPE_CHECKING:
     from websockets.asyncio.client import ClientConnection
 
     from hangarllm.google_genai.streaming_iterator import AsyncGoogleGenAIGenerateContentStreamingIterator
-    from hangarllm.integrations.custom_logger import CustomLogger
     from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as _HangarLLMLoggingObj
     from hangarllm.hangarllm_core_utils.tokenizer import Encoding as Tokenizer
+    from hangarllm.integrations.custom_logger import CustomLogger
     from hangarllm.llms.anthropic.messages.native.fake_stream_iterator import (
         FakeAnthropicMessagesStreamIterator,
     )
@@ -503,10 +503,10 @@ def _responses_api_optional_request_param_names() -> frozenset[str]:
 
 
 def _custom_logger_callbacks(logging_obj: HangarLLMLoggingObj) -> list["CustomLogger"]:
-    from hangarllm.integrations.custom_logger import CustomLogger
     from hangarllm.hangarllm_core_utils.hangarllm_logging import (
         get_custom_logger_compatible_class,
     )
+    from hangarllm.integrations.custom_logger import CustomLogger
 
     dynamic_success_callbacks: Final = getattr(logging_obj, "dynamic_success_callbacks", None)
     callbacks: Final = list(hangarllm.callbacks)

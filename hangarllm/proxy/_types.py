@@ -101,9 +101,9 @@ from hangarllm.types.utils import (
     CostBreakdown,
     EmbeddingResponse,
     GenericBudgetConfigType,
+    HangarLLMPydanticObjectBase,
     ImageResponse,
     InternalCallOrigin,
-    HangarLLMPydanticObjectBase,
     ModelResponse,
     ProviderField,
     StandardCallbackDynamicParams,
@@ -1231,10 +1231,10 @@ from hangarllm.types.proxy.management_endpoints.key_requests import (  # noqa: E
     GenerateKeyRequest as GenerateKeyRequest,  # noqa: PLC0414  # public re-export
 )
 from hangarllm.types.proxy.management_endpoints.key_requests import (  # noqa: E402  # re-export after the definitions above
-    KeyRequestBase as KeyRequestBase,  # noqa: PLC0414  # public re-export
+    HangarLLMKeyType as HangarLLMKeyType,  # noqa: PLC0414  # public re-export
 )
 from hangarllm.types.proxy.management_endpoints.key_requests import (  # noqa: E402  # re-export after the definitions above
-    HangarLLMKeyType as HangarLLMKeyType,  # noqa: PLC0414  # public re-export
+    KeyRequestBase as KeyRequestBase,  # noqa: PLC0414  # public re-export
 )
 from hangarllm.types.proxy.management_endpoints.request_base import (  # noqa: E402  # re-export after the definitions above
     GenerateRequestBase as GenerateRequestBase,  # noqa: PLC0414  # public re-export
@@ -3515,7 +3515,10 @@ class HangarLLM_AuditLogs(HangarLLMPydanticObjectBase):
 
     @model_validator(mode="after")
     def mask_api_keys(self):
-        from hangarllm.hangarllm_core_utils.sensitive_data_masker import SensitiveDataMasker, mask_credentials_in_payload
+        from hangarllm.hangarllm_core_utils.sensitive_data_masker import (
+            SensitiveDataMasker,
+            mask_credentials_in_payload,
+        )
 
         masker: Final = SensitiveDataMasker(sensitive_patterns={"key"})
 

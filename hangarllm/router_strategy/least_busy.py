@@ -15,8 +15,8 @@ from hangarllm._logging import verbose_router_logger
 from hangarllm.caching.caching import DualCache
 from hangarllm.caching.in_memory_cache import InMemoryCache
 from hangarllm.caching.redis_cache import log_redis_failure
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.batch_utils import is_batch_retrieve_call_type
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.redis.stores.router_usage import ROUTER_USAGE_TARGET
 from hangarllm.types.utils import CallTypes
 

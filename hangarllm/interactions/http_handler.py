@@ -11,11 +11,11 @@ import httpx
 
 import hangarllm
 from hangarllm.constants import request_timeout
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
 from hangarllm.interactions.streaming_iterator import (
     InteractionsAPIStreamingIterator,
     SyncInteractionsAPIStreamingIterator,
 )
-from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
 from hangarllm.llms.base_llm.interactions.transformation import BaseInteractionsAPIConfig
 from hangarllm.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,

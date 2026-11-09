@@ -27,8 +27,8 @@ from hangarllm.llms.custom_httpx.sse_lines import split_sse_lines
 from hangarllm.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from hangarllm.integrations.custom_guardrail import CustomGuardrail
     from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+    from hangarllm.integrations.custom_guardrail import CustomGuardrail
     from hangarllm.types.proxy.auth.user_api_key_auth import UserAPIKeyAuth
 
 _EMPTY_REQUEST_DATA: Final[Mapping[str, object]] = MappingProxyType({})

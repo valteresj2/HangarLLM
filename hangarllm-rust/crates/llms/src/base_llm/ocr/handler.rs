@@ -183,7 +183,11 @@ pub async fn read_response_bytes(
         return Err(Error::TooLarge { limit });
     }
     let mut bytes = BytesMut::new();
-    while let Some(chunk) = response.chunk().await.map_err(hangarllm_http::Error::from)? {
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(hangarllm_http::Error::from)?
+    {
         if chunk.len() > limit.saturating_sub(bytes.len()) {
             return Err(Error::TooLarge { limit });
         }
@@ -195,7 +199,10 @@ pub async fn read_response_bytes(
 async fn read_error_body(mut response: reqwest::Response, limit: usize) -> Result<String, Error> {
     let mut bytes = BytesMut::new();
     while bytes.len() < limit
-        && let Some(chunk) = response.chunk().await.map_err(hangarllm_http::Error::from)?
+        && let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(hangarllm_http::Error::from)?
     {
         let remaining = limit - bytes.len();
         bytes.extend_from_slice(&chunk[..chunk.len().min(remaining)]);

@@ -344,7 +344,10 @@ mod tests {
         assert_eq!(response.status(), 204);
         assert_eq!(response.version(), reqwest::Version::HTTP_11);
         let request = requests.lock().unwrap()[0].clone();
-        assert!(request.contains("user-agent: hangarllm-test/9"), "{request}");
+        assert!(
+            request.contains("user-agent: hangarllm-test/9"),
+            "{request}"
+        );
     }
 
     #[tokio::test]

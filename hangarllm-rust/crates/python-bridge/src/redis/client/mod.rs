@@ -307,7 +307,8 @@ mod tests {
     ) {
         Python::initialize();
         Python::attach(|py| {
-            let error = hangarllm_redis_resolve::interpret(&kwargs(fields), None, None).unwrap_err();
+            let error =
+                hangarllm_redis_resolve::interpret(&kwargs(fields), None, None).unwrap_err();
 
             let outcome = unresolved(py, &error)
                 .map(|client| client.is_some())

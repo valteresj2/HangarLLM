@@ -110,7 +110,9 @@ async def post_client_credentials_grant(
         describe_upstream_response,
         safe_upstream_url,
     )
-    from hangarllm.types.llms.custom_http import httpxSpecialProvider  # noqa: PLC0415  # deferred with the handler import
+    from hangarllm.types.llms.custom_http import (
+        httpxSpecialProvider,  # noqa: PLC0415  # deferred with the handler import
+    )
 
     try:
         client: Final = get_async_httpx_client(llm_provider=httpxSpecialProvider.Oauth2Check)

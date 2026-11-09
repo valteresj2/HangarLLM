@@ -7,8 +7,8 @@ from typing import Final
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.integrations.custom_prompt_management import CustomPromptManagement
 from hangarllm.types.prompts.init_prompts import (
-    PromptInfo,
     PromptHangarLLMParams,
+    PromptInfo,
     PromptSpec,
 )
 

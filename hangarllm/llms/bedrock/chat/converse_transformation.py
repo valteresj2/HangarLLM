@@ -24,11 +24,6 @@ from hangarllm.constants import (
     RESPONSE_FORMAT_TOOL_NAME,
     RESPONSE_FORMAT_UNFORCED_TOOL_DESCRIPTION,
 )
-from hangarllm.integrations.anthropic_cache_control_hook import (
-    MAX_CACHE_CONTROL_BLOCKS,
-    AnthropicCacheControlHook,
-    configured_injection_points,
-)
 from hangarllm.hangarllm_core_utils.core_helpers import (
     as_str_mapping,
     drops_unsupported_params,
@@ -61,6 +56,11 @@ from hangarllm.hangarllm_core_utils.prompt_templates.reasoning_utils import (
 )
 from hangarllm.hangarllm_core_utils.reasoning_effort_utils import OPAQUE_VALUE, warn_dropped_reasoning
 from hangarllm.hangarllm_core_utils.tool_fields import tool_params_without_hosted_mcp
+from hangarllm.integrations.anthropic_cache_control_hook import (
+    MAX_CACHE_CONTROL_BLOCKS,
+    AnthropicCacheControlHook,
+    configured_injection_points,
+)
 from hangarllm.llms.anthropic.chat.transformation import (
     DROP_UNSUPPORTED_ADAPTIVE_THINKING_WARNING,
     DROP_UNSUPPORTED_OUTPUT_CONFIG_WARNING,

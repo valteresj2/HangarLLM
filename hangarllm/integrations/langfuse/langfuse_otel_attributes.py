@@ -12,11 +12,11 @@ from typing import TYPE_CHECKING, Final, Protocol
 from pydantic import BaseModel
 from typing_extensions import override
 
+from hangarllm.hangarllm_core_utils.core_helpers import require_attributes
 from hangarllm.integrations.opentelemetry_utils.base_otel_llm_obs_attributes import (
     BaseLLMObsOTELAttributes,
     safe_set_attribute,
 )
-from hangarllm.hangarllm_core_utils.core_helpers import require_attributes
 from hangarllm.types.llms.openai import HttpxBinaryResponseContent, ResponsesAPIResponse
 from hangarllm.types.utils import (
     EmbeddingResponse,

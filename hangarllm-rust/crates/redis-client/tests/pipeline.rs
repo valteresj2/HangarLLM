@@ -86,7 +86,9 @@ async fn begin_migration(cluster: &hangarllm_redis_testing::RedisCluster, key: &
 #[rstest]
 #[tokio::test]
 async fn a_retrying_neighbor_cannot_reapply_a_cluster_counter() {
-    let cluster = hangarllm_redis_testing::RedisCluster::start().await.unwrap();
+    let cluster = hangarllm_redis_testing::RedisCluster::start()
+        .await
+        .unwrap();
     let server = RedisDeployment::Cluster(cluster);
     let client = connect(&server, "", DEFAULT_TIMEOUT);
     let counter = "{migration}:counter";

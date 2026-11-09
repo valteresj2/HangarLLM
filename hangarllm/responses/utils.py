@@ -13,7 +13,12 @@ from typing_extensions import TypeIs  # noqa: TID251  # narrows untyped wire pay
 
 import hangarllm
 from hangarllm._logging import verbose_logger
-from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping, attribute_or_none, decoded_json_object, iter_items
+from hangarllm.hangarllm_core_utils.core_helpers import (
+    as_str_mapping,
+    attribute_or_none,
+    decoded_json_object,
+    iter_items,
+)
 from hangarllm.hangarllm_core_utils.dot_notation_indexing import delete_nested_value, is_nested_path
 from hangarllm.hangarllm_core_utils.get_provider_specific_headers import ProviderSpecificHeaderUtils
 from hangarllm.llms.base_llm.responses.transformation import (

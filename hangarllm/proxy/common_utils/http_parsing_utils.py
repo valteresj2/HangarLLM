@@ -20,8 +20,8 @@ from hangarllm.constants import (
     HANGARLLM_HTTP_STATUS_CLIENT_DISCONNECTED,
     MAX_REQUEST_BODY_SIZE_TO_REPAIR_MB,
 )
-from hangarllm.integrations.otel.runtime import phase_event
 from hangarllm.hangarllm_core_utils.core_helpers import as_object_list, has_attributes, require_attributes
+from hangarllm.integrations.otel.runtime import phase_event
 from hangarllm.proxy._types import ProxyException
 from hangarllm.proxy.common_utils.callback_utils import (
     get_metadata_variable_name_from_kwargs,

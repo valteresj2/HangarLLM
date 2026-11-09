@@ -6,7 +6,10 @@ from typing import Final, TypeAlias
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from hangarllm._logging import verbose_logger
-from hangarllm.llms.base_llm.guardrail_translation.utils import merge_returned_tools_into_request_tools, openai_tool_name
+from hangarllm.llms.base_llm.guardrail_translation.utils import (
+    merge_returned_tools_into_request_tools,
+    openai_tool_name,
+)
 from hangarllm.responses.hangarllm_completion_transformation.custom_tools import custom_tool_grammar_suffix
 from hangarllm.responses.hangarllm_completion_transformation.transformation import (
     NAMESPACE_DESCRIPTION_SEPARATOR,

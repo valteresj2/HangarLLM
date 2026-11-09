@@ -10,9 +10,9 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 
+from hangarllm.hangarllm_core_utils.prompt_templates.mid_conversation_system import message_field, parts_of
 from hangarllm.integrations.otel.mappers.base import AttributeMap, AttrValue
 from hangarllm.integrations.otel.model.payloads import LLMCallSpanData, ToolDefinition
-from hangarllm.hangarllm_core_utils.prompt_templates.mid_conversation_system import message_field, parts_of
 from hangarllm.llms.anthropic.common_utils import anthropic_server_tool_call_params
 
 

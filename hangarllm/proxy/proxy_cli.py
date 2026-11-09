@@ -1747,7 +1747,10 @@ def run_server(
         )
 
         if prometheus_metrics_port is not None and prometheus_multiproc_dir is not None:
-            from hangarllm.proxy.prometheus_metrics_server import MetricsServerStartupError, start_metrics_server_process
+            from hangarllm.proxy.prometheus_metrics_server import (
+                MetricsServerStartupError,
+                start_metrics_server_process,
+            )
 
             try:
                 metrics_process: Final = start_metrics_server_process(

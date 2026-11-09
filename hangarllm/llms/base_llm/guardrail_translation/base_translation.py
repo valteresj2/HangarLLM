@@ -8,11 +8,11 @@ from hangarllm.hangarllm_core_utils.core_helpers import has_attributes
 if TYPE_CHECKING:
     from fastapi import HTTPException
 
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
     from hangarllm.integrations.custom_guardrail import (
         CustomGuardrail,
         ModifyResponseException,
     )
-    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
     from hangarllm.types.llms.openai import AllMessageValues
     from hangarllm.types.proxy.auth.user_api_key_auth import UserAPIKeyAuth
 

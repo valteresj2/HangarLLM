@@ -20,8 +20,8 @@ import httpx
 import hangarllm
 from hangarllm._logging import verbose_logger
 from hangarllm._uuid import uuid
-from hangarllm.integrations.custom_batch_logger import CustomBatchLogger
 from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
+from hangarllm.integrations.custom_batch_logger import CustomBatchLogger
 from hangarllm.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,

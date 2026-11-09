@@ -573,7 +573,10 @@ fn a_block_without_a_usable_target_fails(#[case] yaml: &str, #[case] environment
     let error = resolve(yaml, environment).unwrap_err();
 
     assert!(
-        matches!(error, Error::Redis(hangarllm_redis_resolve::Error::NoTarget)),
+        matches!(
+            error,
+            Error::Redis(hangarllm_redis_resolve::Error::NoTarget)
+        ),
         "{error:?}"
     );
 }

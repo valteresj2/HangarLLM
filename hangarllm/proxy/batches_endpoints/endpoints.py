@@ -68,7 +68,9 @@ from hangarllm.proxy.openai_files_endpoints.common_utils import (  # noqa: F401 
     update_batch_in_database,
     validate_managed_id_requirement,
 )
-from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.batch_attribution import request_tags_from_request_data
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.batch_attribution import (
+    request_tags_from_request_data,
+)
 from hangarllm.proxy.route_llm_request import raise_if_required_body_param_missing
 from hangarllm.proxy.utils import PrismaClient, ProxyLogging, handle_exception_on_proxy, is_known_model
 from hangarllm.repositories.managed_batch_repository import ManagedBatchRepository

@@ -3,12 +3,12 @@ mod errors;
 mod host;
 mod project;
 
-use host::OcrPythonHost;
 use hangarllm_callbacks_legacy_python::LoggingOperation;
 use hangarllm_core_utils::settings::ProcessEnvironment;
 use hangarllm_host_python::to_py;
 use hangarllm_inference_ocr::provider_config;
 use hangarllm_llms::base_llm::ocr::settings::OcrSettings;
+use host::OcrPythonHost;
 use pyo3::prelude::*;
 
 use super::NativeCall;

@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, Final, cast, get_type_hints
 
 from pydantic import ConfigDict, JsonValue, TypeAdapter, ValidationError, with_config
 
-from hangarllm.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
 from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping
+from hangarllm.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
 from hangarllm.llms.anthropic.common_utils import (
     flatten_unencrypted_web_search_results_in_anthropic_messages,
     sanitize_tool_use_ids_in_anthropic_messages,

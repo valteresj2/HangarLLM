@@ -15,10 +15,6 @@ from packaging.version import Version
 import hangarllm
 from hangarllm._logging import verbose_logger
 from hangarllm.constants import MAX_LANGFUSE_INITIALIZED_CLIENTS
-from hangarllm.integrations.langfuse.langfuse_mock_client import (
-    create_mock_langfuse_client,
-    should_use_langfuse_mock,
-)
 from hangarllm.hangarllm_core_utils.core_helpers import (
     as_str_mapping,
     filter_exceptions_from_params,
@@ -29,6 +25,10 @@ from hangarllm.hangarllm_core_utils.initialize_dynamic_callback_params import (
     validate_langfuse_environment_value,
 )
 from hangarllm.hangarllm_core_utils.redact_messages import redact_user_api_key_info
+from hangarllm.integrations.langfuse.langfuse_mock_client import (
+    create_mock_langfuse_client,
+    should_use_langfuse_mock,
+)
 from hangarllm.llms.custom_httpx.http_handler import get_httpx_client
 from hangarllm.responses.utils import ResponseAPILoggingUtils
 from hangarllm.secret_managers.main import str_to_bool
@@ -47,8 +47,8 @@ from hangarllm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from hangarllm.integrations.langfuse.langfuse_sdk import LangfuseApiClient, LangfuseObservation, LangfuseTracing
     from hangarllm.hangarllm_core_utils.hangarllm_logging import DynamicLoggingCache
+    from hangarllm.integrations.langfuse.langfuse_sdk import LangfuseApiClient, LangfuseObservation, LangfuseTracing
 else:
     DynamicLoggingCache = Any
     LangfuseApiClient = Any

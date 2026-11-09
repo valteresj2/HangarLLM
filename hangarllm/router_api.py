@@ -52,10 +52,10 @@ if TYPE_CHECKING:
     from opentelemetry.trace import Span
 
     from hangarllm.caching.caching import DualCache, RedisCache
-    from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
     from hangarllm.hangarllm_core_utils.pattern_match_deployments import PatternMatchRouter
     from hangarllm.hangarllm_core_utils.ptu_shares import PTUTeamCeiling
     from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+    from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
     from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
     from hangarllm.messages.dispatch import MessagesResult
     from hangarllm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator

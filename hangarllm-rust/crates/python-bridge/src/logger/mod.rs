@@ -3,7 +3,9 @@ mod machine;
 pub(crate) use machine::LoggedMachine;
 
 use hangarllm_host_python::Pythonized;
-use hangarllm_tracing::{DiagnosticInput, Level, Logger, Metadata, Policy, Processor, Record, Sink};
+use hangarllm_tracing::{
+    DiagnosticInput, Level, Logger, Metadata, Policy, Processor, Record, Sink,
+};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 
@@ -114,7 +116,8 @@ fn report<T: Default>(py: Python<'_>, result: PyResult<T>) -> T {
 
 impl Sink for PythonSink {
     fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-        if !metadata.target().starts_with("hangarllm_") && !metadata.target().starts_with("_native::")
+        if !metadata.target().starts_with("hangarllm_")
+            && !metadata.target().starts_with("_native::")
         {
             return false;
         }

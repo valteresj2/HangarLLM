@@ -519,9 +519,10 @@ impl hangarllm_host_python::ExecutionBody for Preparing {
 }
 
 fn lifecycle(py: Python<'_>) -> PyResult<Bound<'_, PyModule>> {
-    let source =
-        std::ffi::CString::new(include_str!("../../../../hangarllm/rust_bridge/execution.py"))
-            .unwrap();
+    let source = std::ffi::CString::new(include_str!(
+        "../../../../hangarllm/rust_bridge/execution.py"
+    ))
+    .unwrap();
     PyModule::from_code(py, &source, c"execution.py", c"hook_chain_test_lifecycle")
 }
 

@@ -16,7 +16,9 @@ use wiremock::{Mock, MockServer, Request, ResponseTemplate, matchers::any};
 /// A port nothing listens on, for calls that must fail before any request is sent.
 pub const UNREACHABLE_BASE: &str = "http://127.0.0.1:1";
 
-pub fn messages_route(secrets: Arc<dyn SecretSource>) -> hangarllm_inference_messages::MessagesRoute {
+pub fn messages_route(
+    secrets: Arc<dyn SecretSource>,
+) -> hangarllm_inference_messages::MessagesRoute {
     let resources = resources();
     hangarllm_inference_messages::MessagesRoute::new(
         provider_http(&resources, &http_config()),

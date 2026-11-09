@@ -7,13 +7,13 @@ use std::{
 use axum::body::to_bytes;
 use bytes::Bytes;
 use futures_util::{StreamExt, stream};
-use http::{StatusCode, header::CONTENT_TYPE};
 use hangarllm_host::{
     call::{CallOutput, hosted_call},
     machine::MachineFault,
     protocol::Protocol,
 };
 use hangarllm_host_http::{Sse, serve};
+use http::{StatusCode, header::CONTENT_TYPE};
 use rstest::rstest;
 
 #[derive(Clone, Debug)]

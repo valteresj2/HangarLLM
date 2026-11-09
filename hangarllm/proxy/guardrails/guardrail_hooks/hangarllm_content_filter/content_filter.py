@@ -29,8 +29,8 @@ from hangarllm.constants import (
     CONTENT_FILTER_STREAMING_SCAN_CONTEXT_CHARS,
     DEFAULT_MAX_RECURSE_DEPTH,
 )
-from hangarllm.integrations.custom_guardrail import CustomGuardrail
 from hangarllm.hangarllm_core_utils.core_helpers import attribute_or_none
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
 from hangarllm.proxy._types import UserAPIKeyAuth
 from hangarllm.proxy.common_utils.path_utils import is_within, try_safe_join
 from hangarllm.proxy.guardrails.content_filter_data import (

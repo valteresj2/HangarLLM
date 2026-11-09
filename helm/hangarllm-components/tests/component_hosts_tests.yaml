@@ -43,7 +43,7 @@ tests:
               pathType: Prefix
               backend:
                 service:
-                  name: RELEASE-NAME-hangarllm-ui
+                  name: RELEASE-NAME-hangarllm-components-ui
                   port:
                     number: 3000
       - equal:
@@ -56,7 +56,7 @@ tests:
               pathType: Prefix
               backend:
                 service:
-                  name: RELEASE-NAME-hangarllm-backend
+                  name: RELEASE-NAME-hangarllm-components-backend
                   port:
                     number: 4001
       - equal:
@@ -69,7 +69,7 @@ tests:
               pathType: Prefix
               backend:
                 service:
-                  name: RELEASE-NAME-hangarllm-gateway
+                  name: RELEASE-NAME-hangarllm-components-gateway
                   port:
                     number: 4000
 

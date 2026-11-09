@@ -29,6 +29,7 @@ from typing_extensions import ReadOnly, TypedDict
 import hangarllm
 from hangarllm._logging import verbose_logger
 from hangarllm._uuid import uuid
+from hangarllm.hangarllm_core_utils.dd_tracing import tracer
 from hangarllm.integrations.batch_utils import BatchSendCancelled, requeue_after_http_error, send_batch_with_413_split
 from hangarllm.integrations.custom_batch_logger import CustomBatchLogger
 from hangarllm.integrations.datadog.datadog_handler import (
@@ -42,7 +43,6 @@ from hangarllm.integrations.datadog.datadog_mock_client import (
     create_mock_datadog_client,
     should_use_datadog_mock,
 )
-from hangarllm.hangarllm_core_utils.dd_tracing import tracer
 from hangarllm.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     get_httpx_client,

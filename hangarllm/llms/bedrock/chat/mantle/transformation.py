@@ -15,7 +15,10 @@ from hangarllm.llms.anthropic.chat.transformation import JsonModeRequest
 from hangarllm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
     AmazonAnthropicClaudeConfig,
 )
-from hangarllm.llms.bedrock.common_utils import bedrock_chat_opts_into_native_structured_output, build_mantle_messages_url
+from hangarllm.llms.bedrock.common_utils import (
+    bedrock_chat_opts_into_native_structured_output,
+    build_mantle_messages_url,
+)
 from hangarllm.types.llms.openai import AllMessageValues
 from hangarllm.types.utils import ModelResponse
 

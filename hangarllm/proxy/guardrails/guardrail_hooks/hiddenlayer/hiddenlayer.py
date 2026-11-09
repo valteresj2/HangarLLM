@@ -15,11 +15,11 @@ from requests.auth import HTTPBasicAuth
 from typing_extensions import ReadOnly, TypedDict, Unpack
 
 from hangarllm._logging import verbose_proxy_logger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
 from hangarllm.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
 from hangarllm.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,

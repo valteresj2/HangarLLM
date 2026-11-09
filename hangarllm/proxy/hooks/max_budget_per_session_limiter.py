@@ -25,7 +25,6 @@ from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.caching.redis_cache import log_redis_failure
 from hangarllm.exceptions import RateLimitType
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.batch_utils import (
     ChargeOnceJob,
     charged_poll_cost,
@@ -34,6 +33,7 @@ from hangarllm.hangarllm_core_utils.batch_utils import (
     job_to_charge_once,
 )
 from hangarllm.hangarllm_core_utils.core_helpers import finite_cost
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.proxy._types import UserAPIKeyAuth
 from hangarllm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
 from hangarllm.proxy.hooks.rate_limiter_utils import resolve_llm_provider_for_rate_limit

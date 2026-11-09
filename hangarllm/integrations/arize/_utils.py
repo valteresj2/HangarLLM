@@ -6,15 +6,15 @@ from pydantic import ConfigDict, TypeAdapter
 from typing_extensions import ReadOnly, TypedDict, override
 
 from hangarllm._logging import verbose_logger
-from hangarllm.integrations.opentelemetry_utils.base_otel_llm_obs_attributes import (
-    BaseLLMObsOTELAttributes,
-    safe_set_attribute,
-)
 from hangarllm.hangarllm_core_utils.core_helpers import iter_items, require_attributes, subscript
 from hangarllm.hangarllm_core_utils.redact_messages import (
     should_redact_message_logging,
 )
 from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
+from hangarllm.integrations.opentelemetry_utils.base_otel_llm_obs_attributes import (
+    BaseLLMObsOTELAttributes,
+    safe_set_attribute,
+)
 from hangarllm.llms.anthropic.common_utils import tool_calls_with_server_tool_calls
 from hangarllm.types.utils import CallTypes, StandardLoggingMCPToolCall, StandardLoggingPayload
 

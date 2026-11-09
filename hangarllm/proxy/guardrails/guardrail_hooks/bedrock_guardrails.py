@@ -31,7 +31,6 @@ from hangarllm._logging import verbose_proxy_logger
 from hangarllm.caching import DualCache
 from hangarllm.constants import BEDROCK_APPLY_GUARDRAIL_CHUNK_BUDGET_CHARS
 from hangarllm.exceptions import ModifyResponseException
-from hangarllm.integrations.custom_guardrail import CustomGuardrail
 from hangarllm.hangarllm_core_utils.api_route_to_call_types import get_call_types_for_route
 from hangarllm.hangarllm_core_utils.core_helpers import (
     as_str_mapping,
@@ -46,6 +45,7 @@ from hangarllm.hangarllm_core_utils.llm_cost_calc.guardrail_cost import (
     bedrock_guardrail_cost_by_unit,
     guardrail_cost_total,
 )
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
 from hangarllm.llms.anthropic.chat.guardrail_translation.handler import AnthropicMessagesHandler
 from hangarllm.llms.base_llm.guardrail_translation.utils import (
     effective_scan_only_tool_results_for_guardrail,

@@ -45,8 +45,8 @@ from typing import TYPE_CHECKING, Any, Final, cast, get_args
 from pydantic import TypeAdapter
 
 from hangarllm.constants import (
-    INTERNAL_CALL_ORIGIN_METADATA_KEY,
     HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL,
+    INTERNAL_CALL_ORIGIN_METADATA_KEY,
     SESSION_ID_GENERATED_METADATA_KEY,
 )
 from hangarllm.integrations.otel.model.semconv import PASSTHROUGH_OPERATION_KEY, GenAIOperation, resolve_operation

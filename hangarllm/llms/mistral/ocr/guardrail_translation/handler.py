@@ -13,8 +13,8 @@ from hangarllm.llms.base_llm.guardrail_translation.base_translation import BaseT
 from hangarllm.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from hangarllm.integrations.custom_guardrail import CustomGuardrail
     from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+    from hangarllm.integrations.custom_guardrail import CustomGuardrail
     from hangarllm.llms.base_llm.ocr.transformation import OCRResponse
 
 

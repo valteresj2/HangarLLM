@@ -42,7 +42,10 @@ from hangarllm.hangarllm_core_utils.prompt_templates.reasoning_utils import (
     is_encrypted_reasoning_block,
     native_redacted_thinking_data,
 )
-from hangarllm.hangarllm_core_utils.reasoning_effort_utils import DroppedThinkingBudget, non_numeric_thinking_budget_error
+from hangarllm.hangarllm_core_utils.reasoning_effort_utils import (
+    DroppedThinkingBudget,
+    non_numeric_thinking_budget_error,
+)
 from hangarllm.hangarllm_core_utils.url_utils import join_api_base
 from hangarllm.llms.anthropic.wif import (
     aget_anthropic_wif_token,

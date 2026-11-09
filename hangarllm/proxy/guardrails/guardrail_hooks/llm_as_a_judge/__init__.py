@@ -12,7 +12,6 @@ from typing_extensions import NotRequired, ReadOnly, TypedDict, Unpack
 import hangarllm
 from hangarllm._logging import verbose_logger
 from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from hangarllm.integrations.custom_guardrail import CustomGuardrail
 from hangarllm.hangarllm_core_utils.llm_judge import (
     default_router_provider,
     extract_text_from_content,
@@ -20,6 +19,7 @@ from hangarllm.hangarllm_core_utils.llm_judge import (
     parse_json_verdict,
 )
 from hangarllm.hangarllm_core_utils.prompt_templates.common_utils import get_last_user_message
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
 from hangarllm.types.guardrails import GuardrailEventHooks, Mode, SupportedGuardrailIntegrations
 from hangarllm.types.llms.base import HangarLLMBaseModel
 from hangarllm.types.utils import LLM_AS_A_JUDGE_GUARDRAIL_CALL_ORIGIN, GenericGuardrailAPIInputs, GuardrailStatus

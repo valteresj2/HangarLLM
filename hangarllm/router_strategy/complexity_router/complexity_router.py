@@ -45,8 +45,6 @@ from hangarllm.constants import (
     RETURN_RAW_MODEL_NAME_METADATA_KEY,
     SESSION_ID_GENERATED_METADATA_KEY,
 )
-from hangarllm.integrations.custom_logger import CustomLogger
-from hangarllm.integrations.otel.runtime import phase_event
 from hangarllm.hangarllm_core_utils.classifier_logging import masked_originating_request
 from hangarllm.hangarllm_core_utils.core_helpers import (
     get_metadata_variable_name_from_kwargs,
@@ -61,6 +59,8 @@ from hangarllm.hangarllm_core_utils.prompt_templates.common_utils import (
     request_contains_image_content,
 )
 from hangarllm.hangarllm_core_utils.sensitive_data_masker import mask_credentials_in_payload
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.otel.runtime import phase_event
 from hangarllm.llms.anthropic.common_utils import is_claude_code_user_agent
 from hangarllm.llms.base_llm.base_utils import type_to_response_format_param
 from hangarllm.llms.custom_httpx.http_handler import get_async_httpx_client

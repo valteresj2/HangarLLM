@@ -17,7 +17,6 @@ _NEVER_LOG: Final = frozenset(
     {
         "x-api-key",
         "x-hangarllm-api-key",
-        "x-hangarllm-api-key",
         "x-goog-api-key",
         "x-amz-security-token",
         "x-auth-token",
@@ -25,7 +24,6 @@ _NEVER_LOG: Final = frozenset(
         "x-csrf-token",
         "x-forwarded-authorization",
         "x-ms-client-principal",
-        "x-hangarllm-disable-callbacks",
         "x-hangarllm-disable-callbacks",
     }
 )

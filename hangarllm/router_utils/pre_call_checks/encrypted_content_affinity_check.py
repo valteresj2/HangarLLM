@@ -48,7 +48,6 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 import hangarllm
 from hangarllm._logging import verbose_router_logger
 from hangarllm.exceptions import AuthenticationError, BadRequestError
-from hangarllm.integrations.custom_logger import CustomLogger, Span
 from hangarllm.hangarllm_core_utils.get_llm_provider_logic import declared_provider, get_llm_provider
 from hangarllm.hangarllm_core_utils.hangarllm_logging import has_sensitive_keyword
 from hangarllm.hangarllm_core_utils.prompt_templates.reasoning_utils import (
@@ -56,7 +55,11 @@ from hangarllm.hangarllm_core_utils.prompt_templates.reasoning_utils import (
     encrypted_content_of_block,
     strip_encrypted_reasoning_from_messages,
 )
-from hangarllm.hangarllm_core_utils.routing_common_utils import as_excluded_deployment_ids, as_retry_skipped_deployment_ids
+from hangarllm.hangarllm_core_utils.routing_common_utils import (
+    as_excluded_deployment_ids,
+    as_retry_skipped_deployment_ids,
+)
+from hangarllm.integrations.custom_logger import CustomLogger, Span
 from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
 from hangarllm.responses.utils import ResponsesAPIRequestUtils
 from hangarllm.router_deprecated import RenamedRouterAttribute, renamed_router_param

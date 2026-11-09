@@ -6,8 +6,8 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use http::header::{InvalidHeaderName, InvalidHeaderValue, ToStrError};
 use hangarllm_error::{Report, Source};
+use http::header::{InvalidHeaderName, InvalidHeaderValue, ToStrError};
 use rmcp::{
     model::{ErrorCode, ErrorData},
     service::{ClientInitializeError, ServiceError},

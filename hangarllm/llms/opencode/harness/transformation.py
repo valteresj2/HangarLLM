@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationError
 
+from hangarllm.hangarllm_core_utils.core_helpers import iter_items
 from hangarllm.harness.errors import CapabilityUnsupported, HarnessError, OptionsMismatch
 from hangarllm.harness.options import OpenCodeOptions
 from hangarllm.harness.types import (
@@ -45,7 +46,6 @@ from hangarllm.harness.types import (
     ToolCall,
     ToolResult,
 )
-from hangarllm.hangarllm_core_utils.core_helpers import iter_items
 from hangarllm.llms.base_llm.harness.transformation import (
     BaseCLIHarnessConfig,
     HarnessSessionCopy,

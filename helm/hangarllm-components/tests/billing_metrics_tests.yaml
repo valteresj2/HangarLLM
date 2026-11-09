@@ -117,7 +117,6 @@ tests:
     set:
       billingMetrics:
         enabled: true
-        endpoint: https://telemetry.example.com
         tokenUrl: https://auth.example.com/oauth2/token
         endpoint: ""
     asserts:
@@ -130,7 +129,6 @@ tests:
       billingMetrics:
         enabled: true
         endpoint: https://telemetry.example.com
-        tokenUrl: https://auth.example.com/oauth2/token
         tokenUrl: ""
     asserts:
       - failedTemplate:

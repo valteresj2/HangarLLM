@@ -55,7 +55,10 @@ pub(crate) fn plan(config: &Config, lookup: &dyn Lookup) -> Result<Plan, Error> 
             &ConfiguredRedis::coordination(settings)?,
             lookup,
         )?)),
-        None => match (&response_cache, config.hangarllm_settings.cache == Some(true)) {
+        None => match (
+            &response_cache,
+            config.hangarllm_settings.cache == Some(true),
+        ) {
             (Some(cache), _) => Some(Target::Configured(cache.clone())),
             (None, true) => environment(lookup)?.map(Target::Configured),
             (None, false) => optional_environment(lookup).map(Target::Environment),

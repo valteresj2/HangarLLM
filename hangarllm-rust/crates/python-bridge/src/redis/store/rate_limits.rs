@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use indexmap::IndexMap;
 use hangarllm_redis_store::{
     Pending,
     rate_limits::{
@@ -8,6 +7,7 @@ use hangarllm_redis_store::{
         GuardedReply, Increment, Kind, Local, RateLimits, Scope, WindowCount,
     },
 };
+use indexmap::IndexMap;
 use pyo3::{exceptions::PyValueError, prelude::*};
 
 use super::{

@@ -8,8 +8,8 @@ from typing import Final
 
 from pydantic import TypeAdapter
 
-from hangarllm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
 from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping
+from hangarllm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
 from hangarllm.llms.custom_httpx.http_handler import get_httpx_client
 
 _DECODED_JSON: Final = TypeAdapter(object)

@@ -11,7 +11,6 @@ use axum::{
 };
 use bytes::Bytes;
 use futures_util::{StreamExt, stream};
-use http::{StatusCode, header::CONTENT_TYPE};
 use hangarllm_host::{
     call::{CallOutput, hosted_call},
     interceptors::{Interceptors, RawResponse, RequestContext, WireRequest},
@@ -20,6 +19,7 @@ use hangarllm_host::{
     protocol::{Protocol, Reply},
 };
 use hangarllm_host_http::{Error, ResponseEncoder, StreamEncoder, Unary, serve, serve_unary};
+use http::{StatusCode, header::CONTENT_TYPE};
 use rstest::{fixture, rstest};
 use serde_json::json;
 

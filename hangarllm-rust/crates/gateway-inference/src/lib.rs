@@ -43,7 +43,10 @@ pub struct Gateway {
 }
 
 impl Gateway {
-    pub fn with_cache(self, cache: Arc<dyn hangarllm_cache_response::ResponseCacheService>) -> Self {
+    pub fn with_cache(
+        self,
+        cache: Arc<dyn hangarllm_cache_response::ResponseCacheService>,
+    ) -> Self {
         Self {
             cache: Some(cache),
             ..self

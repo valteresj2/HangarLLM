@@ -10,8 +10,8 @@ import httpx
 import hangarllm
 from hangarllm._logging import verbose_logger
 from hangarllm._uuid import uuid
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.core_helpers import require_attributes
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.llms.custom_httpx.http_handler import (
     HTTPHandler,
     get_async_httpx_client,

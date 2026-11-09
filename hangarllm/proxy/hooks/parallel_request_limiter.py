@@ -12,8 +12,8 @@ from hangarllm import DualCache, EmbeddingResponse, ModelResponse, TextCompletio
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.exceptions import RateLimitType
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping, get_parent_otel_span_from_kwargs
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.proxy._types import CommonProxyErrors, CurrentItemRateLimit, UserAPIKeyAuth
 from hangarllm.proxy.auth.auth_utils import (
     get_key_model_rpm_limit,
@@ -21,8 +21,8 @@ from hangarllm.proxy.auth.auth_utils import (
 )
 from hangarllm.proxy.auth.budget_throttle import throttled_limit
 from hangarllm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from hangarllm.proxy.hooks.rate_limiter_utils import resolve_llm_provider_for_rate_limit, socket_session_usage
 from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
+from hangarllm.proxy.hooks.rate_limiter_utils import resolve_llm_provider_for_rate_limit, socket_session_usage
 from hangarllm.redis.stores.rate_limits import RATE_LIMITS_TARGET
 from hangarllm.types.utils import CallTypes, Usage
 

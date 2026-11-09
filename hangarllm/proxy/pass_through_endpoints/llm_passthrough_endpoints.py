@@ -49,10 +49,10 @@ from hangarllm.constants import (
     TYPESAFE_DANGER_ZONE_HEADER_PREFIX,
 )
 from hangarllm.exceptions import BlockedPiiEntityError, GuardrailRaisedException
-from hangarllm.integrations.custom_guardrail import guardrail_request_data_with_streaming, is_guardrail_intervention
 from hangarllm.hangarllm_core_utils.aws_partition import get_aws_dns_suffix
 from hangarllm.hangarllm_core_utils.core_helpers import as_object_list, as_str_mapping, attribute_or_none
 from hangarllm.hangarllm_core_utils.fallback_generalizations import match_routing_generalization
+from hangarllm.integrations.custom_guardrail import guardrail_request_data_with_streaming, is_guardrail_intervention
 from hangarllm.llms.anthropic.common_utils import (
     AnthropicModelInfo,
     anthropic_pass_through_api_base,

@@ -24,13 +24,13 @@ import hangarllm
 from hangarllm._internal_context import current_service_target, service_target
 from hangarllm._logging import verbose_logger
 from hangarllm.constants import CACHED_STREAMING_CHUNK_DELAY
-from hangarllm.integrations.otel.runtime import phase_span
 from hangarllm.hangarllm_core_utils.core_helpers import require_attributes
 from hangarllm.hangarllm_core_utils.model_param_helper import (
     ModelParamHelper,
     embeds_thought_signature_in_tool_call_id,
     peek_reasoning_summary_aliases,
 )
+from hangarllm.integrations.otel.runtime import phase_span
 from hangarllm.types.caching import *
 from hangarllm.types.utils import EmbeddingResponse, is_hangarllm_owned_kwarg
 

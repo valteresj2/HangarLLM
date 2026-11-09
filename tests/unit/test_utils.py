@@ -2554,7 +2554,7 @@ def test_register_model_with_scientific_notation():
 @pytest.mark.usefixtures("isolated_openai_model_sets")
 @respx.mock
 def test_register_model_url_fetch_uses_single_attempt(monkeypatch):
-    monkeypatch.delenv("HANGARLLM_LOCAL_MODEL_COST_MAP", raising=False)
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "false")
     monkeypatch.setattr(hangarllm, "model_cost", dict(hangarllm.model_cost))
     before = dict(hangarllm.model_cost)
     threads_before = {thread.name for thread in threading.enumerate()}

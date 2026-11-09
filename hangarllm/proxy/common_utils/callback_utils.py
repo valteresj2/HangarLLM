@@ -21,12 +21,12 @@ from hangarllm.constants import (
     ROUTING_REQUEST_TAGS_METADATA_KEY,
     SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY,
 )
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.core_helpers import (
     get_metadata_variable_name_from_kwargs,
     get_or_create_metadata_bucket,
 )
 from hangarllm.hangarllm_core_utils.sensitive_data_masker import SensitiveDataMasker
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.proxy._types import CommonProxyErrors, HangarLLMPromptInjectionParams
 from hangarllm.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
@@ -143,10 +143,10 @@ def initialize_callbacks_on_proxy(
 ):
     if not isinstance(callback_specific_params, dict):
         callback_specific_params = {}
-    from hangarllm.integrations.custom_logger import CustomLogger
     from hangarllm.hangarllm_core_utils.logging_callback_manager import (
         LoggingCallbackManager,
     )
+    from hangarllm.integrations.custom_logger import CustomLogger
     from hangarllm.proxy.proxy_server import prisma_client
 
     verbose_proxy_logger.debug("%sinitializing callbacks=%s on proxy%s", blue_color_code, value, reset_color_code)

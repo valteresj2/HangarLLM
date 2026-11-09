@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Final, Optional, Protocol, runtime_checkable
 from pydantic import TypeAdapter
 
 from hangarllm._logging import verbose_proxy_logger
-from hangarllm.integrations.custom_guardrail import without_server_streaming_classification
 from hangarllm.hangarllm_core_utils.core_helpers import has_attributes
+from hangarllm.integrations.custom_guardrail import without_server_streaming_classification
 from hangarllm.llms.base_llm.guardrail_translation.base_translation import (
     BaseTranslation,
     StreamingScanKey,
@@ -23,8 +23,8 @@ from hangarllm.types.passthrough_endpoints.pass_through_endpoints import PassThr
 from hangarllm.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from hangarllm.integrations.custom_guardrail import CustomGuardrail, ModifyResponseException
     from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+    from hangarllm.integrations.custom_guardrail import CustomGuardrail, ModifyResponseException
     from hangarllm.proxy.utils import ProxyLogging
     from hangarllm.types.proxy.auth.user_api_key_auth import UserAPIKeyAuth
 

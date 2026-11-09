@@ -365,8 +365,9 @@ impl PatternRouter {
                 };
                 let named = deployment_model_name(&groups, request, model);
                 if model.contains('*')
-                    && let Some(params) =
-                        deployment.get("hangarllm_params").and_then(Value::as_object)
+                    && let Some(params) = deployment
+                        .get("hangarllm_params")
+                        .and_then(Value::as_object)
                     && let Some(info) = copy.get_mut("model_info").and_then(Value::as_object_mut)
                 {
                     for flag in cache_flags_left_to_the_catalog(params) {

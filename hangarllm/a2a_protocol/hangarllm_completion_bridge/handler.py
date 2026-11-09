@@ -23,8 +23,8 @@ from hangarllm.a2a_protocol.hangarllm_completion_bridge.transformation import (
 )
 from hangarllm.a2a_protocol.providers.config_manager import A2AProviderConfigManager
 from hangarllm.constants import A2A_CHAT_COMPLETION_BRIDGE_PROVIDERS, A2A_COMPLETION_BRIDGE_WORKING_MESSAGE
-from hangarllm.interactions.agents.utils import merge_agent_headers
 from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.interactions.agents.utils import merge_agent_headers
 from hangarllm.types.utils import ModelResponse
 
 # hangarllm_params key carrying the authenticated principal (hashed virtual key) so

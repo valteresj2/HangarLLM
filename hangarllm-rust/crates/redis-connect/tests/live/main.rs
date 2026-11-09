@@ -56,7 +56,10 @@ async fn roundtrip(config: LiveConfig) {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let key = format!("hangarllm:redis-connect:live:{}:{marker}", std::process::id());
+    let key = format!(
+        "hangarllm:redis-connect:live:{}:{marker}",
+        std::process::id()
+    );
     let ttl = Duration::from_secs(config.hold_seconds + 120);
 
     client.ping().await.expect("authenticate and ping");

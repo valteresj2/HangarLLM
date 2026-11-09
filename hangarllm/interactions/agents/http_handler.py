@@ -12,8 +12,8 @@ from typing import Final
 import httpx
 
 from hangarllm.constants import request_timeout
-from hangarllm.interactions.http_handler import InteractionsHTTPHandler
 from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.interactions.http_handler import InteractionsHTTPHandler
 from hangarllm.llms.base_llm.agents.transformation import BaseAgentsAPIConfig
 from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 from hangarllm.types.agents import (

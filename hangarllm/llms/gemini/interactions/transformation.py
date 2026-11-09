@@ -16,7 +16,11 @@ import httpx
 from typing_extensions import ReadOnly, TypedDict
 
 from hangarllm._logging import verbose_logger
-from hangarllm.hangarllm_core_utils.core_helpers import drops_unsupported_params, has_attributes, process_response_headers
+from hangarllm.hangarllm_core_utils.core_helpers import (
+    drops_unsupported_params,
+    has_attributes,
+    process_response_headers,
+)
 from hangarllm.hangarllm_core_utils.url_utils import encode_url_path_segment, join_api_base
 from hangarllm.llms.base_llm.interactions.transformation import BaseInteractionsAPIConfig
 from hangarllm.llms.gemini.common_utils import GeminiError, GeminiModelInfo

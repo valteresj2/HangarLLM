@@ -61,7 +61,11 @@ async fn execute_sql(
         return Err(Error::SchemaFailed(response.status().as_u16()));
     }
     let mut body = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(hangarllm_http::Error::from)? {
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(hangarllm_http::Error::from)?
+    {
         if body.len() + chunk.len() > READ_LIMITS.response_bytes {
             return Err(Error::ResponseTooLarge);
         }

@@ -29,9 +29,6 @@ from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
 import hangarllm
-from hangarllm.hangar.proxy.key_format import generate_virtual_key
-from hangarllm.hangar.proxy.key_policy import enforce_key_update_policy, enforce_new_key_policy
-from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm._uuid import uuid
@@ -40,7 +37,10 @@ from hangarllm.constants import (
     HANGARLLM_PROXY_ADMIN_NAME,
     MINIMUM_CUSTOM_KEY_LENGTH,
     UI_SESSION_TOKEN_TEAM_ID,
+    VIRTUAL_KEY_PREFIXES,
 )
+from hangarllm.hangar.proxy.key_format import generate_virtual_key
+from hangarllm.hangar.proxy.key_policy import enforce_key_update_policy, enforce_new_key_policy
 from hangarllm.hangarllm_core_utils.core_helpers import as_object_list
 from hangarllm.hangarllm_core_utils.duration_parser import duration_in_seconds
 from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
@@ -8064,8 +8064,8 @@ async def block_key(
     )
     from hangarllm.proxy.proxy_server import (
         create_audit_log_for_update,
-        hash_token,
         hangarllm_proxy_admin_name,
+        hash_token,
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -8178,8 +8178,8 @@ async def unblock_key(
     )
     from hangarllm.proxy.proxy_server import (
         create_audit_log_for_update,
-        hash_token,
         hangarllm_proxy_admin_name,
+        hash_token,
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,

@@ -418,8 +418,9 @@ mod tests {
 
     #[test]
     fn a_post_call_hook_failure_is_not_the_providers_answer() {
-        let error =
-            Error::post_call(hangarllm_http::Error::upstream(500, "hook backend down".into()).into());
+        let error = Error::post_call(
+            hangarllm_http::Error::upstream(500, "hook backend down".into()).into(),
+        );
         assert_eq!(error.upstream_response(), None);
         assert!(!error.is_request());
         let report = hangarllm_error::Report::new(&error).to_string();

@@ -3,7 +3,9 @@ mod support;
 use std::{sync::Arc, time::Duration};
 
 use hangarllm_cache_memory::InMemoryCache;
-use hangarllm_cache_response::{CacheEntry, ExactResponseCache, ResponseCache, ResponseCacheRequest};
+use hangarllm_cache_response::{
+    CacheEntry, ExactResponseCache, ResponseCache, ResponseCacheRequest,
+};
 use rstest::rstest;
 use serde_json::json;
 use support::{keyed, memory, request};

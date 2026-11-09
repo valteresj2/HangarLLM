@@ -3,8 +3,8 @@ mod insert;
 mod schema;
 
 pub use error::Error;
-pub use insert::{encode_rows, insert_rows};
 use hangarllm_storage_clickhouse::{Error as StorageError, Storage};
+pub use insert::{encode_rows, insert_rows};
 pub use schema::ensure_schema;
 
 #[derive(Clone)]

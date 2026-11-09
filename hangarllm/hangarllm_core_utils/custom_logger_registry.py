@@ -29,13 +29,13 @@ from hangarllm.integrations.galileo import GalileoObserve
 from hangarllm.integrations.gcs_bucket.gcs_bucket import GCSBucketLogger
 from hangarllm.integrations.gcs_pubsub.pub_sub import GcsPubSubLogger
 from hangarllm.integrations.gitlab import GitLabPromptManager
+from hangarllm.integrations.hangarllm_agent import HangarLLMAgentModelResolver
 from hangarllm.integrations.humanloop import HumanloopLogger
 from hangarllm.integrations.lago import LagoLogger
 from hangarllm.integrations.langfuse.langfuse_prompt_management import (
     LangfusePromptManagement,
 )
 from hangarllm.integrations.langsmith import LangsmithLogger
-from hangarllm.integrations.hangarllm_agent import HangarLLMAgentModelResolver
 from hangarllm.integrations.literal_ai import LiteralAILogger
 from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import MavvrikFocusLogger
 from hangarllm.integrations.mlflow import MlflowLogger
@@ -136,7 +136,6 @@ class CustomLoggerRegistry:
         from hangarllm.hangar.emails.smtp_email import (
             SMTPEmailLogger,
         )
-
         from hangarllm.integrations.generic_api.generic_api_callback import (
             GenericAPILogger,
         )

@@ -7,9 +7,9 @@ from typing import Final, Literal, TypeAlias
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
 
-from hangarllm.integrations.custom_guardrail import CustomGuardrail
 from hangarllm.hangarllm_core_utils.core_helpers import get_metadata_variable_name_from_kwargs
 from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
 from hangarllm.types.guardrails import (
     ApplyGuardrailRequest,
     ApplyGuardrailResponse,

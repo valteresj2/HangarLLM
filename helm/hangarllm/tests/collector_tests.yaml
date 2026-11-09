@@ -191,6 +191,7 @@ tests:
       metricsServer.port: 9090
       billingMetrics.enabled: true
       billingMetrics.endpoint: https://metering.example.com
+      billingMetrics.tokenUrl: https://auth.example.com/oauth2/token
       billingMetrics.secretName: billing-metrics
     asserts:
       - contains:

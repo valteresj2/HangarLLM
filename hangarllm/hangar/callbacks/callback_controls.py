@@ -17,8 +17,8 @@ from typing import Final
 import hangarllm
 from hangarllm._logging import verbose_logger
 from hangarllm.constants import X_HANGARLLM_DISABLE_CALLBACKS
-from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.hangarllm_core_utils.llm_request_utils import get_proxy_server_request_headers
+from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.types.utils import StandardCallbackDynamicParams
 
 _HEADER_NAMES: Final = (X_HANGARLLM_DISABLE_CALLBACKS,)

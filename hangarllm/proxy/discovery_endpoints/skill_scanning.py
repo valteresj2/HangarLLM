@@ -12,7 +12,12 @@ from pydantic import ValidationError
 from hangarllm.llms.custom_httpx.http_handler import (
     get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]  # shared HTTP factory has untyped optional params
 )
-from hangarllm.models.skill_submission import SkillScanInput, SkillSubmissionStore, SubmissionConflict, SubmissionMissing
+from hangarllm.models.skill_submission import (
+    SkillScanInput,
+    SkillSubmissionStore,
+    SubmissionConflict,
+    SubmissionMissing,
+)
 from hangarllm.proxy._types import UserAPIKeyAuth
 from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 from hangarllm.proxy.common_utils.resource_ownership import is_proxy_admin

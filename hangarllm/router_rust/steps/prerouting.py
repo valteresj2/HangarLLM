@@ -33,10 +33,10 @@ from hangarllm.constants import (
     OUTPUT_TOKEN_CEILING_PARAMS,
     SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY,
 )
-from hangarllm.integrations.otel.routing import routing_decision_attributes
-from hangarllm.integrations.otel.runtime import phase_attributes
 from hangarllm.hangarllm_core_utils.core_helpers import get_or_create_metadata_bucket, without
 from hangarllm.hangarllm_core_utils.credential_accessor import reject_api_key_secret_reference
+from hangarllm.integrations.otel.routing import routing_decision_attributes
+from hangarllm.integrations.otel.runtime import phase_attributes
 from hangarllm.router_api import deployment_id
 from hangarllm.router_host import router_host
 from hangarllm.router_strategy.auto_router.auto_router_model_naming import (

@@ -125,10 +125,13 @@ impl TryFrom<EntryWire> for Model {
             problems,
             ..
         } = wire;
-        let missing_provider = attributes.hangarllm_provider.is_none().then_some(Error::new(
-            pointer_for_key("hangarllm_provider"),
-            Repr::MissingProvider,
-        ));
+        let missing_provider = attributes
+            .hangarllm_provider
+            .is_none()
+            .then_some(Error::new(
+                pointer_for_key("hangarllm_provider"),
+                Repr::MissingProvider,
+            ));
         match prices {
             Ok(prices) if problems.is_empty() && missing_provider.is_none() => Ok(Model {
                 attributes,

@@ -7,13 +7,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 import hangarllm
 from hangarllm._logging import verbose_logger
+from hangarllm.hangarllm_core_utils.url_utils import is_url_destination_allowed_by_host
 from hangarllm.integrations.otel.model.config import (
     ExporterOwner,
     ExporterSpec,
     OpenTelemetryV2Config,
 )
 from hangarllm.integrations.otel.presets.utils import ensure_mappers
-from hangarllm.hangarllm_core_utils.url_utils import is_url_destination_allowed_by_host
 from hangarllm.types.utils import StandardCallbackDynamicParams
 
 SIGNOZ_INGESTION_ENDPOINT_ENV: Final = "SIGNOZ_INGESTION_ENDPOINT"

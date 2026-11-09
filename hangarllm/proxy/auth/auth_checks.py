@@ -37,8 +37,8 @@ from hangarllm.constants import (
     DEFAULT_MAX_RECURSE_DEPTH,
     EMAIL_BUDGET_ALERT_MAX_SPEND_ALERT_PERCENTAGE,
     END_USER_RESTRICTED_REGISTRY_MAX_SIZE,
-    INVALID_API_KEY_ERROR_MESSAGE,
     HANGARLLM_PROXY_MASTER_KEY_ALIAS,
+    INVALID_API_KEY_ERROR_MESSAGE,
     MODEL_ACCESS_GROUP_REGISTRY_MAX_SIZE,
     REGISTRY_ERROR_NEGATIVE_CACHE_TTL,
     TAG_REGISTRY_MAX_SIZE,
@@ -1418,7 +1418,10 @@ async def common_checks(
     if not skip_all_budget_checks:
         # Key metadata.tags are injected into request_body here so the tag budget
         # check can read them; this mutation must run before the gathered checks.
-        from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup, metadata_variable_name_for_request
+        from hangarllm.proxy.hangarllm_pre_call_utils import (
+            HangarLLMProxyRequestSetup,
+            metadata_variable_name_for_request,
+        )
 
         if valid_token is not None:
             for tag_target in HangarLLMProxyRequestSetup.pre_auth_tag_merge_targets(request, request_body):

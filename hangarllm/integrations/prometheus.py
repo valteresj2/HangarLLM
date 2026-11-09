@@ -19,7 +19,6 @@ from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict, assert_never
 
 import hangarllm
-from hangarllm.constants import VIRTUAL_KEY_PREFIXES
 from hangarllm._internal_context import with_service_target
 from hangarllm._logging import print_verbose, verbose_logger
 from hangarllm.constants import (
@@ -28,12 +27,21 @@ from hangarllm.constants import (
     PROMETHEUS_OVERFLOW_SERIES_LABEL_VALUE,
     PROXY_LLM_PROVIDER_FALLBACK,
     PROXY_REJECTED_BEFORE_ROUTING_KEY,
+    VIRTUAL_KEY_PREFIXES,
 )
 from hangarllm.exceptions import (
     CallerCredentialAuthenticationError,
     MalformedRequestFieldError,
     validate_rate_limit_category,
     validate_rate_limit_type,
+)
+from hangarllm.hangarllm_core_utils.core_helpers import (
+    get_hangarllm_metadata_from_kwargs,
+    get_metadata_variable_name_from_kwargs,
+)
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import is_registered_custom_provider
+from hangarllm.hangarllm_core_utils.service_tier_utils import (
+    get_service_tier_from_standard_logging_payload,
 )
 from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.integrations.prometheus_helpers import (
@@ -46,14 +54,6 @@ from hangarllm.integrations.prometheus_helpers.bounded_prometheus_series_tracker
 )
 from hangarllm.integrations.prometheus_helpers.shared_prometheus_series_admissions import (
     SharedPrometheusSeriesAdmissions,
-)
-from hangarllm.hangarllm_core_utils.core_helpers import (
-    get_hangarllm_metadata_from_kwargs,
-    get_metadata_variable_name_from_kwargs,
-)
-from hangarllm.hangarllm_core_utils.get_llm_provider_logic import is_registered_custom_provider
-from hangarllm.hangarllm_core_utils.service_tier_utils import (
-    get_service_tier_from_standard_logging_payload,
 )
 from hangarllm.llms.azure.common_utils import caused_by_entra_rejection
 from hangarllm.llms.github_copilot.per_user_auth import github_copilot_user_session_from

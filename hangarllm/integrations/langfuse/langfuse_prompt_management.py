@@ -6,9 +6,9 @@ from collections.abc import Mapping
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast
 
+from hangarllm.hangarllm_core_utils.asyncify import run_async_function
 from hangarllm.integrations.custom_logger import CustomLogger
 from hangarllm.integrations.prompt_management_base import PromptManagementClient
-from hangarllm.hangarllm_core_utils.asyncify import run_async_function
 from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 from hangarllm.types.integrations.langfuse import LangfuseLoggedEvent
 from hangarllm.types.llms.openai import AllMessageValues, ChatCompletionSystemMessage

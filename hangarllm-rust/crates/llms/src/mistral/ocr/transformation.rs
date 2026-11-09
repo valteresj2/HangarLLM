@@ -1,4 +1,6 @@
-use hangarllm_core_utils::{call_arguments::CallArguments, params::OpaqueParams, url_utils::ApiUrl};
+use hangarllm_core_utils::{
+    call_arguments::CallArguments, params::OpaqueParams, url_utils::ApiUrl,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

@@ -7,7 +7,9 @@ from typing_extensions import TypedDict as ExtraItemsTypedDict
 from hangarllm._logging import verbose_logger
 from hangarllm._uuid import uuid
 from hangarllm.hangarllm_core_utils.agentic_loop_settings import validated_max_agentic_loops
-from hangarllm.responses.hangarllm_completion_transformation.streaming_iterator import HangarLLMCompletionStreamingIterator
+from hangarllm.responses.hangarllm_completion_transformation.streaming_iterator import (
+    HangarLLMCompletionStreamingIterator,
+)
 from hangarllm.responses.mcp.request_context import MCPRequestContext
 from hangarllm.responses.mcp.stream_round_billing import StreamedRoundBilling
 from hangarllm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator

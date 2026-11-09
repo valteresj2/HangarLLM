@@ -1,7 +1,7 @@
 mod host;
 
-use host::MessagesPythonHost;
 use hangarllm_callbacks_legacy_python::LoggingOperation;
+use host::MessagesPythonHost;
 use pyo3::prelude::*;
 
 use super::NativeCall;

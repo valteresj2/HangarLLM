@@ -13,11 +13,11 @@ from hangarllm.hangarllm_core_utils.core_helpers import attribute_or_none, has_a
 from hangarllm.proxy._types import (
     GenerateKeyRequest,
     GenerateKeyResponse,
-    KeyRequest,
     HangarLLM_AuditLogs,
     Hangarllm_EntityType,
     HangarLLM_VerificationToken,
     HangarllmTableNames,
+    KeyRequest,
     RegenerateKeyRequest,
     UpdateKeyRequest,
     UserAPIKeyAuth,

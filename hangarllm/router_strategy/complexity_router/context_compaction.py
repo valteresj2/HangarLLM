@@ -17,7 +17,10 @@ from hangarllm.hangarllm_core_utils.initialize_dynamic_callback_params import (
     inherit_message_logging_privacy,
     initialize_standard_callback_dynamic_params,
 )
-from hangarllm.hangarllm_core_utils.internal_call_metadata import parent_session_kwargs, sanitized_forwardable_call_metadata
+from hangarllm.hangarllm_core_utils.internal_call_metadata import (
+    parent_session_kwargs,
+    sanitized_forwardable_call_metadata,
+)
 from hangarllm.hangarllm_core_utils.redact_messages import (
     should_redact_message_logging,  # pyright: ignore[reportUnknownVariableType]  # legacy privacy owner accepts validated call details
 )
@@ -309,7 +312,9 @@ def _native_prefix(payload: Mapping[str, object], surface: Surface) -> Mapping[s
         return payload
     from openai.types.responses.response_create_params import ResponseInputParam
 
-    from hangarllm.responses.hangarllm_completion_transformation.transformation import HangarLLMCompletionResponsesConfig
+    from hangarllm.responses.hangarllm_completion_transformation.transformation import (
+        HangarLLMCompletionResponsesConfig,
+    )
 
     messages: Final = HangarLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
         input=TypeAdapter(ResponseInputParam).validate_python(payload["input"]),
