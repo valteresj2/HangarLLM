@@ -616,3 +616,4 @@ class HangarManagedFiles(CustomLogger):
 
 # upstream-compatible names
 _PROXY_HangarLLMManagedFiles = HangarManagedFiles
+PROXY_HangarLLMManagedFiles = HangarManagedFiles

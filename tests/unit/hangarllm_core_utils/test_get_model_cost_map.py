@@ -283,7 +283,7 @@ class _SleepRecorder:
 @pytest.fixture(autouse=True)
 def _unset_local_cost_map_env(monkeypatch):
     """CI exports HANGARLLM_LOCAL_MODEL_COST_MAP=True; clear it so fetch behavior is deterministic."""
-    monkeypatch.delenv("HANGARLLM_LOCAL_MODEL_COST_MAP", raising=False)
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "false")
 
 
 def _mock_client(outcomes, client_cls=httpx.AsyncClient):
@@ -786,7 +786,7 @@ def test_boot_load_skips_remote_fetch_for_cli_processes(
     monkeypatch: pytest.MonkeyPatch, argv0: str, request_count: int
 ) -> None:
     monkeypatch.setattr(sys, "argv", [argv0, "--version"])
-    monkeypatch.delenv("HANGARLLM_LOCAL_MODEL_COST_MAP", raising=False)
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "false")
     client, calls = _mock_client([httpx.Response(200, content=_real_map_bytes())], client_cls=httpx.Client)
 
     cost_map = get_model_cost_map(url=_URL, client=client)
@@ -979,7 +979,7 @@ class TestValidateModelCostMap:
 def _fetch_with_single_outcome(monkeypatch, outcome):
     from hangarllm.hangarllm_core_utils import get_model_cost_map as module
 
-    monkeypatch.delenv("HANGARLLM_LOCAL_MODEL_COST_MAP", raising=False)
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "false")
     source_info = module._cost_map_source_info
     for name in ("source", "url", "is_env_forced", "fallback_reason", "loaded_at", "source_revision", "etag"):
         monkeypatch.setattr(source_info, name, getattr(source_info, name))

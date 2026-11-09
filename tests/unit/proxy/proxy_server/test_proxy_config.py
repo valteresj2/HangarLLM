@@ -514,7 +514,7 @@ def test_validate_auto_router_capability_limits_refuses_to_start_over_the_limit(
     with pytest.raises(ValueError, match=re.escape("At most 1 auto-router")) as exc_info:
         validate_auto_router_capability_limits(over_limit_rows, limit=1)
     assert subject in str(exc_info.value)
-    assert "'auto_router' feature lifts the limit" in str(exc_info.value)
+    assert "from HANGARLLM_DISABLED_FEATURES to lift the limit" in str(exc_info.value)
 
 
 @pytest.mark.parametrize(

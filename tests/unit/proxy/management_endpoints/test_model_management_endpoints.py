@@ -6898,7 +6898,7 @@ class TestStrategyRouterWriteValidation:
                 assert len(capabilities) == 1
                 assert "At most 1 auto-router" in str(exc_info.value.detail)
                 assert capabilities[0].subject in str(exc_info.value.detail)
-                assert "'auto_router' feature lifts the limit" in str(exc_info.value.detail)
+                assert "from HANGARLLM_DISABLED_FEATURES to lift the limit" in str(exc_info.value.detail)
                 return
             async with _auto_router_capability_slot(fake, effective_params=effective_params, model_id=model_id) as tables:
                 handle = tables
@@ -7060,7 +7060,7 @@ class TestStrategyRouterWriteValidation:
                         pass
                 assert exc_info.value.status_code == 403
                 assert "changed heuristic scoring rules" in str(exc_info.value.detail)
-                assert "'auto_router' feature lifts the limit" in str(exc_info.value.detail)
+                assert "from HANGARLLM_DISABLED_FEATURES to lift the limit" in str(exc_info.value.detail)
                 return
             async with _auto_router_capability_slot(fake, effective_params=effective_params, model_id=candidate_id) as table:
                 assert hasattr(table, "create")
