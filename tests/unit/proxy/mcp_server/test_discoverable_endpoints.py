@@ -12,6 +12,7 @@ import pytest
 from fastapi import HTTPException, Request, Response
 from typing_extensions import ReadOnly, TypedDict
 
+from hangarllm.hangar.proxy.ui_session import SESSION_COOKIE
 from hangarllm.proxy._types import HangarLLM_MCPServerTable
 from hangarllm.types.mcp import MCPAuth
 
@@ -447,6 +448,7 @@ async def test_authorize_endpoint_includes_response_type():
 
     # Mock request
     mock_request = MagicMock(spec=Request)
+    mock_request.cookies = {}
     mock_request.base_url = "https://hangarllm.example.com/"
     mock_request.headers = {}
 
@@ -565,6 +567,7 @@ async def test_authorize_endpoint_preserves_existing_query_params():
     global_mcp_server_manager.registry[oauth2_server.server_id] = oauth2_server
 
     mock_request = MagicMock(spec=Request)
+    mock_request.cookies = {}
     mock_request.base_url = "https://hangarllm.example.com/"
     mock_request.headers = {}
 
@@ -688,6 +691,7 @@ async def test_authorize_endpoint_forwards_pkce_parameters():
 
     # Mock request
     mock_request = MagicMock(spec=Request)
+    mock_request.cookies = {}
     mock_request.base_url = "https://hangarllm-proxy.example.com/"
     mock_request.headers = {}
 
@@ -1160,6 +1164,7 @@ async def test_dcr_full_loop_lands_on_client_redirect_not_gateway_callback(monke
     global_mcp_server_manager.registry[server.server_id] = server
 
     reg_request = MagicMock(spec=Request)
+    reg_request.cookies = {}
     reg_request.base_url = "https://proxy.example.com/"
     reg_request.headers = {}
 
@@ -1198,6 +1203,7 @@ async def test_dcr_full_loop_lands_on_client_redirect_not_gateway_callback(monke
         registered_redirect = reg_payload["redirect_uris"][0]
 
         authorize_request = MagicMock(spec=Request)
+        authorize_request.cookies = {}
         authorize_request.base_url = "https://proxy.example.com/"
         authorize_request.headers = {}
         authorize_response = await authorize_with_server(
@@ -1224,6 +1230,7 @@ async def test_dcr_full_loop_lands_on_client_redirect_not_gateway_callback(monke
     morsel = jar[cookie_name]
 
     callback_request = MagicMock(spec=Request)
+    callback_request.cookies = {}
     callback_request.base_url = "https://proxy.example.com/"
     callback_request.headers = {}
     callback_request.cookies = {cookie_name: morsel.value}
@@ -2721,6 +2728,7 @@ async def test_authorize_endpoint_respects_x_forwarded_proto():
 
     # Mock request with http base_url but X-Forwarded-Proto: https
     mock_request = MagicMock(spec=Request)
+    mock_request.cookies = {}
     mock_request.base_url = "http://hangarllm.example.com/"  # HTTP
     mock_request.headers = {"X-Forwarded-Proto": "https"}  # Behind HTTPS proxy
 
@@ -3012,6 +3020,7 @@ async def test_authorize_endpoint_respects_x_forwarded_host():
     # Internal: http://localhost:8888/github/mcp
     # External: https://proxy.example.com/github/mcp
     mock_request = MagicMock(spec=Request)
+    mock_request.cookies = {}
     mock_request.base_url = "http://localhost:8888/github/mcp"
     mock_request.headers = {
         "X-Forwarded-Proto": "https",
@@ -3982,6 +3991,7 @@ async def test_authorize_resolves_server_by_id_when_name_lookup_fails():
 
     server = _create_id_lookup_oauth2_server()
     request = MagicMock(spec=Request)
+    request.cookies = {}
     request.base_url = "https://llm.example.com/"
     request.headers = {}
 
@@ -4175,6 +4185,7 @@ async def test_authorize_root_resolves_single_oauth2_server():
     global_mcp_server_manager.registry[oauth2_server.server_id] = oauth2_server
 
     mock_request = MagicMock(spec=Request)
+    mock_request.cookies = {}
     mock_request.base_url = "https://llm.example.com/"
     mock_request.headers = {}
 
@@ -4736,6 +4747,7 @@ async def test_authorize_forwards_short_state_and_round_trips_via_cookie(monkeyp
     )
 
     authorize_request = MagicMock(spec=Request)
+    authorize_request.cookies = {}
     authorize_request.base_url = "https://proxy.example.com/"
     authorize_request.headers = {}
 
@@ -4772,6 +4784,7 @@ async def test_authorize_forwards_short_state_and_round_trips_via_cookie(monkeyp
     # /callback recovers the original state from the cookie (not the handle) and
     # redirects back to the client with the client's own state.
     callback_request = MagicMock(spec=Request)
+    callback_request.cookies = {}
     callback_request.base_url = "https://proxy.example.com/"
     callback_request.headers = {}
     callback_request.cookies = {cookie_name: morsel.value}
@@ -4893,6 +4906,7 @@ async def _authorize_then_callback(server, iss, monkeypatch, expected_issuer_ove
     authorize_request = MagicMock(spec=Request)
     authorize_request.base_url = "https://proxy.example.com/"
     authorize_request.headers = {}
+    authorize_request.cookies = {}
 
     authorize_response = await authorize_with_server(
         request=authorize_request,
@@ -5049,6 +5063,7 @@ async def test_oauth_authorize_includes_scopes_from_server_config():
     )
 
     mock_request = MagicMock(spec=Request)
+    mock_request.cookies = {}
     mock_request.base_url = "https://hangarllm.example.com/"
     mock_request.headers = {}
 
@@ -5104,6 +5119,7 @@ async def test_oauth_authorize_prefers_request_scope_over_server_config():
     )
 
     mock_request = MagicMock(spec=Request)
+    mock_request.cookies = {}
     mock_request.base_url = "https://hangarllm.example.com/"
     mock_request.headers = {}
 
@@ -5351,6 +5367,7 @@ async def test_authorize_endpoint_accepts_ipv4_loopback_range_and_ipv6_full_form
     global_mcp_server_manager.registry[oauth2_server.server_id] = oauth2_server
 
     mock_request = MagicMock(spec=Request)
+    mock_request.cookies = {}
     mock_request.base_url = "https://hangarllm.example.com/"
     mock_request.headers = {}
 
@@ -5605,7 +5622,7 @@ def _bridge_mock_request(cookie: str | None = None) -> MagicMock:
     mock_request: Final = MagicMock(spec=Request)
     mock_request.base_url = "https://hangarllm.example.com/"
     mock_request.headers = {}
-    mock_request.cookies = {"token": cookie} if cookie else {}
+    mock_request.cookies = {SESSION_COOKIE: cookie} if cookie else {}
     return mock_request
 
 
@@ -6607,7 +6624,7 @@ async def test_bridge_authorize_gates_on_the_egress_server_access_resolver(
     mock_request = MagicMock(spec=Request)
     mock_request.base_url = "https://hangarllm.example.com/"
     mock_request.headers = {}
-    mock_request.cookies = {"token": _browser_session_cookie(monkeypatch, "bridge-user-1")}
+    mock_request.cookies = {SESSION_COOKIE: _browser_session_cookie(monkeypatch, "bridge-user-1")}
 
     client_redirect = "http://127.0.0.1:60108/callback"
     try:
@@ -6678,7 +6695,7 @@ async def test_bridge_authorize_reload_failure_denies_or_stays_retryable(
     mock_request = MagicMock(spec=Request)
     mock_request.base_url = "https://hangarllm.example.com/"
     mock_request.headers = {}
-    mock_request.cookies = {"token": _browser_session_cookie(monkeypatch, "bridge-user-1")}
+    mock_request.cookies = {SESSION_COOKIE: _browser_session_cookie(monkeypatch, "bridge-user-1")}
 
     try:
         with (
@@ -10737,6 +10754,7 @@ async def test_authorize_uses_admin_entered_github_oauth_urls_after_issuer_yield
         configured_token_url="https://github.com/login/oauth/access_token",
     )
     mock_request = MagicMock(spec=Request)
+    mock_request.cookies = {}
     mock_request.base_url = "https://hangarllm.example.com/"
     mock_request.headers = {}
 
@@ -11590,6 +11608,7 @@ async def _authorize_query(server) -> dict:
     )
 
     mock_request = MagicMock(spec=Request)
+    mock_request.cookies = {}
     mock_request.base_url = "https://hangarllm.example.com/"
     mock_request.headers = {}
 
@@ -11998,8 +12017,7 @@ def _browser_session_cookie(
     expired_session: bool = False,
     expired_cookie: bool = False,
 ) -> str:
-    import jwt
-
+    from hangarllm.hangar.proxy.ui_session import seal, sign_session
     from hangarllm.proxy import proxy_server
     from hangarllm.proxy._types import UserAPIKeyAuth
     from hangarllm.proxy.auth.auth_checks import HANGARLLM_SESSION_TOKEN_PREFIX
@@ -12018,10 +12036,10 @@ def _browser_session_cookie(
         if session_key is None
         else session_key
     )
-    return jwt.encode(
-        {"user_id": user_id, "key": key, "login_method": "sso", "exp": 946684800 if expired_cookie else 9999999999},
-        signing_key,
-        algorithm="HS256",
+    return seal(
+        sign_session(
+            {"user_id": user_id, "key": key, "login_method": "sso", "exp": 946684800 if expired_cookie else 9999999999}
+        )
     )
 
 
@@ -12143,7 +12161,7 @@ def test_gateway_authorize_requires_live_browser_session(
     cookie: Final = _browser_session_cookie(
         monkeypatch, "u1", session_key="" if session_state == "missing_key" else "sk-browser-session"
     )
-    client.cookies.set("token", cookie)
+    client.cookies.set(SESSION_COOKIE, cookie)
     if session_state == "no_database":
         monkeypatch.setattr(proxy_server, "prisma_client", None)
     registered: Final = client.post("/register", json={"redirect_uris": ["http://127.0.0.1/callback"]})
@@ -12180,7 +12198,7 @@ def test_gateway_connect_rechecks_session_after_authorize(
     from urllib.parse import parse_qs, urlparse
 
     client, _, _ = _native_client_app(monkeypatch)
-    client.cookies.set("token", _browser_session_cookie(monkeypatch, "u1", session_key="sk-browser-session"))
+    client.cookies.set(SESSION_COOKIE, _browser_session_cookie(monkeypatch, "u1", session_key="sk-browser-session"))
     registered: Final = client.post("/register", json={"redirect_uris": ["http://127.0.0.1/callback"]})
     assert registered.status_code == 201, registered.text
     authorized: Final = client.get(
@@ -12249,7 +12267,7 @@ def test_gateway_authorize_routes_forward_server_scope(monkeypatch: pytest.Monke
             "resource": "http://testserver/mcp",
             "scope": "hangarllm:mcp_server:alpha",
         },
-        cookies={"token": session_cookie},
+        cookies={SESSION_COOKIE: session_cookie},
         follow_redirects=False,
     )
     assert response.status_code == 303, response.text
@@ -12288,7 +12306,7 @@ def test_root_discovery_origin_authorizes_mcp_session(monkeypatch, redirect_uri,
     registered = client.post(metadata["registration_endpoint"], json={"redirect_uris": [redirect_uri]})
     assert registered.status_code == 201
     if signed_in:
-        client.cookies.set("token", session_cookie)
+        client.cookies.set(SESSION_COOKIE, session_cookie)
     response = client.get(
         metadata["authorization_endpoint"],
         params={
@@ -12319,7 +12337,7 @@ def test_mcp_session_authorize_rejects_invalid_registration_or_pkce(monkeypatch,
     redirect_uri = "https://client.example.com/callback"
     registered = client.post("/register", json={"redirect_uris": [redirect_uri]})
     assert registered.status_code == 201
-    client.cookies.set("token", session_cookie)
+    client.cookies.set(SESSION_COOKIE, session_cookie)
     response = client.get(
         "/authorize/mcp-session",
         params={
@@ -12386,7 +12404,7 @@ def test_native_client_login_walks_discovery_consent_token_refresh_and_revoke(mo
     assert login_target.path == "/sso/key/generate"
     assert parse_qs(login_target.query)["return_to"][0].startswith("/authorize?")
 
-    client.cookies.set("token", session_cookie)
+    client.cookies.set(SESSION_COOKIE, session_cookie)
     consent = client.get(contract["authorization_endpoint"], params=authorize_params, follow_redirects=False)
     assert consent.status_code == 200
     assert consent.headers["x-frame-options"] == "DENY"
@@ -12528,7 +12546,7 @@ def test_native_client_authorize_without_the_proxy_resource_keeps_the_mcp_flow(m
     page, so existing MCP clients are untouched by the native-client arm."""
     client, session_cookie, minted = _native_client_app(monkeypatch)
     registered = client.post("/register", json={"redirect_uris": ["http://127.0.0.1:51234/callback"]})
-    client.cookies.set("token", session_cookie)
+    client.cookies.set(SESSION_COOKIE, session_cookie)
     for resource in (None, "http://testserver/mcp"):
         params = {
             "response_type": "code",
@@ -13783,7 +13801,7 @@ async def test_identity_bound_authorize_preserves_presented_jwt_permissions(
         request=_token_request(
             {
                 "Authorization": f"Bearer {bearer}",
-                "Cookie": f"token={cookie}",
+                "Cookie": f"{SESSION_COOKIE}={cookie}",
                 **({"x-hangarllm-api-key": bearer} if credential == "foreign_explicit" else {}),
                 **({"x-hangarllm-api-key": ""} if credential == "blank_explicit" else {}),
             }
@@ -13872,7 +13890,7 @@ async def test_identity_bound_authorize_unrelated_bearer_uses_browser_session(
         request=_token_request(
             {
                 **({"Authorization": f"Bearer {bearer}"} if credential != "none" else {}),
-                **({"Cookie": f"token={cookie}"} if cookie_state != "missing" else {}),
+                **({"Cookie": f"{SESSION_COOKIE}={cookie}"} if cookie_state != "missing" else {}),
             }
         ),
         mcp_server=server,

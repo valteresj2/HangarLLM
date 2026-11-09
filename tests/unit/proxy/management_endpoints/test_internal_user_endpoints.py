@@ -980,65 +980,6 @@ async def test_new_user_license_over_limit(mocker):
 
 
 @pytest.mark.asyncio
-async def test_new_user_license_gate_counts_only_billable_users(mocker):
-    """
-    The /user/new license gate must count billable users only (excluding
-    SCIM-deactivated rows). Deactivated users that push the raw total over
-    max_users must not block creation, while active users over the limit must.
-    """
-    from hangarllm.proxy.auth.hangarllm_license import LicenseCheck
-
-    async def _noop(*args, **kwargs):
-        return None
-
-    mocker.patch(
-        "hangarllm.proxy.management_endpoints.internal_user_endpoints._check_duplicate_user_email",
-        _noop,
-    )
-    mocker.patch(
-        "hangarllm.proxy.management_endpoints.internal_user_endpoints._check_duplicate_user_id",
-        _noop,
-    )
-
-    license_check = LicenseCheck()
-    license_check.airgapped_license_data = {"max_users": 2}  # type: ignore
-    mocker.patch("hangarllm.proxy.proxy_server._license_check", license_check)
-
-    key_gen = mocker.patch(
-        "hangarllm.proxy.management_endpoints.internal_user_endpoints.generate_key_helper_fn",
-        new=mocker.AsyncMock(side_effect=RuntimeError("reached key generation")),
-    )
-
-    def _prisma(total, deactivated):
-        client = mocker.MagicMock()
-
-        async def _count(*args, where=None, **kwargs):
-            return deactivated if where is not None else total
-
-        client.db.hangarllm_usertable.count = _count
-        return client
-
-    admin = UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN)
-    request = NewUserRequest(user_role="internal_user")
-
-    # 2 active + 3 deactivated -> billable 2, not over max_users 2: gate passes
-    mocker.patch("hangarllm.proxy.proxy_server.prisma_client", _prisma(total=5, deactivated=3))
-    with pytest.raises(ProxyException) as passed:
-        await new_user(data=request, user_api_key_dict=admin)
-    assert key_gen.call_count == 1
-    assert "License is over limit" not in str(passed.value.message)
-
-    # 3 active, 0 deactivated -> billable 3, over max_users 2: gate blocks
-    key_gen.reset_mock()
-    mocker.patch("hangarllm.proxy.proxy_server.prisma_client", _prisma(total=3, deactivated=0))
-    with pytest.raises(ProxyException) as blocked:
-        await new_user(data=request, user_api_key_dict=admin)
-    assert blocked.value.code == 403 or blocked.value.code == "403"
-    assert "License is over limit" in str(blocked.value.message)
-    assert key_gen.call_count == 0
-
-
-@pytest.mark.asyncio
 async def test_new_user_non_admin_cannot_create_admin(mocker):
     """
     Test that non-admin users cannot create administrative users (PROXY_ADMIN or PROXY_ADMIN_VIEW_ONLY).

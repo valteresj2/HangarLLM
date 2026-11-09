@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -25,8 +26,17 @@ def _fake_node(bin_dir: Path, version: str) -> Path:
     return bin_dir
 
 
-def _run(bin_dirs: list[Path], home: Path) -> subprocess.CompletedProcess[str]:
-    path = os.pathsep.join([*(str(b) for b in bin_dirs), "/usr/bin", "/bin"])
+def _tools_without_node(bin_dir: Path) -> Path:
+    bin_dir.mkdir(parents=True)
+    for tool in ("bash", "sed", "tr", "dirname", "cat", "sh"):
+        (bin_dir / tool).symlink_to(shutil.which(tool))
+    return bin_dir
+
+
+def _run(
+    bin_dirs: list[Path], home: Path, system_dirs: tuple[str, ...] = ("/usr/bin", "/bin")
+) -> subprocess.CompletedProcess[str]:
+    path = os.pathsep.join([*(str(b) for b in bin_dirs), *system_dirs])
     home.mkdir(parents=True, exist_ok=True)
     return subprocess.run(
         [str(SCRIPT), "sh", "-c", "node --version"],
@@ -61,7 +71,7 @@ def test_old_node_without_any_manager_fails_with_instructions(tmp_path):
 
 
 def test_missing_node_without_any_manager_fails_with_instructions(tmp_path):
-    proc = _run([], tmp_path / "home")
+    proc = _run([_tools_without_node(tmp_path / "tools")], tmp_path / "home", system_dirs=())
     assert proc.returncode == 1
     assert "missing" in proc.stderr
 

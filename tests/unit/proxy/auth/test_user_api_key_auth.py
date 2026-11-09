@@ -1007,7 +1007,7 @@ async def test_jwt_user_api_key_auth_builder_enforce_rbac(enforce_rbac, monkeypa
     from hangarllm.caching import DualCache
 
     monkeypatch.setenv("JWT_PUBLIC_KEY_URL", "my-fake-url")
-    monkeypatch.setenv("JWT_AUDIENCE", "api://HangarLLM_Proxy-dev")
+    monkeypatch.setenv("JWT_AUDIENCE", "api://LiteLLM_Proxy-dev")
 
     local_cache = DualCache()
 

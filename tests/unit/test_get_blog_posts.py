@@ -1,12 +1,12 @@
 """Tests for GetBlogPosts utility class."""
 
 import time
+from typing import Final
 from unittest.mock import MagicMock, patch
 from xml.etree import ElementTree
 
 import pytest
 
-import hangarllm
 from hangarllm.hangarllm_core_utils.get_blog_posts import (
     BLOG_POSTS_MAX,
     BlogPost,
@@ -15,6 +15,8 @@ from hangarllm.hangarllm_core_utils.get_blog_posts import (
     get_blog_posts,
 )
 
+BLOG_FEED_URL: Final = "https://example.com/rss.xml"
+
 SAMPLE_RSS = """\
 <?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
@@ -22,7 +24,7 @@ SAMPLE_RSS = """\
     <title>HangarLLM Blog</title>
     <item>
       <title>Test Post</title>
-      <link>https://github.com/valteresj2/HangarLLM#readme>
+      <link>https://example.com/blog/post</link>
       <description>A test post.</description>
       <pubDate>Wed, 01 Jan 2026 10:00:00 GMT</pubDate>
       <category>anthropic</category>
@@ -30,7 +32,7 @@ SAMPLE_RSS = """\
     </item>
     <item>
       <title>Second Post</title>
-      <link>https://github.com/valteresj2/HangarLLM#readme>
+      <link>https://example.com/blog/post</link>
       <description>Another post.</description>
       <pubDate>Tue, 31 Dec 2025 10:00:00 GMT</pubDate>
     </item>
@@ -60,7 +62,7 @@ def test_parse_rss_to_posts():
     posts = GetBlogPosts.parse_rss_to_posts(SAMPLE_RSS, max_posts=1)
     assert len(posts) == 1
     assert posts[0].title == "Test Post"
-    assert posts[0].url == "https://github.com/valteresj2/HangarLLM#readme"
+    assert posts[0].url == "https://example.com/blog/post"
     assert posts[0].description == "A test post."
     assert posts[0].date == "2026-01-01"
 
@@ -79,7 +81,7 @@ def test_parse_rss_to_posts_multiple():
 
 def test_parse_rss_to_posts_default_cap():
     items = "".join(
-        f"<item><title>Post {i}</title><link>https://github.com/valteresj2/HangarLLM#readme}</link>"
+        f"<item><title>Post {i}</title><link>https://example.com/blog/post-{i}</link>"
         f"<description>D</description><pubDate>Thu, 0{1 + i % 9} Jan 2026 00:00:00 GMT</pubDate></item>"
         for i in range(BLOG_POSTS_MAX + 1)
     )
@@ -91,7 +93,7 @@ def test_parse_rss_to_posts_default_cap():
 
 def test_parse_rss_to_posts_skips_items_without_title_or_link_before_capping():
     items = "<item><description>no title</description></item>" + "".join(
-        f"<item><title>Post {i}</title><link>https://github.com/valteresj2/HangarLLM#readme}</link></item>" for i in range(2)
+        f"<item><title>Post {i}</title><link>https://example.com/blog/post-{i}</link></item>" for i in range(2)
     )
     posts = GetBlogPosts.parse_rss_to_posts(f"<rss><channel>{items}</channel></rss>", max_posts=2)
     assert [post.title for post in posts] == ["Post 0", "Post 1"]
@@ -125,7 +127,7 @@ def test_get_blog_posts_success():
         "hangarllm.hangarllm_core_utils.get_blog_posts.httpx.get",
         return_value=mock_response,
     ):
-        posts = get_blog_posts(url=hangarllm.blog_posts_url)
+        posts = get_blog_posts(url=BLOG_FEED_URL)
 
     assert len(posts) == 2
     assert posts[0].title == "Test Post"
@@ -138,7 +140,7 @@ def test_get_blog_posts_network_error_falls_back_to_local():
         "hangarllm.hangarllm_core_utils.get_blog_posts.httpx.get",
         side_effect=Exception("Network error"),
     ):
-        posts = get_blog_posts(url=hangarllm.blog_posts_url)
+        posts = get_blog_posts(url=BLOG_FEED_URL)
 
     assert posts == GetBlogPosts.load_local_blog_posts()
 
@@ -153,7 +155,7 @@ def test_get_blog_posts_invalid_xml_falls_back_to_local():
         "hangarllm.hangarllm_core_utils.get_blog_posts.httpx.get",
         return_value=mock_response,
     ):
-        posts = get_blog_posts(url=hangarllm.blog_posts_url)
+        posts = get_blog_posts(url=BLOG_FEED_URL)
 
     assert posts == GetBlogPosts.load_local_blog_posts()
 
@@ -164,7 +166,7 @@ def test_get_blog_posts_ttl_cache_not_refetched():
     GetBlogPosts._last_fetch_time = time.time()
 
     with patch("hangarllm.hangarllm_core_utils.get_blog_posts.httpx.get") as mock_get:
-        posts = get_blog_posts(url=hangarllm.blog_posts_url)
+        posts = get_blog_posts(url=BLOG_FEED_URL)
 
     mock_get.assert_not_called()
     assert posts == (CACHED_POST,)
@@ -183,7 +185,7 @@ def test_get_blog_posts_ttl_expired_refetches():
         "hangarllm.hangarllm_core_utils.get_blog_posts.httpx.get",
         return_value=mock_response,
     ) as mock_get:
-        posts = get_blog_posts(url=hangarllm.blog_posts_url)
+        posts = get_blog_posts(url=BLOG_FEED_URL)
 
     mock_get.assert_called_once()
     assert len(posts) == 2
@@ -193,7 +195,7 @@ def test_get_blog_posts_ttl_expired_refetches():
 def test_get_blog_posts_local_env_var_skips_remote(monkeypatch, flag):
     monkeypatch.setenv(flag, "true")
     with patch("hangarllm.hangarllm_core_utils.get_blog_posts.httpx.get") as mock_get:
-        posts = get_blog_posts(url=hangarllm.blog_posts_url)
+        posts = get_blog_posts(url=BLOG_FEED_URL)
     mock_get.assert_not_called()
     assert posts == GetBlogPosts.load_local_blog_posts()
 

@@ -16,7 +16,7 @@
 //! | `cntr_<b64>` | `container_id` on output items, `code_interpreter_call`, and message annotations | `hangarllm:custom_llm_provider:{provider};model_id:{model_id};container_id:{id}` |
 //!
 //! For example, OpenAI's `resp_0a1b2c3d4e5f` served without a deployment id becomes
-//! `resp_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOm9wZW5haTttb2RlbF9pZDpOb25lO3Jlc3BvbnNlX2lkOnJlc3BfMGExYjJjM2Q0ZTVm`,
+//! `resp_aGFuZ2FybGxtOmN1c3RvbV9sbG1fcHJvdmlkZXI6b3BlbmFpO21vZGVsX2lkOk5vbmU7cmVzcG9uc2VfaWQ6cmVzcF8wYTFiMmMzZDRlNWY=`,
 //! which decodes to `hangarllm:custom_llm_provider:openai;model_id:None;response_id:resp_0a1b2c3d4e5f`.
 //!
 //! How they fit together:
@@ -301,13 +301,13 @@ mod tests {
         Some("openai"),
         None,
         "resp_0a1b2c3d4e5f",
-        "resp_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOm9wZW5haTttb2RlbF9pZDpOb25lO3Jlc3BvbnNlX2lkOnJlc3BfMGExYjJjM2Q0ZTVm"
+        "resp_aGFuZ2FybGxtOmN1c3RvbV9sbG1fcHJvdmlkZXI6b3BlbmFpO21vZGVsX2lkOk5vbmU7cmVzcG9uc2VfaWQ6cmVzcF8wYTFiMmMzZDRlNWY="
     )]
     #[case::openrouter_with_model_id(
         Some("openrouter"),
         Some("deploy-1"),
         "gen-123",
-        "resp_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOm9wZW5yb3V0ZXI7bW9kZWxfaWQ6ZGVwbG95LTE7cmVzcG9uc2VfaWQ6Z2VuLTEyMw=="
+        "resp_aGFuZ2FybGxtOmN1c3RvbV9sbG1fcHJvdmlkZXI6b3BlbnJvdXRlcjttb2RlbF9pZDpkZXBsb3ktMTtyZXNwb25zZV9pZDpnZW4tMTIz"
     )]
     fn response_ids_match_python(
         #[case] provider: Option<&str>,
@@ -324,7 +324,7 @@ mod tests {
     #[case::two_segments("resp_YTti", false)]
     #[case::three_segments("resp_YTtiO2M=", true)]
     #[case::managed(
-        "resp_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOm9wZW5haTttb2RlbF9pZDpOb25lO3Jlc3BvbnNlX2lkOng=",
+        "resp_aGFuZ2FybGxtOmN1c3RvbV9sbG1fcHJvdmlkZXI6b3BlbmFpO21vZGVsX2lkOk5vbmU7cmVzcG9uc2VfaWQ6eA==",
         true
     )]
     fn managed_response_ids_match_python(#[case] id: &str, #[case] expected: bool) {
@@ -335,7 +335,7 @@ mod tests {
     fn encrypted_items_match_python() {
         assert_eq!(
             encrypted_item_id("deploy-1", "rs_0a1b"),
-            "encitem_bGl0ZWxsbTptb2RlbF9pZDpkZXBsb3ktMTtpdGVtX2lkOnJzXzBhMWI="
+            "encitem_aGFuZ2FybGxtOm1vZGVsX2lkOmRlcGxveS0xO2l0ZW1faWQ6cnNfMGExYg=="
         );
         assert_eq!(
             wrap_encrypted_content("gAAAA", "deploy-1"),
@@ -344,8 +344,8 @@ mod tests {
     }
 
     #[rstest]
-    #[case::padded("encitem_bGl0ZWxsbTptb2RlbF9pZDpkZXBsb3ktMTtpdGVtX2lkOnJzXzBhMWI=", Some(("deploy-1", "rs_0a1b")))]
-    #[case::padding_stripped_in_transit("encitem_bGl0ZWxsbTptb2RlbF9pZDptO2l0ZW1faWQ6cnNfMQ", Some(("m", "rs_1")))]
+    #[case::padded("encitem_aGFuZ2FybGxtOm1vZGVsX2lkOmRlcGxveS0xO2l0ZW1faWQ6cnNfMGExYg==", Some(("deploy-1", "rs_0a1b")))]
+    #[case::padding_stripped_in_transit("encitem_aGFuZ2FybGxtOm1vZGVsX2lkOm07aXRlbV9pZDpyc18x", Some(("m", "rs_1")))]
     #[case::not_base64("encitem_notbase64!", None)]
     #[case::unmanaged("rs_0a1b", None)]
     fn encrypted_item_ids_decode_like_python(
@@ -372,11 +372,11 @@ mod tests {
     #[rstest]
     #[case::with_model_id(
         Some("deploy-1"),
-        "cntr_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOm9wZW5haTttb2RlbF9pZDpkZXBsb3ktMTtjb250YWluZXJfaWQ6Y250cl9hYmM="
+        "cntr_aGFuZ2FybGxtOmN1c3RvbV9sbG1fcHJvdmlkZXI6b3BlbmFpO21vZGVsX2lkOmRlcGxveS0xO2NvbnRhaW5lcl9pZDpjbnRyX2FiYw=="
     )]
     #[case::without_model_id(
         None,
-        "cntr_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOm9wZW5haTttb2RlbF9pZDo7Y29udGFpbmVyX2lkOmNudHJfYWJj"
+        "cntr_aGFuZ2FybGxtOmN1c3RvbV9sbG1fcHJvdmlkZXI6b3BlbmFpO21vZGVsX2lkOjtjb250YWluZXJfaWQ6Y250cl9hYmM="
     )]
     fn container_ids_match_python(#[case] model_id: Option<&str>, #[case] expected: &str) {
         assert_eq!(
@@ -388,19 +388,19 @@ mod tests {
     #[rstest]
     #[case::raw("cntr_abc", None, None, "cntr_abc")]
     #[case::managed(
-        "cntr_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOm9wZW5haTttb2RlbF9pZDptO2NvbnRhaW5lcl9pZDpjbnRyXzE=",
+        "cntr_aGFuZ2FybGxtOmN1c3RvbV9sbG1fcHJvdmlkZXI6b3BlbmFpO21vZGVsX2lkOm07Y29udGFpbmVyX2lkOmNudHJfMQ==",
         Some("openai"),
         Some("m"),
         "cntr_1"
     )]
     #[case::empty_segments(
-        "cntr_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOjttb2RlbF9pZDo7Y29udGFpbmVyX2lkOmNudHJfMQ==",
+        "cntr_aGFuZ2FybGxtOmN1c3RvbV9sbG1fcHJvdmlkZXI6O21vZGVsX2lkOjtjb250YWluZXJfaWQ6Y250cl8x",
         None,
         None,
         "cntr_1"
     )]
     #[case::python_none_provider(
-        "cntr_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOk5vbmU7bW9kZWxfaWQ6O2NvbnRhaW5lcl9pZDp4",
+        "cntr_aGFuZ2FybGxtOmN1c3RvbV9sbG1fcHJvdmlkZXI6Tm9uZTttb2RlbF9pZDo7Y29udGFpbmVyX2lkOng=",
         None,
         None,
         "x"
@@ -443,7 +443,7 @@ mod tests {
             json!([
                 {
                     "type": "reasoning",
-                    "id": "encitem_bGl0ZWxsbTptb2RlbF9pZDpkZXBsb3ktMTtpdGVtX2lkOnJzXzBhMWI=",
+                    "id": "encitem_aGFuZ2FybGxtOm1vZGVsX2lkOmRlcGxveS0xO2l0ZW1faWQ6cnNfMGExYg==",
                     "encrypted_content": "hangarllm_enc:bW9kZWxfaWQ6ZGVwbG95LTE=;gAAAA",
                     "summary": []
                 },
@@ -481,7 +481,7 @@ mod tests {
         let mut input = json!([
             {
                 "type": "reasoning",
-                "id": "encitem_bGl0ZWxsbTptb2RlbF9pZDpkZXBsb3ktMTtpdGVtX2lkOnJzXzBhMWI=",
+                "id": "encitem_aGFuZ2FybGxtOm1vZGVsX2lkOmRlcGxveS0xO2l0ZW1faWQ6cnNfMGExYg==",
                 "encrypted_content": "hangarllm_enc:bW9kZWxfaWQ6ZGVwbG95LTE=;gAAAA",
                 "summary": []
             },

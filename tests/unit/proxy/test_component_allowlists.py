@@ -23,6 +23,7 @@ import (which raises on a non-postgres ``DATABASE_URL`` scheme and can mint an
 RDS IAM token when ``IAM_TOKEN_DB_AUTH`` is set).
 """
 
+import importlib.util
 import json
 import os
 import sys
@@ -440,11 +441,15 @@ def test_every_app_mount_is_assigned_to_a_component():
     )
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+requires_admin_mcp_connector: Final = pytest.mark.skipif(
+    importlib.util.find_spec("hangarllm_admin_mcp") is None, reason="hangarllm_admin_mcp connector is not published"
+)
+
+
 @pytest.mark.parametrize(
     "component_lifespan", (None, _gateway_lifespan, _backend_lifespan), ids=("proxy", "gateway", "backend")
 )
-@pytest.mark.parametrize("enabled", (False, True))
+@pytest.mark.parametrize("enabled", (False, pytest.param(True, marks=requires_admin_mcp_connector)))
 def test_admin_mcp_survives_only_management_component_lifespans(
     monkeypatch: pytest.MonkeyPatch, component_lifespan: Lifespan[Starlette] | None, enabled: bool
 ) -> None:

@@ -525,11 +525,8 @@ def test_banned_keywords_fires_on_text_content_call_types(monkeypatch, call_type
         )
 
 
-def test_banned_keywords_skips_non_text_call_types(monkeypatch):
-    """Embedding / moderation / audio paths don't carry chat text and
-    aren't in the text-guardrail scope. They must not trigger the hook
-    even when the request body otherwise looks like a chat payload.
-    """
+@pytest.mark.parametrize("call_type", ["aembedding", "amoderation", "aspeech", "atranscription"])
+def test_banned_keywords_blocks_input_text_on_every_call_type(monkeypatch, call_type):
     monkeypatch.setattr("hangarllm.banned_keywords_list", ["forbidden"], raising=False)
     from hangarllm.hangar.guardrails.banned_keywords import ENTERPRISE_BannedKeywords
 
@@ -537,8 +534,7 @@ def test_banned_keywords_skips_non_text_call_types(monkeypatch):
 
     import asyncio
 
-    for call_type in ("aembedding", "amoderation", "aspeech", "atranscription"):
-        # Should return without raising, even though the data carries the banned word.
+    with pytest.raises(HTTPException) as exc_info:
         asyncio.run(
             guard.async_pre_call_hook(
                 user_api_key_dict=UserAPIKeyAuth(api_key="hashed", user_id="u"),
@@ -547,6 +543,8 @@ def test_banned_keywords_skips_non_text_call_types(monkeypatch):
                 call_type=call_type,
             )
         )
+
+    assert exc_info.value.status_code == 400
 
 
 @pytest.mark.asyncio
@@ -742,6 +740,7 @@ async def test_openai_moderation_inspects_multimodal_content(monkeypatch, user_a
         return FakeModeration()
 
     fake_router = MagicMock()
+    fake_router.get_model_names.return_value = [guard.model_name]
     fake_router.amoderation = AsyncMock(side_effect=fake_amoderation)
 
     monkeypatch.setattr(
@@ -765,7 +764,7 @@ async def test_openai_moderation_inspects_multimodal_content(monkeypatch, user_a
         call_type="acompletion",
     )
 
-    assert seen_inputs == ["alpha beta"]
+    assert seen_inputs == ["alpha \nbeta"]
 
 
 @pytest.mark.asyncio
@@ -790,6 +789,7 @@ async def test_openai_moderation_reads_model_name_at_call_time(
         results = [type("R", (), {"flagged": False})()]
 
     fake_router = MagicMock()
+    fake_router.get_model_names.return_value = [expected_model]
     fake_router.amoderation = AsyncMock(return_value=FakeModeration())
     monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", fake_router, raising=False)
 
@@ -865,29 +865,33 @@ async def test_openai_moderation_error_raising(monkeypatch, respx_mock):
 # ── Google Text Moderation ────────────────────────────────────────────────────
 
 
+class _GoogleModerationClient:
+    def __init__(self, categories: list[dict[str, object]]) -> None:
+        self.categories: Final = categories
+        self.moderated_texts: Final[list[str]] = []  # mutable-ok: records what reached Google
+
+    async def post(self, url: str, json: dict[str, dict[str, str]], headers: dict[str, str], params: dict[str, str]):
+        self.moderated_texts.append(json["document"]["content"])
+        return Response(200, json={"moderationCategories": self.categories}, request=Request("POST", url))
+
+
+def _google_text_moderation(monkeypatch: pytest.MonkeyPatch, categories: list[dict[str, object]]):
+    from hangarllm.hangar.guardrails import google_text_moderation
+
+    client: Final = _GoogleModerationClient(categories)
+    monkeypatch.setenv("GOOGLE_TEXT_MODERATION_API_KEY", "test-key")
+    monkeypatch.setattr(google_text_moderation, "get_async_httpx_client", lambda llm_provider: client)
+    return google_text_moderation.ENTERPRISE_GoogleTextModeration(), client
+
+
+_FINANCE_FLAG: Final[list[dict[str, object]]] = [{"name": "Finance", "confidence": 0.885}]
+
+
 @pytest.mark.asyncio
-async def test_google_text_moderation_inspects_multimodal_content(user_api_key):
-    """The text passed to Google's moderation client must include list-format
-    text parts."""
-    from hangarllm.hangar.guardrails.google_text_moderation import (
-        ENTERPRISE_GoogleTextModeration,
-    )
-
-    guard = ENTERPRISE_GoogleTextModeration.__new__(ENTERPRISE_GoogleTextModeration)
-    seen_documents = []
-
-    def fake_language_document(content, type_):
-        seen_documents.append(content)
-        return MagicMock()
-
-    fake_response = MagicMock()
-    fake_response.moderation_categories = []
-
-    guard.language_document = fake_language_document
-    guard.moderate_text_request = MagicMock(return_value=MagicMock())
-    guard.document_type = MagicMock()
-    guard.client = MagicMock()
-    guard.client.moderate_text = MagicMock(return_value=fake_response)
+async def test_google_text_moderation_inspects_multimodal_content(
+    monkeypatch: pytest.MonkeyPatch, user_api_key: UserAPIKeyAuth
+):
+    guard, client = _google_text_moderation(monkeypatch, categories=[])
 
     await guard.async_moderation_hook(
         data={
@@ -906,49 +910,36 @@ async def test_google_text_moderation_inspects_multimodal_content(user_api_key):
         call_type="acompletion",
     )
 
-    assert seen_documents == ["hello world"]
-
-
-class _FinanceFlaggingLanguageClient:
-    def __init__(self) -> None:
-        self.moderated_texts: Final[list[str]] = []  # mutable-ok: records what reached Google
-
-    def moderate_text(self, request: SimpleNamespace) -> SimpleNamespace:
-        self.moderated_texts.append(request.document.content)
-        return SimpleNamespace(moderation_categories=[SimpleNamespace(name="Finance", confidence=0.885)])
-
-
-def _google_text_moderation_flagging_finance():
-    from hangarllm.hangar.guardrails.google_text_moderation import (
-        ENTERPRISE_GoogleTextModeration,
-    )
-
-    guard: Final = ENTERPRISE_GoogleTextModeration.__new__(ENTERPRISE_GoogleTextModeration)
-    guard.client = _FinanceFlaggingLanguageClient()
-    guard.language_document = lambda content, type_: SimpleNamespace(content=content)
-    guard.moderate_text_request = lambda document: SimpleNamespace(document=document)
-    guard.document_type = "PLAIN_TEXT"
-    guard.finance_confidence_threshold = 0.8
-    return guard
+    assert client.moderated_texts == ["hello \nworld"]
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("call_type", "data"),
+    ("call_type", "data", "moderated_text"),
     [
-        ("aembedding", {"model": "text-embedding-ada-002", "input": "stocks"}),
-        ("embedding", {"model": "text-embedding-ada-002", "input": ["stocks", "mortgage"]}),
-        ("allm_passthrough_route", {"model": "gigachat-embeddings", "endpoint": "embeddings", "input": ["stocks"]}),
+        ("aembedding", {"model": "text-embedding-ada-002", "input": "stocks"}, "stocks"),
+        ("embedding", {"model": "text-embedding-ada-002", "input": ["stocks", "mortgage"]}, "stocks\nmortgage"),
+        (
+            "allm_passthrough_route",
+            {"model": "gigachat-embeddings", "endpoint": "embeddings", "input": ["stocks"]},
+            "stocks",
+        ),
     ],
 )
-async def test_google_text_moderation_leaves_embedding_input_unmoderated(
-    user_api_key: UserAPIKeyAuth, call_type: CallTypesLiteral, data: dict[str, object]
+async def test_google_text_moderation_blocks_flagged_embedding_input(
+    monkeypatch: pytest.MonkeyPatch,
+    user_api_key: UserAPIKeyAuth,
+    call_type: CallTypesLiteral,
+    data: dict[str, object],
+    moderated_text: str,
 ):
-    guard: Final = _google_text_moderation_flagging_finance()
+    guard, client = _google_text_moderation(monkeypatch, categories=_FINANCE_FLAG)
 
-    await guard.async_moderation_hook(data=data, user_api_key_dict=user_api_key, call_type=call_type)
+    with pytest.raises(HTTPException) as exc_info:
+        await guard.async_moderation_hook(data=data, user_api_key_dict=user_api_key, call_type=call_type)
 
-    assert guard.client.moderated_texts == []
+    assert exc_info.value.status_code == 400
+    assert client.moderated_texts == [moderated_text]
 
 
 @pytest.mark.asyncio
@@ -973,12 +964,15 @@ async def test_google_text_moderation_leaves_embedding_input_unmoderated(
     ],
 )
 async def test_google_text_moderation_still_blocks_conversations(
-    user_api_key: UserAPIKeyAuth, call_type: CallTypesLiteral, data: dict[str, object]
+    monkeypatch: pytest.MonkeyPatch,
+    user_api_key: UserAPIKeyAuth,
+    call_type: CallTypesLiteral,
+    data: dict[str, object],
 ):
-    guard: Final = _google_text_moderation_flagging_finance()
+    guard, client = _google_text_moderation(monkeypatch, categories=_FINANCE_FLAG)
 
     with pytest.raises(HTTPException) as exc_info:
         await guard.async_moderation_hook(data=data, user_api_key_dict=user_api_key, call_type=call_type)
 
     assert exc_info.value.status_code == 400
-    assert guard.client.moderated_texts == ["stocks"]
+    assert client.moderated_texts == ["stocks"]

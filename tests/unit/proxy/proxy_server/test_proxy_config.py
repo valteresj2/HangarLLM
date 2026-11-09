@@ -9,7 +9,6 @@ Pins covered:
 from __future__ import annotations
 
 import asyncio
-import base64
 import json
 import logging
 import os
@@ -26,15 +25,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from prisma.errors import DataError
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
 import hangarllm
 from hangarllm._logging import turn_on_json
-from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 from hangarllm.proxy._types import CommonProxyErrors, ConfigGeneralSettings
 from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
 from hangarllm.proxy.config_resolvers.settings_store import SettingsStore
@@ -2677,7 +2672,7 @@ async def test_load_config_logs_disabled_budget_reservation_once(tmp_path, monke
 
 
 @pytest.mark.asyncio
-async def test_load_config_refuses_allowed_ips_without_a_license(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+async def test_load_config_accepts_allowed_ips_on_every_deployment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     config_file: Final = tmp_path / "allowed_ips.yaml"
     config_file.write_text('model_list: []\nhangarllm_settings: {}\ngeneral_settings:\n  allowed_ips: ["127.0.0.1"]\n')
     monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
@@ -2685,21 +2680,9 @@ async def test_load_config_refuses_allowed_ips_without_a_license(tmp_path: Path,
     monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", False)
     monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
-    expected_message: Final = (
-        "allowed_ips is an Enterprise Feature. Please add a valid HANGARLLM_LICENSE to your environment."
-    )
-    with pytest.raises(ValueError, match=f"^{re.escape(expected_message)}$"):
-        await ProxyConfig().load_config(router=None, config_file_path=str(config_file))
+    _, _, general_settings = await ProxyConfig().load_config(router=None, config_file_path=str(config_file))
 
-
-def _signed_test_license(private_key: RSAPrivateKey, max_users: int) -> str:
-    message: Final = json.dumps({"expiration_date": "9999-12-31", "user_id": "test", "max_users": max_users}).encode()
-    signature: Final = private_key.sign(
-        message,
-        padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
-        hashes.SHA256(),
-    )
-    return base64.b64encode(message + b"." + signature).decode()
+    assert general_settings["allowed_ips"] == ["127.0.0.1"]
 
 
 def _write_config(path: Path, general_settings: dict[str, object], hangarllm_settings: dict[str, object]) -> str:
@@ -2709,39 +2692,18 @@ def _write_config(path: Path, general_settings: dict[str, object], hangarllm_set
     return str(path)
 
 
-def _boot_proxy(
-    monkeypatch: pytest.MonkeyPatch,
-    public_key: RSAPublicKey,
-    env_license: str | None,
-    license_server_urls: list[str],
-    server_accepted_license: str | None = None,
-) -> None:
+def _boot_open_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
     from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth.hangarllm_license import LicenseCheck
 
-    def _license_server(request: httpx.Request) -> httpx.Response:
-        license_server_urls.append(str(request.url))
-        return httpx.Response(
-            200, json={"verify": server_accepted_license is not None and server_accepted_license in str(request.url)}
-        )
-
-    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.setattr("hangarllm.proxy.proxy_server._license_check.public_key", public_key)
-    monkeypatch.setattr("hangarllm.proxy.proxy_server._license_check.airgapped_license_data", None)
-    monkeypatch.setattr(
-        "hangarllm.proxy.proxy_server._license_check.http_handler",
-        HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_license_server))),
-    )
+    monkeypatch.delenv("HANGARLLM_LICENSE", raising=False)
     monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
-    if env_license is None:
-        monkeypatch.delenv("HANGARLLM_LICENSE", raising=False)
-    else:
-        monkeypatch.setenv("HANGARLLM_LICENSE", env_license)
-    monkeypatch.setattr("hangarllm.proxy.proxy_server._license_check.license_str", env_license)
-    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", proxy_server._license_check.is_premium())
-    monkeypatch.setattr(
-        "hangarllm.proxy.proxy_server.premium_user_data", proxy_server._license_check.airgapped_license_data
-    )
+    license_check: Final = LicenseCheck()
+    monkeypatch.setattr(proxy_server, "prisma_client", None)
+    monkeypatch.setattr(proxy_server, "store_model_in_db", False)
+    monkeypatch.setattr(proxy_server, "_license_check", license_check)
+    monkeypatch.setattr(proxy_server, "premium_user", license_check.is_premium())
+    monkeypatch.setattr(proxy_server, "premium_user_data", license_check.airgapped_license_data)
 
 
 @pytest.mark.asyncio
@@ -2753,19 +2715,17 @@ def _boot_proxy(
         {"hangarllm_settings": {"callbacks": ["openai_moderations"]}},
     ],
 )
-async def test_load_config_lets_a_config_license_unlock_its_enterprise_gates(
+async def test_load_config_needs_no_license_for_formerly_gated_settings(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, gated_config: dict[str, dict[str, list[str]]]
 ):
     from hangarllm.proxy import proxy_server
 
-    private_key: Final = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    license_key: Final = _signed_test_license(private_key, max_users=10)
     config_file: Final = _write_config(
-        tmp_path / "licensed.yaml",
-        {"hangarllm_license": license_key, **gated_config.get("general_settings", {})},
+        tmp_path / "open.yaml",
+        dict(gated_config.get("general_settings", {})),
         dict(gated_config.get("hangarllm_settings", {})),
     )
-    _boot_proxy(monkeypatch, private_key.public_key(), env_license=None, license_server_urls=[])
+    _boot_open_proxy(monkeypatch)
 
     await ProxyConfig().load_config(router=None, config_file_path=config_file)
 
@@ -2773,114 +2733,22 @@ async def test_load_config_lets_a_config_license_unlock_its_enterprise_gates(
 
 
 @pytest.mark.asyncio
-async def test_load_config_keeps_a_valid_env_license_when_the_config_license_is_invalid(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
+async def test_load_config_ignores_the_contents_of_a_config_license(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_license_endpoint
 
-    private_key: Final = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     config_file: Final = _write_config(
         tmp_path / "stale_license.yaml", {"hangarllm_license": "not-a-valid-license", "allowed_ips": ["127.0.0.1"]}, {}
     )
-    _boot_proxy(
-        monkeypatch,
-        private_key.public_key(),
-        env_license=_signed_test_license(private_key, max_users=5),
-        license_server_urls=[],
-    )
-
-    await ProxyConfig().load_config(router=None, config_file_path=config_file)
-
-    assert proxy_server.premium_user is True
-    assert proxy_server._license_check.user_seat_limit() == 5
-
-
-@pytest.mark.asyncio
-async def test_load_config_prefers_the_config_license_when_both_licenses_are_valid(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    from hangarllm.proxy import proxy_server
-    from hangarllm.proxy._types import UserAPIKeyAuth
-    from hangarllm.proxy.health_endpoints._health_endpoints import health_license_endpoint
-
-    private_key: Final = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    config_file: Final = _write_config(
-        tmp_path / "licensed.yaml", {"hangarllm_license": _signed_test_license(private_key, max_users=100)}, {}
-    )
-    _boot_proxy(
-        monkeypatch,
-        private_key.public_key(),
-        env_license=_signed_test_license(private_key, max_users=5),
-        license_server_urls=[],
-    )
-
-    await ProxyConfig().load_config(router=None, config_file_path=config_file)
-
-    assert proxy_server._license_check.user_seat_limit() == 100
-    assert (await health_license_endpoint(user_api_key_dict=UserAPIKeyAuth()))["limits"]["max_users"] == 100
-
-
-@pytest.mark.asyncio
-async def test_load_config_still_reports_an_invalid_config_license_as_configured(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    from hangarllm.proxy._types import UserAPIKeyAuth
-    from hangarllm.proxy.health_endpoints._health_endpoints import health_license_endpoint
-
-    private_key: Final = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    config_file: Final = _write_config(tmp_path / "stale_license.yaml", {"hangarllm_license": "not-a-valid-license"}, {})
-    _boot_proxy(monkeypatch, private_key.public_key(), env_license=None, license_server_urls=[])
+    _boot_open_proxy(monkeypatch)
 
     await ProxyConfig().load_config(router=None, config_file_path=config_file)
 
     license_status: Final = await health_license_endpoint(user_api_key_dict=UserAPIKeyAuth())
-    assert (license_status["has_license"], license_status["license_type"]) == (True, "community")
-
-
-@pytest.mark.asyncio
-async def test_load_config_does_not_recheck_an_env_license_that_failed_at_boot(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    from hangarllm.proxy import proxy_server
-
-    private_key: Final = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    config_file: Final = _write_config(tmp_path / "stale_license.yaml", {"hangarllm_license": "not-a-valid-license"}, {})
-    license_server_urls: Final[list[str]] = []
-    _boot_proxy(monkeypatch, private_key.public_key(), "also-not-a-valid-license", license_server_urls)
-    asked_at_boot: Final = len(license_server_urls)
-
-    await ProxyConfig().load_config(router=None, config_file_path=config_file)
-
-    assert proxy_server.premium_user is False
-    assert [url for url in license_server_urls[asked_at_boot:] if "also-not-a-valid-license" in url] == []
-    assert any("not-a-valid-license" in url for url in license_server_urls[asked_at_boot:])
-
-
-@pytest.mark.asyncio
-async def test_load_config_keeps_the_boot_verdict_of_a_server_checked_env_license(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    from hangarllm.proxy import proxy_server
-
-    private_key: Final = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    config_file: Final = _write_config(
-        tmp_path / "stale_license.yaml", {"hangarllm_license": "not-a-valid-license", "allowed_ips": ["127.0.0.1"]}, {}
-    )
-    license_server_urls: Final[list[str]] = []
-    _boot_proxy(
-        monkeypatch,
-        private_key.public_key(),
-        "server-checked-license",
-        license_server_urls,
-        server_accepted_license="server-checked-license",
-    )
-    asked_at_boot: Final = len(license_server_urls)
-
-    await ProxyConfig().load_config(router=None, config_file_path=config_file)
-
     assert proxy_server.premium_user is True
-    assert proxy_server._license_check.license_str == "server-checked-license"
-    assert [url for url in license_server_urls[asked_at_boot:] if "server-checked-license" in url] == []
+    assert proxy_server._license_check.user_seat_limit() is None
+    assert (license_status["has_license"], license_status["license_type"]) == (True, "enterprise")
 
 
 @pytest.mark.asyncio
@@ -3201,7 +3069,7 @@ async def test_ProxyConfig__init_non_llm_configs_premium_invalid_worker_registry
 async def test_ProxyConfig__init_non_llm_configs_worker_registry_requires_premium(monkeypatch):
     monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", False)
     pc = ProxyConfig()
-    with pytest.raises(ValueError, match="Trying to use `worker_registry`You must be a HangarLLM") as exc_info:
+    with pytest.raises(ValueError, match="Trying to use `worker_registry` is disabled on this HangarLLM") as exc_info:
         await pc._init_non_llm_configs(
             config={"worker_registry": [{"worker_id": "worker-a", "name": "Worker A", "url": "http://localhost:4001"}]},
             config_file_path=None,

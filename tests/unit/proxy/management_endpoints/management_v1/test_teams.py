@@ -815,6 +815,7 @@ def test_a_caller_who_administers_neither_the_team_nor_its_org_is_a_403_problem_
 
 
 def test_a_team_admin_may_bulk_update_their_own_teams_members(prisma, monkeypatch):
+    monkeypatch.setattr("hangarllm.store_audit_logs", False)
     prisma.db.hangarllm_teamtable.rows[TEAM_ID] = _team("lead", "m1", admins=("lead",))
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
         user_id="lead", user_role=HangarllmUserRoles.INTERNAL_USER

@@ -14,16 +14,23 @@ from fastapi import HTTPException
 
 import hangarllm
 from hangarllm._logging import verbose_proxy_logger
+from hangarllm.constants import DEFAULT_OPENAI_MODERATIONS_MODEL
 from hangarllm.hangar.guardrails._text import request_texts
 from hangarllm.integrations.custom_logger import CustomLogger
-
-DEFAULT_MODERATION_MODEL: Final = "omni-moderation-latest"
 
 
 class HangarOpenAIModeration(CustomLogger):
     def __init__(self, model_name: str | None = None) -> None:
         super().__init__()
-        self.model_name: str = model_name or hangarllm.openai_moderations_model_name or DEFAULT_MODERATION_MODEL
+        self._configured_model_name: Final = model_name
+
+    @property
+    def model_name(self) -> str:
+        return (
+            self._configured_model_name
+            or hangarllm.openai_moderations_model_name
+            or DEFAULT_OPENAI_MODERATIONS_MODEL
+        )
 
     @staticmethod
     def _flagged_categories(response: object) -> list[str]:

@@ -18,6 +18,8 @@ from hangarllm.integrations.custom_logger import CustomLogger
 
 
 class HangarBannedKeywords(CustomLogger):
+    enforces_request_content: bool = True
+
     def __init__(self, banned_keywords: list[str] | str | None = None) -> None:
         super().__init__()
         source: Final = banned_keywords if banned_keywords is not None else hangarllm.banned_keywords_list

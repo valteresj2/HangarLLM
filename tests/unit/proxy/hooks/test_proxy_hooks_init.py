@@ -22,15 +22,17 @@ from hangarllm.proxy.hooks import PROXY_HOOKS, get_proxy_hook
 def test_managed_files_hook_registered():
     pytest.importorskip("hangarllm.hangar")
     assert "managed_files" in PROXY_HOOKS
-    hook_cls = get_proxy_hook("managed_files")
-    assert hook_cls.__name__ == "_PROXY_HangarLLMManagedFiles"
+    from hangarllm.hangar.proxy.managed_files import HangarManagedFiles
+
+    assert get_proxy_hook("managed_files") is HangarManagedFiles
 
 
 def test_managed_vector_stores_hook_registered():
     pytest.importorskip("hangarllm.hangar")
     assert "managed_vector_stores" in PROXY_HOOKS
-    hook_cls = get_proxy_hook("managed_vector_stores")
-    assert hook_cls.__name__ == "_PROXY_HangarLLMManagedVectorStores"
+    from hangarllm.hangar.proxy.managed_vector_stores import HangarManagedVectorStores
+
+    assert get_proxy_hook("managed_vector_stores") is HangarManagedVectorStores
 
 
 def test_isolation_module_does_not_pull_in_proxy_utils(monkeypatch):

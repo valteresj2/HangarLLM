@@ -3590,7 +3590,7 @@ class TestJWTOAuth2Coexistence:
         """
         jwt_token = (
             "eyJhbGciOiJSUzI1NiJ9."
-            "eyJpc3MiOiJtYWNoaW5lLWlzc3Vlci5leGFtcGxlLmNvbSIsImNsaWVudF9pZCI6Ik1JRF9MSVRFTExNIn0."
+            "eyJpc3MiOiJtYWNoaW5lLWlzc3Vlci5leGFtcGxlLmNvbSIsImNsaWVudF9pZCI6Ik1JRF9IQU5HQVJMTE0ifQ."
             "c2ln"
         )
         general_settings = {
@@ -3725,7 +3725,7 @@ class TestJWTOAuth2Coexistence:
         """
         jwt_token = (
             "eyJhbGciOiJSUzI1NiJ9."
-            "eyJpc3MiOiJtYWNoaW5lLWlzc3Vlci5leGFtcGxlLmNvbSIsImNsaWVudF9pZCI6Ik1JRF9MSVRFTExNIiwiYXVkIjpbImFwaTovL2xpdGVsbG0iLCJhcGk6Ly9vdGhlciJdfQ."
+            "eyJpc3MiOiJtYWNoaW5lLWlzc3Vlci5leGFtcGxlLmNvbSIsImNsaWVudF9pZCI6Ik1JRF9IQU5HQVJMTE0iLCJhdWQiOlsiYXBpOi8vaGFuZ2FybGxtIiwiYXBpOi8vb3RoZXIiXX0."
             "c2ln"
         )
         general_settings = {
@@ -3791,7 +3791,7 @@ class TestJWTOAuth2Coexistence:
         """
         jwt_token = (
             "eyJhbGciOiJSUzI1NiJ9."
-            "eyJpc3MiOiJvYXV0aC1pc3N1ZXIuZXhhbXBsZS5jb20iLCJzY29wZSI6IkFwcDpMaXRlTExNIiwiY2xpZW50X2lkIjoiTUFDSElORV9NSURfTElURUxMTSJ9."
+            "eyJpc3MiOiJvYXV0aC1pc3N1ZXIuZXhhbXBsZS5jb20iLCJzY29wZSI6IkFwcDpIYW5nYXJMTE0iLCJjbGllbnRfaWQiOiJNQUNISU5FX01JRF9IQU5HQVJMTE0ifQ."
             "c2ln"
         )
         general_settings = {
@@ -3929,7 +3929,7 @@ class TestJWTOAuth2Coexistence:
         """
         jwt_token = (
             "eyJhbGciOiJSUzI1NiJ9."
-            "eyJpc3MiOiJvYXV0aC1pc3N1ZXIuZXhhbXBsZS5jb20iLCJzY29wZSI6IkFwcDpMaXRlTExNIG9wZW5pZCIsImNsaWVudF9pZCI6IkJBVENIX01JRF9MSVRFTExNIn0."
+            "eyJpc3MiOiJvYXV0aC1pc3N1ZXIuZXhhbXBsZS5jb20iLCJzY29wZSI6IkFwcDpIYW5nYXJMTE0gb3BlbmlkIiwiY2xpZW50X2lkIjoiQkFUQ0hfTUlEX0hBTkdBUkxMTSJ9."
             "c2ln"
         )
         general_settings = {
@@ -3995,7 +3995,7 @@ class TestJWTOAuth2Coexistence:
         """
         jwt_token = (
             "eyJhbGciOiJSUzI1NiJ9."
-            "eyJpc3MiOiJtYWNoaW5lLWlzc3Vlci5leGFtcGxlLmNvbSIsImNsaWVudF9pZCI6Ik1JRF9MSVRFTExNIn0."
+            "eyJpc3MiOiJtYWNoaW5lLWlzc3Vlci5leGFtcGxlLmNvbSIsImNsaWVudF9pZCI6Ik1JRF9IQU5HQVJMTE0ifQ."
             "c2ln"
         )
         general_settings = {
@@ -4100,7 +4100,7 @@ class TestJWTOAuth2Coexistence:
         """
         jwt_token = (
             "eyJhbGciOiJSUzI1NiJ9."
-            "eyJpc3MiOiJtYWNoaW5lLWlzc3Vlci5leGFtcGxlLmNvbSIsImNsaWVudF9pZCI6Ik1JRF9MSVRFTExNIn0."
+            "eyJpc3MiOiJtYWNoaW5lLWlzc3Vlci5leGFtcGxlLmNvbSIsImNsaWVudF9pZCI6Ik1JRF9IQU5HQVJMTE0ifQ."
             "c2ln"
         )
         general_settings = {
@@ -9311,7 +9311,7 @@ async def test_real_jwt_still_requires_license_when_jwt_auth_enabled(monkeypatch
         patch("hangarllm.proxy.proxy_server.master_key", "sk-master"),
         patch("hangarllm.proxy.proxy_server.prisma_client", None),
     ):
-        with pytest.raises(Exception, match="JWT Auth is an enterprise only feature\\. You must be a") as exc_info:
+        with pytest.raises(Exception, match="JWT Auth is an enterprise only feature\\. +is disabled on this HangarLLM deployment") as exc_info:
             await user_api_key_auth(
                 request=mock_request,
                 api_key=f"Bearer {jwt_token}",
@@ -13523,6 +13523,7 @@ async def test_enterprise_custom_auth_key_return_stays_a_proxy_validated_key(mon
     custom: Final = AsyncMock(return_value="sk-master-key")
     for name, value in _proxy_server_attrs_for_custom_auth(user_custom_auth=custom).items():
         monkeypatch.setattr(proxy_server, name, value)
+    monkeypatch.setattr("hangarllm.hangar.proxy.proxy_config.custom_auth_settings", {"mode": "auto"})
     module: Final = importlib.import_module("hangarllm.proxy.auth.user_api_key_auth")
     monkeypatch.setattr(module, "enterprise_custom_auth", custom)
     admitted: Final = await user_api_key_auth_builder(

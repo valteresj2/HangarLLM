@@ -14,10 +14,12 @@ from typing import Final
 from fastapi import HTTPException
 
 import hangarllm
+from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.hangar.guardrails._text import load_list_setting
 from hangarllm.integrations.custom_logger import CustomLogger
 
+_BLOCKED_END_USER_TARGET: Final = "blocked_end_user"
 _CACHE_TTL_SECONDS: Final = 60
 
 
@@ -35,6 +37,8 @@ def _end_user_id(data: Mapping[str, object]) -> str | None:
 
 
 class HangarBlockedUserList(CustomLogger):
+    enforces_request_content: bool = True
+
     def __init__(self, prisma_client=None) -> None:
         super().__init__()
         self.prisma_client = prisma_client
@@ -50,6 +54,7 @@ class HangarBlockedUserList(CustomLogger):
             return user_id in current
         return user_id in self.blocked_user_list
 
+    @with_service_target(_BLOCKED_END_USER_TARGET)
     async def _is_blocked_in_db(self, user_id: str, cache) -> bool:
         if self.prisma_client is None:
             return False

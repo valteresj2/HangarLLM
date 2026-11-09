@@ -43,7 +43,7 @@ class TestResponsesBackgroundCostTracking:
         """Test that background responses are stored in managed objects table"""
         # Create a mock response with queued status and hidden params
         response = ResponsesAPIResponse(
-            id="resp_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOm9wZW5haTttb2RlbF9pZDpncHQtNDtsbGxfcmVzcG9uc2VfaWQ6cmVzcF8xMjM",
+            id="resp_aGFuZ2FybGxtOmN1c3RvbV9sbG1fcHJvdmlkZXI6b3BlbmFpO21vZGVsX2lkOmdwdC00O2xsbF9yZXNwb25zZV9pZDpyZXNwXzEyMw",
             object="response",
             status="queued",
             created_at=int(datetime.now().timestamp()),

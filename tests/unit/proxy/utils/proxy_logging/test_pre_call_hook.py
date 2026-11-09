@@ -443,8 +443,8 @@ def test_every_pre_call_customlogger_is_deliberately_classified():
     judges_content = {
         "_OPTIONAL_PromptInjectionDetection",
         "_PROXY_AzureContentSafety",
-        "ENTERPRISE_BannedKeywords",
-        "ENTERPRISE_BlockedUserList",
+        "HangarBannedKeywords",
+        "HangarBlockedUserList",
     }
     counts_or_shapes_the_request = {
         "_PROXY_MaxParallelRequestsHandler_v3",
@@ -456,7 +456,7 @@ def test_every_pre_call_customlogger_is_deliberately_classified():
         "ResponsesIDSecurity",
         "SkillsInjectionHook",
         "_PROXY_HangarLLMManagedFiles",
-        "_PROXY_HangarLLMManagedVectorStores",
+        "HangarManagedVectorStores",
     }
 
     from hangarllm.proxy.hooks import PROXY_HOOKS

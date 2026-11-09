@@ -307,7 +307,7 @@ async def test_batch_rate_limit_error_reports_reset_time_in_utc_on_a_non_utc_pro
 
 _BATCH_MODEL: Final = "gpt-3.5-turbo"
 _MANAGED_FILE_ID: Final = (
-    "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9vY3RldC1zdHJlYW07dW5pZmllZF9pZCxyZWdyZXNzaW9uLXRlc3QtZmlsZQ=="
+    "aGFuZ2FybGxtX3Byb3h5OmFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbTt1bmlmaWVkX2lkLHJlZ3Jlc3Npb24tdGVzdC1maWxl"
 )
 
 

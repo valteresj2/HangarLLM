@@ -12,6 +12,7 @@ on:
     paths:
       - "terraform/provider/**"
       - "hangarllm/proxy/**"
+      - "hangarllm/hangar/**"
       - "enterprise/**"
       - ".github/workflows/test-terraform-provider.yml"
 

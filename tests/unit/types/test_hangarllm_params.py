@@ -229,6 +229,7 @@ OPTION_NAMES: Final = (
     "stream_chunk_size",
     "keepalive_seconds",
     "allow_client_keepalive_override",
+    "decisions_format",
     "mock_response",
     "mock_timeout",
 )

@@ -1,4 +1,5 @@
 import asyncio
+import importlib.util
 import json
 import sys
 from types import SimpleNamespace
@@ -25,6 +26,10 @@ from hangarllm.proxy.middleware.admission_control_middleware import (
     AdmissionControlStats,
 )
 from hangarllm.proxy.middleware.per_request_root_path_middleware import PerRequestRootPathMiddleware
+
+requires_admin_mcp_connector: Final = pytest.mark.skipif(
+    importlib.util.find_spec("hangarllm_admin_mcp") is None, reason="hangarllm_admin_mcp connector is not published"
+)
 
 
 class KeyRequest(BaseModel):
@@ -167,11 +172,11 @@ def test_unlicensed_opt_in_fails_before_loading_connector(
         with TestClient(management_app):
             pytest.fail("An unlicensed deployment must not serve the hosted admin connector")
     assert exc.value.status_code == 403
-    assert "HANGARLLM_LICENSE" in str(exc.value.detail)
+    assert "HANGARLLM_DISABLED_FEATURES" in str(exc.value.detail)
     assert all(route.name != "admin_mcp" for route in management_app.routes)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 def test_losing_enterprise_status_blocks_admin_tool_calls(
     management_app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -201,7 +206,7 @@ def test_invalid_flag_fails_startup(monkeypatch: pytest.MonkeyPatch) -> None:
             pytest.fail("Invalid flag must fail startup")
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 @pytest.mark.parametrize(
     "authorization,status",
     [(None, 401), ("Bearer invalid", 401), ("Bearer member", 403), ("Bearer viewer", 403), ("Bearer team-key", 403)],
@@ -219,7 +224,7 @@ def test_admin_endpoint_rejects_unauthorized_callers(
     assert response.headers["cache-control"] == "no-store"
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 def test_mount_keeps_existing_mcp_and_manages_restart(management_app: FastAPI) -> None:
     for _ in range(2):
         with TestClient(management_app, base_url="http://localhost:4000") as client:
@@ -239,7 +244,7 @@ def test_mount_keeps_existing_mcp_and_manages_restart(management_app: FastAPI) -
         assert all(route.name != "admin_mcp" for route in management_app.routes)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 @pytest.mark.parametrize("root_path", ["", "/gateway"])
 @pytest.mark.parametrize("prefix_mode", ["ingress", "scalar", "multiple"])
 async def test_concurrent_calls_preserve_identity_network_context_and_strip_cookies(
@@ -297,7 +302,7 @@ async def test_concurrent_calls_preserve_identity_network_context_and_strip_cook
         }
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 @pytest.mark.parametrize("header_name", ["X-Custom-Key", "Authorization", "x-hangarllm-api-key"])
 @pytest.mark.parametrize("caller_value", [None, "Bearer member"])
 def test_configured_key_header_uses_mcp_bearer_after_settings_change(
@@ -362,7 +367,7 @@ def test_policy_headers_cannot_share_overwritten_slots_without_a_custom_key(
             pytest.fail("Native credentials must not overwrite configured policy headers")
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 def test_compact_results_bind_to_bearer_despite_conflicting_alternate_keys(management_app: FastAPI) -> None:
     headers: Final = {
         "Authorization": "Bearer admin-a", "x-hangarllm-api-key": "Bearer admin-b",
@@ -399,7 +404,7 @@ def test_compact_results_bind_to_bearer_despite_conflicting_alternate_keys(manag
     assert limited.json()["result"]["isError"] is True
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 @pytest.mark.parametrize("public_url", ["gateway.example.com", "https:/broken", "http://gateway.example.com"])
 def test_invalid_public_origin_fails_startup(
     management_app: FastAPI, monkeypatch: pytest.MonkeyPatch, public_url: str
@@ -410,7 +415,7 @@ def test_invalid_public_origin_fails_startup(
             pytest.fail("An invalid trusted public origin must fail startup")
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 def test_public_host_and_origin_are_checked(management_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PROXY_BASE_URL", "https://gateway.example.com")
     headers: Final = {"Authorization": "Bearer admin-a", "Accept": "application/json, text/event-stream"}
@@ -423,7 +428,7 @@ def test_public_host_and_origin_are_checked(management_app: FastAPI, monkeypatch
     assert hostile_origin.status_code == 403
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 @pytest.mark.parametrize("read_only,alias", [(False, "created"), (False, "fail-after-write"), (True, "denied")])
 def test_writes_respect_read_only_and_are_never_retried(
     management_app: FastAPI, monkeypatch: pytest.MonkeyPatch, read_only: bool, alias: str
@@ -448,7 +453,7 @@ def test_writes_respect_read_only_and_are_never_retried(
         assert json.loads(response.json()["result"]["content"][0]["text"]) == {"key": "sk-new-key", "key_alias": alias}
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 def test_full_results_do_not_require_worker_affinity(management_app: FastAPI) -> None:
     with TestClient(management_app, base_url="http://localhost:4000") as client:
         response: Final = client.post(
@@ -465,7 +470,7 @@ def test_full_results_do_not_require_worker_affinity(management_app: FastAPI) ->
     assert json.loads(response.json()["result"]["content"][0]["text"]) == {"keys": [{"key_alias": "a" * 20000}]}
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 def test_nested_management_calls_share_one_admission_slot(management_app: FastAPI) -> None:
     def no_metrics() -> None:
         return None
@@ -491,7 +496,7 @@ def test_nested_management_calls_share_one_admission_slot(management_app: FastAP
     assert state.get_stats() == AdmissionControlStats(0, 0, 0)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 def test_oversized_mcp_body_is_rejected_before_a_write(
     management_app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -510,7 +515,7 @@ def test_oversized_mcp_body_is_rejected_before_a_write(
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 @pytest.mark.parametrize("peer,mapped_user,bearer,status", [
     ("10.0.0.8", "admin-a", "member", 200),
     ("10.0.0.8", "member", "admin-a", 403),
@@ -598,7 +603,7 @@ def permissions_request() -> Request:
     return Request({"type": "http", "method": "GET", "path": "/user/info", "headers": [], "app": proxy_server.app})
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 @pytest.mark.parametrize(
     "routes,session,can_write",
     [
@@ -625,7 +630,7 @@ def test_admin_mcp_uses_credential_routes_without_removing_full_access(
     assert ("create_key" in permissions.tools) is can_write
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 @pytest.mark.parametrize(
     "team_id,grant",
     [
@@ -655,7 +660,7 @@ def test_admin_mcp_checks_the_concrete_resource_even_when_the_tool_is_visible(
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 @pytest.mark.parametrize(
     "grant,path,allowed",
     [
@@ -688,7 +693,7 @@ async def test_user_info_decodes_mcp_path_after_query_parsing(
     assert sibling.json()["admin_mcp_permissions"]["action_allowed"] is False
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 @pytest.mark.parametrize("grant", ["/te?m/*", "/[t]eam/*", "/te*m/*"])
 def test_admin_mcp_does_not_invent_glob_permissions(grant: str, permissions_request: Request) -> None:
     auth: Final = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, allowed_routes=["/user/info", grant])
@@ -699,7 +704,7 @@ def test_admin_mcp_does_not_invent_glob_permissions(grant: str, permissions_requ
     assert permissions.action_allowed is False
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 def test_admin_mcp_discovery_respects_disabled_management_routes(
     permissions_request: Request, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -715,7 +720,7 @@ def test_admin_mcp_discovery_respects_disabled_management_routes(
     assert permissions.action_allowed is False
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 def test_admin_mcp_preserves_http_prefix_grants(permissions_request: Request) -> None:
     auth: Final = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, allowed_routes=["/user/info", "/key/list"])
     own: Final = get_admin_mcp_permissions(auth, permissions_request, "reset_key_spend", "/key/list/reset_spend")

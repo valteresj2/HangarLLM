@@ -2905,35 +2905,38 @@ class TestTemporaryMCPSessionEndpoints:
         assert "permission" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_mcp_oauth_user_api_key_auth_falls_back_to_token_cookie(self):
+    async def test_mcp_oauth_user_api_key_auth_falls_back_to_sealed_session_cookie(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
         """
-        When the Authorization header is absent but a valid 'token' cookie is
-        present (browser navigation), _mcp_oauth_user_api_key_auth should
-        decode the cookie JWT and authenticate via the API key stored in it.
+        When the Authorization header is absent but a valid sealed session cookie
+        is present (browser navigation), _mcp_oauth_user_api_key_auth should open
+        it and authenticate via the API key stored in it.
         """
-        import jwt
-
+        from hangarllm.hangar.proxy.ui_session import SESSION_COOKIE, SESSION_SECRET_ENV_VAR, seal, sign_session
         from hangarllm.proxy.management_endpoints.mcp_management_endpoints import (
             _mcp_oauth_user_api_key_auth,
         )
 
+        monkeypatch.setenv(SESSION_SECRET_ENV_VAR, "test-ui-session-secret")
         master_key = "test-master-key"
         api_key_in_cookie = "sk-test-cookie-key"
-        token_cookie = jwt.encode(
-            {
-                "user_id": "user@example.com",
-                "key": api_key_in_cookie,
-                "user_role": "proxy_admin",
-                "login_method": "sso",
-            },
-            master_key,
-            algorithm="HS256",
+        session_cookie = seal(
+            sign_session(
+                {
+                    "user_id": "user@example.com",
+                    "key": api_key_in_cookie,
+                    "user_role": "proxy_admin",
+                    "login_method": "sso",
+                    "exp": 9999999999,
+                }
+            )
         )
 
         mock_request = MagicMock(spec=Request)
         mock_request.client = None
         mock_request.headers = {}
-        mock_request.cookies = {"token": token_cookie}
+        mock_request.cookies = {SESSION_COOKIE: session_cookie}
 
         expected_auth = generate_mock_user_api_key_auth(
             user_role=HangarllmUserRoles.PROXY_ADMIN, api_key=api_key_in_cookie

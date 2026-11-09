@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import sys
 import traceback
@@ -53,6 +54,11 @@ from hangarllm.proxy.proxy_server import (  # Replace with the actual module whe
 )
 from hangarllm.proxy.utils import ProxyLogging
 
+requires_admin_mcp_connector: Final = pytest.mark.skipif(
+    importlib.util.find_spec("hangarllm_admin_mcp") is None, reason="hangarllm_admin_mcp connector is not published"
+)
+
+
 @pytest.fixture
 def admin_mcp_proxy(monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     from hangarllm.proxy import proxy_server
@@ -70,7 +76,7 @@ def admin_mcp_proxy(monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     return FastAPI(lifespan=proxy_server.proxy_startup_event)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 @pytest.mark.parametrize("failure_phase", ["startup", "serving", "shutdown", "cancelled", "license"])
 async def test_admin_mcp_failure_still_closes_proxy_resources(
     admin_mcp_proxy: FastAPI,
@@ -114,7 +120,7 @@ async def test_admin_mcp_failure_still_closes_proxy_resources(
         else asyncio.CancelledError if failure_phase == "cancelled"
         else RuntimeError
     )
-    message: Final = "HANGARLLM_LICENSE" if failure_phase == "license" else f"{failure_phase} failed"
+    message: Final = "HANGARLLM_DISABLED_FEATURES" if failure_phase == "license" else f"{failure_phase} failed"
     async def run_lifespan() -> None:
         async with admin_mcp_proxy.router.lifespan_context(admin_mcp_proxy) as state:
             assert state == {"tracing_receiver": None, "database": None}
@@ -132,7 +138,7 @@ async def test_admin_mcp_failure_still_closes_proxy_resources(
     assert all(route.name != "admin_mcp" for route in admin_mcp_proxy.routes)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 async def test_proxy_shutdown_drains_active_admin_tool_before_closing_connector(
     admin_mcp_proxy: FastAPI, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -188,7 +194,7 @@ async def test_proxy_shutdown_drains_active_admin_tool_before_closing_connector(
     assert InFlightRequestsMiddleware.get_count() == 0
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
+@requires_admin_mcp_connector
 async def test_proxy_shutdown_closes_admin_connector_when_drain_is_cancelled(
     admin_mcp_proxy: FastAPI,
 ) -> None:

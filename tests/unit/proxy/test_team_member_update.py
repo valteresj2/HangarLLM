@@ -45,12 +45,7 @@ async def test_ateam_member_update_admin_requires_premium(monkeypatch):
         await team_member_update(data, request, auth)
 
     assert exc_info.value.status_code == 400
-    expected_msg = (
-        "Assigning team admins is a premium feature. You must be a HangarLLM Enterprise user to use this feature. "
-        "If you have a license please set `HANGARLLM_LICENSE` in your env. Get a 7 day trial key here: https://github.com/valteresj2/HangarLLM#readme "
-        "Pricing: https://github.com/valteresj2/HangarLLM#readme"
-    )
-    assert exc_info.value.detail == expected_msg
+    assert exc_info.value.detail == "Assigning team admins is not enabled on this HangarLLM deployment."
 
 
 @pytest.fixture

@@ -1078,7 +1078,7 @@ class TestGetHangarllmVersion:
         self.logger = make_logger()
 
     def test_returns_unknown_on_exception(self):
-        with patch("importlib.metadata.version", side_effect=Exception("no package")):
+        with patch.dict(sys.modules, {"hangarllm._version": None}):
             result = self.logger._get_hangarllm_version()
         assert result == "unknown"
 

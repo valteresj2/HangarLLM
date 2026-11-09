@@ -471,6 +471,30 @@ class TestManagedFilesVectorStoreAccess:
         }
 
     @pytest.mark.asyncio
+    async def test_F7_responses_pre_call_rejects_another_teams_vector_store(self):
+        from fastapi import HTTPException
+
+        hook = self._make_hook()
+        unified_id = _make_unified_vs_id(unified_uuid="uuid-007")
+
+        with (
+            patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+            patch(
+                "hangarllm.proxy.auth.auth_checks.get_managed_vector_store_rows_by_uuids",
+                AsyncMock(return_value=[self._make_vs_row(vector_store_id="uuid-007", team_id="team-other")]),
+            ),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            await hook.async_pre_call_hook(
+                user_api_key_dict=self._make_user(team_id="team-caller"),
+                cache=MagicMock(),
+                data={"tools": [{"type": "file_search", "vector_store_ids": [unified_id]}]},
+                call_type="aresponses",
+            )
+
+        assert exc_info.value.status_code == 403
+
+    @pytest.mark.asyncio
     async def test_F6_non_responses_call_type_skipped(self):
         """Access check only runs for aresponses/responses call types."""
         from hangarllm.hangar.proxy.managed_files import (

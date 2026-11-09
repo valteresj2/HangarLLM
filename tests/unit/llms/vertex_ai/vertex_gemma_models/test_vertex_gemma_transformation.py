@@ -5,6 +5,7 @@ Maps to: hangarllm/llms/vertex_ai/vertex_gemma_models/transformation.py
 """
 
 import json
+import sys
 from collections.abc import AsyncIterator
 from typing import Final, cast
 from unittest.mock import AsyncMock, Mock, patch
@@ -545,10 +546,11 @@ class TestVertexGemmaCompletion:
             assert chunk.choices[0].delta.content == "Streaming test response"
 
     @pytest.mark.asyncio
-    async def test_aresponses_streams_vertex_gemma_with_llm_tracing(self):
+    async def test_aresponses_streams_vertex_gemma_with_llm_tracing(self, monkeypatch):
         pytest.importorskip("ddtrace")
-        from ddtrace.contrib.internal.hangarllm.patch import patch as patch_hangarllm
-        from ddtrace.contrib.internal.hangarllm.patch import unpatch as unpatch_hangarllm
+        monkeypatch.setitem(sys.modules, "litellm", hangarllm)
+        from ddtrace.contrib.internal.litellm.patch import patch as patch_hangarllm
+        from ddtrace.contrib.internal.litellm.patch import unpatch as unpatch_hangarllm
         from ddtrace.llmobs._integrations.base_stream_handler import TracedAsyncStream
 
         from hangarllm.responses.hangarllm_completion_transformation.streaming_iterator import (
@@ -595,10 +597,11 @@ class TestVertexGemmaCompletion:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("stream_options", [None, {"include_usage": False}, {"include_usage": True}])
-    async def test_acompletion_stream_respects_usage_option_with_llm_tracing(self, stream_options):
+    async def test_acompletion_stream_respects_usage_option_with_llm_tracing(self, stream_options, monkeypatch):
         pytest.importorskip("ddtrace")
-        from ddtrace.contrib.internal.hangarllm.patch import patch as patch_hangarllm
-        from ddtrace.contrib.internal.hangarllm.patch import unpatch as unpatch_hangarllm
+        monkeypatch.setitem(sys.modules, "litellm", hangarllm)
+        from ddtrace.contrib.internal.litellm.patch import patch as patch_hangarllm
+        from ddtrace.contrib.internal.litellm.patch import unpatch as unpatch_hangarllm
 
         reply = Mock(status_code=200)
         reply.json.return_value = _make_gemma_vertex_response(content="READY")

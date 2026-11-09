@@ -284,6 +284,11 @@ def test_origin_slug_parsing_rejects_non_github_urls() -> None:
     assert counts.parse_origin_slug("") is None
 
 
+@pytest.fixture(autouse=True)
+def _github_origin(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(counts, "origin_slug", lambda _cwd=None: "valteresj2/HangarLLM")
+
+
 def _artifact_zip(payload: Mapping[str, object]) -> bytes:
     buffer: Final = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:

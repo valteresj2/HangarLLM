@@ -274,7 +274,7 @@ class TestContainerAPI:
         """Short cntr_ IDs must still re-encode output so follow-ups keep router affinity."""
         short_managed_id = ResponsesAPIRequestUtils.build_container_id(
             custom_llm_provider="azure",
-            model_id="router-gpt",
+            model_id="router",
             container_id="x",
         )
         assert short_managed_id.startswith("cntr_")
@@ -305,14 +305,14 @@ class TestContainerAPI:
         assert response.id.startswith("cntr_")
         decoded = ResponsesAPIRequestUtils.decode_container_id(response.id)
         assert decoded.get("response_id") == "x"
-        assert decoded.get("model_id") == "router-gpt"
+        assert decoded.get("model_id") == "router"
         assert decoded.get("custom_llm_provider") == "azure"
 
     def test_delete_container_reencodes_short_managed_id_for_routing(self):
         """Same as retrieve: short managed IDs must round-trip encoding on delete result."""
         short_managed_id = ResponsesAPIRequestUtils.build_container_id(
             custom_llm_provider="azure",
-            model_id="router-gpt",
+            model_id="router",
             container_id="z",
         )
         assert len(short_managed_id) < 100
@@ -338,7 +338,7 @@ class TestContainerAPI:
         assert response.id.startswith("cntr_")
         decoded = ResponsesAPIRequestUtils.decode_container_id(response.id)
         assert decoded.get("response_id") == "z"
-        assert decoded.get("model_id") == "router-gpt"
+        assert decoded.get("model_id") == "router"
 
     @pytest.mark.asyncio
     async def test_aretrieve_container_basic(self):

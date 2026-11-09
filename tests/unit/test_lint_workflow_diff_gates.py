@@ -14,7 +14,7 @@ from typing import Final, TypeAlias
 
 import pytest
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 WORKFLOW: Final = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "test-linting.yml"
 WORKFLOWS_DIR: Final = WORKFLOW.parent
@@ -57,6 +57,10 @@ case "$1 $endpoint ${3-} ${4-}" in
     exit 64 ;;
 esac
 """
+FAKE_JQ: Final = r"""#!/usr/bin/env bash
+cat
+"""
+
 FAKE_ARGV_RECORDER: Final = r"""#!/usr/bin/env bash
 printf '%s\n' "$@" > "$RUNNER_TEMP/$(basename "$0").argv"
 """
@@ -102,6 +106,11 @@ class WorkflowTriggers(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     pull_request: PullRequestTrigger = Field(default_factory=PullRequestTrigger)
+
+    @field_validator("pull_request", mode="before")
+    @classmethod
+    def _bare_trigger_means_defaults(cls, value: object) -> object:
+        return {} if value == "" else value
 
 
 class Workflow(BaseModel):
@@ -312,7 +321,13 @@ def _runner(tmp_path: Path, upstream: StaleBaseUpstream, pull_request: Mapping[s
     runner: Final = Runner(tmp_path, upstream, live_base_ref, _event_context(pull_request))
     runner.tools.mkdir()
     runner.temp.mkdir()
-    for name, script in (("gh", FAKE_GH), ("npm", FAKE_ARGV_RECORDER), ("uv", FAKE_ARGV_RECORDER)):
+    tools: Final = (
+        ("gh", FAKE_GH),
+        ("npm", FAKE_ARGV_RECORDER),
+        ("uv", FAKE_ARGV_RECORDER),
+        ("jq", FAKE_JQ),
+    )
+    for name, script in tools:
         _install_tool(runner.tools / name, script)
     return runner
 

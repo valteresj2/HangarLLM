@@ -638,8 +638,8 @@ def test_streaming_partial_tool_calls_accumulation():
         (None, ': "/Users'),  # Second chunk: : "/Users
         (None, "/is"),  # Third chunk: /is
         (None, "haanjaffe"),  # Fourth chunk: haanjaffe
-        (None, "r/Github/li"),  # Fifth chunk: r/Github/li
-        (None, "tellm"),  # Sixth chunk: tellm
+        (None, "r/Github/han"),  # Fifth chunk: r/Github/han
+        (None, "garllm"),  # Sixth chunk: garllm
         (None, "/README.md"),  # Seventh chunk: /README.md
         (None, '"}'),  # Final chunk: "}
     ]

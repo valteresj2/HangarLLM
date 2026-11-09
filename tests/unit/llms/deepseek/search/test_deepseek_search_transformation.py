@@ -89,11 +89,11 @@ def test_max_results_clamps_to_deepseek_count_range(max_results, expected_count)
 
 def test_query_over_deepseek_limit_fails_before_the_call():
     with pytest.raises(
-        hangarllm.BadRequestError, match=re.escape("at most 128 characters, got 144 (3 search_domain_filter")
+        hangarllm.BadRequestError, match=re.escape("at most 128 characters, got 147 (3 search_domain_filter")
     ):
         DeepSeekSearchConfig().transform_search_request(
             query="hangarllm proxy search endpoint configuration guide for enterprise deployments with",
-            optional_params={"search_domain_filter": ["github.com/valteresj2/HangarLLM#readme", "github.com", "huggingface.co"]},
+            optional_params={"search_domain_filter": ["docs.example.com", "github.com", "huggingface.co"]},
         )
 
 

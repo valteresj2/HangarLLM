@@ -187,7 +187,7 @@ async def test_router_debug_on_a_context_window_error_without_its_chain_names_th
     assert str(raised.value) == (
         "hangarllm.ContextWindowExceededError: hangarllm.BadRequestError: too long\n"
         "model=a. context_window_fallbacks=None. fallbacks=None.\n\n"
-        "Set 'context_window_fallback' - https://github.com/valteresj2/HangarLLM#readme"
+        "Set 'context_window_fallback' - https://github.com/valteresj2/HangarLLM#readme\n\n"
         "HangarLLM: model group 'a' failed with the error above. No fallback was attempted."
     )
 

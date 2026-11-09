@@ -16562,19 +16562,18 @@ async def test_ghsa_q775_ui_session_token_team_key_exempt_from_budget_ceiling():
         patch("hangarllm.proxy.proxy_server.llm_router", None),
         patch("hangarllm.proxy.proxy_server.premium_user", False),
         patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "default_user_id"),
+        patch(
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+            new=AsyncMock(return_value={"token_id": "hashed-token", "key": "sk-generated", "expires": None}),
+        ) as generate_key,
     ):
-        try:
-            await _common_key_generation_helper(
-                data=data,
-                user_api_key_dict=user_api_key_dict,
-                hangarllm_changed_by=None,
-                team_table=MagicMock(),
-            )
-        except (HTTPException, ProxyException) as err:
-            msg = str(getattr(err, "detail", "")) + str(getattr(err, "message", ""))
-            assert (
-                "cannot exceed" not in msg.lower()
-            ), "UI/CLI session token creating a team key must be exempt from the ceiling"
+        await _common_key_generation_helper(
+            data=data,
+            user_api_key_dict=user_api_key_dict,
+            hangarllm_changed_by=None,
+            team_table=MagicMock(),
+        )
+    generate_key.assert_awaited_once()
 
 
 @pytest.mark.asyncio

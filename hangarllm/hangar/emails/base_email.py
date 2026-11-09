@@ -11,6 +11,7 @@ import os
 from collections.abc import Iterable
 from typing import Final, Literal
 
+from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.caching.dual_cache import DualCache
 from hangarllm.hangar.emails import templates
@@ -48,6 +49,7 @@ _BUDGET_ALERT_TITLES: Final[dict[str, str]] = {
     "projected_limit_exceeded": "Projected to exceed budget",
 }
 _BUDGET_ALERT_DEDUP_TTL_SECONDS: Final = 24 * 60 * 60
+_BUDGET_ALERT_DEDUP_TARGET: Final = "budget_alert_dedup"
 
 
 def _env(*names: str) -> str | None:
@@ -222,6 +224,7 @@ class BaseEmailLogger(CustomLogger):
         )
         await self._deliver(recipients, subject, html)
 
+    @with_service_target(_BUDGET_ALERT_DEDUP_TARGET)
     async def budget_alerts(self, type: BudgetAlertType, user_info: CallInfo) -> None:
         email_event: Final = EmailEvent.soft_budget_crossed if type == "soft_budget" else EmailEvent.max_budget_alert
         if not await is_email_event_enabled(email_event):

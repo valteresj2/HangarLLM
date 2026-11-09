@@ -343,6 +343,8 @@ _PRISMA_MODELS: Final[frozenset[str]] = frozenset(
         "HangarLLM_ClaudeCodePluginUpload",
         "HangarLLM_ClaudeCodePluginVersion",
         "HangarLLM_SkillSubmission",
+        "HangarLLM_SkillGitSource",
+        "HangarLLM_SkillGitSync",
         "HangarLLM_ClaudeCodePluginDownload",
         "HangarLLM_MemoryTable",
         "HangarLLM_AdaptiveRouterState",

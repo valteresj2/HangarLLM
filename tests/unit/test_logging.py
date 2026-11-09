@@ -753,7 +753,7 @@ def test_oversized_info_record_is_truncated(monkeypatch):
     marker = _extract_marker(message)
     assert marker is not None
     kept, skipped = len(message) - len(marker.group(0)), int(marker.group(1))
-    assert kept + skipped == 43 + len(payload)
+    assert kept + skipped == 45 + len(payload)
 
 
 def test_truncated_message_fits_the_configured_cap(monkeypatch):

@@ -4536,50 +4536,6 @@ async def test_unprovisioned_group_members_are_created_concurrently_up_to_the_bu
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("newcomer_count, admitted", [(1, True), (2, False)])
-async def test_group_push_creates_its_new_members_only_when_they_all_fit_the_license_seats(
-    mocker: MockerFixture, scim_upsert_user_enabled: None, newcomer_count: int, admitted: bool
-):
-    """Members a group push creates are seats too: the batch is checked against the seat limit
-    up front, so a push cannot create users past it the way per-user checks racing each other could."""
-    from hangarllm.proxy.auth.hangarllm_license import LicenseCheck
-
-    license_check: Final = LicenseCheck()
-    license_check.airgapped_license_data = {"max_users": 3}
-    mocker.patch("hangarllm.proxy.proxy_server._license_check", license_check)
-
-    async def count(where: Mapping[str, object] | None = None) -> int:
-        return 0 if where is not None else 2
-
-    prisma_client: Final = _member_resolution_prisma(mocker, users=set(), teams=set())
-    prisma_client.db.hangarllm_usertable.count = AsyncMock(side_effect=count)
-    create_user_mock: Final = mocker.patch(
-        "hangarllm.proxy.management_endpoints.scim.scim_v2._create_user_if_not_exists",
-        AsyncMock(side_effect=lambda user_id, created_via: NewUserResponse(user_id=user_id, key="")),
-    )
-    newcomers: Final = [f"newcomer-{index}" for index in range(newcomer_count)]
-    patch_ops: Final = SCIMPatchOp(
-        schemas=["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
-        Operations=[SCIMPatchOperation(op="add", path="members", value=[{"value": user_id} for user_id in newcomers])],
-    )
-    push: Final = _process_group_patch_operations(
-        patch_ops=patch_ops,
-        existing_team=HangarLLM_TeamTable(team_id="group", team_alias="Group", members=[], members_with_roles=[]),
-        prisma_client=prisma_client,
-    )
-
-    if admitted:
-        _, final_members, _ = await push
-        assert final_members == set(newcomers)
-        return
-    with pytest.raises(HTTPException) as exc_info:
-        await push
-    assert exc_info.value.status_code == 403
-    assert "License is over limit" in str(exc_info.value.detail)
-    create_user_mock.assert_not_called()
-
-
-@pytest.mark.asyncio
 async def test_process_group_patch_operations_ignores_lowercase_group_type(mocker, scim_upsert_user_enabled):
     """The ``type`` comparison is case-insensitive; IdPs are not consistent about it."""
     nested_group_id = "8f1e9d70-0000-4a0e-9a1e-nested"

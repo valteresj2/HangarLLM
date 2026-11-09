@@ -360,7 +360,9 @@ def test_ui_discovery_endpoints_hide_default_credentials_hint_default_false():
         patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"),
         patch("hangarllm.proxy.utils.get_proxy_base_url", return_value=None),
         patch("hangarllm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
-        patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
+        patch.dict(
+            os.environ, {"DISABLE_ADMIN_UI": "false", "HANGARLLM_ALLOW_MASTER_KEY_UI_LOGIN": "true"}, clear=False
+        ),
     ):
         os.environ.pop("HANGARLLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
         os.environ.pop("UI_PASSWORD", None)
@@ -370,6 +372,22 @@ def test_ui_discovery_endpoints_hide_default_credentials_hint_default_false():
         assert response.status_code == 200
         data = response.json()
         assert data["hide_default_credentials_hint"] is False
+
+
+def test_ui_discovery_endpoints_hide_default_credentials_hint_when_master_key_login_is_off():
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+
+    with patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False):
+        os.environ.pop("HANGARLLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
+        os.environ.pop("UI_PASSWORD", None)
+        os.environ.pop("HANGARLLM_ALLOW_MASTER_KEY_UI_LOGIN", None)
+
+        response = client.get("/.well-known/hangarllm-ui-config")
+
+        assert response.status_code == 200
+        assert response.json()["hide_default_credentials_hint"] is True
 
 
 def test_ui_discovery_endpoints_hide_default_credentials_hint_when_ui_password_set():
@@ -398,7 +416,11 @@ def test_ui_discovery_endpoints_keeps_default_credentials_hint_without_real_ui_p
     app.include_router(router)
     client = TestClient(app)
 
-    with patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false", **env_overrides}, clear=False):
+    with patch.dict(
+        os.environ,
+        {"DISABLE_ADMIN_UI": "false", "HANGARLLM_ALLOW_MASTER_KEY_UI_LOGIN": "true", **env_overrides},
+        clear=False,
+    ):
         os.environ.pop("HANGARLLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
         if "UI_PASSWORD" not in env_overrides:
             os.environ.pop("UI_PASSWORD", None)

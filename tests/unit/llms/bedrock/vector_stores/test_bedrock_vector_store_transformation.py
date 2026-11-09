@@ -226,13 +226,13 @@ def test_get_filename_from_metadata():
     """Test that filename is correctly extracted from metadata."""
     config = BedrockVectorStoreConfig()
 
-    metadata_with_path = {"x-amz-bedrock-kb-source-uri": "https://github.com/valteresj2/HangarLLM#readme"}
+    metadata_with_path = {"x-amz-bedrock-kb-source-uri": "https://docs.example.com/guides/setup.html"}
     filename = config._get_filename_from_metadata(metadata_with_path)
     assert filename == "setup.html"
 
-    metadata_domain_only = {"x-amz-bedrock-kb-source-uri": "https://github.com/valteresj2/HangarLLM#readme"}
+    metadata_domain_only = {"x-amz-bedrock-kb-source-uri": "https://docs.example.com"}
     filename = config._get_filename_from_metadata(metadata_domain_only)
-    assert filename == "github.com/valteresj2/HangarLLM#readme"
+    assert filename == "docs.example.com"
 
     metadata_without_uri = {"x-amz-bedrock-kb-data-source-id": "CCEJIRXXFI"}
     filename = config._get_filename_from_metadata(metadata_without_uri)

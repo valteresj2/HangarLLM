@@ -3886,7 +3886,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
                 "own_span_error_str_only_cut_to_the_attribute_length_limit",
                 False,
                 {"error_str": "hangarllm.ServiceUnavailableError: upstream returned 503"},
-                "hangarllm.Serv",
+                "hangarllm.Se",
                 12,
             ),
             (

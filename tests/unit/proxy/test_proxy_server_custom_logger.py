@@ -43,7 +43,7 @@ STREAM_CHUNK_1: Final = {
     "created": 1700000000,
     "model": "gpt-4.1-nano",
     "choices": [
-        {"index": 0, "delta": {"role": "assistant", "content": "Lite"}, "finish_reason": None}
+        {"index": 0, "delta": {"role": "assistant", "content": "Hangar"}, "finish_reason": None}
     ],
 }
 STREAM_CHUNK_2: Final = {

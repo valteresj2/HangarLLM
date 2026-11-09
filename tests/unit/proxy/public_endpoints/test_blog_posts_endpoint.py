@@ -54,7 +54,7 @@ def test_get_blog_posts_returns_response_shape(client):
 def test_get_blog_posts_returns_every_fetched_post(client):
     """The parser owns the cap (BLOG_POSTS_MAX), so the endpoint passes every fetched post through."""
     many_posts = tuple(
-        BlogPost(title=f"Post {i}", description="desc", date="2026-01-01", url=f"https://github.com/valteresj2/HangarLLM#readme}")
+        BlogPost(title=f"Post {i}", description="desc", date="2026-01-01", url=f"https://example.com/blog/post-{i}")
         for i in range(10)
     )
 

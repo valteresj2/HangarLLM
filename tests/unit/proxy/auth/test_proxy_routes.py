@@ -42,7 +42,7 @@ def test_routes_on_hangarllm_proxy():
 
     registered_paths = [getattr(r, "path", "") for r in app.routes]
     for feat in LAZY_FEATURES:
-        if any(rp.startswith(p) for p in feat.path_prefixes for rp in registered_paths):
+        if any(rp in feat.path_prefixes for rp in registered_paths):
             continue
         try:
             module = importlib.import_module(feat.module_path)

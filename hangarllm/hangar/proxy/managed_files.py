@@ -22,18 +22,24 @@ Unified id formats (base64url, unpadded) follow ``SpecialEnums`` in core:
 """
 
 import base64
+import itertools
 import json
 import time
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import Final, Literal
 
 from fastapi import HTTPException
 
+from hangarllm._internal_context import with_service_target
 from hangarllm._logging import verbose_proxy_logger
 from hangarllm.caching.dual_cache import DualCache
+from hangarllm.constants import MAX_FILE_LIST_LIMIT
 from hangarllm.integrations.custom_logger import CustomLogger
-from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.llms.base_llm.files.transformation import BaseFileEndpoints, FileListModelScope
+from hangarllm.llms.base_llm.managed_resources.base_managed_resource import MANAGED_RESOURCES_TARGET
+from hangarllm.llms.base_llm.managed_resources.utils import is_base64_encoded_unified_id, parse_unified_id
+from hangarllm.proxy._types import HangarllmUserRoles, ProxyException, UserAPIKeyAuth
 from hangarllm.types.llms.openai import FileListPage, OpenAIFileObject
 from hangarllm.types.utils import HangarLLMBatch, SpecialEnums
 
@@ -43,6 +49,8 @@ _FILE_ACCESS_CALL_TYPES: Final = frozenset({"afile_content", "afile_retrieve", "
 _OBJECT_ACCESS_CALL_TYPES: Final = frozenset(
     {"aretrieve_batch", "acancel_batch", "aretrieve_fine_tuning_job", "acancel_fine_tuning_job"}
 )
+_RESPONSES_CALL_TYPES: Final = frozenset({"aresponses", "responses"})
+_FILE_SCAN_BATCH_MIN: Final = 100
 
 
 # ---------------------------------------------------------------------- id helpers
@@ -58,6 +66,15 @@ def decode_unified_id(value: object) -> str | None:
     except Exception:  # noqa: BLE001
         return None
     return decoded if decoded.startswith(SpecialEnums.LITELM_MANAGED_FILE_ID_PREFIX.value) else None
+
+
+def _output_file_route(file_id: str) -> tuple[str, str] | None:
+    """(deployment id, provider file id) embedded in a batch output file's unified id."""
+    decoded: Final = decode_unified_id(file_id) or ""
+    fields: Final = dict(part.split(",", 1) for part in decoded.split(";") if "," in part)
+    model_id: Final = fields.get("llm_output_file_model_id")
+    provider_file_id: Final = fields.get("llm_output_file_id")
+    return (model_id, provider_file_id) if model_id and provider_file_id else None
 
 
 def make_unified_file_id(content_type: str, target_model_names: Sequence[str]) -> str:
@@ -85,6 +102,25 @@ def _owner_matches(created_by: str | None, team_id: str | None, user: UserAPIKey
     return not user.user_id and bool(user.team_id) and team_id == user.team_id
 
 
+def _owner_filter(user: UserAPIKeyAuth) -> Mapping[str, object] | None:
+    if _is_admin(user):
+        return {}
+    if user.user_id:
+        return {"created_by": user.user_id}
+    return {"team_id": user.team_id} if user.team_id else None
+
+
+def _file_search_vector_store_ids(tool: object) -> tuple[str, ...]:
+    if not isinstance(tool, Mapping) or tool.get("type") != "file_search":
+        return ()
+    ids: Final = tool.get("vector_store_ids")
+    return (
+        tuple(candidate for candidate in ids if isinstance(candidate, str) and is_base64_encoded_unified_id(candidate))
+        if isinstance(ids, list)
+        else ()
+    )
+
+
 def _json(value: object) -> object:
     if value is None:
         return None
@@ -102,7 +138,7 @@ def _loads(value: object) -> object:
     return value
 
 
-class HangarManagedFiles(CustomLogger):
+class _PROXY_HangarLLMManagedFiles(CustomLogger, BaseFileEndpoints):
     def __init__(self, internal_usage_cache: object, prisma_client: object) -> None:
         super().__init__()
         cache: Final = getattr(internal_usage_cache, "dual_cache", internal_usage_cache)
@@ -137,6 +173,7 @@ class HangarManagedFiles(CustomLogger):
         )
 
     # ------------------------------------------------------------------ persistence
+    @with_service_target(MANAGED_RESOURCES_TARGET)
     async def store_unified_file_id(
         self,
         file_id: str,
@@ -165,6 +202,7 @@ class HangarManagedFiles(CustomLogger):
         )
         await self.internal_usage_cache.async_set_cache(key=f"hangar:managed_file:{file_id}", value=None, ttl=1)
 
+    @with_service_target(MANAGED_RESOURCES_TARGET)
     async def get_unified_file_id(self, file_id: str, hangarllm_parent_otel_span: object = None):
         from hangarllm.models.managed_files import HangarLLM_ManagedFileTable
 
@@ -287,6 +325,35 @@ class HangarManagedFiles(CustomLogger):
         if not await self.can_user_call_unified_file_id(file_id, user):
             raise HTTPException(status_code=403, detail=f"The caller does not have access to file {file_id}")
 
+    def get_vector_store_ids_from_file_search_tools(self, tools: object) -> list[str]:
+        return list(
+            itertools.chain.from_iterable(map(_file_search_vector_store_ids, tools if isinstance(tools, list) else ()))
+        )
+
+    async def check_vector_store_ids_access(
+        self, vector_store_ids: Sequence[str], user_api_key_dict: UserAPIKeyAuth
+    ) -> None:
+        from hangarllm.proxy.auth.auth_checks import get_managed_vector_store_rows_by_uuids
+        from hangarllm.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
+
+        if _is_admin(user_api_key_dict):
+            return
+        parsed: Final = tuple(parse_unified_id(vector_store_id) or {} for vector_store_id in vector_store_ids)
+        uuids: Final = list(dict.fromkeys(str(ids["unified_uuid"]) for ids in parsed if ids.get("unified_uuid")))
+        if not uuids:
+            return
+        rows: Final = await get_managed_vector_store_rows_by_uuids(
+            uuids=uuids,
+            prisma_client=prisma_client,
+            user_api_key_cache=user_api_key_cache,
+            proxy_logging_obj=proxy_logging_obj,
+        )
+        for row in rows:
+            if row.team_id is not None and row.team_id != user_api_key_dict.team_id:
+                raise HTTPException(
+                    status_code=403, detail=f"The caller does not have access to vector store {row.vector_store_id}"
+                )
+
     # ------------------------------------------------------------------ files API
     async def acreate_file(
         self,
@@ -348,60 +415,88 @@ class HangarManagedFiles(CustomLogger):
         response: Final = await llm_router.afile_retrieve(model=model_id, file_id=provider_id)
         return OpenAIFileObject.model_validate({**response.model_dump(), "id": file_id})
 
+    async def _file_rows_from(
+        self, where: Mapping[str, object], direction: Literal["asc", "desc"], cursor: str | None, batch: int
+    ) -> AsyncIterator:
+        page_cursor = cursor  # rebind-ok: advances with each scanned batch
+        while True:
+            rows = await self._files().find_many(
+                where=dict(where),
+                order=[{"created_at": direction}, {"unified_file_id": direction}],
+                take=batch,
+                **({"cursor": {"unified_file_id": page_cursor}, "skip": 1} if page_cursor else {}),
+            )
+            for row in rows:
+                yield row
+            if len(rows) < batch:
+                return
+            page_cursor = rows[-1].unified_file_id  # rebind-ok: advances with each scanned batch
+
+    @staticmethod
+    def _listed_file(
+        row: object, purpose: str | None, model_scope: FileListModelScope | None
+    ) -> OpenAIFileObject | None:
+        mappings: Final = _loads(row.model_mappings)
+        mapped_keys: Final = mappings.keys() if isinstance(mappings, Mapping) else ()
+        if model_scope is not None and not model_scope.holds(
+            mapped_keys, stored=getattr(row, "storage_backend", None) is not None
+        ):
+            return None
+        file_object: Final = _loads(row.file_object)
+        if not isinstance(file_object, Mapping) or (purpose and file_object.get("purpose") != purpose):
+            return None
+        try:
+            return OpenAIFileObject.model_validate({**file_object, "id": row.unified_file_id})
+        except ValueError:
+            return None
+
     async def afile_list(
         self,
         purpose: str | None,
         hangarllm_parent_otel_span: object,
-        user_api_key_dict: UserAPIKeyAuth | None = None,
+        user_api_key_dict: UserAPIKeyAuth,
         limit: int | None = None,
         after: str | None = None,
-        model_scope=None,
+        model_scope: FileListModelScope | None = None,
         before: str | None = None,
         **data: object,
     ) -> FileListPage:
-        where: dict[str, object] = {}  # mutable-ok: prisma filter
-        if user_api_key_dict is not None and not _is_admin(user_api_key_dict):
-            if user_api_key_dict.user_id:
-                where["created_by"] = user_api_key_dict.user_id
-            elif user_api_key_dict.team_id:
-                where["team_id"] = user_api_key_dict.team_id
-            else:
-                return FileListPage()
-        take: Final = max(1, min(limit or 20, 1000))
-        rows: Final = await self._files().find_many(where=where, order={"created_at": "desc"}, take=take * 4 + 1)
-        files: list[OpenAIFileObject] = []  # mutable-ok: page builder
-        started = after is None
-        for row in rows:
-            if not started:
-                started = row.unified_file_id == after
-                continue
-            if before is not None and row.unified_file_id == before:
+        owner: Final = _owner_filter(user_api_key_dict)
+        if owner is None:
+            return FileListPage()
+        if after and before:
+            raise HTTPException(
+                status_code=400, detail="Pass the list cursor as either 'after' or 'before_id', not both."
+            )
+        cursor: Final = after or before
+        if cursor and await self._files().find_first(where={**owner, "unified_file_id": cursor}) is None:
+            param: Final = "after" if after else "before_id"
+            raise ProxyException(
+                message=f"Invalid '{param}' cursor: no file found with id '{cursor}'.",
+                type="invalid_request_error",
+                param=param,
+                code=400,
+                openai_code="invalid_value",
+            )
+        take: Final = max(1, min(limit if limit is not None else MAX_FILE_LIST_LIMIT, MAX_FILE_LIST_LIMIT))
+        listed: list[OpenAIFileObject] = []  # mutable-ok: page builder, the scan stops once the page is full
+        async for row in self._file_rows_from(
+            owner, "asc" if before else "desc", cursor, max(take + 1, _FILE_SCAN_BATCH_MIN)
+        ):
+            file = self._listed_file(row, purpose, model_scope)
+            if file is not None:
+                listed.append(file)
+            if len(listed) > take:
                 break
-            mappings = _loads(row.model_mappings) or {}
-            if model_scope is not None and not model_scope.holds(
-                mappings.keys() if isinstance(mappings, dict) else (), stored=True
-            ):
-                continue
-            obj = _loads(row.file_object)
-            if not isinstance(obj, dict):
-                continue
-            if purpose and obj.get("purpose") != purpose:
-                continue
-            try:
-                files.append(OpenAIFileObject.model_validate({**obj, "id": row.unified_file_id}))
-            except Exception:  # noqa: BLE001, S112 - skip rows written by other versions
-                continue
-            if len(files) > take:
-                break
-        has_more: Final = len(files) > take
-        page: Final = files[:take]
+        page: Final = listed[:take][::-1] if before else listed[:take]
         return FileListPage(
             data=page,
             first_id=page[0].id if page else None,
             last_id=page[-1].id if page else None,
-            has_more=has_more,
+            has_more=len(listed) > take,
         )
 
+    @with_service_target(MANAGED_RESOURCES_TARGET)
     async def afile_delete(self, file_id: str, hangarllm_parent_otel_span: object, llm_router, **data: object):
         from openai.types.file_deleted import FileDeleted
 
@@ -417,6 +512,9 @@ class HangarManagedFiles(CustomLogger):
         return FileDeleted(id=file_id, deleted=True, object="file")
 
     async def afile_content(self, file_id: str, hangarllm_parent_otel_span: object, llm_router, **data: object):
+        output_file: Final = _output_file_route(file_id)
+        if output_file is not None and llm_router is not None:
+            return await llm_router.afile_content(**{**data, "model": output_file[0], "file_id": output_file[1]})
         row: Final = await self._row_or_404(file_id)
         if llm_router is None or not row.model_mappings:
             raise HTTPException(status_code=404, detail=f"No deployment holds file {file_id}")
@@ -473,20 +571,33 @@ class HangarManagedFiles(CustomLogger):
         user_api_key_dict: UserAPIKeyAuth,
         request_tags: Sequence[str] | None = None,
     ) -> bool:
-        """Record a finished background response that was never stored, so it is billed exactly once."""
-        existing: Final = await self._objects().find_first(where={"unified_object_id": response_id})
-        if existing is not None:
+        """Record a finished background response the create never stored, so exactly one caller bills it."""
+        from prisma import Json
+        from prisma.errors import UniqueViolationError
+
+        from hangarllm.responses.utils import ResponsesAPIRequestUtils
+
+        decoded: Final = ResponsesAPIRequestUtils.decode_responses_api_response_id(response_id)
+        if decoded.get("model_id") is None:
             return False
-        await self.store_unified_object_id(
-            unified_object_id=response_id,
-            file_object=response,
-            hangarllm_parent_otel_span=None,
-            model_object_id=getattr(response, "id", response_id) or response_id,
-            file_purpose="response",
-            user_api_key_dict=user_api_key_dict,
-            request_tags=request_tags,
-            persist_attribution=True,
-        )
+        row_fields: Final = {
+            "unified_object_id": response_id,
+            "model_object_id": decoded.get("response_id") or response_id,
+            "file_object": _json(response),
+            "file_purpose": "response",
+            "status": "queued",
+            "created_by": user_api_key_dict.user_id,
+            "updated_by": user_api_key_dict.user_id,
+            "team_id": user_api_key_dict.team_id,
+            "api_key": user_api_key_dict.api_key,
+            "org_id": user_api_key_dict.org_id,
+            "end_user_id": user_api_key_dict.end_user_id,
+            "request_tags": Json(list(request_tags or [])),
+        }
+        try:
+            await self._objects().create(data={k: v for k, v in row_fields.items() if v is not None})
+        except UniqueViolationError:
+            return False
         return True
 
     # ------------------------------------------------------------------ request hooks
@@ -526,6 +637,10 @@ class HangarManagedFiles(CustomLogger):
                 data.setdefault("model", model_id)
                 data[id_field] = provider_id
             return data
+        if call in _RESPONSES_CALL_TYPES:
+            vector_store_ids = self.get_vector_store_ids_from_file_search_tools(data.get("tools"))
+            if vector_store_ids:
+                await self.check_vector_store_ids_access(vector_store_ids, user_api_key_dict)
         for field in _UNIFIED_FILE_FIELDS:
             if decode_unified_id(data.get(field)):
                 candidate_ids.append(str(data[field]))
@@ -574,12 +689,22 @@ class HangarManagedFiles(CustomLogger):
                 response.id = _b64(retrieved_unified) if not decode_unified_id(retrieved_unified) else retrieved_unified
             return response
         model_id: Final = hidden.get("model_id")
-        if not isinstance(model_id, str) or not model_id:
-            return response
         response_id: Final = getattr(response, "id", None)
         if not isinstance(response_id, str) or decode_unified_id(response_id):
             return response
         if isinstance(response, HangarLLMBatch) and hidden.get("batch_create") is True:
+            if not isinstance(model_id, str) or not model_id:
+                await self.store_unified_object_id(
+                    unified_object_id=response_id,
+                    file_object=response,
+                    hangarllm_parent_otel_span=user_api_key_dict.parent_otel_span,
+                    model_object_id=response_id,
+                    file_purpose="batch",
+                    user_api_key_dict=user_api_key_dict,
+                    persist_attribution=True,
+                    batch_processed=True,
+                )
+                return response
             unified_batch_id = self.get_unified_batch_id(batch_id=response_id, model_id=model_id)
             unified_input = hidden.get("unified_file_id")
             if isinstance(unified_input, str) and unified_input and decode_unified_id(response.input_file_id) is None:
@@ -598,6 +723,8 @@ class HangarManagedFiles(CustomLogger):
                 persist_attribution=True,
             )
             return response
+        if not isinstance(model_id, str) or not model_id:
+            return response
         if type(response).__name__ == "HangarLLMFineTuningJob" and decode_unified_id(data.get("training_file")):
             unified_job_id = self.get_unified_generic_response_id(model_id=model_id, generic_response_id=response_id)
             response.id = unified_job_id
@@ -615,5 +742,5 @@ class HangarManagedFiles(CustomLogger):
 
 
 # upstream-compatible names
-_PROXY_HangarLLMManagedFiles = HangarManagedFiles
-PROXY_HangarLLMManagedFiles = HangarManagedFiles
+HangarManagedFiles = _PROXY_HangarLLMManagedFiles
+PROXY_HangarLLMManagedFiles = _PROXY_HangarLLMManagedFiles

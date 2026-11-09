@@ -144,6 +144,8 @@ BACKEND_PATH_PREFIXES: tuple[str, ...] = (
     "/robots.txt",
     # Health (k8s probes)
     "/health",
+    # Skills Hub
+    "/skill-hub/",
     # Plugin system
     "/api/plugins",
     "/plugin-proxy/",
