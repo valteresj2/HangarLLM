@@ -98,10 +98,10 @@ class TestStandardizedResetTime(unittest.TestCase):
         self.assertEqual(ist_result, ist_expected)
 
         # Test hourly reset in different timezones
-        # US/Pacific (UTC-7): 3:30 PM, so next 2h reset is 4:00 PM
-        pacific = ZoneInfo("US/Pacific")
+        # America/Los_Angeles (UTC-7): 3:30 PM, so next 2h reset is 4:00 PM
+        pacific = ZoneInfo("America/Los_Angeles")
         pacific_expected = datetime(2023, 5, 15, 16, 0, 0, tzinfo=pacific)
-        pacific_result = get_next_standardized_reset_time("2h", base_time, "US/Pacific")
+        pacific_result = get_next_standardized_reset_time("2h", base_time, "America/Los_Angeles")
         self.assertEqual(pacific_result, pacific_expected)
 
         # Test minute reset in different timezones

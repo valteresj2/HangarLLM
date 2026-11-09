@@ -37,7 +37,7 @@ PULL_REQUEST_EVENT: Final = MappingProxyType(
     {"number": "1", "base.ref": "main", "base.sha": "basesha", "head.sha": "headsha"}
 )
 
-FULL_SUITE_ARGV = ["run", "test", "--", "--run", "--pool", "forks", "--maxWorkers=14"]
+FULL_SUITE_ARGV = ["run", "test", "--", "--run", "--pool", "forks", "--maxWorkers=4"]
 
 NON_SRC_FILES = [
     "package.json",
@@ -160,7 +160,7 @@ def _related_argv(changed: list[str]) -> list[str]:
         "--passWithNoTests",
         "--pool",
         "forks",
-        "--maxWorkers=14",
+        "--maxWorkers=4",
     ]
 
 
