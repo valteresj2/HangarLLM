@@ -136,7 +136,7 @@ const ALL_CLOSED_PAYLOAD = {
   models: [],
   key_type: "llm_api",
   user_id: "test-user-id",
-  duration: null,
+  duration: "30d",
   metadata: "{}",
 };
 
@@ -427,7 +427,7 @@ describe("CreateKey", () => {
       expect(payload.rpm_limit_type).toBeNull();
     });
 
-    it("routes a typed expiry into duration, which is otherwise coalesced to null", async () => {
+    it("routes a typed expiry into duration", async () => {
       await openModal();
       await nameTheKey();
       await openSection(/Optional Settings/i);
@@ -438,7 +438,7 @@ describe("CreateKey", () => {
       expect((await createdPayload()).duration).toBe("45d");
     });
 
-    it("drops a typed expiry back to null when its section is collapsed before submit", async () => {
+    it("falls back to the policy expiry when its section is collapsed before submit", async () => {
       await openModal();
       await nameTheKey();
       await openSection(/Optional Settings/i);
@@ -447,7 +447,7 @@ describe("CreateKey", () => {
       await openSection(SECTIONS.lifecycle);
       await submit();
 
-      expect((await createdPayload()).duration).toBeNull();
+      expect((await createdPayload()).duration).toBe("30d");
     });
 
     it("routes a selected budget reset window into budget_duration", async () => {

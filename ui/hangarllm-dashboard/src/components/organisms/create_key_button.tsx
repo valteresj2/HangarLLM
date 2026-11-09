@@ -469,10 +469,13 @@ const CreateKey: React.FC<CreateKeyProps> = ({ team, teams, data, addKey, autoOp
     return { ...values, metadata: JSON.stringify({ ...metadata, allowed_ips: ips }) };
   };
 
+  const withPolicyExpiry = (values: MountedFormValues): MountedFormValues =>
+    "duration" in values || isProductionProject ? values : { ...values, duration: formDefaults.duration };
+
   const handleCreate = async (formValues: MountedFormValues) => {
     try {
       const input: KeyCreateInput = {
-        formValues: withAllowedIps(formValues),
+        formValues: withPolicyExpiry(withAllowedIps(formValues)),
         existingKeys: data,
         keyOwner,
         userID,

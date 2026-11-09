@@ -495,6 +495,30 @@ class TestManagedFilesVectorStoreAccess:
         assert exc_info.value.status_code == 403
 
     @pytest.mark.asyncio
+    async def test_F8_store_held_by_managed_vector_stores_hook_is_checked(self):
+        from fastapi import HTTPException
+
+        hook = self._make_hook()
+        unified_id = _make_unified_vs_id(unified_uuid="uuid-unified")
+        stores = MagicMock()
+        stores.denies_access = AsyncMock(return_value=True)
+        logging_obj = MagicMock()
+        logging_obj.get_proxy_hook.return_value = stores
+
+        with (
+            patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj", logging_obj),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await hook.check_vector_store_ids_access(
+                    [unified_id, "vs_native"], self._make_user(team_id="team-caller")
+                )
+
+        assert exc_info.value.status_code == 403
+        logging_obj.get_proxy_hook.assert_called_once_with("managed_vector_stores")
+        assert [call.args[0] for call in stores.denies_access.await_args_list] == [unified_id]
+
+    @pytest.mark.asyncio
     async def test_F6_non_responses_call_type_skipped(self):
         """Access check only runs for aresponses/responses call types."""
         from hangarllm.hangar.proxy.managed_files import (

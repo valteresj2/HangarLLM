@@ -339,6 +339,14 @@ class _PROXY_HangarLLMManagedFiles(CustomLogger, BaseFileEndpoints):
         if _is_admin(user_api_key_dict):
             return
         parsed: Final = tuple(parse_unified_id(vector_store_id) or {} for vector_store_id in vector_store_ids)
+        managed_stores: Final = proxy_logging_obj.get_proxy_hook("managed_vector_stores")
+        denies_access: Final = getattr(managed_stores, "denies_access", None)
+        unified_ids: Final = tuple(store_id for store_id, ids in zip(vector_store_ids, parsed, strict=True) if ids)
+        for unified_id in unified_ids if denies_access is not None else ():
+            if await denies_access(unified_id, user_api_key_dict):
+                raise HTTPException(
+                    status_code=403, detail=f"The caller does not have access to vector store {unified_id}"
+                )
         uuids: Final = list(dict.fromkeys(str(ids["unified_uuid"]) for ids in parsed if ids.get("unified_uuid")))
         if not uuids:
             return
