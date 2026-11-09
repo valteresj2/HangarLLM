@@ -1198,7 +1198,7 @@ jobs:
           EVENT_BASE_REF: ${{ github.event.pull_request.base.ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          full_suite() { npm run test -- --run --pool forks --maxWorkers=14; }
+          full_suite() { npm run test -- --run --pool forks --maxWorkers=4; }
 
           if [ -z "$PR_NUMBER" ]; then
             echo "Push to $GITHUB_REF_NAME: running the full suite"
@@ -1228,7 +1228,7 @@ jobs:
 
           echo "Pull request: running tests related to ${#changed_files[@]} changed UI files"
           npm run test -- related "${changed_files[@]}" --run --passWithNoTests \
-            --pool forks --maxWorkers=14
+            --pool forks --maxWorkers=4
   docs:
     name: docs
     permissions:
