@@ -16,7 +16,6 @@ general_settings:
     host: os.environ/REDIS_HOST
     port: os.environ/REDIS_PORT
     password: os.environ/REDIS_PASSWORD
-  # Request logs older than this are deleted every night. Daily spend totals are kept.
-  maximum_spend_logs_retention_period: "90d"
+  # Request logs are kept forever. Only health check rows older than this are deleted every night.
   maximum_health_check_retention_period: "30d"
   maximum_spend_logs_cleanup_cron: "0 3 * * *"

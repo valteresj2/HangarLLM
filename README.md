@@ -261,7 +261,7 @@ Prometheus scrapes the gateway automatically and is available at `http://127.0.0
 
 The gateway runs 4 workers by default. Set `HANGARLLM_WORKERS` in `.env` to change it. Workers share rate limits, spend counters, budget windows and routing cooldowns through Redis, so a key limited to 3 requests per minute gets 3 in total and not 3 per worker. Each worker opens up to 10 Postgres connections, so keep workers times 10 under the database's `max_connections`.
 
-Request logs older than 90 days and health check rows older than 30 days are deleted every night at 03:00 UTC. Daily spend totals are kept, so usage reports still cover older periods. Change the periods in [docker/hangarllm-config.yaml](docker/hangarllm-config.yaml).
+Request logs are never deleted. Only health check rows older than 30 days are pruned, every night at 03:00 UTC. Request logs grow with traffic, and so do the backups, so watch the disk. To prune them later, set `maximum_spend_logs_retention_period` in [docker/hangarllm-config.yaml](docker/hangarllm-config.yaml).
 
 The `backup` service dumps the database once a day into the `hangarllm_db_backups` volume and keeps the newest 7 dumps. Change that with `HANGARLLM_BACKUP_INTERVAL_SECONDS` and `HANGARLLM_BACKUP_KEEP`. To prove the newest dump restores, run the check below. It restores into a scratch database, compares the table, key and team counts with the live database, and drops the scratch copy.
 
