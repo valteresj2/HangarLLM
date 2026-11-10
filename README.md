@@ -257,6 +257,28 @@ For provider keys in production, prefer a secret manager over the database. To r
 
 Prometheus scrapes the gateway automatically and is available at `http://127.0.0.1:9090` from the host running the stack. Spend, logs and the audit trail are in the admin UI, and callbacks for Langfuse, OpenTelemetry, Datadog and others can be added in the config file.
 
+## Operations
+
+The gateway runs 4 workers by default. Set `HANGARLLM_WORKERS` in `.env` to change it. Workers share rate limits, spend counters, budget windows and routing cooldowns through Redis, so a key limited to 3 requests per minute gets 3 in total and not 3 per worker. Each worker opens up to 10 Postgres connections, so keep workers times 10 under the database's `max_connections`.
+
+Request logs older than 90 days and health check rows older than 30 days are deleted every night at 03:00 UTC. Daily spend totals are kept, so usage reports still cover older periods. Change the periods in [docker/hangarllm-config.yaml](docker/hangarllm-config.yaml).
+
+The `backup` service dumps the database once a day into the `hangarllm_db_backups` volume and keeps the newest 7 dumps. Change that with `HANGARLLM_BACKUP_INTERVAL_SECONDS` and `HANGARLLM_BACKUP_KEEP`. To prove the newest dump restores, run the check below. It restores into a scratch database, compares the table, key and team counts with the live database, and drops the scratch copy.
+
+```bash
+docker compose exec backup sh /backup/verify.sh
+```
+
+To restore for real, stop the gateway first so nothing writes while the dump loads.
+
+```bash
+docker compose stop hangarllm
+docker compose exec backup sh -c 'PGPASSWORD="$(cat /run/secrets/postgres_password)" pg_restore --host=db --username=hangarllm --dbname=hangarllm --clean --if-exists --no-owner /backups/<dump file>'
+docker compose start hangarllm
+```
+
+The volume lives on the same machine as the database, so copy the dumps somewhere else as well, for example with `docker run --rm -v hangarllm_db_backups:/b -v "$PWD":/out alpine cp -r /b /out/backups`.
+
 ## Deploy
 
 | Target | Where |

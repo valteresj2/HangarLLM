@@ -49,6 +49,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       STORE_MODEL_IN_DB: "True"
+      # Workers share rate limits, spend and routing state through Redis (docker/hangarllm-config.yaml).
+      NUM_WORKERS: ${HANGARLLM_WORKERS:-4}
       PROXY_BASE_URL: https://${HANGARLLM_DOMAIN:-localhost}:${HANGARLLM_PORT:-443}
     env_file:
       - path: .env
@@ -104,6 +106,29 @@ services:
       interval: 2s
       timeout: 5s
       retries: 15
+    restart: unless-stopped
+
+  backup:
+    image: postgres:16
+    entrypoint: ["sh", "/backup/backup.sh"]
+    environment:
+      BACKUP_INTERVAL_SECONDS: ${HANGARLLM_BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_KEEP: ${HANGARLLM_BACKUP_KEEP:-7}
+    secrets:
+      - postgres_password
+    volumes:
+      - ./docker/backup:/backup:ro
+      - postgres_backups:/backups
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   redis:
@@ -163,3 +188,5 @@ volumes:
   caddy_config:
   postgres_data:
     name: hangarllm_db
+  postgres_backups:
+    name: hangarllm_db_backups

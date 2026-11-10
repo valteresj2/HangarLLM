@@ -1,6 +1,22 @@
 hangarllm_settings:
   callbacks: ["prometheus"]
 
+# Cooldowns and deployment usage live in Redis, so every worker routes from the same view.
+router_settings:
+  redis_host: os.environ/REDIS_HOST
+  redis_port: os.environ/REDIS_PORT
+  redis_password: os.environ/REDIS_PASSWORD
+
 general_settings:
   # Caddy is the only way in and replaces this header, so it holds the real client address.
   use_x_forwarded_for: true
+  # Rate limits, spend counters and budget windows are shared by every worker through Redis.
+  # Naming it here makes a Redis outage fail loudly at boot instead of silently going per worker.
+  coordination_redis:
+    host: os.environ/REDIS_HOST
+    port: os.environ/REDIS_PORT
+    password: os.environ/REDIS_PASSWORD
+  # Request logs older than this are deleted every night. Daily spend totals are kept.
+  maximum_spend_logs_retention_period: "90d"
+  maximum_health_check_retention_period: "30d"
+  maximum_spend_logs_cleanup_cron: "0 3 * * *"
