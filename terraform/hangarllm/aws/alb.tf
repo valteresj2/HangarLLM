@@ -1,5 +1,5 @@
 resource "aws_lb" "this" {
-  name               = local.name
+  name               = local.limited_names[""]
   load_balancer_type = "application"
   internal           = false
   security_groups    = [aws_security_group.alb.id]
@@ -28,7 +28,7 @@ locals {
 # are addressed by ENI IP, not instance.
 
 resource "aws_lb_target_group" "gateway" {
-  name        = "${local.name}-gateway"
+  name        = local.limited_names["-gateway"]
   port        = 4000
   protocol    = "HTTP"
   target_type = "ip"
@@ -49,7 +49,7 @@ resource "aws_lb_target_group" "gateway" {
 }
 
 resource "aws_lb_target_group" "backend" {
-  name        = "${local.name}-backend"
+  name        = local.limited_names["-backend"]
   port        = 4001
   protocol    = "HTTP"
   target_type = "ip"
@@ -70,7 +70,7 @@ resource "aws_lb_target_group" "backend" {
 }
 
 resource "aws_lb_target_group" "ui" {
-  name        = "${local.name}-ui"
+  name        = local.limited_names["-ui"]
   port        = 3000
   protocol    = "HTTP"
   target_type = "ip"

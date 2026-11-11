@@ -38,7 +38,7 @@ module "hangarllm" {
 
   hangarllm_master_key = var.hangarllm_master_key
   hangarllm_license    = var.hangarllm_license
-  ui_password        = var.ui_password
+  ui_password          = var.ui_password
 
   image_registry = var.image_registry
   image_tag      = var.image_tag != "" ? var.image_tag : null

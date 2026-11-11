@@ -15,7 +15,7 @@ resource "aws_elasticache_subnet_group" "this" {
 # REDIS_SSL=true in the shared task env (see ecs.tf).
 resource "aws_elasticache_replication_group" "this" {
   count                = var.create_redis ? 1 : 0
-  replication_group_id = "${local.name}-redis"
+  replication_group_id = local.limited_names["-redis"]
   description          = "HangarLLM ElastiCache Redis"
 
   engine               = "redis"

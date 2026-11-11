@@ -8,6 +8,16 @@ locals {
   # the stack can reference local.name.
   name = "${var.tenant}-hangarllm-${var.env}"
 
+  # GCP caps service account ids at 30 characters. An id that fits keeps its plain
+  # name, and a longer one keeps the start of the name plus a short hash of it.
+  service_account_ids = {
+    for role in ["runtime", "ui-runtime"] : role => (
+      length("${local.name}-${role}") <= 30
+      ? "${local.name}-${role}"
+      : "${trimsuffix(substr(local.name, 0, 24 - length(role)), "-")}-${substr(sha1(local.name), 0, 4)}-${role}"
+    )
+  }
+
   # Mirrors the AWS stack's local.tags: the module stamps its own
   # `hangarllm-stack` / `managed-by` labels onto every label-supporting
   # resource (Cloud Run, Cloud SQL, Memorystore, Secret Manager, GCS) and
@@ -16,7 +26,7 @@ locals {
   labels = merge(
     {
       "hangarllm-stack" = local.name
-      "managed-by"    = "terraform"
+      "managed-by"      = "terraform"
     },
     var.labels,
   )

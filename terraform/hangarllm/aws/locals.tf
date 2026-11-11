@@ -11,6 +11,17 @@ locals {
   # the stack can reference local.name.
   name = "${var.tenant}-hangarllm-${var.env}"
 
+  # ALB and target group names are capped at 32 characters and ElastiCache ids at 40.
+  # A name that fits is used as is, and a longer one keeps the start of the name plus a
+  # short hash of it.
+  limited_names = {
+    for suffix, limit in { "" = 32, "-gateway" = 32, "-backend" = 32, "-ui" = 32, "-redis" = 40 } : suffix => (
+      length("${local.name}${suffix}") <= limit
+      ? "${local.name}${suffix}"
+      : "${trimsuffix(substr(local.name, 0, limit - length(suffix) - 5), "-")}-${substr(sha1(local.name), 0, 4)}${suffix}"
+    )
+  }
+
   gateway_image    = var.gateway_image != "" ? var.gateway_image : "${var.image_registry}/hangarllm-gateway:${var.image_tag}"
   backend_image    = var.backend_image != "" ? var.backend_image : "${var.image_registry}/hangarllm-backend:${var.image_tag}"
   ui_image         = var.ui_image != "" ? var.ui_image : "${var.image_registry}/hangarllm-ui:${var.image_tag}"
@@ -25,7 +36,7 @@ locals {
   tags = merge(
     {
       "hangarllm:stack" = local.name
-      "managed-by"    = "terraform"
+      "managed-by"      = "terraform"
     },
     var.tags,
   )

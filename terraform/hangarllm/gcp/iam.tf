@@ -4,7 +4,7 @@
 # container can't read master_key / db_password / license / ui_password /
 # provider creds via the metadata service.
 resource "google_service_account" "runtime" {
-  account_id   = "${local.name}-runtime"
+  account_id   = local.service_account_ids["runtime"]
   display_name = "HangarLLM Cloud Run runtime"
 
   lifecycle {
@@ -25,7 +25,7 @@ resource "google_service_account" "runtime" {
 resource "google_service_account" "ui_runtime" {
   count = var.create_runtime ? 1 : 0
 
-  account_id   = "${local.name}-ui-runtime"
+  account_id   = local.service_account_ids["ui-runtime"]
   display_name = "HangarLLM Cloud Run UI runtime (no data-plane access)"
 }
 
