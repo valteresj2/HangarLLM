@@ -297,6 +297,7 @@ def _event_context(pull_request: Mapping[str, str]) -> Mapping[str, str]:
         {
             "github.repository": REPOSITORY,
             "github.token": "fake-token",
+            "matrix.shard": "1",
             **{f"github.event.pull_request.{field}": value for field, value in pull_request.items()},
         }
     )
