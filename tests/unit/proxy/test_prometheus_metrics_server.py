@@ -15,7 +15,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Final
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import httpx
 import pytest
@@ -33,6 +33,8 @@ from hangarllm.proxy.prometheus_metrics_server import (
 
 _STARTUP_TIMEOUT_SECONDS: Final = 60.0
 _SHUTDOWN_TIMEOUT_SECONDS: Final = 15.0
+# The child imports all of hangarllm before binding; on a busy CI runner that alone has exceeded 30s.
+_LOADED_RUNNER_STARTUP_SECONDS: Final = 120.0
 
 
 def _write_worker_sample(pid: int, value: float) -> None:
@@ -156,9 +158,15 @@ def test_start_metrics_server_process_returns_only_once_child_serves(tmp_path: P
     _write_worker_sample(pid=3001, value=4)
     port: Final = _free_port()
     with patch("atexit.register") as register:
-        process: Final = start_metrics_server_process(host="127.0.0.1", port=port, multiproc_dir=str(tmp_path))
+        process: Final = start_metrics_server_process(
+            host="127.0.0.1",
+            port=port,
+            multiproc_dir=str(tmp_path),
+            startup_timeout_seconds=_LOADED_RUNNER_STARTUP_SECONDS,
+        )
     try:
-        register.assert_called_once_with(process.terminate)
+        # Lazy imports during startup may register their own atexit hooks; only ours matters here.
+        assert register.call_args_list.count(call(process.terminate)) == 1
         assert process.poll() is None
         startup_metrics: Final = httpx.get(f"http://127.0.0.1:{port}/metrics", follow_redirects=True, timeout=5.0)
         assert startup_metrics.status_code == 200
@@ -208,7 +216,9 @@ def test_start_metrics_server_process_rejects_metrics_from_another_service_on_th
         assert PID_HEADER not in impostor_response.headers
         with (
             patch("atexit.register"),
-            pytest.raises(MetricsServerStartupError, match=rf"exited with code [1-9]\d* before serving 127.0.0.1:{port}"),
+            pytest.raises(
+                MetricsServerStartupError, match=rf"exited with code [1-9]\d* before serving 127.0.0.1:{port}"
+            ),
         ):
             start_metrics_server_process(host="127.0.0.1", port=port, multiproc_dir=str(tmp_path))
         impostor.shutdown()

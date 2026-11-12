@@ -8,6 +8,8 @@ import type { SkillHubSkill, SkillSubmission } from "@/components/claude_code_pl
 import { toast } from "@/lib/toast";
 import ClaudeCodePluginsPanel from "./ClaudeCodePluginsPanel";
 
+const SLOW_RUNNER_TIMEOUT_MS = 5000;
+
 const published: SkillHubSkill = {
   id: "published-skill",
   name: "shared-skill",
@@ -244,7 +246,8 @@ const openEdit = async () => {
 };
 
 it.each(["current", "retained"])("refreshes published counts after a %s download", async (kind) => {
-  URL.createObjectURL = vi.fn(() => "blob:skill-download");
+  const createObjectURL = vi.fn(() => "blob:skill-download");
+  URL.createObjectURL = createObjectURL;
   renderWithProviders(<ClaudeCodePluginsPanel accessToken="admin-token" userRole="Admin" />);
   expect(await screen.findByRole("cell", { name: "0" })).toBeInTheDocument();
   expect(catalogRequests).toHaveLength(1);
@@ -256,9 +259,11 @@ it.each(["current", "retained"])("refreshes published counts after a %s download
   });
   catalog = [{ ...published, download_count: 1 }];
   fireEvent.click(button);
+  // The button is enabled both before and after the download, so wait for the blob instead.
+  await waitFor(() => expect(createObjectURL).toHaveBeenCalledOnce(), { timeout: SLOW_RUNNER_TIMEOUT_MS });
   await waitFor(() => expect(button).toBeEnabled());
   fireEvent.click(screen.getByText("Skills Hub"));
-  expect(await screen.findByRole("cell", { name: "1" })).toBeInTheDocument();
+  expect(await screen.findByRole("cell", { name: "1" }, { timeout: SLOW_RUNNER_TIMEOUT_MS })).toBeInTheDocument();
 });
 
 it("paginates the neutral catalog and refreshes detail for a recreated skill", async () => {

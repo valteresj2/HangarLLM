@@ -117,9 +117,9 @@ def _answered_by(http: HTTPHandler, url: str, pid: int) -> bool:
         return False
 
 
-def _wait_until_serving(process: subprocess.Popen[bytes], host: str, port: int) -> None:
+def _wait_until_serving(process: subprocess.Popen[bytes], host: str, port: int, startup_timeout_seconds: float) -> None:
     url: Final = metrics_url(host, port)
-    deadline: Final = time.monotonic() + _STARTUP_TIMEOUT_SECONDS
+    deadline: Final = time.monotonic() + startup_timeout_seconds
     with closing(HTTPHandler(timeout=_STARTUP_PROBE_TIMEOUT_SECONDS)) as http:
         while time.monotonic() < deadline:
             if (returncode := process.poll()) is not None:
@@ -132,12 +132,18 @@ def _wait_until_serving(process: subprocess.Popen[bytes], host: str, port: int) 
             time.sleep(_STARTUP_POLL_INTERVAL_SECONDS)
     process.terminate()
     raise MetricsServerStartupError(
-        f"Prometheus metrics server did not answer {url} within {_STARTUP_TIMEOUT_SECONDS:.0f}s"
+        f"Prometheus metrics server did not answer {url} within {startup_timeout_seconds:.0f}s"
     )
 
 
-def start_metrics_server_process(host: str, port: int, multiproc_dir: str) -> subprocess.Popen[bytes]:
-    """Spawn the metrics server next to the proxy and block until it answers on its port."""
+def start_metrics_server_process(
+    host: str, port: int, multiproc_dir: str, *, startup_timeout_seconds: float = _STARTUP_TIMEOUT_SECONDS
+) -> subprocess.Popen[bytes]:
+    """Spawn the metrics server next to the proxy and block until it answers on its port.
+
+    ``startup_timeout_seconds`` bounds the child's cold start, which is dominated by importing
+    ``hangarllm`` and can take far longer on a loaded host than on an idle one.
+    """
     process: Final = subprocess.Popen(
         (
             sys.executable,
@@ -152,7 +158,7 @@ def start_metrics_server_process(host: str, port: int, multiproc_dir: str) -> su
         )
     )
     atexit.register(process.terminate)
-    _wait_until_serving(process, host, port)
+    _wait_until_serving(process, host, port, startup_timeout_seconds)
     return process
 
 
