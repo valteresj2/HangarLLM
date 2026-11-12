@@ -301,6 +301,7 @@ export const provider_map: Record<string, string> = {
   OpenAI: "openai",
   OPENAI_LIKE: "openai_like",
   OpenAI_Compatible: "openai",
+  Anthropic_Compatible: "anthropic",
   OpenAI_Text: "text-completion-openai",
   OpenAI_Text_Compatible: "text-completion-openai",
   Openrouter: "openrouter",

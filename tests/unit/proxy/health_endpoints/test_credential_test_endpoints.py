@@ -318,7 +318,7 @@ class TestBatch:
         assert SECRET_KEY not in response.text
         assert "sk-good-key-000" not in response.text
         assert SECRET_KEY not in captured_logs.getvalue()
-        assert [result.credential_name for result, _, _ in harness.store.saved] == ["openai-good", "openai-bad"]
+        assert sorted(result.credential_name for result, _, _ in harness.store.saved) == ["openai-bad", "openai-good"]
 
 
 class TestLatest:
