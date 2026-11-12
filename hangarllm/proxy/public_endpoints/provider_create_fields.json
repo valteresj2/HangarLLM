@@ -923,7 +923,7 @@
     "provider": "CHATGPT",
     "provider_display_name": "ChatGPT Subscription",
     "hangarllm_provider": "chatgpt",
-    "category": "cloud_api",
+    "category": "consumer_subscription",
     "credential_fields": [],
     "default_model_placeholder": "chatgpt/gpt-5.4"
   },

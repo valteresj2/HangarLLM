@@ -3,8 +3,9 @@ import {
   entryForRouterId,
   resolveCredentialEntry,
   type CatalogEntry,
+  type GridCategory,
 } from "@/app/(dashboard)/hooks/providers/useProviderCatalog";
-import type { CredentialItem, CredentialTestResult, ProviderCategory } from "@/components/networking";
+import type { CredentialItem, CredentialTestResult } from "@/components/networking";
 
 export interface ProviderModel {
   model_name?: string | null;
@@ -24,7 +25,7 @@ export interface ProviderCard {
 }
 
 export interface ProviderGroup {
-  category: ProviderCategory;
+  category: GridCategory;
   cards: ProviderCard[];
 }
 

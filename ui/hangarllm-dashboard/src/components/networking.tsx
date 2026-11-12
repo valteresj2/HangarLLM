@@ -387,7 +387,7 @@ export interface ProviderCredentialFieldMetadata {
   default_value?: string | null;
 }
 
-export type ProviderCategory = "cloud_api" | "enterprise_cloud" | "self_hosted";
+export type ProviderCategory = "cloud_api" | "enterprise_cloud" | "self_hosted" | "consumer_subscription";
 
 export interface ProviderCreateInfo {
   provider: string;

@@ -17,6 +17,7 @@ const catalog = buildCatalog([
   field("Cohere", "Cohere", "cohere", "cloud_api"),
   field("Mistral", "Mistral AI", "mistral", "cloud_api"),
   field("OpenAI_Compatible", "OpenAI-Compatible Endpoints", "openai", "self_hosted"),
+  field("CHATGPT", "ChatGPT Subscription", "chatgpt", "consumer_subscription"),
 ]);
 
 const credential = (name: string, info: CredentialItem["credential_info"], displayName?: string): CredentialItem => ({
@@ -95,6 +96,14 @@ describe("groupProviderCards", () => {
 
   it("hides providers without credentials when Configured only is on", () => {
     expect(names({ search: "", configuredOnly: true })).toEqual(["Mistral AI", "OpenAI"]);
+  });
+
+  it("never lists a consumer subscription provider in any group", () => {
+    const listed = groupProviderCards(cards, { search: "", configuredOnly: false }).flatMap((group) =>
+      group.cards.map((card) => card.entry.key),
+    );
+    expect(listed).not.toContain("CHATGPT");
+    expect(listed).toContain("OpenAI");
   });
 
   it("filters by display name or router id, ignoring case", () => {

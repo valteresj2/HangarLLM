@@ -1144,7 +1144,11 @@ jobs:
           path: coverage.xml
           retention-days: 1
   ui-unit:
-    name: ui-unit
+    name: ui-unit (${{ matrix.shard }}/4)
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     permissions:
       contents: read
       pull-requests: read
@@ -1197,8 +1201,9 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           EVENT_BASE_REF: ${{ github.event.pull_request.base.ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          VITEST_SHARD: ${{ matrix.shard }}/4
         run: |
-          full_suite() { npm run test -- --run --pool forks --maxWorkers=4; }
+          full_suite() { npm run test -- --run --pool forks --maxWorkers=4 --shard="$VITEST_SHARD"; }
 
           if [ -z "$PR_NUMBER" ]; then
             echo "Push to $GITHUB_REF_NAME: running the full suite"
@@ -1228,7 +1233,7 @@ jobs:
 
           echo "Pull request: running tests related to ${#changed_files[@]} changed UI files"
           npm run test -- related "${changed_files[@]}" --run --passWithNoTests \
-            --pool forks --maxWorkers=4
+            --pool forks --maxWorkers=4 --shard="$VITEST_SHARD"
   docs:
     name: docs
     permissions:

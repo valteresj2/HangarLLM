@@ -27,7 +27,7 @@ class ProviderCredentialField(HangarLLMBaseModel):
     default_value: str | None = None
 
 
-ProviderCategory: TypeAlias = Literal["cloud_api", "enterprise_cloud", "self_hosted"]
+ProviderCategory: TypeAlias = Literal["cloud_api", "enterprise_cloud", "self_hosted", "consumer_subscription"]
 
 
 class ProviderCreateInfo(HangarLLMBaseModel):

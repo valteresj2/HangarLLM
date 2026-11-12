@@ -37,7 +37,7 @@ PULL_REQUEST_EVENT: Final = MappingProxyType(
     {"number": "1", "base.ref": "main", "base.sha": "basesha", "head.sha": "headsha"}
 )
 
-FULL_SUITE_ARGV = ["run", "test", "--", "--run", "--pool", "forks", "--maxWorkers=4"]
+FULL_SUITE_ARGV = ["run", "test", "--", "--run", "--pool", "forks", "--maxWorkers=4", "--shard=1/4"]
 
 NON_SRC_FILES = [
     "package.json",
@@ -88,6 +88,8 @@ def _resolve(text: str, pull_request: Mapping[str, str] | None) -> str:
             return "valteresj2/HangarLLM"
         if expression == "github.token":
             return "token"
+        if expression == "matrix.shard":
+            return "1"
         field: Final = expression.removeprefix("github.event.pull_request.")
         assert field != expression, f"the step uses ${{{{ {expression} }}}}, which this harness does not resolve"
         return "" if pull_request is None else pull_request[field]
@@ -161,6 +163,7 @@ def _related_argv(changed: list[str]) -> list[str]:
         "--pool",
         "forks",
         "--maxWorkers=4",
+        "--shard=1/4",
     ]
 
 

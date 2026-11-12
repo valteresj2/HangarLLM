@@ -13,7 +13,8 @@ import {
   useCredentialTestResults,
   useRecordCredentialTests,
 } from "@/app/(dashboard)/hooks/providers/useProviderHealth";
-import { credentialTestBatchCall, type CompatibleKind, type ProviderCategory } from "@/components/networking";
+import type { GridCategory } from "@/app/(dashboard)/hooks/providers/useProviderCatalog";
+import { credentialTestBatchCall, type CompatibleKind } from "@/components/networking";
 import { Logo } from "@/components/molecules/logo/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +41,7 @@ const GROUP_LABELS = {
   cloud_api: "modelsAndEndpoints.providersView.groups.cloudApi",
   enterprise_cloud: "modelsAndEndpoints.providersView.groups.enterpriseCloud",
   self_hosted: "modelsAndEndpoints.providersView.groups.selfHosted",
-} as const satisfies Record<ProviderCategory, string>;
+} as const satisfies Record<GridCategory, string>;
 
 export const statusText = (t: TFunction, status: ProviderStatus): string => {
   if (status.kind === "not_configured") return t("modelsAndEndpoints.providersView.status.notConfigured");
@@ -138,7 +139,7 @@ export default function ProvidersView() {
       return updated;
     });
 
-  const testGroup = async (category: ProviderCategory) => {
+  const testGroup = async (category: GridCategory) => {
     const targets =
       groupProviderCards(cards, { search: "", configuredOnly: true }).find((group) => group.category === category)
         ?.cards ?? [];

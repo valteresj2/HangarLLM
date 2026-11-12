@@ -9,7 +9,9 @@ import type {
 import { getProviderLogoAndName } from "@/components/provider_info_helpers";
 import { useProviderFields } from "./useProviderFields";
 
-export const PROVIDER_CATEGORIES: readonly ProviderCategory[] = ["cloud_api", "enterprise_cloud", "self_hosted"];
+export type GridCategory = Exclude<ProviderCategory, "consumer_subscription">;
+
+export const PROVIDER_CATEGORIES: readonly GridCategory[] = ["cloud_api", "enterprise_cloud", "self_hosted"];
 
 export interface CatalogEntry {
   key: string;

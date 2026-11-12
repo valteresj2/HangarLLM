@@ -1987,8 +1987,15 @@ def test_every_provider_entry_names_a_known_category() -> None:
     assert [
         entry["provider"]
         for entry in raw_entries
-        if entry.get("category") not in ("cloud_api", "enterprise_cloud", "self_hosted")
+        if entry.get("category") not in ("cloud_api", "enterprise_cloud", "self_hosted", "consumer_subscription")
     ] == []
+
+
+def test_chatgpt_subscription_is_marked_as_a_consumer_subscription() -> None:
+    raw_entries: Final = json.loads(
+        files("hangarllm.proxy.public_endpoints").joinpath("provider_create_fields.json").read_bytes()
+    )
+    assert {entry["provider"]: entry["category"] for entry in raw_entries}["CHATGPT"] == "consumer_subscription"
 
 
 @pytest.mark.parametrize(
