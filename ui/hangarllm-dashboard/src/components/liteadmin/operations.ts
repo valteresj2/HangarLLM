@@ -4,6 +4,14 @@ import { apiClient } from "@/components/networking";
 import i18n from "@/i18n/i18n";
 import { ApiError } from "@/lib/http/client";
 import type { components } from "@/lib/http/schema";
+import {
+  createOpenApiCatalogCache,
+  findOperations,
+  GENERIC_METHODS,
+  resolveOperation,
+  type GenericMethod,
+  type OpenApiCatalogCache,
+} from "./openapiOperations";
 import { generatedKey, projectToolResult, type ResultKind } from "./toolResults";
 import {
   buildUsageChart,
@@ -36,7 +44,18 @@ export interface OperationContext {
   confirm: (action: LiteAdminAction) => Promise<boolean>;
   onResult: (action: LiteAdminAction, result: ActionResult) => void;
   onChart: (chart: UsageChart) => void;
+  openApiCache?: OpenApiCatalogCache;
 }
+
+type OperationMode = "read" | "write" | "delete";
+const METHOD_MODES: Record<GenericMethod, OperationMode> = {
+  GET: "read",
+  HEAD: "read",
+  POST: "write",
+  PUT: "write",
+  PATCH: "write",
+  DELETE: "delete",
+};
 
 type Schemas = components["schemas"];
 const text = z.string().min(1).max(200);
@@ -118,6 +137,23 @@ const requestLogsFields = {
   model: optionalText,
   status_filter: optional(z.enum(["success", "failure"])),
 };
+const namedValue = object({ name: text, value: z.string().max(2_000) });
+const callOperationFields = {
+  method: z.enum(GENERIC_METHODS),
+  path: z.string().min(1).max(300),
+  path_params: optional(z.array(namedValue).max(10)),
+  query: optional(z.array(namedValue).max(30)),
+  body: optional(z.string().max(20_000)),
+};
+
+function parseJsonBody(body: string | undefined): { ok: true; value: unknown } | { ok: false } {
+  if (body === undefined || !body.trim()) return { ok: true, value: undefined };
+  try {
+    return { ok: true, value: JSON.parse(body) };
+  } catch {
+    return { ok: false };
+  }
+}
 
 export function createLiteAdminOperations(context: OperationContext) {
   const usageSources = new Map<string, UsageChartSource>();
@@ -145,8 +181,65 @@ export function createLiteAdminOperations(context: OperationContext) {
     },
   };
   const renderChart = zodFunction(chartDefinition);
+  const perform = async (
+    { name, title, mode, kind }: { name: string; title: string; mode: OperationMode; kind: ResultKind },
+    args: Record<string, unknown>,
+    actionArguments: Record<string, unknown>,
+    execute: () => Promise<unknown>,
+  ) => {
+    const action: LiteAdminAction | undefined =
+      mode === "read"
+        ? undefined
+        : { id: crypto.randomUUID(), name, title, arguments: actionArguments, destructive: mode === "delete" };
+    if (action) {
+      const approved = await context.confirm(action);
+      active();
+      if (!approved) throw new Error("Action cancelled. No change was sent.");
+    }
+    const outcome = await Promise.resolve()
+      .then(() => {
+        active();
+        return execute();
+      })
+      .then(
+        (value) => ({ ok: true, value }) as const,
+        (error: unknown) => ({ ok: false, error }) as const,
+      );
+    active();
+    if (!outcome.ok) {
+      if (action) {
+        const result: ActionResult = {
+          status: "unknown",
+          message: i18n.t("aria.actions.unverified"),
+        };
+        context.onResult(action, result);
+        throw new Error(result.message);
+      }
+      return {
+        operation: name,
+        success: false,
+        status: outcome.error instanceof ApiError ? outcome.error.status : undefined,
+        message: "The gateway could not complete this lookup.",
+      };
+    }
+    const key = name === "key_create" || name === "user_create" ? generatedKey(outcome.value) : undefined;
+    if (action) context.onResult(action, { status: "completed", ...(key ? { key } : {}) });
+    const result = projectToolResult(kind, outcome.value, [context.accessToken, ...(key ? [key] : [])]);
+    let reportScope: "Gateway usage" | "All teams" | "All tags" = "Gateway usage";
+    if (name === "get_team_usage_data") reportScope = "All teams";
+    if (name === "get_tag_usage_data") reportScope = "All tags";
+    const source = kind === "usage" ? usageChartSource(result, args, context.access, reportScope) : undefined;
+    const sourceId = source ? crypto.randomUUID() : undefined;
+    if (source && sourceId) usageSources.set(sourceId, source);
+    return {
+      operation: name,
+      success: true,
+      result,
+      ...(sourceId ? { source_id: sourceId } : {}),
+    };
+  };
   const operation =
-    (mode: "read" | "write" | "delete", kind: ResultKind, extraArguments?: Record<string, unknown>) =>
+    (mode: OperationMode, kind: ResultKind, extraArguments?: Record<string, unknown>) =>
     <Schema extends z.ZodType<Record<string, unknown>>>(
       name: string,
       title: string,
@@ -161,69 +254,89 @@ export function createLiteAdminOperations(context: OperationContext) {
           const args = stripNulls(rawArgs as z.output<Schema>);
           active();
           context.beforeTool();
-          const action: LiteAdminAction | undefined =
-            mode === "read"
-              ? undefined
-              : {
-                  id: crypto.randomUUID(),
-                  name,
-                  title,
-                  arguments: {
-                    ...Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined)),
-                    ...extraArguments,
-                  },
-                  destructive: mode === "delete",
-                };
-          if (action) {
-            const approved = await context.confirm(action);
-            active();
-            if (!approved) throw new Error("Action cancelled. No change was sent.");
-          }
-          const outcome = await Promise.resolve()
-            .then(() => {
-              active();
-              return execute({ ...args, ...extraArguments } as NullsStripped<z.output<Schema>>);
-            })
-            .then(
-              (value) => ({ ok: true, value }) as const,
-              (error: unknown) => ({ ok: false, error }) as const,
-            );
-          active();
-          if (!outcome.ok) {
-            if (action) {
-              const result: ActionResult = {
-                status: "unknown",
-                message: i18n.t("aria.actions.unverified"),
-              };
-              context.onResult(action, result);
-              throw new Error(result.message);
-            }
-            return {
-              operation: name,
-              success: false,
-              status: outcome.error instanceof ApiError ? outcome.error.status : undefined,
-              message: "The gateway could not complete this lookup.",
-            };
-          }
-          const key = name === "key_create" || name === "user_create" ? generatedKey(outcome.value) : undefined;
-          if (action) context.onResult(action, { status: "completed", ...(key ? { key } : {}) });
-          const result = projectToolResult(kind, outcome.value, [context.accessToken, ...(key ? [key] : [])]);
-          let reportScope: "Gateway usage" | "All teams" | "All tags" = "Gateway usage";
-          if (name === "get_team_usage_data") reportScope = "All teams";
-          if (name === "get_tag_usage_data") reportScope = "All tags";
-          const source = kind === "usage" ? usageChartSource(result, args, context.access, reportScope) : undefined;
-          const sourceId = source ? crypto.randomUUID() : undefined;
-          if (source && sourceId) usageSources.set(sourceId, source);
-          return {
-            operation: name,
-            success: true,
-            result,
-            ...(sourceId ? { source_id: sourceId } : {}),
+          const actionArguments = {
+            ...Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined)),
+            ...extraArguments,
           };
+          return perform({ name, title, mode, kind }, args, actionArguments, () =>
+            execute({ ...args, ...extraArguments } as NullsStripped<z.output<Schema>>),
+          );
         },
       };
       return zodFunction(definition);
     };
+  const openApiCache = context.openApiCache ?? createOpenApiCatalogCache();
+  const loadCatalog = () =>
+    openApiCache
+      .load(() => apiClient.get<unknown>("/openapi.json", auth))
+      .then(
+        (catalog) => ({ ok: true, catalog }) as const,
+        () => ({ ok: false }) as const,
+      );
+  const catalogUnavailable = (name: string) => ({
+    operation: name,
+    success: false,
+    message: "The gateway API description could not be loaded.",
+  });
+  const findOperation = zodFunction({
+    name: "find_operation",
+    description:
+      "Search the gateway's management API for tasks the dedicated tools do not cover. Returns a few matching operations with their method, path template, parameters and request body schema. Read-only.",
+    parameters: object({ query: text }),
+    function: async (rawArgs: unknown) => {
+      const { query } = z.object({ query: text }).parse(rawArgs);
+      active();
+      context.beforeTool();
+      const loaded = await loadCatalog();
+      active();
+      if (!loaded.ok) return catalogUnavailable("find_operation");
+      return { operation: "find_operation", success: true, result: findOperations(loaded.catalog, query) };
+    },
+  });
+  const callOperation = zodFunction({
+    name: "call_operation",
+    description:
+      "Call one gateway API operation returned by find_operation, using its exact method and path template. path_params fill the {placeholders}, query holds query parameters, and body is the JSON request body as text. GET and HEAD are read-only. POST, PUT, PATCH and DELETE require the administrator to review and confirm the exact request.",
+    parameters: object(callOperationFields),
+    function: async (rawArgs: unknown) => {
+      const args = stripNulls(z.object(callOperationFields).parse(rawArgs));
+      active();
+      context.beforeTool();
+      const loaded = await loadCatalog();
+      active();
+      if (!loaded.ok) return catalogUnavailable("call_operation");
+      const resolved = resolveOperation(loaded.catalog, args);
+      if (!resolved.ok) return { operation: "call_operation", success: false, message: resolved.message };
+      const body = parseJsonBody(args.body);
+      if (!body.ok) return { operation: "call_operation", success: false, message: "body must be valid JSON text." };
+      const mode = METHOD_MODES[resolved.method];
+      if (mode === "read" && body.value !== undefined) {
+        return { operation: "call_operation", success: false, message: "GET and HEAD requests take no body." };
+      }
+      const pairs = args.query ?? [];
+      const query = Object.fromEntries(
+        [...new Set(pairs.map(({ name }) => name))].map((name) => {
+          const values = pairs.filter((pair) => pair.name === name).map(({ value }) => value);
+          return [name, values.length === 1 ? values[0] : values];
+        }),
+      );
+      const hasQuery = Object.keys(query).length > 0;
+      const actionArguments = {
+        method: resolved.method,
+        path: resolved.path,
+        ...(hasQuery ? { query } : {}),
+        ...(body.value !== undefined ? { body: body.value } : {}),
+      };
+      const title = `${resolved.method} ${resolved.path}${resolved.summary ? ` (${resolved.summary})` : ""}`;
+      return perform({ name: "call_operation", title, mode, kind: "generic" }, args, actionArguments, () =>
+        apiClient.request<unknown>(resolved.method, resolved.path, {
+          ...auth,
+          ...(hasQuery ? { query } : {}),
+          ...(body.value !== undefined ? { body: body.value } : {}),
+        }),
+      );
+    },
+  });
 
   if (context.access.mode === "usage" && context.access.scope.type === "user") {
     const userId = context.access.scope.userId;
@@ -424,5 +537,7 @@ export function createLiteAdminOperations(context: OperationContext) {
           query: { ...a, start_date: `${a.start_date} 00:00:00`, end_date: `${a.end_date} 23:59:59` },
         }),
     ),
+    findOperation,
+    callOperation,
   ];
 }

@@ -9,7 +9,7 @@
  * header name, the logout side effect) is injected through createApiClient.
  */
 
-export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+export type HttpMethod = "GET" | "HEAD" | "POST" | "PUT" | "DELETE" | "PATCH";
 
 export type QueryValue = string | number | boolean | null | undefined;
 

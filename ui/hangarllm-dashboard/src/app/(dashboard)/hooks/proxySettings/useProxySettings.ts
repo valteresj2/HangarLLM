@@ -8,6 +8,8 @@ export interface ProxySettings {
   PROXY_BASE_URL: string;
   PROXY_LOGOUT_URL: string;
   HANGARLLM_UI_API_DOC_BASE_URL?: string | null;
+  HANGARLLM_DOCKWORKER_MODEL?: string | null;
+  MOCK_RESPONSE_MODELS?: string[];
   DISABLE_EXPENSIVE_DB_QUERIES?: boolean;
   NUM_SPEND_LOGS_ROWS?: number;
 }

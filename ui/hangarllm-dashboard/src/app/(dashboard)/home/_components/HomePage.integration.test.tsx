@@ -145,7 +145,7 @@ describe("HomePage", () => {
     expect(screen.queryByRole("link", { name: /create new virtual key/i })).not.toBeInTheDocument();
   });
 
-  it("keeps Home focused on usage without an embedded Aria composer", async () => {
+  it("keeps Home focused on usage without an embedded DockWorker composer", async () => {
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <LiteAdminFrame>
@@ -153,7 +153,7 @@ describe("HomePage", () => {
         </LiteAdminFrame>
       </QueryClientProvider>,
     );
-    expect(screen.queryByRole("region", { name: "Ask Aria Agent" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Ask DockWorker" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Send message" })).not.toBeInTheDocument();
     expect(await screen.findByText("$501.74")).toBeInTheDocument();
   });

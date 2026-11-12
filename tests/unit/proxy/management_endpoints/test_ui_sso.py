@@ -5426,6 +5426,39 @@ async def test_get_ui_settings_includes_api_doc_base_url():
         assert response["HANGARLLM_UI_API_DOC_BASE_URL"] == "https://custom.docs"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("configured", "expected"),
+    [("  openrouter/agent-model  ", "openrouter/agent-model"), ("   ", None)],
+)
+async def test_get_ui_settings_includes_dockworker_model(configured: str, expected: str | None):
+    from fastapi import Request
+
+    from hangarllm.proxy.management_endpoints.ui_sso import get_ui_settings
+
+    mock_request = Request(scope={"type": "http", "headers": [], "method": "GET", "path": "/sso/get/ui_settings"})
+
+    with patch.dict(os.environ, {"HANGARLLM_DOCKWORKER_MODEL": configured}):
+        response = await get_ui_settings(mock_request)
+    assert response["HANGARLLM_DOCKWORKER_MODEL"] == expected
+
+
+def test_mock_response_model_names_lists_each_group_with_a_mocked_deployment_once():
+    from hangarllm.proxy.management_endpoints.ui_sso import mock_response_model_names
+
+    names = mock_response_model_names(
+        [
+            {"model_name": "demo", "hangarllm_params": {"model": "openai/gpt", "mock_response": "pong"}},
+            {"model_name": "demo", "hangarllm_params": {"model": "openai/gpt", "mock_response": "pong"}},
+            {"model_name": "empty-mock", "hangarllm_params": {"model": "openai/gpt", "mock_response": ""}},
+            {"model_name": "real", "hangarllm_params": {"model": "openai/gpt"}},
+            {"model_name": "unset", "hangarllm_params": {"model": "openai/gpt", "mock_response": None}},
+        ]
+    )
+
+    assert names == ("demo", "empty-mock")
+
+
 class TestGenericResponseConvertorNestedAttributes:
     """Test generic_response_convertor with nested attribute paths"""
 

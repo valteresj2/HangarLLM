@@ -5840,17 +5840,17 @@
   },
   "aria": {
     "page": {
-      "unavailable": "Aria is not available for this session."
+      "unavailable": "DockWorker is not available for this session."
     },
     "usageTrigger": {
-      "ask": "Ask Aria"
+      "ask": "Ask DockWorker"
     },
     "destination": {
       "loadingSettings": "Loading gateway settings",
       "settingsError": "Could not load gateway settings.",
       "retry": "Retry",
       "consentTitle": "Connect to the configured gateway",
-      "consentBody": "This gateway uses a different address. Aria will send your existing session credential to the address shown above.",
+      "consentBody": "This gateway uses a different address. DockWorker will send your existing session credential to the address shown above.",
       "useConfigured": "Use configured gateway"
     },
     "inferenceTarget": {
@@ -5862,7 +5862,7 @@
     },
     "composer": {
       "tooLong": "Keep your message within {{limit}} characters.",
-      "placeholder": "Ask Aria…"
+      "placeholder": "Ask DockWorker…"
     },
     "modelPicker": {
       "loading": "Loading models",

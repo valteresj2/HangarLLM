@@ -52,6 +52,7 @@ services:
       # Workers share rate limits, spend and routing state through Redis (docker/hangarllm-config.yaml).
       NUM_WORKERS: ${HANGARLLM_WORKERS:-4}
       PROXY_BASE_URL: https://${HANGARLLM_DOMAIN:-localhost}:${HANGARLLM_PORT:-443}
+      HANGARLLM_DOCKWORKER_MODEL: ${HANGARLLM_DOCKWORKER_MODEL:-openrouter/deepseek/deepseek-v4.1-flash-1017}
     env_file:
       - path: .env
         required: false

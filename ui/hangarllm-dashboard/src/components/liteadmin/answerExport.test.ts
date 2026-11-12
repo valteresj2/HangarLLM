@@ -33,7 +33,7 @@ describe("createAriaAnswerDocument", () => {
       <svg viewBox="0 0 400 200" width="400" height="200"><rect x="20" y="40" width="80" height="120" style="fill: rgb(59, 130, 246);stroke: rgb(10, 20, 30)"/><text x="20" y="185">Primary</text></svg>`);
     const report = previewReport(createAriaAnswerDocument("Which models cost the most?", source));
 
-    expect(report.title).toBe("Aria Agent answer");
+    expect(report.title).toBe("DockWorker answer");
     expect(report.body).toHaveTextContent("Which models cost the most?");
     expect(report.getElementsByTagName("h2")[0]).toHaveTextContent("Usage this week");
     expect(report.getElementsByTagName("strong")[0]).toHaveTextContent("$3.25");

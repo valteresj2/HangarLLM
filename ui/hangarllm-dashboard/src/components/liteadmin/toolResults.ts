@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export type ResultKind = "key" | "team" | "user" | "budget" | "spend" | "usage" | "log";
+export type ResultKind = "key" | "team" | "user" | "budget" | "spend" | "usage" | "log" | "generic";
 
 const limitedList = <Schema extends z.ZodType<unknown>>(schema: Schema, limit = 50) =>
   z.preprocess((value) => (Array.isArray(value) ? value.slice(0, limit) : value), z.array(schema));
@@ -14,17 +14,46 @@ export function generatedKey(value: unknown): string | undefined {
   return result.success ? result.data.key : undefined;
 }
 
+const redactText = (value: string, secrets: readonly string[]) =>
+  secrets
+    .filter(Boolean)
+    .reduce((safe, secret) => safe.split(secret).join("[redacted]"), value)
+    .replace(/\b(?:sk-|hgr_)[\w-]+/g, "[redacted]")
+    .replace(/\bBearer\s+\S+/gi, "[redacted]");
+
+export const MAX_GENERIC_RESULT_LENGTH = 16_000;
+const SENSITIVE_FIELD =
+  /api[_-]?key|secret|password|passwd|token|credential|private[_-]?key|authorization|cookie|salt/i;
+const SHA256 = /^[a-f0-9]{64}$/i;
+
+function redactValue(value: unknown, secrets: readonly string[], field = ""): unknown {
+  if (typeof value === "string") {
+    const keepsHash = SHA256.test(value) && !secrets.includes(value);
+    return SENSITIVE_FIELD.test(field) && !keepsHash ? "[redacted]" : redactText(value, secrets);
+  }
+  if (Array.isArray(value)) return value.map((item) => redactValue(item, secrets, field));
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, redactValue(item, secrets, key)]));
+  }
+  return value;
+}
+
+export function projectGenericResult(value: unknown, secrets: readonly string[]): unknown {
+  const redacted = redactValue(value ?? null, secrets);
+  const serialized = JSON.stringify(redacted);
+  if (serialized.length <= MAX_GENERIC_RESULT_LENGTH) return redacted;
+  return {
+    truncated: true,
+    note: `Showing the first ${MAX_GENERIC_RESULT_LENGTH} of ${serialized.length} characters. Use filters or pagination to see the rest.`,
+    partial_json: serialized.slice(0, MAX_GENERIC_RESULT_LENGTH),
+  };
+}
+
 export function projectToolResult(kind: ResultKind, value: unknown, secrets: readonly string[]): unknown {
+  if (kind === "generic") return projectGenericResult(value, secrets);
   const text = z
     .string()
-    .transform((value) =>
-      secrets
-        .filter(Boolean)
-        .reduce((safe, secret) => safe.split(secret).join("[redacted]"), value)
-        .replace(/\b(?:sk-|hgr_)[\w-]+/g, "[redacted]")
-        .replace(/\bBearer\s+\S+/gi, "[redacted]")
-        .slice(0, 400),
-    )
+    .transform((value) => redactText(value, secrets).slice(0, 400))
     .nullish();
   const number = z.number().finite().nullish();
   const hash = z

@@ -16,7 +16,7 @@ import os
 import re
 import secrets
 from collections import Counter
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from copy import deepcopy
 from html import escape
 from types import MappingProxyType, TracebackType
@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     import httpx
 
     from hangarllm.caching.redis_cache import RedisCache
+    from hangarllm.types.router import DeploymentTypedDict
 
 import jwt
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
@@ -2991,6 +2992,18 @@ async def _insert_sso_user_or_find_concurrent_insert(
         return await users.find_by_id(concurrent_insert.user_id) or concurrent_insert
 
 
+def mock_response_model_names(deployments: "Iterable[DeploymentTypedDict]") -> tuple[str, ...]:
+    return tuple(
+        sorted(
+            {
+                deployment["model_name"]
+                for deployment in deployments
+                if deployment["hangarllm_params"].get("mock_response") is not None
+            }
+        )
+    )
+
+
 @router.get(
     "/sso/get/ui_settings",
     tags=["experimental"],
@@ -2998,11 +3011,12 @@ async def _insert_sso_user_or_find_concurrent_insert(
     dependencies=[Depends(user_api_key_auth)],
 )
 async def get_ui_settings(request: Request):
-    from hangarllm.proxy.proxy_server import general_settings, proxy_state
+    from hangarllm.proxy.proxy_server import general_settings, llm_router, proxy_state
 
     _proxy_base_url: Final = os.getenv("PROXY_BASE_URL", None)
     _logout_url: Final = os.getenv("PROXY_LOGOUT_URL", None)
     _api_doc_base_url: Final = os.getenv("HANGARLLM_UI_API_DOC_BASE_URL", None)
+    _dockworker_model: Final = os.getenv("HANGARLLM_DOCKWORKER_MODEL", "").strip() or None
     _is_sso_enabled: Final = has_user_setup_sso()
     disable_expensive_db_queries: Final = (
         proxy_state.get_proxy_state_variable("spend_logs_row_count") > MAX_SPENDLOG_ROWS_TO_QUERY
@@ -3016,6 +3030,10 @@ async def get_ui_settings(request: Request):
         "PROXY_BASE_URL": _proxy_base_url,
         "PROXY_LOGOUT_URL": _logout_url,
         "HANGARLLM_UI_API_DOC_BASE_URL": _api_doc_base_url,
+        "HANGARLLM_DOCKWORKER_MODEL": _dockworker_model,
+        "MOCK_RESPONSE_MODELS": mock_response_model_names(
+            (llm_router.registry().deployments() if llm_router else None) or ()
+        ),
         "DEFAULT_TEAM_DISABLED": default_team_disabled,
         "SSO_ENABLED": _is_sso_enabled,
         "NUM_SPEND_LOGS_ROWS": proxy_state.get_proxy_state_variable("spend_logs_row_count"),

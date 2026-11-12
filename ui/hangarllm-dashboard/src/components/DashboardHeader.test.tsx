@@ -25,7 +25,7 @@ vi.mock("@/hooks/useWorker", () => ({ useWorker: () => ({ isControlPlane: false,
 vi.mock("@/app/(dashboard)/hooks/useDisableShowPrompts", () => ({ useDisableShowPrompts: () => false }));
 vi.mock("@/components/Navbar/NotificationsBell/NotificationsBell", () => ({ NotificationsBell: () => null }));
 vi.mock("@/components/Navbar/WorkerDropdown/WorkerDropdown", () => ({ default: () => null }));
-vi.mock("@/components/liteadmin/LiteAdmin", () => ({ default: () => <button>Aria Agent</button> }));
+vi.mock("@/components/liteadmin/LiteAdmin", () => ({ default: () => <button>DockWorker</button> }));
 
 const renderDashboardHeader = () =>
   render(
@@ -61,10 +61,10 @@ describe("DashboardHeader breadcrumb", () => {
     expect(screen.getByText("Home")).toBeInTheDocument();
   });
 
-  it("names the Aria workspace in the header", () => {
-    state.pathname = "/ui/aria";
+  it.each(["/ui/dockworker", "/ui/aria"])("names the DockWorker workspace in the header at %s", (pathname) => {
+    state.pathname = pathname;
     renderDashboardHeader();
-    expect(screen.getByRole("heading", { name: "Aria Agent" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "DockWorker" })).toBeInTheDocument();
   });
 
   it("keeps the scoped key search available", () => {

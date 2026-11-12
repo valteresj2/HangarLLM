@@ -248,7 +248,7 @@ vi.mock("@/components/EntityUsageExport", () => ({
 }));
 
 vi.mock("@/components/liteadmin/LiteAdmin", () => ({
-  AriaUsageTrigger: () => <a href="/aria">Ask Aria</a>,
+  AriaUsageTrigger: () => <a href="/dockworker">Ask DockWorker</a>,
 }));
 
 vi.mock("@/app/(dashboard)/hooks/agents/useAgents", () => ({
@@ -1449,20 +1449,20 @@ describe("UsagePage", () => {
     });
   });
 
-  describe("Aria Agent", () => {
-    it("offers a link to Aria without a second composer in global view", async () => {
+  describe("DockWorker", () => {
+    it("offers a link to DockWorker without a second composer in global view", async () => {
       renderWithProviders(<UsagePage {...defaultProps} />);
 
       await waitFor(() => {
         expect(mockUserDailyActivityAggregatedCall).toHaveBeenCalled();
       });
 
-      expect(screen.getByRole("link", { name: "Ask Aria" })).toBeInTheDocument();
-      expect(screen.queryByRole("region", { name: "Ask Aria Agent" })).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Ask DockWorker" })).toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Ask DockWorker" })).not.toBeInTheDocument();
       expect(screen.queryByText("Ask AI")).not.toBeInTheDocument();
     });
 
-    it("does not embed a second Aria composer in entity usage views", async () => {
+    it("does not embed a second DockWorker composer in entity usage views", async () => {
       renderWithProviders(<UsagePage {...defaultProps} />);
 
       await waitFor(() => {
@@ -1474,8 +1474,8 @@ describe("UsagePage", () => {
       });
 
       expect(await screen.findByText("Entity Usage")).toBeInTheDocument();
-      expect(screen.queryByPlaceholderText(/Ask Aria/)).not.toBeInTheDocument();
-      expect(screen.queryByRole("region", { name: "Ask Aria Agent" })).not.toBeInTheDocument();
+      expect(screen.queryByPlaceholderText(/Ask DockWorker/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Ask DockWorker" })).not.toBeInTheDocument();
     });
   });
 

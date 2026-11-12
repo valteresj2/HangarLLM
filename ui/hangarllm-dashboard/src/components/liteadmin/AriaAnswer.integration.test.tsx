@@ -39,7 +39,7 @@ describe("AriaAnswer", () => {
   it("should render a text-only Markdown answer with one export action", () => {
     render(<AriaAnswer message={message} />);
 
-    expect(screen.getByRole("article", { name: "Aria Agent answer" })).toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "DockWorker answer" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Spend overview", level: 2 })).toBeInTheDocument();
     expect(screen.getByText("primary model")).toBeInTheDocument();
     expect(screen.queryByRole("figure")).not.toBeInTheDocument();

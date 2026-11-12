@@ -37,10 +37,10 @@ import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cva.config";
 import { hasProxyWideSpendView, isProxyAdminRole } from "@/utils/roles";
-import { getPreferredLiteAdminModel, MAX_INPUT_LENGTH, resolveInferenceTarget } from "./agent";
+import { getPreferredLiteAdminModel, MAX_INPUT_LENGTH, resolveInferenceTarget, type ModelPreference } from "./agent";
 import { AriaAvatar } from "./AriaAvatar";
 import { AriaStart } from "./AriaStart";
-import { ARIA_AGENT_LABEL } from "./aria-brand";
+import { ARIA_AGENT_LABEL, DOCKWORKER_ROUTE } from "./aria-brand";
 import { LiteAdminConversation } from "./LiteAdminConversation";
 import { useLiteAdmin, type ConversationEntry, type LiteAdminSession } from "./useLiteAdmin";
 
@@ -52,6 +52,18 @@ type LiteAdminState = {
 };
 
 const LiteAdminContext = createContext<LiteAdminState | null>(null);
+const modelPreferenceSettings = z
+  .object({
+    HANGARLLM_DOCKWORKER_MODEL: z.string().nullish(),
+    MOCK_RESPONSE_MODELS: z.array(z.string()).nullish(),
+  })
+  .transform(
+    (settings): ModelPreference => ({
+      configured: settings.HANGARLLM_DOCKWORKER_MODEL,
+      mock: settings.MOCK_RESPONSE_MODELS ?? [],
+    }),
+  )
+  .catch({});
 function useLiteAdminSession() {
   const auth = useAuthorized();
   const [disabled] = useDisableLiteAdmin(auth.userId);
@@ -102,7 +114,7 @@ export function LiteAdminFrame({ children }: { children: ReactNode }) {
       if (pageContainer) {
         pageContainer.querySelector<HTMLTextAreaElement>("textarea:enabled")?.focus();
       } else {
-        router.push(uiHref("aria"));
+        router.push(uiHref(DOCKWORKER_ROUTE));
       }
     };
     document.addEventListener("keydown", onKeyDown);
@@ -133,7 +145,7 @@ export function AriaSidebarLink({ active }: { active: boolean }) {
   if (!state) return null;
   return (
     <Link
-      href={uiHref("aria")}
+      href={uiHref(DOCKWORKER_ROUTE)}
       aria-current={active ? "page" : undefined}
       aria-label={ARIA_AGENT_LABEL}
       title={ARIA_AGENT_LABEL}
@@ -161,7 +173,7 @@ export function AriaUsageTrigger() {
   const state = useContext(LiteAdminContext);
   if (!state) return null;
   return (
-    <Link href={uiHref("aria")} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}>
+    <Link href={uiHref(DOCKWORKER_ROUTE)} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}>
       <AriaAvatar size={18} />
       {t("aria.usageTrigger.ask")}
     </Link>
@@ -182,6 +194,7 @@ function AriaSession({ session, open }: { session: ManagementSession; open: bool
       key={target?.baseUrl ?? "unavailable"}
       session={session}
       target={target}
+      modelPreference={modelPreferenceSettings.parse(settings.data)}
       loading={settings.isPending}
       retry={() => void settings.refetch()}
       open={open}
@@ -192,12 +205,14 @@ function AriaSession({ session, open }: { session: ManagementSession; open: bool
 function Destination({
   session,
   target,
+  modelPreference,
   loading,
   retry,
   open,
 }: {
   session: ManagementSession;
   target: ReturnType<typeof resolveInferenceTarget> | null;
+  modelPreference: ModelPreference;
   loading: boolean;
   retry: () => void;
   open: boolean;
@@ -205,7 +220,13 @@ function Destination({
   const { t } = useTranslation();
   const [approved, setApproved] = useState(false);
   if (target?.baseUrl && (!target.requiresConsent || approved)) {
-    return <LiteAdminChat session={{ ...session, inferenceBaseUrl: target.baseUrl }} open={open} />;
+    return (
+      <LiteAdminChat
+        session={{ ...session, inferenceBaseUrl: target.baseUrl }}
+        modelPreference={modelPreference}
+        open={open}
+      />
+    );
   }
   return (
     <Panel
@@ -291,7 +312,15 @@ function useForegroundReviewFocus(
   }, [foreground, pendingReviewId, reviewRef]);
 }
 
-function LiteAdminChat({ session, open }: { session: LiteAdminSession; open: boolean }) {
+function LiteAdminChat({
+  session,
+  modelPreference,
+  open,
+}: {
+  session: LiteAdminSession;
+  modelPreference: ModelPreference;
+  open: boolean;
+}) {
   const { t } = useTranslation();
   const state = useContext(LiteAdminContext);
   const chat = useLiteAdmin(session);
@@ -328,7 +357,7 @@ function LiteAdminChat({ session, open }: { session: LiteAdminSession; open: boo
       available.filter((item) => isModeCompatibleWithEndpoint(item.mode, EndpointType.CHAT)),
   };
   const models = useQuery(modelQuery);
-  const preferredModel = model ?? getPreferredLiteAdminModel(models.data ?? []);
+  const preferredModel = model ?? getPreferredLiteAdminModel(models.data ?? [], modelPreference);
   const selectedModel = models.data?.some((item) => item.model_group === preferredModel) ? preferredModel : null;
   const busy = chat.phase !== "idle";
   const tooLong = input.trim().length > MAX_INPUT_LENGTH;
@@ -419,11 +448,15 @@ function LiteAdminComposer({
   onModelChange: (value: string | null) => void;
   tooLong: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   return (
     <div className="space-y-3 px-4 pt-2 pb-5 sm:px-6">
       <ModelStatus models={models} />
-      {tooLong && <FieldError>{t("aria.composer.tooLong", { limit: MAX_INPUT_LENGTH.toLocaleString() })}</FieldError>}
+      {tooLong && (
+        <FieldError>
+          {t("aria.composer.tooLong", { limit: MAX_INPUT_LENGTH.toLocaleString(i18n.resolvedLanguage) })}
+        </FieldError>
+      )}
       <ChatComposer
         {...props}
         placeholder={t("aria.composer.placeholder")}

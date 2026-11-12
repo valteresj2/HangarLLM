@@ -9,6 +9,7 @@ import { toast } from "@/lib/toast";
 import { getCookie } from "@/utils/cookieUtils";
 import { checkTokenValidity } from "@/utils/jwtUtils";
 import { runLiteAdmin } from "./agent";
+import { createOpenApiCatalogCache } from "./openapiOperations";
 import type { ActionResult, AriaAccess, LiteAdminAction } from "./operations";
 import type { UsageChart } from "./usageChart";
 
@@ -55,6 +56,7 @@ export function useLiteAdmin(session: LiteAdminSession) {
   const queryClient = useQueryClient();
   const [entries, setEntries] = useState<ConversationEntry[]>([]);
   const [phase, setPhase] = useState<Phase>("idle");
+  const [openApiCache] = useState(createOpenApiCatalogCache);
   const active = useRef<ActiveTurn | null>(null);
 
   useLayoutEffect(
@@ -130,6 +132,7 @@ export function useLiteAdmin(session: LiteAdminSession) {
       const options: Parameters<typeof runLiteAdmin>[0] = {
         ...session,
         model,
+        openApiCache,
         messages: [...history, message],
         signal: turn.controller.signal,
         assertCurrent,

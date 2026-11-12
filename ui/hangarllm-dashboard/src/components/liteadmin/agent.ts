@@ -8,12 +8,26 @@ import { createLiteAdminOperations, type AriaAccess, type OperationContext } fro
 
 export const MAX_INPUT_LENGTH = 8_000;
 
-export function getPreferredLiteAdminModel(models: readonly ModelGroup[]): string | null {
-  const chatModels = models.filter(({ mode }) => isModeCompatibleWithEndpoint(mode, EndpointType.CHAT));
+export const MAX_TOOL_ACTIONS_PER_TURN = 30;
+export const MAX_CHAT_COMPLETIONS_PER_TURN = 20;
+
+export interface ModelPreference {
+  configured?: string | null;
+  mock?: readonly string[];
+}
+
+export function getPreferredLiteAdminModel(
+  models: readonly ModelGroup[],
+  { configured, mock = [] }: ModelPreference = {},
+): string | null {
+  const chatModels = models.filter(
+    ({ mode, model_group }) => isModeCompatibleWithEndpoint(mode, EndpointType.CHAT) && !mock.includes(model_group),
+  );
   const sonnet = chatModels.filter(({ model_group }) =>
     /(?:^|[/.])(?:claude-)?sonnet-5[-.]5(?:$|[-.:@])/i.test(model_group),
   );
   return (
+    chatModels.find(({ model_group }) => model_group === configured?.trim())?.model_group ??
     sonnet.find(({ providers }) => providers?.includes("anthropic"))?.model_group ??
     sonnet[0]?.model_group ??
     chatModels[0]?.model_group ??
@@ -21,7 +35,7 @@ export function getPreferredLiteAdminModel(models: readonly ModelGroup[]): strin
   );
 }
 
-const SYSTEM_PROMPT = `You are Aria, the AI agent for a HangarLLM gateway.
+const SYSTEM_PROMPT = `You are DockWorker, the AI agent for a HangarLLM gateway.
 Use the provided tools for gateway facts and requested changes. Look up resource identifiers before making changes.
 Never invent identifiers or claim success without a successful tool result. Writes require the administrator to review and approve their exact arguments in the interface.
 Gateway action receipts record outcomes: cancelled means no change was sent, completed means it was applied, and unknown must be checked before claiming success or retrying. Never repeat a cancelled or uncertain action without a new explicit request.
@@ -31,7 +45,9 @@ For usage questions, call render_usage_chart after a successful usage lookup whe
 Explain unsupported operations and license restrictions. Keep answers concise, with resource names, dates, spend and budgets when relevant.`;
 
 function getAccessPrompt(access: AriaAccess): string {
-  if (access.mode === "admin") return "Help the administrator understand usage and manage their gateway.";
+  if (access.mode === "admin") {
+    return "Help the administrator understand usage and manage their gateway. Prefer the dedicated tools. For tasks they do not cover, call find_operation to search the gateway's API, then call_operation with a method and path template it returned. call_operation reads run immediately, while POST, PUT, PATCH and DELETE wait for the administrator to approve the exact request. Some sensitive routes cannot be called at all; explain that instead of looking for workarounds.";
+  }
   if (access.scope.type === "global") {
     return "You have read-only access to global, user, team and tag usage. Use the usage tools for historical totals and trends. You cannot change gateway resources.";
   }
@@ -101,7 +117,7 @@ export async function runLiteAdmin(options: LiteAdminOptions, client?: OpenAI): 
     assertCurrent: active,
     beforeTool: () => {
       active();
-      if (runner.messages.filter((message) => message.role === "tool").length >= 12) {
+      if (runner.messages.filter((message) => message.role === "tool").length >= MAX_TOOL_ACTIONS_PER_TURN) {
         throw new Error("The action limit was reached. Check completed actions before continuing.");
       }
     },
@@ -129,7 +145,12 @@ export async function runLiteAdmin(options: LiteAdminOptions, client?: OpenAI): 
     tools: createLiteAdminOperations(context),
     parallel_tool_calls: false,
   };
-  const runnerOptions = { signal: options.signal, maxChatCompletions: 6, maxRetries: 0, timeout: 60_000 };
+  const runnerOptions = {
+    signal: options.signal,
+    maxChatCompletions: MAX_CHAT_COMPLETIONS_PER_TURN,
+    maxRetries: 0,
+    timeout: 60_000,
+  };
   const runner = modelClient.chat.completions.runTools(parameters, runnerOptions);
   runner.on("chatCompletion", (completion) => {
     active();

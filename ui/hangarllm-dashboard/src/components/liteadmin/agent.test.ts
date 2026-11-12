@@ -10,6 +10,8 @@ import {
   runLiteAdmin,
   type LiteAdminOptions,
 } from "./agent";
+import { createOpenApiCatalogCache } from "./openapiOperations";
+import { openApiFixture } from "./openapiOperations.fixture";
 import type { ActionResult, LiteAdminAction } from "./operations";
 
 const { managementFetch } = vi.hoisted(() => ({ managementFetch: vi.fn<typeof fetch>() }));
@@ -805,53 +807,53 @@ describe("SDK conversation and action lifecycle", () => {
     expect(input.onMessage).toHaveBeenCalledExactlyOnceWith("Done");
   });
 
-  it.each(["teams_list", "key_create"])("stops after six model completions containing %s", async (name) => {
+  it.each(["teams_list", "key_create"])("stops after twenty model completions containing %s", async (name) => {
     const input = options();
     const args = name === "teams_list" ? teamsArgs : keyFields;
-    const model = transport(Array.from({ length: 6 }, () => completion([call(name, args)])));
+    const model = transport(Array.from({ length: 20 }, () => completion([call(name, args)])));
     await runLiteAdmin(input, model.client);
-    expect(model.requests).toHaveLength(6);
-    expect(managementFetch).toHaveBeenCalledTimes(6);
+    expect(model.requests).toHaveLength(20);
+    expect(managementFetch).toHaveBeenCalledTimes(20);
     expect(input.onMessage).toHaveBeenCalledExactlyOnceWith(
       "I reached the step limit. Any completed actions remain applied; check the relevant page before continuing.",
     );
   });
 
-  it("allows twelve actions and a final answer", async () => {
+  it("allows thirty actions and a final answer", async () => {
     const model = transport([
-      completion(Array.from({ length: 12 }, (_, index) => call("teams_list", teamsArgs, String(index)))),
+      completion(Array.from({ length: 30 }, (_, index) => call("teams_list", teamsArgs, String(index)))),
       completion(),
     ]);
     const input = options();
     await runLiteAdmin(input, model.client);
-    expect(managementFetch).toHaveBeenCalledTimes(12);
+    expect(managementFetch).toHaveBeenCalledTimes(30);
     expect(input.onMessage).toHaveBeenCalledExactlyOnceWith("Done");
   });
 
-  it("blocks a thirteenth tool in one completion", async () => {
+  it("blocks a thirty-first tool in one completion", async () => {
     const model = transport([
-      completion(Array.from({ length: 13 }, (_, index) => call("teams_list", teamsArgs, String(index)))),
+      completion(Array.from({ length: 31 }, (_, index) => call("teams_list", teamsArgs, String(index)))),
     ]);
     await expect(runLiteAdmin(options(), model.client)).rejects.toThrow("action limit");
-    expect(managementFetch).toHaveBeenCalledTimes(12);
+    expect(managementFetch).toHaveBeenCalledTimes(30);
     expect(model.requests).toHaveLength(1);
   });
 
   it.each([200, 503])(
-    "counts prior results across rounds before reviewing a thirteenth action (HTTP %s)",
+    "counts prior results across rounds before reviewing a thirty-first action (HTTP %s)",
     async (status) => {
       managementFetch.mockImplementation(async () => json({}, status));
       const input = options();
       const model = transport([
-        ...Array.from({ length: 4 }, (_, round) =>
+        ...Array.from({ length: 10 }, (_, round) =>
           completion(Array.from({ length: 3 }, (_, index) => call("teams_list", teamsArgs, `${round}-${index}`))),
         ),
         completion([call("key_create", keyFields)]),
       ]);
       await expect(runLiteAdmin(input, model.client)).rejects.toThrow("action limit");
-      expect(managementFetch).toHaveBeenCalledTimes(12);
+      expect(managementFetch).toHaveBeenCalledTimes(30);
       expect(input.confirm).not.toHaveBeenCalled();
-      expect(model.requests).toHaveLength(5);
+      expect(model.requests).toHaveLength(11);
     },
   );
 
@@ -859,7 +861,7 @@ describe("SDK conversation and action lifecycle", () => {
     const input = options();
     const model = transport([
       completion([
-        ...Array.from({ length: 12 }, (_, index) => call("unknown_tool", {}, String(index))),
+        ...Array.from({ length: 30 }, (_, index) => call("unknown_tool", {}, String(index))),
         call("key_create", keyFields, "valid"),
       ]),
     ]);
@@ -909,7 +911,7 @@ describe("LiteAdmin replies sent back to the model when the UI language is not E
 
   it("keeps the step limit reply in English", async () => {
     const input = options();
-    const model = transport(Array.from({ length: 6 }, () => completion([call("teams_list", teamsArgs)])));
+    const model = transport(Array.from({ length: 20 }, () => completion([call("teams_list", teamsArgs)])));
     await runLiteAdmin(input, model.client);
     expect(input.onMessage).toHaveBeenCalledExactlyOnceWith(
       "I reached the step limit. Any completed actions remain applied; check the relevant page before continuing.",
@@ -1018,4 +1020,183 @@ describe("preferred LiteAdmin model", () => {
       ]),
     ).toBeNull();
   });
+});
+
+describe("configured and mock models", () => {
+  const sonnet = { model_group: "claude-sonnet-5-5", providers: ["anthropic"], mode: "chat" };
+  const agentModel = { model_group: "openrouter/agent-model", mode: "chat" };
+  const demo = { model_group: "a-demo", mode: "chat" };
+
+  it("prefers the configured model over Sonnet when the user can call it", () => {
+    expect(getPreferredLiteAdminModel([sonnet, agentModel], { configured: " openrouter/agent-model " })).toBe(
+      agentModel.model_group,
+    );
+  });
+
+  it("falls back to the usual preference when the configured model is not callable", () => {
+    expect(getPreferredLiteAdminModel([demo, sonnet], { configured: agentModel.model_group })).toBe(sonnet.model_group);
+  });
+
+  it("never picks a mock model, even when it is configured, first, or a Sonnet route", () => {
+    const preference = { configured: demo.model_group, mock: [demo.model_group, sonnet.model_group] };
+    expect(getPreferredLiteAdminModel([demo, sonnet, agentModel], preference)).toBe(agentModel.model_group);
+    expect(getPreferredLiteAdminModel([demo, sonnet], preference)).toBeNull();
+  });
+});
+
+describe("generic gateway operations", () => {
+  const generic = (input: LiteAdminOptions) => ({ ...input, openApiCache: createOpenApiCatalogCache() });
+  const operationCalls = () => managementFetch.mock.calls.filter(([url]) => !String(url).endsWith("/openapi.json"));
+  const lastToolResult = (request: ChatCompletionCreateParamsNonStreaming) =>
+    JSON.parse(String(request.messages.at(-1)?.content)) as Record<string, unknown>;
+  const callArgs = (overrides: Record<string, unknown>) => ({
+    method: "GET",
+    path: "/guardrails/list",
+    path_params: null,
+    query: null,
+    body: null,
+    ...overrides,
+  });
+  const guardrailId = [{ name: "guardrail_id", value: "pii" }];
+
+  beforeEach(() => {
+    managementFetch.mockImplementation(async (url) => {
+      const { pathname } = new URL(String(url));
+      if (pathname === "/root/openapi.json") return json(openApiFixture);
+      if (pathname === "/root/guardrails/list") {
+        return json({ guardrails: [{ name: "pii", api_key: "provider-secret", note: "uses sk-live-123" }] });
+      }
+      return json({ ok: true });
+    });
+  });
+
+  it("finds operations from the spec and loads it once per session", async () => {
+    const input = generic(options());
+    const first = transport([
+      completion([call("find_operation", { query: "delete guardrail" })]),
+      completion([call("find_operation", { query: "list guardrails" })]),
+      completion(),
+    ]);
+    const second = transport([completion([call("find_operation", { query: "guardrail" })]), completion()]);
+
+    await runLiteAdmin(input, first.client);
+    await runLiteAdmin(input, second.client);
+
+    const found = lastToolResult(first.requests[1]);
+    expect(found.success).toBe(true);
+    expect((found.result as { method: string; path: string }[])[0]).toMatchObject({
+      method: "DELETE",
+      path: "/guardrails/{guardrail_id}",
+    });
+    expect(managementFetch).toHaveBeenCalledTimes(1);
+    expect(new Headers(managementFetch.mock.calls[0][1]?.headers).get("Authorization")).toBe("Bearer test-session");
+  });
+
+  it("runs a GET without approval and redacts secrets in its result", async () => {
+    const input = generic(options());
+    const model = transport([completion([call("call_operation", callArgs({}))]), completion()]);
+
+    await runLiteAdmin(input, model.client);
+
+    expect(input.confirm).not.toHaveBeenCalled();
+    expect(operationCalls()).toHaveLength(1);
+    expect(operationCalls()[0][1]?.method).toBe("GET");
+    expect(lastToolResult(model.requests[1])).toEqual({
+      operation: "call_operation",
+      success: true,
+      result: { guardrails: [{ name: "pii", api_key: "[redacted]", note: "uses [redacted]" }] },
+    });
+  });
+
+  it("truncates a large result with a note", async () => {
+    managementFetch.mockImplementation(async (url) =>
+      String(url).endsWith("/openapi.json") ? json(openApiFixture) : json({ rows: "x".repeat(40_000) }),
+    );
+    const input = generic(options());
+    const model = transport([completion([call("call_operation", callArgs({}))]), completion()]);
+
+    await runLiteAdmin(input, model.client);
+
+    const { result } = lastToolResult(model.requests[1]) as { result: Record<string, unknown> };
+    expect(result).toMatchObject({ truncated: true, note: expect.stringContaining("16000") });
+    expect(String(result.partial_json)).toHaveLength(16_000);
+  });
+
+  it.each([
+    { method: "POST", path: "/guardrails", path_params: null, body: '{"guardrail":{"guardrail_name":"pii"}}' },
+    { method: "PATCH", path: "/guardrails/{guardrail_id}", path_params: guardrailId, body: '{"mode":"pre_call"}' },
+    { method: "DELETE", path: "/guardrails/{guardrail_id}", path_params: guardrailId, body: null },
+  ])("sends $method only after approval of the exact request", async ({ method, path, path_params, body }) => {
+    const spec = structuredClone(openApiFixture);
+    Object.assign(spec.paths["/guardrails/{guardrail_id}"], { patch: { summary: "Patch Guardrail" } });
+    managementFetch.mockImplementation(async (url) =>
+      String(url).endsWith("/openapi.json") ? json(spec) : json({ ok: true }),
+    );
+    const input = generic(options());
+    const args = callArgs({ method, path, path_params, body });
+    const model = transport([completion([call("call_operation", args)]), completion()]);
+
+    await runLiteAdmin(input, model.client);
+
+    const sentPath = path.replace("{guardrail_id}", "pii");
+    const action = input.confirm.mock.calls[0][0];
+    expect(action).toMatchObject({
+      name: "call_operation",
+      destructive: method === "DELETE",
+      arguments: { method, path: sentPath, ...(body ? { body: JSON.parse(body) } : {}) },
+    });
+    expect(operationCalls()).toHaveLength(1);
+    const [url, init] = operationCalls()[0];
+    expect(new URL(String(url)).pathname).toBe(`/root${sentPath}`);
+    expect(init?.method).toBe(method);
+    expect(init?.body).toBe(body ?? undefined);
+    expect(input.onResult).toHaveBeenCalledExactlyOnceWith(action, { status: "completed" });
+  });
+
+  it("sends nothing when the approval is cancelled", async () => {
+    const input = generic({ ...options(), confirm: vi.fn(async () => false) });
+    const args = callArgs({ method: "DELETE", path: "/guardrails/{guardrail_id}", path_params: guardrailId });
+    const model = transport([completion([call("call_operation", args)])]);
+
+    await expect(runLiteAdmin(input, model.client)).rejects.toThrow("No change was sent");
+
+    expect(input.confirm).toHaveBeenCalledTimes(1);
+    expect(operationCalls()).toHaveLength(0);
+    expect(input.onResult).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["an unknown path", callArgs({ method: "POST", path: "/team/update", body: "{}" })],
+    ["a denied path in the spec", callArgs({ method: "POST", path: "/key/leak-report", body: "{}" })],
+    ["a denied path outside the spec", callArgs({ method: "POST", path: "/config/update", body: "{}" })],
+    ["a body on a GET", callArgs({ body: '{"a":1}' })],
+    ["a malformed body", callArgs({ method: "POST", path: "/guardrails", body: "{" })],
+  ])("rejects %s before approval or dispatch", async (_case, args) => {
+    const input = generic(options());
+    const model = transport([completion([call("call_operation", args)]), completion()]);
+
+    await runLiteAdmin(input, model.client);
+
+    expect(input.confirm).not.toHaveBeenCalled();
+    expect(operationCalls()).toHaveLength(0);
+    expect(lastToolResult(model.requests[1])).toMatchObject({ operation: "call_operation", success: false });
+  });
+
+  it.each([{ type: "global" }, { type: "user", userId: "signed-in-user" }] as const)(
+    "does not offer or run generic operations for a $type usage session",
+    async (scope) => {
+      const input = generic({ ...options(), access: { mode: "usage", scope } });
+      const model = transport([
+        completion([call("find_operation", { query: "guardrail" }), call("call_operation", callArgs({}), "second")]),
+        completion(),
+      ]);
+
+      await runLiteAdmin(input, model.client);
+
+      const names = model.requests[0].tools?.map((tool) => (tool.type === "function" ? tool.function.name : null));
+      expect(names).not.toContain("find_operation");
+      expect(names).not.toContain("call_operation");
+      expect(managementFetch).not.toHaveBeenCalled();
+    },
+  );
 });

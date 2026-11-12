@@ -23,6 +23,7 @@ import {
 import { DeploymentHealthPanel } from "@/components/DeploymentHealth/DeploymentHealthPanel";
 import { UserBanner } from "@/components/UserBanner";
 import { LiteAdminFrame } from "@/components/liteadmin/LiteAdmin";
+import { isDockWorkerRoute } from "@/components/liteadmin/aria-brand";
 import { routeSegmentForPathname, uiHref } from "@/utils/uiHref";
 import { PluginModeProvider, usePluginMode } from "@/contexts/PluginModeContext";
 import { createApiClient } from "@/lib/http/client";
@@ -220,7 +221,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             <UserBanner accessToken={accessToken} />
             <main
               className={
-                routeSegment === "aria"
+                isDockWorkerRoute(routeSegment)
                   ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
                   : "min-h-0 min-w-0 flex-1 overflow-y-auto"
               }

@@ -667,8 +667,8 @@ describe("Sidebar (leftnav)", () => {
     expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("data-active", "true");
   });
 
-  it("does not highlight Home when the Aria workspace is active", () => {
-    navState.pathname = "/ui/aria";
+  it("does not highlight Home when the DockWorker workspace is active", () => {
+    navState.pathname = "/ui/dockworker";
     renderWithProviders(<Sidebar {...defaultProps} />);
     expect(screen.getByRole("link", { name: "Home" })).not.toHaveAttribute("data-active");
   });
