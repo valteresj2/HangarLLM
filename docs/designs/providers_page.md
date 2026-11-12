@@ -76,7 +76,7 @@ Models lists the models that count toward the provider, with their health status
 
 ### Testing a credential
 
-A test checks that a credential reaches the provider and is accepted. The design extends `POST /health/test_connection` rather than adding a new route:
+A test checks that a credential reaches the provider and is accepted. The design adds `POST /health/credential_test` next to `POST /health/test_connection`, reusing its credential resolution:
 
 * It accepts `hangarllm_credential_name` with no model, plus an optional model.
 * For providers that implement a model list call, it calls that call directly, without the `get_valid_models` cache, and passes the provider's error through, so a 401 shows as a failure.
@@ -99,7 +99,7 @@ Self-hosted providers keep their current behavior. Ollama, hosted vLLM and LM St
 
 ### DockWorker
 
-`POST /health/test_connection` is not on the DockWorker deny list. Because it is a POST, the agent shows it as a change and runs it only after the admin approves the card. Credential create, update and value routes stay denied. The agent never sees key values because the credential routes that return them stay blocked.
+The `/health/credential_test` routes are not on the DockWorker deny list. Because the test routes are POSTs, the agent shows it as a change and runs it only after the admin approves the card. Credential create, update and value routes stay denied. The agent never sees key values because the credential routes that return them stay blocked.
 
 ## Alternatives considered
 
@@ -151,6 +151,45 @@ Self-hosted providers keep their current behavior. Ollama, hosted vLLM and LM St
 1. Show each model's existing `order` read only in the detail view.
 2. Let the admin edit `order` on the models from the detail view, using `/model/update`.
 
+## API contract
+
+The backend and the dashboard build against this contract. All three routes require a proxy admin.
+
+`POST /health/credential_test` tests one credential, saved or not, and stores the result when the credential is saved.
+
+```json
+{"credential_name": "openai-prod"}
+{"provider": "OpenAI", "credential_values": {"api_key": "..."}, "test_model": "gpt-4o-mini"}
+```
+
+`POST /health/credential_test/batch` tests saved credentials, at most 5 at a time with a 20 second timeout each.
+
+```json
+{"credential_names": ["openai-prod", "anthropic-main"]}
+```
+
+Both return results in this shape, one object for the single route and `{"results": [...]}` for the batch.
+
+```json
+{
+  "credential_name": "openai-prod",
+  "status": "healthy",
+  "kind": "model_list",
+  "http_status": null,
+  "error": null,
+  "latency_ms": 412.0,
+  "checked_at": "2026-11-12T10:00:00Z"
+}
+```
+
+`status` is `healthy`, `failing` or `untested`. `kind` is `model_list`, `completion` or null when nothing ran. `untested` with `error` "test model required" means the provider has no model list call and the credential has no `credential_info.test_model`. `error` is a short message that never contains key values. `credential_name` is null for an unsaved test.
+
+`GET /health/credential_test/latest` returns `{"results": [...]}` with the latest stored result per credential.
+
+Catalog entries in `provider_create_fields.json` gain `category`, one of `cloud_api`, `enterprise_cloud` or `self_hosted`. A new entry `Anthropic_Compatible` has `hangarllm_provider` `anthropic`, category `self_hosted`, and required `api_base` plus `api_key`. `OpenAI_Compatible` gets category `self_hosted` and a required `api_base`.
+
+A compatible credential stores `credential_info.compatible` as `openai` or `anthropic` and its name in `display_name`. Creating or updating such a credential without `api_base` returns 400.
+
 ## Detailed Implementation Plan
 
 The plan follows the chosen options: a Providers tab next to Add Model (D1-2), a `category` field in the catalog (D2-1), test results in `HangarLLM_HealthCheckTable` (D3-1), Test All on credentials only (D4-1), no disable action (D5-1), and editable `order` (D6-2).
@@ -163,7 +202,7 @@ The plan follows the chosen options: a Providers tab next to Add Model (D1-2), a
 
 ### Step 2. Credential tests
 
-* Modify `hangarllm/proxy/health_endpoints/_health_endpoints.py` so `test_model_connection` accepts a credential name without a model, calls the provider's model list directly when the provider implements one, and otherwise uses `credential_info.test_model`. Add a batch form, `POST /health/test_connection/batch`, with a list of names, a limit of 5 parallel tests and a 20 second timeout per test.
+* Create `hangarllm/proxy/health_endpoints/credential_test_endpoints.py` with the three routes in the API contract, mounted beside the existing health routes. `_health_endpoints.py` is already over 2,700 lines, so the routes live in their own module, and `/health/test_connection` keeps its current behavior for unsaved models.
 * Store results in `HangarLLM_HealthCheckTable`. Add the column to all three schema copies (`schema.prisma`, `hangarllm/proxy/schema.prisma`, `hangarllm-proxy-extras/hangarllm_proxy_extras/schema.prisma`) with a schema-only migration, following the migration rules in `AGENTS.md`.
 * Tests in `tests/unit/proxy/health_endpoints/`: a valid and an invalid key against a stubbed provider (the invalid one reports its 401), a provider without a model list and no test model (untested), a config defined credential, a non admin caller rejected, a batch that respects the parallel limit, and a key that never appears in the response or the captured logs.
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
-import { parseAsString, useQueryStates } from "nuqs";
+import { useQueryStates } from "nuqs";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ParseKeys } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -28,11 +28,14 @@ import ModelRetrySettingsPanel from "@/app/(dashboard)/models-and-endpoints/pane
 import ModelGroupAliasPanel from "@/app/(dashboard)/models-and-endpoints/panels/ModelGroupAliasPanel";
 import AccessGroupBudgetsPanel from "@/app/(dashboard)/models-and-endpoints/panels/AccessGroupBudgetsPanel";
 import PriceDataPanel from "@/app/(dashboard)/models-and-endpoints/panels/PriceDataPanel";
+import { CLEARED_PREFILL, PREFILL_URL_PARAMS } from "@/app/(dashboard)/models-and-endpoints/addModelPrefill";
+import ProvidersView from "@/components/providers/ProvidersView";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const MODEL_TAB_SLUGS = [
   "add",
+  "providers",
   "auto-routers",
   "llm-credentials",
   "pass-through",
@@ -49,10 +52,9 @@ const BASE_TAB_KEY = "all-models";
 
 const TAB_KEYS = [BASE_TAB_KEY, ...MODEL_TAB_SLUGS] as const;
 
-const PREFILL_URL_PARAMS = { provider: parseAsString, hangarllm_model: parseAsString };
-
 const TAB_LABELS: Record<ModelTabSlug, ParseKeys> = {
   add: "modelsAndEndpoints.page.tabs.add",
+  providers: "modelsAndEndpoints.page.tabs.providers",
   "auto-routers": "modelsAndEndpoints.page.tabs.autoRouters",
   "llm-credentials": "modelsAndEndpoints.page.tabs.llmCredentials",
   "pass-through": "modelsAndEndpoints.page.tabs.passThrough",
@@ -71,6 +73,8 @@ const renderPanel = (key: string) => {
       return <AutoRoutersTabPanel />;
     case "add":
       return <AddModelPanel />;
+    case "providers":
+      return <ProvidersView />;
     case "llm-credentials":
       return <LlmCredentialsPanel />;
     case "pass-through":
@@ -123,6 +127,7 @@ export default function ModelsAndEndpointsPage() {
     () => [
       "",
       ...(canCreate ? (["add"] as const) : []),
+      ...(isAdmin && !isViewOnly ? (["providers"] as const) : []),
       ...(isAdmin || canViewAutoRouters ? (["auto-routers"] as const) : []),
       // effectiveSessionRole reports proxy_admin_viewer as "Admin", so isAdmin alone would show a
       // viewer these write-only panels; only the raw-role isViewOnly separates them. Health Status
@@ -146,7 +151,7 @@ export default function ModelsAndEndpointsPage() {
       return;
     }
     setRequestedTab(next);
-    void setPrefillParams({ provider: null, hangarllm_model: null });
+    void setPrefillParams(CLEARED_PREFILL);
   };
 
   const allModelsLabel = isAdmin

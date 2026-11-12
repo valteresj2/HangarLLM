@@ -19110,6 +19110,7 @@
         "deployedModels": "Deployed Models",
         "yourModels": "Your Models",
         "add": "Add Model",
+        "providers": "Providers",
         "autoRouters": "Auto-Routers",
         "llmCredentials": "LLM Credentials",
         "passThrough": "Pass-Through Endpoints",
@@ -19322,6 +19323,90 @@
         "saved": "Retry settings saved successfully",
         "saveFailed": "Failed to save retry settings"
       }
+    },
+    "providersView": {
+      "search": "Search providers",
+      "configuredOnly": "Configured only",
+      "addOpenaiCompatible": "Add OpenAI compatible",
+      "addAnthropicCompatible": "Add Anthropic compatible",
+      "groups": {
+        "cloudApi": "Cloud API",
+        "enterpriseCloud": "Enterprise cloud",
+        "selfHosted": "Self-hosted and compatible"
+      },
+      "testAll": "Test All",
+      "empty": "No providers match your filters.",
+      "loadError": "Failed to load the provider list.",
+      "status": {
+        "notConfigured": "Not configured",
+        "notTested": "Not tested",
+        "healthy": "{{count}} healthy",
+        "failing": "{{count}} failing ({{reason}})",
+        "untested": "{{count}} not tested"
+      },
+      "progress": {
+        "queued": "Waiting to test",
+        "testing": "Testing"
+      },
+      "models_one": "{{count}} model",
+      "models_other": "{{count}} models"
+    },
+    "providerDetail": {
+      "back": "All providers",
+      "credentials": "Credentials",
+      "addCredential": "Add credential",
+      "noCredentials": "No credentials yet. Add one to start using this provider.",
+      "fromConfig": "From config",
+      "test": "Test",
+      "edit": "Edit credential",
+      "delete": "Delete credential",
+      "result": {
+        "healthy": "Healthy",
+        "failing": "Failing ({{reason}})",
+        "untested": "Not tested"
+      },
+      "kind": {
+        "model_list": "Model list test",
+        "completion": "Completion test"
+      },
+      "latency": "{{latency}} ms",
+      "testModel": "Test model",
+      "saveTestModel": "Save and test",
+      "testModelRequired": "This provider has no model list call, so a test needs a model. Pick one and press Add Credential again.",
+      "testingCredential": "Testing the credential",
+      "testFailed": "The test failed: {{error}}",
+      "saveWithoutTesting": "Save without testing",
+      "credentialAdded": "Credential added",
+      "credentialUpdated": "Credential updated",
+      "credentialDeleted": "Credential deleted",
+      "models": "Models",
+      "noModels": "No models use this provider yet.",
+      "addModel": "Add model",
+      "modelCredential": "Credential for the new model",
+      "modelName": "Model name",
+      "providerModel": "Provider model",
+      "credential": "Credential",
+      "health": "Health",
+      "order": "Order",
+      "orderFor": "Order for {{model}}",
+      "orderUpdated": "Order updated",
+      "notChecked": "Not checked"
+    },
+    "addCompatibleModal": {
+      "title": {
+        "openai": "Add OpenAI compatible endpoint",
+        "anthropic": "Add Anthropic compatible endpoint"
+      },
+      "displayName": "Display name",
+      "displayNameRequired": "Display name is required",
+      "apiBase": "Base URL",
+      "apiBaseRequired": "Base URL is required",
+      "apiKey": "API key",
+      "modelNames": "Model names (optional)",
+      "modelNamesHint": "Separate model names with commas or new lines. Each one is added as a model that uses this endpoint.",
+      "cancel": "Cancel",
+      "save": "Save endpoint",
+      "saved": "Added {{name}}"
     }
   },
   "addPassThrough": {

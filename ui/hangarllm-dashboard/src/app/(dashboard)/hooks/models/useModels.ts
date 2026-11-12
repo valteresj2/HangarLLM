@@ -109,6 +109,8 @@ export interface AutoRouterDeployment extends AutoRouterCandidateDeployment {
     model?: string | null;
     base_model?: string | null;
     custom_llm_provider?: string | null;
+    hangarllm_credential_name?: string | null;
+    order?: number | null;
     switchyard_router_config?: unknown;
     complexity_router_config?: unknown;
     complexity_router_default_model?: string | null;
@@ -235,6 +237,11 @@ export const usePlainChatModelGroups = (): ReadonlySet<string> =>
 
 export const usePlainChatModelDeployments = (): AutoRouterDeployment[] =>
   useDeployments(selectPlainChatModelDeployments).data ?? NO_DEPLOYMENTS;
+
+const everyDeployment = (deployments: AutoRouterDeployment[]): AutoRouterDeployment[] => deployments;
+
+export const useAllModelDeployments = (): UseQueryResult<AutoRouterDeployment[], Error> =>
+  useDeployments(everyDeployment);
 
 export const useAutoRouters = (): UseQueryResult<AutoRouterDeployment[], Error> =>
   useDeployments(selectAutoRouterDeployments);

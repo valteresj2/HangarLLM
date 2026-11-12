@@ -971,6 +971,21 @@ class TestDiscoverModels:
         assert OpenAIGPTConfig().get_models(api_key="", api_base="https://third-party.example") == ["other-model"]
         assert foreign_models.calls.last.request.headers["Authorization"] == "Bearer "
 
+    @respx.mock
+    @pytest.mark.parametrize(
+        ("api_base", "models_url"),
+        [
+            ("https://compatible.example/api/v1", "https://compatible.example/api/v1/models"),
+            ("https://compatible.example:8443/v1/", "https://compatible.example:8443/v1/models"),
+            ("https://compatible.example", "https://compatible.example/v1/models"),
+        ],
+    )
+    def test_model_list_keeps_the_path_of_the_api_base(self, api_base: str, models_url: str) -> None:
+        models: Final = respx.get(models_url).mock(return_value=httpx.Response(200, json={"data": [{"id": "m"}]}))
+
+        assert OpenAIGPTConfig().get_models(api_key="k", api_base=api_base) == ["m"]
+        assert models.called
+
 
 class TestClientsideBaseOverride:
     def test_client_api_base_override_clears_deployment_wif(self, deployment_wif: dict[str, str]) -> None:

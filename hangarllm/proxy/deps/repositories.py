@@ -2,12 +2,14 @@ from typing import Annotated, TypeAlias
 
 from fastapi import Depends
 
+from hangarllm.models.credential_test import CredentialTestStore
 from hangarllm.models.deployment_warning import DeploymentWarningIgnoreStore
 from hangarllm.models.gateway_activity import GatewayActivityStore
 from hangarllm.models.plugin_upload import PluginUploadStore
 from hangarllm.models.skill_submission import SkillSubmissionStore
 from hangarllm.models.user_banner import UserBannerStore
 from hangarllm.proxy.deps.database import DatabaseDep
+from hangarllm.repositories.credential_test_repository import CredentialTestRepository
 from hangarllm.repositories.deployment_warning_ignore_repository import DeploymentWarningIgnoreRepository
 from hangarllm.repositories.gateway_activity_repository import GatewayActivityRepository
 from hangarllm.repositories.plugin_upload_repository import PluginUploadRepository
@@ -54,3 +56,10 @@ async def get_skill_submission_repository(database: DatabaseDep) -> SkillSubmiss
 SkillSubmissionRepositoryDep: TypeAlias = Annotated[
     SkillSubmissionStore | None, Depends(get_skill_submission_repository)
 ]
+
+
+async def get_credential_test_repository(database: DatabaseDep) -> CredentialTestStore | None:
+    return None if database is None else CredentialTestRepository(database.prisma)
+
+
+CredentialTestRepositoryDep: TypeAlias = Annotated[CredentialTestStore | None, Depends(get_credential_test_repository)]

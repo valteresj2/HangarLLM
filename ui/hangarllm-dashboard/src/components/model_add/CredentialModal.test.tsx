@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { Providers } from "../provider_info_helpers";
 import { CredentialItem } from "../networking";
@@ -29,6 +30,13 @@ vi.mock("../networking", async () => {
             placeholder: "https://api.openai.com/v1",
           },
         ],
+      },
+      {
+        provider: "Zeta_Cloud",
+        provider_display_name: "Zeta Cloud",
+        hangarllm_provider: "zeta",
+        category: "cloud_api",
+        credential_fields: [],
       },
       {
         provider: "Anthropic",
@@ -96,6 +104,20 @@ describe("CredentialModal", () => {
         expect(screen.getByPlaceholderText("https://api.openai.com/v1")).toBeInTheDocument();
       });
     });
+  });
+
+  it("offers the providers from the served catalog, including ones the dashboard enum lacks", async () => {
+    const user = userEvent.setup();
+    renderModal({ mode: "add" });
+
+    await user.click(screen.getByRole("combobox", { name: /Provider/ }));
+
+    expect(await screen.findByRole("option", { name: /Zeta Cloud/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+      expect.stringMatching(/OpenAI$/),
+      expect.stringMatching(/Zeta Cloud$/),
+      expect.stringMatching(/Anthropic$/),
+    ]);
   });
 
   describe("edit mode", () => {

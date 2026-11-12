@@ -165,6 +165,22 @@ def _without_null_values(credential_values: Mapping[str, object]) -> dict[str, o
     return {key: value for key, value in credential_values.items() if value is not None}
 
 
+def _reject_compatible_without_api_base(
+    credential_info: Mapping[str, object], credential_values: Mapping[str, object]
+) -> None:
+    if not credential_info.get("compatible"):
+        return
+    api_base: Final = credential_values.get("api_base")
+    if isinstance(api_base, str) and api_base.strip():
+        return
+    raise ProxyException(
+        message="A compatible credential needs an api_base, or it would send requests to the vendor's public API.",
+        type=ProxyErrorTypes.validation_error.value,
+        code=status.HTTP_400_BAD_REQUEST,
+        param="api_base",
+    )
+
+
 def _sync_in_memory_credential(credential: CredentialItem, credential_name: str) -> None:
     """Mirror a DB credential update into the in-memory ``credential_list`` used by request-time
     resolution; a no-op if the credential isn't loaded in memory (e.g. proxy restarted since boot).
@@ -349,6 +365,7 @@ async def create_credential(
             _CREDENTIAL_DICT_ADAPTER.validate_python(credential_values),
             credential_info,
         )
+        _reject_compatible_without_api_base(credential_info, normalized_values)
         _reject_non_admin_wif_fields(server_owned_wif_fields_written(normalized_values), user_api_key_dict)
         _reject_non_admin_wif_fields(
             await named_credential_wif_fields(credential.credential_name, prisma_client), user_api_key_dict
@@ -1032,6 +1049,15 @@ async def update_credential(
             patch.credential_info  # pyright: ignore[reportUnknownMemberType]  # untyped credential field
         )
         effective_info: Final = {**stored_info, **patch_info}
+        deleted_keys: Final = frozenset(credential.credential_values_to_delete or ())
+        _reject_compatible_without_api_base(
+            effective_info,
+            {
+                key: value
+                for key, value in {**decrypted_values, **_without_null_values(incoming_values)}.items()
+                if key not in deleted_keys
+            },
+        )
         normalized_patch: Final = (
             patch.model_copy(
                 update={"credential_values": _normalized_github_copilot_values(incoming_values, effective_info)}

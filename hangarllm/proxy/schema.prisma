@@ -1436,11 +1436,13 @@ model HangarLLM_HealthCheckTable {
   checked_at DateTime @default(now())
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+  credential_name String?
 
   @@index([model_name])
   @@index([checked_at])
   @@index([status])
   @@index([model_id, model_name, checked_at(sort: Desc)], map: "HangarLLM_HealthCheckTable_model_id_model_name_checked_at_idx")
+  @@index([credential_name, checked_at(sort: Desc)], map: "HangarLLM_HealthCheckTable_credential_name_checked_at_idx")
 }
 
 // Search Tools table for storing search tool configurations

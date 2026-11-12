@@ -714,6 +714,7 @@ from hangarllm.proxy.health_check import (
     perform_health_check,
 )
 from hangarllm.proxy.health_endpoints._health_endpoints import router as health_router
+from hangarllm.proxy.health_endpoints.credential_test_endpoints import router as credential_test_router
 from hangarllm.proxy.health_endpoints.deployment_warning_endpoints import router as deployment_warning_router
 from hangarllm.proxy.hooks.model_max_budget_limiter import (  # noqa: F401, RUF100  # legacy module exports
     PROXY_VirtualKeyModelMaxBudgetLimiter,
@@ -22481,6 +22482,7 @@ reserve_lazy_slot(app, "llm_passthrough")
 app.include_router(pass_through_router)
 app.include_router(health_router)
 app.include_router(deployment_warning_router)
+app.include_router(credential_test_router)
 app.include_router(key_management_router)
 app.include_router(internal_user_router)
 app.include_router(daily_activity_router)

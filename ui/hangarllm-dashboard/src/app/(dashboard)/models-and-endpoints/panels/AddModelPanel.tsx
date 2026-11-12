@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { parseAsString, useQueryStates } from "nuqs";
+import { useQueryStates } from "nuqs";
 import { useQueryClient } from "@tanstack/react-query";
 import AddModelForm from "@/components/add_model/AddModelForm";
 import { handleAddModelSubmit } from "@/components/add_model/handle_add_model_submit";
@@ -18,10 +18,9 @@ import { useProviderFields } from "@/app/(dashboard)/hooks/providers/useProvider
 import { useTeams } from "@/app/(dashboard)/hooks/teams/useTeams";
 import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
 import { buildDecisionCatalog } from "@/lib/decisionModels";
+import { CLEARED_PREFILL, PREFILL_URL_PARAMS } from "@/app/(dashboard)/models-and-endpoints/addModelPrefill";
 
 const INITIAL_VALUES: MountedFormValues = { hangarllm_credential_name: null };
-
-const PREFILL_URL_PARAMS = { provider: parseAsString, hangarllm_model: parseAsString };
 
 export default function AddModelPanel() {
   const { accessToken } = useAuthorized();
@@ -32,8 +31,10 @@ export default function AddModelPanel() {
   const { data: credentialsResponse } = useCredentials();
   const { data: teams } = useTeams();
   const [selectedProvider, setSelectedProvider] = useState<string | null>(Providers.Anthropic);
-  const [{ provider: prefillProviderSlug, hangarllm_model: prefillModel }, setPrefillParams] =
-    useQueryStates(PREFILL_URL_PARAMS);
+  const [
+    { provider: prefillProviderSlug, hangarllm_model: prefillModel, hangarllm_credential_name: prefillCredential },
+    setPrefillParams,
+  ] = useQueryStates(PREFILL_URL_PARAMS);
   const { data: providerMetadata } = useProviderFields();
   const prefillProvider = useMemo(
     () =>
@@ -51,11 +52,14 @@ export default function AddModelPanel() {
     prefillApplied.current = true;
     setSelectedProvider(prefillProvider);
     form.setValue("custom_llm_provider", prefillProvider);
+    if (prefillCredential !== null) {
+      form.setValue("hangarllm_credential_name", prefillCredential);
+    }
     if (prefillModel === null) {
       return;
     }
     form.setValue("model", [prefillModel]);
-  }, [form, prefillModel, prefillProvider]);
+  }, [form, prefillCredential, prefillModel, prefillProvider]);
 
   const pickedProvider = useWatch({ control: form.control, name: "custom_llm_provider" });
   const providerModels = useMemo(
@@ -80,7 +84,7 @@ export default function AddModelPanel() {
       {
         resetFields: () => {
           form.reset(INITIAL_VALUES);
-          void setPrefillParams({ provider: null, hangarllm_model: null });
+          void setPrefillParams(CLEARED_PREFILL);
         },
       },
       refresh,

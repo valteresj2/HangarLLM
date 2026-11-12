@@ -164,3 +164,9 @@ def test_latest_by_model_name_lets_a_newer_name_probe_speak_for_the_group():
     )
 
     assert latest_by_model_name((per_deployment, name_probe))["gpt-4"] is name_probe
+
+
+@pytest.mark.parametrize("sql", [LATEST_HEALTH_CHECKS_SQL, LATEST_HEALTH_CHECKS_FOR_MODELS_SQL])
+def test_credential_test_rows_are_not_read_as_model_health(sql):
+    """Credential tests share the table but carry a credential_name, so a model health read must skip them."""
+    assert '"credential_name" IS NULL' in sql

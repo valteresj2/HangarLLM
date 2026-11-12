@@ -3345,3 +3345,75 @@ def test_get_credential_by_model_masks_the_deployment_credentials(monkeypatch):
     with pytest.raises(ProxyException) as missing:
         asyncio.run(get_credential_by_model(MagicMock(), MagicMock(), "no-such-id", caller))
     assert missing.value.code == "404"
+
+
+class TestCompatibleCredentialNeedsApiBase:
+    @pytest.mark.parametrize("api_base", [None, "", "   "])
+    def test_create_without_api_base_is_rejected(self, restore_credential_list, api_base):
+        values: Final = {"api_key": "sk-compat"} if api_base is None else {"api_key": "sk-compat", "api_base": api_base}
+        with _repository_holding(None) as repository:
+            response: Final = _post_credential(
+                {
+                    "credential_name": "my-gateway",
+                    "credential_values": values,
+                    "credential_info": {"custom_llm_provider": "OpenAI", "compatible": "openai"},
+                }
+            )
+
+        assert response.status_code == 400, response.text
+        assert response.json()["error"]["param"] == "api_base"
+        repository.create.assert_not_awaited()
+        assert hangarllm.credential_list == []
+
+    def test_create_with_api_base_is_saved(self, restore_credential_list):
+        with _repository_holding(None) as repository:
+            response: Final = _post_credential(
+                {
+                    "credential_name": "my-gateway",
+                    "credential_values": {"api_key": "sk-compat", "api_base": "https://llm.internal/v1"},
+                    "credential_info": {"custom_llm_provider": "Anthropic", "compatible": "anthropic"},
+                }
+            )
+
+        assert response.status_code == 200, response.text
+        repository.create.assert_awaited_once()
+
+    def test_update_that_deletes_the_api_base_is_rejected(self, restore_credential_list):
+        stored: Final = CredentialItem(
+            credential_name="my-gateway",
+            credential_values={"api_key": "sk-compat", "api_base": "https://llm.internal/v1"},
+            credential_info={"custom_llm_provider": "OpenAI", "compatible": "openai"},
+        )
+        with _repository_holding(stored) as repository:
+            response: Final = _patch_credential(
+                "my-gateway", {"credential_info": {}, "credential_values_to_delete": ["api_base"]}
+            )
+
+        assert response.status_code == 400, response.text
+        repository.update_by_name.assert_not_awaited()
+
+    def test_update_that_marks_a_credential_without_api_base_compatible_is_rejected(self, restore_credential_list):
+        stored: Final = CredentialItem(
+            credential_name="openai-prod",
+            credential_values={"api_key": "sk-openai"},
+            credential_info={"custom_llm_provider": "OpenAI"},
+        )
+        with _repository_holding(stored) as repository:
+            response: Final = _patch_credential("openai-prod", {"credential_info": {"compatible": "openai"}})
+
+        assert response.status_code == 400, response.text
+        repository.update_by_name.assert_not_awaited()
+
+    def test_update_that_keeps_the_stored_api_base_is_saved(self, restore_credential_list):
+        stored: Final = CredentialItem(
+            credential_name="my-gateway",
+            credential_values={"api_key": "sk-compat", "api_base": "https://llm.internal/v1"},
+            credential_info={"custom_llm_provider": "OpenAI", "compatible": "openai"},
+        )
+        with _repository_holding(stored) as repository:
+            response: Final = _patch_credential(
+                "my-gateway", {"credential_info": {}, "credential_values": {"api_key": "sk-new"}}
+            )
+
+        assert response.status_code == 200, response.text
+        repository.update_by_name.assert_awaited_once()

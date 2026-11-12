@@ -20,6 +20,7 @@ vi.mock("./panels/ModelRetrySettingsPanel", () => ({ default: () => <div data-te
 vi.mock("./panels/ModelGroupAliasPanel", () => ({ default: () => <div data-testid="panel-alias" /> }));
 vi.mock("./panels/PriceDataPanel", () => ({ default: () => <div data-testid="panel-price" /> }));
 vi.mock("./panels/AccessGroupBudgetsPanel", () => ({ default: () => <div data-testid="panel-budgets" /> }));
+vi.mock("@/components/providers/ProvidersView", () => ({ default: () => <div data-testid="panel-providers" /> }));
 
 const detailState = { modelId: null as string | null, teamId: null as string | null };
 vi.mock("./detailNavigation", () => ({
@@ -159,6 +160,7 @@ describe("ModelsAndEndpointsPage", () => {
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "Deployed Models",
       "Add Model",
+      "Providers",
       "Auto-Routers Beta",
       "LLM Credentials",
       "Pass-Through Endpoints",
@@ -202,15 +204,16 @@ describe("ModelsAndEndpointsPage", () => {
   // Auto-routers are excluded from the Deployed Models table, so this tab is their home: the only
   // place in the product to list, create, edit or delete one.
   describe("Auto-Routers tab", () => {
-    it("sits third, after Deployed Models and Add Model", () => {
+    it("sits after Deployed Models, Add Model and Providers", () => {
       renderPage();
 
       const tabs = screen.getAllByRole("tab").map((tab) => tab.textContent);
       expect(tabs[0]).toContain("Deployed Models");
       expect(tabs[1]).toBe("Add Model");
-      expect(tabs[2]).toContain("Auto-Routers");
+      expect(tabs[2]).toBe("Providers");
+      expect(tabs[3]).toContain("Auto-Routers");
       // Badged Beta while the tab settles; BetaBadge renders the label text.
-      expect(tabs[2]).toContain("Beta");
+      expect(tabs[3]).toContain("Beta");
     });
 
     it("renders its panel when selected", async () => {
@@ -226,6 +229,27 @@ describe("ModelsAndEndpointsPage", () => {
       renderPage();
 
       expect(screen.queryByRole("tab", { name: /Auto-Routers/ })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Providers tab", () => {
+    it("opens the Providers view from ?tab=providers for an admin", () => {
+      renderPage({ searchParams: "?tab=providers" });
+
+      expect(screen.getByRole("tab", { name: "Providers" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByTestId("panel-providers")).toBeInTheDocument();
+    });
+
+    it("is hidden from a view-only admin and from non-admins, who cannot manage credentials", () => {
+      mockUseAuthorized.mockReturnValue(VIEW_ONLY_ADMIN);
+      const { unmount } = renderPage({ searchParams: "?tab=providers" });
+      expect(screen.queryByRole("tab", { name: "Providers" })).not.toBeInTheDocument();
+      expect(screen.queryByTestId("panel-providers")).not.toBeInTheDocument();
+      unmount();
+
+      mockUseAuthorized.mockReturnValue(NON_ADMIN);
+      renderPage();
+      expect(screen.queryByRole("tab", { name: "Providers" })).not.toBeInTheDocument();
     });
   });
 
@@ -291,6 +315,17 @@ describe("ModelsAndEndpointsPage", () => {
       await waitFor(() => expect(lastUrlParams(onUrlUpdate)?.get("tab")).toBeNull());
       expect(lastUrlParams(onUrlUpdate)?.get("provider")).toBeNull();
       expect(lastUrlParams(onUrlUpdate)?.get("hangarllm_model")).toBeNull();
+    });
+
+    it("drops the credential prefill param when the user leaves the Add Model tab", async () => {
+      const user = userEvent.setup();
+      const onUrlUpdate = vi.fn<OnUrlUpdateFunction>();
+      renderPage({ searchParams: `${ADD_MODEL_PREFILL_LINK}&hangarllm_credential_name=openai-prod`, onUrlUpdate });
+
+      await user.click(screen.getByRole("tab", { name: "Deployed Models" }));
+
+      await waitFor(() => expect(lastUrlParams(onUrlUpdate)?.get("tab")).toBeNull());
+      expect(lastUrlParams(onUrlUpdate)?.get("hangarllm_credential_name")).toBeNull();
     });
   });
 });

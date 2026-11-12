@@ -963,14 +963,14 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
     def _fetch_model_ids(
         api_base: str | None, bearer_token: str | None
     ) -> list[str]:  # mutable-ok: matches get_models' list[str] contract shared by every provider override
-        parsed_url: Final = httpx.URL(api_base or "https://api.openai.com")
-        port_suffix: Final = f":{parsed_url.port}" if parsed_url.port else ""
+        base: Final = (api_base or "https://api.openai.com").rstrip("/")
+        has_path: Final = httpx.URL(base).path.strip("/") != ""
         response: Final = hangarllm.module_level_client.get(
-            url=f"{parsed_url.scheme}://{parsed_url.host}{port_suffix}/v1/models",
+            url=f"{base}/models" if has_path else f"{base}/v1/models",
             headers={"Authorization": f"Bearer {bearer_token}"},
         )
         if response.status_code != 200:
-            raise Exception(f"Failed to get models: {response.text}")
+            raise Exception(f"Failed to get models. Status code: {response.status_code}, Response: {response.text}")
         return [model["id"] for model in response.json()["data"]]
 
     @staticmethod

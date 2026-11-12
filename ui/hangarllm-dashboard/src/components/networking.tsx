@@ -369,8 +369,12 @@ export interface CredentialItem {
     custom_llm_provider?: string;
     description?: string;
     required?: boolean;
+    compatible?: CompatibleKind;
+    test_model?: string;
   };
 }
+
+export type CompatibleKind = "openai" | "anthropic";
 
 export interface ProviderCredentialFieldMetadata {
   key: string;
@@ -383,10 +387,13 @@ export interface ProviderCredentialFieldMetadata {
   default_value?: string | null;
 }
 
+export type ProviderCategory = "cloud_api" | "enterprise_cloud" | "self_hosted";
+
 export interface ProviderCreateInfo {
   provider: string;
   provider_display_name: string;
   hangarllm_provider: string;
+  category: ProviderCategory;
   default_model_placeholder?: string | null;
   credential_fields: ProviderCredentialFieldMetadata[];
 }
@@ -633,7 +640,9 @@ export const getOpenAPISchema = async () => {
 
 export const modelCostMap = async (catalogOnly = false) => {
   try {
-    const path = catalogOnly ? "/public/hangarllm_model_cost_map?catalog_only=true" : "/public/hangarllm_model_cost_map";
+    const path = catalogOnly
+      ? "/public/hangarllm_model_cost_map?catalog_only=true"
+      : "/public/hangarllm_model_cost_map";
     const url = proxyBaseUrl ? `${proxyBaseUrl}${path}` : path;
     const response = await fetch(url, {
       method: "GET",
@@ -2426,6 +2435,42 @@ export const credentialDeleteCall = async (accessToken: string, credentialName: 
     throw error;
   }
 };
+
+export interface CredentialTestResult {
+  credential_name: string | null;
+  status: "healthy" | "failing" | "untested";
+  kind: "model_list" | "completion" | null;
+  http_status: number | null;
+  error: string | null;
+  latency_ms: number | null;
+  checked_at: string | null;
+}
+
+export interface CredentialTestResults {
+  results: CredentialTestResult[];
+}
+
+export type CredentialTestRequest =
+  | { credential_name: string; test_model?: string }
+  | { provider: string; credential_values: Record<string, unknown>; test_model?: string };
+
+export const credentialTestCall = (accessToken: string, body: CredentialTestRequest): Promise<CredentialTestResult> =>
+  apiClient.post<CredentialTestResult>("/health/credential_test", { accessToken, body });
+
+export const credentialTestBatchCall = (
+  accessToken: string,
+  credentialNames: readonly string[],
+): Promise<CredentialTestResults> =>
+  apiClient.post<CredentialTestResults>("/health/credential_test/batch", {
+    accessToken,
+    body: { credential_names: credentialNames },
+  });
+
+export const credentialTestLatestCall = (accessToken: string): Promise<CredentialTestResults> =>
+  apiClient.get<CredentialTestResults>("/health/credential_test/latest", { accessToken });
+
+export const modelOrderUpdateCall = (accessToken: string, modelId: string, order: number) =>
+  apiClient.post("/model/update", { accessToken, body: { model_info: { id: modelId }, hangarllm_params: { order } } });
 
 export interface UserProviderConnection {
   credential_name: string;

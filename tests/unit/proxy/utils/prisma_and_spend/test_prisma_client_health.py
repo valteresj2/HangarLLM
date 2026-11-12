@@ -248,7 +248,7 @@ async def test_get_health_check_history_filters_by_model_and_status(
     }
     assert actual == {
         "result_len": 2,
-        "where": {"model_name": "gpt-4o", "status": "healthy"},
+        "where": {"credential_name": None, "model_name": "gpt-4o", "status": "healthy"},
         "order": {"checked_at": "desc"},
         "take": 5,
         "skip": 10,

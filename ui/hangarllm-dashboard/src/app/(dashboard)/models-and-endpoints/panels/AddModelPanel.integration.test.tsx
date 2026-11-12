@@ -30,8 +30,10 @@ vi.mock("@/app/(dashboard)/hooks/models/useModelCostMap", () => ({
   useModelCostMap: (...args: unknown[]) => mockUseModelCostMap(...args),
 }));
 
+const mockCredentials = vi.hoisted(() => ({ list: [] as unknown[] }));
+
 vi.mock("@/app/(dashboard)/hooks/credentials/useCredentials", () => ({
-  useCredentials: () => ({ data: { credentials: [] } }),
+  useCredentials: () => ({ data: { credentials: mockCredentials.list } }),
 }));
 
 vi.mock("@/app/(dashboard)/hooks/teams/useTeams", () => ({
@@ -698,6 +700,43 @@ describe("AddModelPanel prefill from the URL", () => {
     await submitExpectingRejection("Required");
 
     expect(modelCreateCall).not.toHaveBeenCalled();
+  });
+
+  it("preselects the credential named in the URL and adds the model on that credential", async () => {
+    mockCredentials.list = [
+      { credential_name: "openai-prod", credential_values: {}, credential_info: { custom_llm_provider: "OpenAI" } },
+    ];
+    try {
+      const { submit } = await setup("?provider=openai&hangarllm_model=gpt-4o&hangarllm_credential_name=openai-prod");
+
+      await waitFor(() => expect(screen.getByRole("combobox", { name: /provider/i })).toHaveValue("OpenAI"));
+      expect(screen.getByRole("combobox", { name: "Existing Credentials" })).toHaveValue("openai-prod");
+
+      await submit();
+
+      expect(lastCreatedModel()?.hangarllm_params).toMatchObject({
+        custom_llm_provider: "openai",
+        model: "gpt-4o",
+        hangarllm_credential_name: "openai-prod",
+      });
+    } finally {
+      mockCredentials.list = [];
+    }
+  });
+
+  it("drops the credential prefill from the URL once the prefilled model is added", async () => {
+    const onUrlUpdate = vi.fn<OnUrlUpdateFunction>();
+    const { submit } = await setup(
+      "?provider=typesafe&hangarllm_model=typesafe%2Fjev-latest&hangarllm_credential_name=typesafe-key",
+      onUrlUpdate,
+    );
+    await waitFor(() => expect(screen.getByRole("combobox", { name: /provider/i })).toHaveValue("TypeSafe"));
+
+    await submit();
+
+    await waitFor(() =>
+      expect(onUrlUpdate.mock.calls.at(-1)?.[0].searchParams.has("hangarllm_credential_name")).toBe(false),
+    );
   });
 
   it("keeps a provider the user picks after the prefill instead of re-applying the URL", async () => {

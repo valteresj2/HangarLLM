@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { SearchSelect, type SearchSelectOption } from "@/components/shared/SearchSelect";
 import { SimpleTooltip } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { authTypeFieldKeys } from "../add_model/provider_auth_types";
@@ -19,6 +19,7 @@ import {
 } from "../common_components/MountedFormField";
 import { CredentialItem } from "../networking";
 import { Providers } from "../provider_info_helpers";
+import { useProviderCatalog } from "@/app/(dashboard)/hooks/providers/useProviderCatalog";
 import { Logo } from "@/components/molecules/logo/Logo";
 import {
   displayNameChange,
@@ -45,12 +46,6 @@ import {
 } from "./credential_federation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const providerOptions: SearchSelectOption[] = Object.entries(Providers).map(([providerEnum, providerDisplayName]) => ({
-  label: providerDisplayName,
-  value: providerEnum,
-  icon: <Logo provider={providerEnum} label={providerDisplayName} className="w-5 h-5" />,
-}));
-
 const AUTH_METHOD_SELECT_ID = "credential_auth_method";
 const API_KEY_FIELDS: readonly string[] = ["api_key"];
 const NO_HIDDEN_FIELDS: readonly string[] = [];
@@ -70,6 +65,7 @@ interface CredentialModalProps {
   initialAuthMethod?: AuthMethod;
   initialAuthTypeId?: string;
   providerLocked?: boolean;
+  notice?: ReactNode;
 }
 
 const sameProvider = (left: string | null | undefined, right: string | null | undefined): boolean =>
@@ -85,8 +81,19 @@ export default function CredentialModal({
   initialAuthMethod,
   initialAuthTypeId,
   providerLocked = false,
+  notice = null,
 }: CredentialModalProps) {
   const { t } = useTranslation();
+  const { catalog } = useProviderCatalog();
+  const providerOptions: SearchSelectOption[] = useMemo(
+    () =>
+      catalog.map((entry) => ({
+        label: entry.displayName,
+        value: entry.provider,
+        icon: <Logo src={entry.logo} label={entry.displayName} className="w-5 h-5" />,
+      })),
+    [catalog],
+  );
   const isEdit = mode === "edit";
   const [selectedProvider, setSelectedProvider] = useState<string | null>(
     (existingCredential?.credential_info.custom_llm_provider as Providers) ?? initialProvider ?? Providers.OpenAI,
@@ -278,9 +285,14 @@ export default function CredentialModal({
 
               <InternalIssuerJwks panel={jwksPanelFor(existingCredential, selection)} />
 
+              {notice}
+
               <div className="flex justify-between items-center">
                 <SimpleTooltip content={t("modelAdd.credentialModal.helpTooltip")}>
-                  <a href="https://github.com/valteresj2/HangarLLM/issues" className="text-sm text-primary hover:underline">
+                  <a
+                    href="https://github.com/valteresj2/HangarLLM/issues"
+                    className="text-sm text-primary hover:underline"
+                  >
                     {t("modelAdd.credentialModal.needHelp")}
                   </a>
                 </SimpleTooltip>

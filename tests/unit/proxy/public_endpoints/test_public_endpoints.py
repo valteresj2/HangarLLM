@@ -1978,3 +1978,30 @@ def test_public_skill_hub_without_a_database_answers_db_not_connected() -> None:
 
     assert response.status_code == 500
     assert response.json() == {"detail": CommonProxyErrors.db_not_connected_error.value}
+
+
+def test_every_provider_entry_names_a_known_category() -> None:
+    raw_entries: Final = json.loads(
+        files("hangarllm.proxy.public_endpoints").joinpath("provider_create_fields.json").read_bytes()
+    )
+    assert [
+        entry["provider"]
+        for entry in raw_entries
+        if entry.get("category") not in ("cloud_api", "enterprise_cloud", "self_hosted")
+    ] == []
+
+
+@pytest.mark.parametrize(
+    ("provider", "hangarllm_provider"), [("OpenAI_Compatible", "openai"), ("Anthropic_Compatible", "anthropic")]
+)
+def test_compatible_entries_are_self_hosted_and_require_a_base_url_and_key(
+    provider: str, hangarllm_provider: str
+) -> None:
+    app: Final = FastAPI()
+    app.include_router(router)
+    providers: Final = TypeAdapter(list[ProviderCreateInfo]).validate_python(
+        TestClient(app).get("/public/providers/fields").json()
+    )
+    entry: Final = next(item for item in providers if item.provider == provider)
+    assert (entry.hangarllm_provider, entry.category) == (hangarllm_provider, "self_hosted")
+    assert {field.key: field.required for field in entry.credential_fields} == {"api_base": True, "api_key": True}

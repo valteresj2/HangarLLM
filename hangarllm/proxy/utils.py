@@ -8284,7 +8284,7 @@ class PrismaClient:
         Get health check history with optional filtering
         """
         try:
-            where_clause: Final[dict[str, str]] = {}
+            where_clause: Final[dict[str, str | None]] = {"credential_name": None}
             if model_name:
                 where_clause["model_name"] = model_name
             if status_filter:

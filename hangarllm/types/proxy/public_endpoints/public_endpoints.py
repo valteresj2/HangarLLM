@@ -1,5 +1,5 @@
 from collections.abc import Mapping, Sequence
-from typing import Literal
+from typing import Literal, TypeAlias
 
 from pydantic import ConfigDict
 
@@ -27,10 +27,14 @@ class ProviderCredentialField(HangarLLMBaseModel):
     default_value: str | None = None
 
 
+ProviderCategory: TypeAlias = Literal["cloud_api", "enterprise_cloud", "self_hosted"]
+
+
 class ProviderCreateInfo(HangarLLMBaseModel):
     provider: str
     provider_display_name: str
     hangarllm_provider: str
+    category: ProviderCategory
     credential_fields: list[ProviderCredentialField]
     default_model_placeholder: str | None = None
 

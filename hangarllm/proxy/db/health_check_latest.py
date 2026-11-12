@@ -31,6 +31,7 @@ SELECT DISTINCT ON ("model_id", "model_name")
        "response_time_ms", "details", "checked_by",
        "checked_at", "created_at", "updated_at"
 FROM "HangarLLM_HealthCheckTable"
+WHERE "credential_name" IS NULL
 ORDER BY "model_id" ASC, "model_name" ASC, "checked_at" DESC
 """
 
@@ -41,7 +42,7 @@ SELECT DISTINCT ON ("model_id", "model_name")
        "response_time_ms", "details", "checked_by",
        "checked_at", "created_at", "updated_at"
 FROM "HangarLLM_HealthCheckTable"
-WHERE "model_name" = ANY($1)
+WHERE "model_name" = ANY($1) AND "credential_name" IS NULL
 ORDER BY "model_id" ASC, "model_name" ASC, "checked_at" DESC
 """
 

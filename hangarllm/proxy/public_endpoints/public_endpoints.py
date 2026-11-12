@@ -233,7 +233,7 @@ def _read_bundled_file(filename: str) -> bytes:
 
 
 @cache
-def _provider_create_fields() -> tuple[ProviderCreateInfo, ...]:
+def provider_create_fields() -> tuple[ProviderCreateInfo, ...]:
     return tuple(_PROVIDER_CREATE_FIELDS_ADAPTER.validate_json(_read_bundled_file("provider_create_fields.json")))
 
 
@@ -260,7 +260,7 @@ def _with_inherited_credentials(
 
 @cache
 def _agent_create_fields() -> tuple[AgentCreateInfo, ...]:
-    providers: Final = {provider.provider: provider for provider in _provider_create_fields()}
+    providers: Final = {provider.provider: provider for provider in provider_create_fields()}
     return tuple(
         _with_inherited_credentials(agent, providers)
         for agent in _BUNDLED_AGENTS_ADAPTER.validate_json(_read_bundled_file("agent_create_fields.json"))
@@ -478,7 +478,7 @@ async def get_provider_fields() -> tuple[ProviderCreateInfo, ...]:
     lifetime of the server process.
     """
 
-    return _provider_create_fields()
+    return provider_create_fields()
 
 
 @router.get(

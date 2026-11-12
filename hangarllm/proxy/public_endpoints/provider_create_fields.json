@@ -3,6 +3,7 @@
     "provider": "AIAND",
     "provider_display_name": "ai&",
     "hangarllm_provider": "aiand",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -31,6 +32,7 @@
     "provider": "SCALEDOWN",
     "provider_display_name": "ScaleDown",
     "hangarllm_provider": "scaledown",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -49,6 +51,7 @@
     "provider": "ABLITERATION",
     "provider_display_name": "Abliteration",
     "hangarllm_provider": "abliteration",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -77,6 +80,7 @@
     "provider": "AIML",
     "provider_display_name": "AI/ML API",
     "hangarllm_provider": "aiml",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -95,6 +99,7 @@
     "provider": "AI21",
     "provider_display_name": "Ai21",
     "hangarllm_provider": "ai21",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -123,6 +128,7 @@
     "provider": "AI21_CHAT",
     "provider_display_name": "Ai21 Chat",
     "hangarllm_provider": "ai21_chat",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -151,6 +157,7 @@
     "provider": "AIOHTTP_OPENAI",
     "provider_display_name": "Aiohttp Openai",
     "hangarllm_provider": "aiohttp_openai",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -179,6 +186,7 @@
     "provider": "Bedrock",
     "provider_display_name": "Amazon Bedrock",
     "hangarllm_provider": "bedrock",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "aws_access_key_id",
@@ -287,6 +295,7 @@
     "provider": "AWS_Textract",
     "provider_display_name": "Amazon Textract",
     "hangarllm_provider": "aws_textract",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "aws_access_key_id",
@@ -375,6 +384,7 @@
     "provider": "BedrockMantle",
     "provider_display_name": "Amazon Bedrock Mantle",
     "hangarllm_provider": "bedrock_mantle",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "api_key",
@@ -483,12 +493,13 @@
     "provider": "Anthropic",
     "provider_display_name": "Anthropic",
     "hangarllm_provider": "anthropic",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
         "label": "Upstream API Base",
         "placeholder": "https://api.anthropic.com",
-        "tooltip": "Optional. Where the proxy forwards requests upstream. Leave blank to use Anthropic's public API. Set this only for private Anthropic deployments or reverse proxies. Do NOT set this to your HangarLLM proxy URL — that causes a recursive loop.",
+        "tooltip": "Optional. Where the proxy forwards requests upstream. Leave blank to use Anthropic's public API. Set this only for private Anthropic deployments or reverse proxies. Do NOT set this to your HangarLLM proxy URL \u2014 that causes a recursive loop.",
         "required": false,
         "field_type": "text",
         "options": null,
@@ -511,6 +522,7 @@
     "provider": "ANTHROPIC_TEXT",
     "provider_display_name": "Anthropic Text",
     "hangarllm_provider": "anthropic_text",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -539,6 +551,7 @@
     "provider": "AssemblyAI",
     "provider_display_name": "AssemblyAI",
     "hangarllm_provider": "assemblyai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -570,6 +583,7 @@
     "provider": "AUTO_ROUTER",
     "provider_display_name": "Auto Router",
     "hangarllm_provider": "auto_router",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -598,6 +612,7 @@
     "provider": "SageMaker",
     "provider_display_name": "AWS SageMaker",
     "hangarllm_provider": "sagemaker_chat",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "aws_access_key_id",
@@ -636,6 +651,7 @@
     "provider": "Azure",
     "provider_display_name": "Azure",
     "hangarllm_provider": "azure",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "api_base",
@@ -724,6 +740,7 @@
     "provider": "Azure_AI_Studio",
     "provider_display_name": "Azure AI Foundry (Studio)",
     "hangarllm_provider": "azure_ai",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "api_base",
@@ -752,6 +769,7 @@
     "provider": "Azure_Speech",
     "provider_display_name": "Azure AI Speech",
     "hangarllm_provider": "azure_speech",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "api_key",
@@ -770,6 +788,7 @@
     "provider": "AZURE_TEXT",
     "provider_display_name": "Azure Text",
     "hangarllm_provider": "azure_text",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "api_base",
@@ -798,6 +817,7 @@
     "provider": "BASETEN",
     "provider_display_name": "Baseten",
     "hangarllm_provider": "baseten",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -826,6 +846,7 @@
     "provider": "Bespoke",
     "provider_display_name": "Bespoke Nimble",
     "hangarllm_provider": "bespoke",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -854,6 +875,7 @@
     "provider": "BYTEZ",
     "provider_display_name": "Bytez",
     "hangarllm_provider": "bytez",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -882,6 +904,7 @@
     "provider": "Cerebras",
     "provider_display_name": "Cerebras",
     "hangarllm_provider": "cerebras",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -900,6 +923,7 @@
     "provider": "CHATGPT",
     "provider_display_name": "ChatGPT Subscription",
     "hangarllm_provider": "chatgpt",
+    "category": "cloud_api",
     "credential_fields": [],
     "default_model_placeholder": "chatgpt/gpt-5.4"
   },
@@ -907,6 +931,7 @@
     "provider": "CLARIFAI",
     "provider_display_name": "Clarifai",
     "hangarllm_provider": "clarifai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -935,6 +960,7 @@
     "provider": "CLF_AI_GATEWAY",
     "provider_display_name": "CLF AI Gateway",
     "hangarllm_provider": "clf_ai_gateway",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -963,6 +989,7 @@
     "provider": "CLOUDFLARE",
     "provider_display_name": "Cloudflare",
     "hangarllm_provider": "cloudflare",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -991,6 +1018,7 @@
     "provider": "CODESTRAL",
     "provider_display_name": "Codestral",
     "hangarllm_provider": "codestral",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1019,6 +1047,7 @@
     "provider": "Cognition",
     "provider_display_name": "Cognition",
     "hangarllm_provider": "cognition",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1047,6 +1076,7 @@
     "provider": "Cohere",
     "provider_display_name": "Cohere",
     "hangarllm_provider": "cohere",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1065,6 +1095,7 @@
     "provider": "COHERE_CHAT",
     "provider_display_name": "Cohere Chat",
     "hangarllm_provider": "cohere_chat",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1093,6 +1124,7 @@
     "provider": "COMETAPI",
     "provider_display_name": "Cometapi",
     "hangarllm_provider": "cometapi",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1121,6 +1153,7 @@
     "provider": "COMPACTIFAI",
     "provider_display_name": "Compactifai",
     "hangarllm_provider": "compactifai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1149,6 +1182,7 @@
     "provider": "CORALBRICKS",
     "provider_display_name": "CoralBricks",
     "hangarllm_provider": "coralbricks",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1177,6 +1211,7 @@
     "provider": "CORTECS",
     "provider_display_name": "Cortecs",
     "hangarllm_provider": "cortecs",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1205,6 +1240,7 @@
     "provider": "CUSTOM",
     "provider_display_name": "Custom",
     "hangarllm_provider": "custom",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1233,6 +1269,7 @@
     "provider": "CUSTOM_OPENAI",
     "provider_display_name": "Custom Openai",
     "hangarllm_provider": "custom_openai",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1261,6 +1298,7 @@
     "provider": "Dashscope",
     "provider_display_name": "Dashscope",
     "hangarllm_provider": "dashscope",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1289,6 +1327,7 @@
     "provider": "QwenCloud",
     "provider_display_name": "QwenCloud",
     "hangarllm_provider": "qwencloud",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1317,6 +1356,7 @@
     "provider": "Qwen_AI_Platform",
     "provider_display_name": "Qianwen AI Platform",
     "hangarllm_provider": "qwen_ai_platform",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1345,6 +1385,7 @@
     "provider": "Databricks",
     "provider_display_name": "Databricks",
     "hangarllm_provider": "databricks",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1373,6 +1414,7 @@
     "provider": "DATAROBOT",
     "provider_display_name": "Datarobot",
     "hangarllm_provider": "datarobot",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1401,6 +1443,7 @@
     "provider": "Deepgram",
     "provider_display_name": "Deepgram",
     "hangarllm_provider": "deepgram",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1419,6 +1462,7 @@
     "provider": "DeepInfra",
     "provider_display_name": "DeepInfra",
     "hangarllm_provider": "deepinfra",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1437,6 +1481,7 @@
     "provider": "Deepseek",
     "provider_display_name": "Deepseek",
     "hangarllm_provider": "deepseek",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1455,6 +1500,7 @@
     "provider": "DOCKER_MODEL_RUNNER",
     "provider_display_name": "Docker Model Runner",
     "hangarllm_provider": "docker_model_runner",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1483,6 +1529,7 @@
     "provider": "DOTPROMPT",
     "provider_display_name": "Dotprompt",
     "hangarllm_provider": "dotprompt",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1511,6 +1558,7 @@
     "provider": "EDENAI",
     "provider_display_name": "Eden AI",
     "hangarllm_provider": "edenai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1539,6 +1587,7 @@
     "provider": "ElevenLabs",
     "provider_display_name": "ElevenLabs",
     "hangarllm_provider": "elevenlabs",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1557,6 +1606,7 @@
     "provider": "EMPIRIOLABS",
     "provider_display_name": "EmpirioLabs AI",
     "hangarllm_provider": "empiriolabs",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1585,6 +1635,7 @@
     "provider": "EMPOWER",
     "provider_display_name": "Empower",
     "hangarllm_provider": "empower",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1613,6 +1664,7 @@
     "provider": "EU_JEV",
     "provider_display_name": "eu/jev",
     "hangarllm_provider": "eu_jev",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1641,6 +1693,7 @@
     "provider": "FalAI",
     "provider_display_name": "Fal AI",
     "hangarllm_provider": "fal_ai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1659,6 +1712,7 @@
     "provider": "FEATHERLESS_AI",
     "provider_display_name": "Featherless Ai",
     "hangarllm_provider": "featherless_ai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1687,6 +1741,7 @@
     "provider": "FireworksAI",
     "provider_display_name": "Fireworks AI",
     "hangarllm_provider": "fireworks_ai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1705,6 +1760,7 @@
     "provider": "FRIENDLIAI",
     "provider_display_name": "Friendliai",
     "hangarllm_provider": "friendliai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1733,6 +1789,7 @@
     "provider": "GALADRIEL",
     "provider_display_name": "Galadriel",
     "hangarllm_provider": "galadriel",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1761,6 +1818,7 @@
     "provider": "GIGACHAT",
     "provider_display_name": "GigaChat",
     "hangarllm_provider": "gigachat",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1823,6 +1881,7 @@
     "provider": "GITHUB",
     "provider_display_name": "Github",
     "hangarllm_provider": "github",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1851,6 +1910,7 @@
     "provider": "GITHUB_COPILOT",
     "provider_display_name": "Github Copilot",
     "hangarllm_provider": "github_copilot",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1889,6 +1949,7 @@
     "provider": "Google_AI_Studio",
     "provider_display_name": "Google AI Studio",
     "hangarllm_provider": "gemini",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1917,6 +1978,7 @@
     "provider": "GradientAI",
     "provider_display_name": "GradientAI",
     "hangarllm_provider": "gradient_ai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1945,6 +2007,7 @@
     "provider": "Groq",
     "provider_display_name": "Groq",
     "hangarllm_provider": "groq",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1963,6 +2026,7 @@
     "provider": "HEROKU",
     "provider_display_name": "Heroku",
     "hangarllm_provider": "heroku",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1991,6 +2055,7 @@
     "provider": "HUGGINGFACE",
     "provider_display_name": "Huggingface",
     "hangarllm_provider": "huggingface",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2019,6 +2084,7 @@
     "provider": "HUMANLOOP",
     "provider_display_name": "Humanloop",
     "hangarllm_provider": "humanloop",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2047,6 +2113,7 @@
     "provider": "HYPERBOLIC",
     "provider_display_name": "Hyperbolic",
     "hangarllm_provider": "hyperbolic",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2075,6 +2142,7 @@
     "provider": "Infinity",
     "provider_display_name": "Infinity",
     "hangarllm_provider": "infinity",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2093,6 +2161,7 @@
     "provider": "JinaAI",
     "provider_display_name": "Jina AI",
     "hangarllm_provider": "jina_ai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -2111,6 +2180,7 @@
     "provider": "KYMA",
     "provider_display_name": "Kyma API",
     "hangarllm_provider": "kyma",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2139,6 +2209,7 @@
     "provider": "Laya",
     "provider_display_name": "Laya",
     "hangarllm_provider": "laya",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2167,6 +2238,7 @@
     "provider": "OPENCODE_GO",
     "provider_display_name": "OpenCode Go",
     "hangarllm_provider": "opencode_go",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -2185,6 +2257,7 @@
     "provider": "LAMBDA_AI",
     "provider_display_name": "Lambda Ai",
     "hangarllm_provider": "lambda_ai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2213,6 +2286,7 @@
     "provider": "LANGFUSE",
     "provider_display_name": "Langfuse",
     "hangarllm_provider": "langfuse",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2241,6 +2315,7 @@
     "provider": "LEMONADE",
     "provider_display_name": "Lemonade",
     "hangarllm_provider": "lemonade",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2269,6 +2344,7 @@
     "provider": "HANGARLLM_PROXY",
     "provider_display_name": "HangarLLM Gateway",
     "hangarllm_provider": "hangarllm_proxy",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2297,6 +2373,7 @@
     "provider": "LLAMAFILE",
     "provider_display_name": "Llamafile",
     "hangarllm_provider": "llamafile",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2325,6 +2402,7 @@
     "provider": "LM_STUDIO",
     "provider_display_name": "Lm Studio",
     "hangarllm_provider": "lm_studio",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2353,6 +2431,7 @@
     "provider": "MARITALK",
     "provider_display_name": "Maritalk",
     "hangarllm_provider": "maritalk",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2381,6 +2460,7 @@
     "provider": "LLAMA",
     "provider_display_name": "Meta Llama",
     "hangarllm_provider": "meta_llama",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2409,6 +2489,7 @@
     "provider": "META",
     "provider_display_name": "Meta Model API",
     "hangarllm_provider": "meta",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2437,6 +2518,7 @@
     "provider": "MILVUS",
     "provider_display_name": "Milvus",
     "hangarllm_provider": "milvus",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2465,6 +2547,7 @@
     "provider": "MICROSOFT_365_COPILOT",
     "provider_display_name": "Microsoft 365 Copilot",
     "hangarllm_provider": "microsoft_365_copilot",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "token_exchange_endpoint",
@@ -2483,7 +2566,10 @@
         "tooltip": "jwt_bearer_obo: on-behalf-of with the JWT bearer grant (Microsoft Entra). rfc8693: standard OAuth 2.0 token exchange.",
         "required": false,
         "field_type": "select",
-        "options": ["jwt_bearer_obo", "rfc8693"],
+        "options": [
+          "jwt_bearer_obo",
+          "rfc8693"
+        ],
         "default_value": "jwt_bearer_obo"
       },
       {
@@ -2543,6 +2629,7 @@
     "provider": "MistralAI",
     "provider_display_name": "Mistral AI",
     "hangarllm_provider": "mistral",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -2561,6 +2648,7 @@
     "provider": "MINIMAX",
     "provider_display_name": "MiniMax",
     "hangarllm_provider": "minimax",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -2589,6 +2677,7 @@
     "provider": "MOONSHOT",
     "provider_display_name": "Moonshot",
     "hangarllm_provider": "moonshot",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2617,6 +2706,7 @@
     "provider": "MORPH",
     "provider_display_name": "Morph",
     "hangarllm_provider": "morph",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2645,6 +2735,7 @@
     "provider": "Nace",
     "provider_display_name": "Nace",
     "hangarllm_provider": "nace",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2673,6 +2764,7 @@
     "provider": "PARALLEL_AI",
     "provider_display_name": "Parallel AI",
     "hangarllm_provider": "parallel_ai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2701,6 +2793,7 @@
     "provider": "NEBIUS",
     "provider_display_name": "Nebius",
     "hangarllm_provider": "nebius",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2729,6 +2822,7 @@
     "provider": "NLP_CLOUD",
     "provider_display_name": "Nlp Cloud",
     "hangarllm_provider": "nlp_cloud",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2757,6 +2851,7 @@
     "provider": "NOVITA",
     "provider_display_name": "Novita",
     "hangarllm_provider": "novita",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2785,6 +2880,7 @@
     "provider": "NSCALE",
     "provider_display_name": "Nscale",
     "hangarllm_provider": "nscale",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2813,6 +2909,7 @@
     "provider": "NVIDIA_NIM",
     "provider_display_name": "Nvidia Nim",
     "hangarllm_provider": "nvidia_nim",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2841,6 +2938,7 @@
     "provider": "NVIDIA_RIVA",
     "provider_display_name": "Nvidia Riva",
     "hangarllm_provider": "nvidia_riva",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2879,6 +2977,7 @@
     "provider": "Ollama",
     "provider_display_name": "Ollama",
     "hangarllm_provider": "ollama",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2897,6 +2996,7 @@
     "provider": "OLLAMA_CHAT",
     "provider_display_name": "Ollama Chat",
     "hangarllm_provider": "ollama_chat",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2925,6 +3025,7 @@
     "provider": "OOBABOOGA",
     "provider_display_name": "Oobabooga",
     "hangarllm_provider": "oobabooga",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2953,6 +3054,7 @@
     "provider": "OpenAI",
     "provider_display_name": "OpenAI",
     "hangarllm_provider": "openai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2991,6 +3093,7 @@
     "provider": "OPENINFER",
     "provider_display_name": "OpenInfer",
     "hangarllm_provider": "openinfer",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3019,6 +3122,7 @@
     "provider": "OPENAI_LIKE",
     "provider_display_name": "Openai Like",
     "hangarllm_provider": "openai_like",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3047,6 +3151,7 @@
     "provider": "OpenAI_Text",
     "provider_display_name": "OpenAI Text Completion",
     "hangarllm_provider": "text-completion-openai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3085,6 +3190,7 @@
     "provider": "OpenAI_Compatible",
     "provider_display_name": "OpenAI-Compatible Endpoints (Together AI, etc.)",
     "hangarllm_provider": "openai",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3110,9 +3216,39 @@
     "default_model_placeholder": "gpt-3.5-turbo"
   },
   {
+    "provider": "Anthropic_Compatible",
+    "provider_display_name": "Anthropic-Compatible Endpoints",
+    "hangarllm_provider": "anthropic",
+    "category": "self_hosted",
+    "credential_fields": [
+      {
+        "key": "api_base",
+        "label": "API Base",
+        "placeholder": "https://...",
+        "tooltip": null,
+        "required": true,
+        "field_type": "text",
+        "options": null,
+        "default_value": null
+      },
+      {
+        "key": "api_key",
+        "label": "API Key",
+        "placeholder": null,
+        "tooltip": null,
+        "required": true,
+        "field_type": "password",
+        "options": null,
+        "default_value": null
+      }
+    ],
+    "default_model_placeholder": "claude-sonnet-4-5"
+  },
+  {
     "provider": "OpenAI_Text_Compatible",
     "provider_display_name": "OpenAI-Compatible Text Completion Models (Together AI, etc.)",
     "hangarllm_provider": "text-completion-openai",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3141,6 +3277,7 @@
     "provider": "Openrouter",
     "provider_display_name": "Openrouter",
     "hangarllm_provider": "openrouter",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3159,6 +3296,7 @@
     "provider": "Nadir",
     "provider_display_name": "Nadir",
     "hangarllm_provider": "nadir",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3177,6 +3315,7 @@
     "provider": "Oracle",
     "provider_display_name": "Oracle Cloud Infrastructure (OCI)",
     "hangarllm_provider": "oci",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "oci_user",
@@ -3245,6 +3384,7 @@
     "provider": "OVHCLOUD",
     "provider_display_name": "Ovhcloud",
     "hangarllm_provider": "ovhcloud",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3273,6 +3413,7 @@
     "provider": "Perplexity",
     "provider_display_name": "Perplexity",
     "hangarllm_provider": "perplexity",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3291,6 +3432,7 @@
     "provider": "PETALS",
     "provider_display_name": "Petals",
     "hangarllm_provider": "petals",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3319,6 +3461,7 @@
     "provider": "PG_VECTOR",
     "provider_display_name": "Pg Vector",
     "hangarllm_provider": "pg_vector",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3347,6 +3490,7 @@
     "provider": "PREDIBASE",
     "provider_display_name": "Predibase",
     "hangarllm_provider": "predibase",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3375,6 +3519,7 @@
     "provider": "PRISM",
     "provider_display_name": "Prism",
     "hangarllm_provider": "prism",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3403,6 +3548,7 @@
     "provider": "HOSTINGER_ROUTER",
     "provider_display_name": "Hostinger Router",
     "hangarllm_provider": "hostinger_router",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3431,6 +3577,7 @@
     "provider": "RECRAFT",
     "provider_display_name": "Recraft",
     "hangarllm_provider": "recraft",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3459,6 +3606,7 @@
     "provider": "REFUSELESS",
     "provider_display_name": "Refuseless",
     "hangarllm_provider": "refuseless",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3487,6 +3635,7 @@
     "provider": "REPLICATE",
     "provider_display_name": "Replicate",
     "hangarllm_provider": "replicate",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3515,6 +3664,7 @@
     "provider": "RUNWAYML",
     "provider_display_name": "Runwayml",
     "hangarllm_provider": "runwayml",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3543,6 +3693,7 @@
     "provider": "SAGEMAKER",
     "provider_display_name": "Sagemaker",
     "hangarllm_provider": "sagemaker",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3571,6 +3722,7 @@
     "provider": "REKA",
     "provider_display_name": "Reka",
     "hangarllm_provider": "reka",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3599,6 +3751,7 @@
     "provider": "WALLY",
     "provider_display_name": "Wally",
     "hangarllm_provider": "wally",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3627,6 +3780,7 @@
     "provider": "Sail",
     "provider_display_name": "Sail",
     "hangarllm_provider": "sail",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3655,6 +3809,7 @@
     "provider": "Sambanova",
     "provider_display_name": "Sambanova",
     "hangarllm_provider": "sambanova",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3673,6 +3828,7 @@
     "provider": "SAP",
     "provider_display_name": "SAP Generative AI Hub",
     "hangarllm_provider": "sap",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3691,6 +3847,7 @@
     "provider": "SCX_AI",
     "provider_display_name": "SCX.ai",
     "hangarllm_provider": "scx-ai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3719,6 +3876,7 @@
     "provider": "INFERENCEAPIS",
     "provider_display_name": "Inference APIs",
     "hangarllm_provider": "inferenceapis",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3747,6 +3905,7 @@
     "provider": "StreamLake",
     "provider_display_name": "StreamLake",
     "hangarllm_provider": "streamlake",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3775,6 +3934,7 @@
     "provider": "Snowflake",
     "provider_display_name": "Snowflake",
     "hangarllm_provider": "snowflake",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3803,6 +3963,7 @@
     "provider": "Soniox",
     "provider_display_name": "Soniox",
     "hangarllm_provider": "soniox",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3821,6 +3982,7 @@
     "provider": "StrandsDecider",
     "provider_display_name": "Strands Decider",
     "hangarllm_provider": "strands_decider",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3849,6 +4011,7 @@
     "provider": "Tencent",
     "provider_display_name": "Tencent",
     "hangarllm_provider": "tencent",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3877,6 +4040,7 @@
     "provider": "TEXT_COMPLETION_CODESTRAL",
     "provider_display_name": "Text-Completion-Codestral",
     "hangarllm_provider": "text-completion-codestral",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3905,6 +4069,7 @@
     "provider": "TogetherAI",
     "provider_display_name": "TogetherAI",
     "hangarllm_provider": "together_ai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3923,6 +4088,7 @@
     "provider": "TOPAZ",
     "provider_display_name": "Topaz",
     "hangarllm_provider": "topaz",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3951,6 +4117,7 @@
     "provider": "Triton",
     "provider_display_name": "Triton",
     "hangarllm_provider": "triton",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3979,6 +4146,7 @@
     "provider": "TypeSafe",
     "provider_display_name": "TypeSafe",
     "hangarllm_provider": "typesafe",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -4007,6 +4175,7 @@
     "provider": "V0",
     "provider_display_name": "V0",
     "hangarllm_provider": "v0",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -4035,6 +4204,7 @@
     "provider": "VERCEL_AI_GATEWAY",
     "provider_display_name": "Vercel Ai Gateway",
     "hangarllm_provider": "vercel_ai_gateway",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -4063,6 +4233,7 @@
     "provider": "Vertex_AI",
     "provider_display_name": "Vertex AI (Anthropic, Gemini, etc.)",
     "hangarllm_provider": "vertex_ai",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "vertex_project",
@@ -4111,6 +4282,7 @@
     "provider": "VERTEX_AI_BETA",
     "provider_display_name": "Vertex Ai Beta",
     "hangarllm_provider": "vertex_ai_beta",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "api_base",
@@ -4139,6 +4311,7 @@
     "provider": "Hosted_Vllm",
     "provider_display_name": "Hosted vLLM",
     "hangarllm_provider": "hosted_vllm",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -4167,6 +4340,7 @@
     "provider": "VLLM",
     "provider_display_name": "Local vLLM",
     "hangarllm_provider": "vllm",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -4195,6 +4369,7 @@
     "provider": "VolcEngine",
     "provider_display_name": "VolcEngine",
     "hangarllm_provider": "volcengine",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -4213,6 +4388,7 @@
     "provider": "Voyage",
     "provider_display_name": "VoyageAI by MongoDB",
     "hangarllm_provider": "voyage",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -4231,6 +4407,7 @@
     "provider": "WANDB",
     "provider_display_name": "Wandb",
     "hangarllm_provider": "wandb",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -4259,6 +4436,7 @@
     "provider": "WATSONX",
     "provider_display_name": "Watsonx",
     "hangarllm_provider": "watsonx",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "api_base",
@@ -4327,6 +4505,7 @@
     "provider": "WATSONX_TEXT",
     "provider_display_name": "Watsonx Text",
     "hangarllm_provider": "watsonx_text",
+    "category": "enterprise_cloud",
     "credential_fields": [
       {
         "key": "api_base",
@@ -4355,6 +4534,7 @@
     "provider": "xAI",
     "provider_display_name": "xAI",
     "hangarllm_provider": "xai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -4373,6 +4553,7 @@
     "provider": "XINFERENCE",
     "provider_display_name": "Xinference",
     "hangarllm_provider": "xinference",
+    "category": "self_hosted",
     "credential_fields": [
       {
         "key": "api_base",
@@ -4401,6 +4582,7 @@
     "provider": "ZAI",
     "provider_display_name": "Z.AI (Zhipu AI)",
     "hangarllm_provider": "zai",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -4429,6 +4611,7 @@
     "provider": "ZeroGPU",
     "provider_display_name": "ZeroGPU",
     "hangarllm_provider": "zerogpu",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_base",
@@ -4457,6 +4640,7 @@
     "provider": "CURSOR",
     "provider_display_name": "Cursor",
     "hangarllm_provider": "cursor",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
@@ -4485,6 +4669,7 @@
     "provider": "BIGMODEL",
     "provider_display_name": "BigModel (Zhipu AI)",
     "hangarllm_provider": "bigmodel",
+    "category": "cloud_api",
     "credential_fields": [
       {
         "key": "api_key",
