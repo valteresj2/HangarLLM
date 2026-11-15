@@ -1631,9 +1631,15 @@ async def test_delete_mcp_server_cleans_oauth_client_store():
 
 @pytest.mark.asyncio
 async def test_delete_mcp_server_removes_grants_from_every_table_even_when_one_cleanup_fails():
-    from hangarllm.proxy.mcp_server.db import MCP_SERVER_GRANT_CLEANUP_SQL, delete_mcp_server
+    from hangarllm.proxy.mcp_server import db
 
-    toolset_sql = MCP_SERVER_GRANT_CLEANUP_SQL["toolset"]
+    toolset_sql = db._MCP_SERVER_TOOLSET_CLEANUP_SQL
+    cleanup_sql = (
+        db._MCP_SERVER_OBJECT_PERMISSION_CLEANUP_SQL,
+        db._MCP_SERVER_ACCESS_GROUP_CLEANUP_SQL,
+        toolset_sql,
+        db._MCP_SERVER_SERVER_CONTROL_CLEANUP_SQL,
+    )
 
     async def execute_raw(sql: str, *params: object) -> int:
         if sql == toolset_sql:
@@ -1648,11 +1654,11 @@ async def test_delete_mcp_server_removes_grants_from_every_table_even_when_one_c
     prisma.db.hangarllm_mcpserveroauthclient.delete_many = AsyncMock()
     prisma.db.execute_raw = AsyncMock(side_effect=execute_raw)
 
-    deleted = await delete_mcp_server(prisma, "s1", invalidate_token_cache=AsyncMock())
+    deleted = await db.delete_mcp_server(prisma, "s1", invalidate_token_cache=AsyncMock())
 
     assert deleted is not None
     attempted = [call.args for call in prisma.db.execute_raw.await_args_list]
-    assert attempted == [(sql, "s1") for sql in MCP_SERVER_GRANT_CLEANUP_SQL.values()]
+    assert attempted == [(sql, "s1") for sql in cleanup_sql]
 
 
 def test_mcp_oauth_token_identity_changes_when_only_upstream_resource_is_edited():

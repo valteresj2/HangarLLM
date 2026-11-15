@@ -5,7 +5,6 @@ import json
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, Literal, Protocol, TypedDict, cast
 
 from fastapi import HTTPException
@@ -1001,31 +1000,38 @@ async def get_virtualkeys_for_mcp_server(
     return virtual_keys
 
 
-MCP_SERVER_GRANT_CLEANUP_SQL: Final = MappingProxyType(
-    {
-        "object permission": """
+_MCP_SERVER_OBJECT_PERMISSION_CLEANUP_SQL: Final = """
 UPDATE "HangarLLM_ObjectPermissionTable"
 SET "mcp_servers" = array_remove("mcp_servers", $1::text),
     "mcp_tool_permissions" = "mcp_tool_permissions" - $1::text
 WHERE $1::text = ANY("mcp_servers") OR "mcp_tool_permissions" -> $1::text IS NOT NULL
-""",
-        "access group": """
+"""
+_MCP_SERVER_ACCESS_GROUP_CLEANUP_SQL: Final = """
 UPDATE "HangarLLM_AccessGroupTable"
 SET "access_mcp_server_ids" = array_remove("access_mcp_server_ids", $1::text),
     "mcp_tool_permissions" = "mcp_tool_permissions" - $1::text
 WHERE $1::text = ANY("access_mcp_server_ids") OR "mcp_tool_permissions" -> $1::text IS NOT NULL
-""",
-        "toolset": """
+"""
+_MCP_SERVER_TOOLSET_CLEANUP_SQL: Final = """
 UPDATE "HangarLLM_MCPToolsetTable"
 SET "tools" = COALESCE(
     (SELECT jsonb_agg(tool) FROM jsonb_array_elements("tools") AS tool WHERE tool ->> 'server_id' IS DISTINCT FROM $1::text),
     '[]'::jsonb
 )
 WHERE EXISTS (SELECT 1 FROM jsonb_array_elements("tools") AS tool WHERE tool ->> 'server_id' = $1::text)
-""",
-        "server control": 'DELETE FROM "HangarLLM_MCPServerControlTable" WHERE "server_id" = $1::text',
-    }
+"""
+_MCP_SERVER_SERVER_CONTROL_CLEANUP_SQL: Final = (
+    'DELETE FROM "HangarLLM_MCPServerControlTable" WHERE "server_id" = $1::text'
 )
+
+
+async def _remove_server_grants(prisma_client: PrismaClient, label: str, sql: str, server_id: str) -> None:
+    try:
+        await prisma_client.db.execute_raw(sql, server_id)  # pyright: ignore[reportAny]  # untyped Prisma client
+    except Exception as e:  # noqa: BLE001 - a leftover id points at a deleted server and grants nothing
+        verbose_proxy_logger.warning(
+            "MCP server %s deleted but %s cleanup failed; leftover ids grant nothing: %s", server_id, label, e
+        )
 
 
 async def delete_mcp_server(
@@ -1084,16 +1090,12 @@ async def delete_mcp_server(
                     label,
                     e,
                 )
-        for label, sql in MCP_SERVER_GRANT_CLEANUP_SQL.items():
-            try:
-                await prisma_client.db.execute_raw(sql, server_id)  # pyright: ignore[reportAny]  # untyped Prisma client
-            except Exception as e:  # noqa: BLE001 - a leftover id points at a deleted server and grants nothing
-                verbose_proxy_logger.warning(
-                    "MCP server %s deleted but %s cleanup failed; leftover ids grant nothing: %s",
-                    server_id,
-                    label,
-                    e,
-                )
+        await _remove_server_grants(
+            prisma_client, "object permission", _MCP_SERVER_OBJECT_PERMISSION_CLEANUP_SQL, server_id
+        )
+        await _remove_server_grants(prisma_client, "access group", _MCP_SERVER_ACCESS_GROUP_CLEANUP_SQL, server_id)
+        await _remove_server_grants(prisma_client, "toolset", _MCP_SERVER_TOOLSET_CLEANUP_SQL, server_id)
+        await _remove_server_grants(prisma_client, "server control", _MCP_SERVER_SERVER_CONTROL_CLEANUP_SQL, server_id)
         if credential_user_ids:
             if invalidate_token_cache is None:
                 from hangarllm.proxy.mcp_server.mcp_server_manager import (

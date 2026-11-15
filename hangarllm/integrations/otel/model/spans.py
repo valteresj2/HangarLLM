@@ -277,6 +277,7 @@ _PRISMA_MODELS: Final[frozenset[str]] = frozenset(
         "HangarLLM_ObjectPermissionTable",
         "HangarLLM_MCPServerTable",
         "HangarLLM_MCPToolsetTable",
+        "HangarLLM_MCPServerControlTable",
         "HangarLLM_MCPUserCredentials",
         "HangarLLM_MCPUserEnvVars",
         "HangarLLM_MCPServerOAuthClient",
