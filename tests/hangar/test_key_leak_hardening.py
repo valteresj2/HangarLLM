@@ -322,5 +322,5 @@ class TestInitSecrets:
         self._run(monkeypatch, tmp_path)
         secrets_dir = tmp_path / "secrets"
         generated = [p.read_text() for p in secrets_dir.iterdir() if p.name != "database_url"]
-        assert len(set(generated)) == len(generated) == 8
+        assert len(set(generated)) == len(generated) == len(_init_secrets_module().GENERATORS)
         assert (secrets_dir / "postgres_password").read_text() in (secrets_dir / "database_url").read_text()
