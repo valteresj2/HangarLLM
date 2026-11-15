@@ -157,6 +157,17 @@ class _RawHeaderPairsSource(Protocol):
     ) -> Sequence[tuple[bytes | str, bytes | str]]: ...
 
 
+MCP_SESSION_REJECTED_STRIPPED: Final = "served_without_session"
+
+
+def _record_mcp_session_rejected(reason: str) -> None:
+    from hangarllm.integrations.prometheus import PrometheusLogger
+
+    prometheus_logger: Final = PrometheusLogger.get_instance()
+    if prometheus_logger is not None:
+        prometheus_logger.record_mcp_session_rejected(reason)
+
+
 def _raw_header_pairs(source: _RawHeaderPairsSource) -> Sequence[tuple[bytes | str, bytes | str]]:
     return source.get("headers", [])
 
@@ -1800,12 +1811,14 @@ if MCP_AVAILABLE:
             await terminated_response(scope, receive, send)
             return True
 
-        # Non-DELETE: strip stale session ID to allow new session creation
         verbose_logger.warning(
-            "MCP session ID '%s' not found in this worker's memory. "
-            "Stripping stale header to force new session creation.",
+            "MCP session ID '%s' not found in the memory of worker %s. "
+            "Serving the request without the session; upstream session reuse and server-to-client "
+            "requests are lost for this client.",
             _session_id,
+            os.getpid(),
         )
+        _record_mcp_session_rejected(MCP_SESSION_REJECTED_STRIPPED)
         scope["headers"] = [(k, v) for k, v in _headers if _normalize_header_name(k) != _mcp_session_header]
         return False
 

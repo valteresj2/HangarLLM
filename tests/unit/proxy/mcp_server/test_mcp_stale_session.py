@@ -18,6 +18,31 @@ from hangarllm.proxy._types import UserAPIKeyAuth
 from hangarllm.types.mcp import MCPAuth
 
 
+@pytest.mark.asyncio
+async def test_each_request_served_without_its_session_is_counted(monkeypatch: pytest.MonkeyPatch):
+    from prometheus_client import REGISTRY
+
+    import hangarllm
+    from hangarllm.integrations.prometheus import PrometheusLogger
+    from hangarllm.proxy.mcp_server.server import MCP_SESSION_REJECTED_STRIPPED, _handle_stale_mcp_session
+
+    for collector in list(REGISTRY._collector_to_names):
+        REGISTRY.unregister(collector)
+    monkeypatch.setattr(hangarllm, "callbacks", [PrometheusLogger()])
+    mgr = MagicMock()
+    mgr._server_instances = {"live-id": object()}
+
+    def counted() -> float:
+        labels = {"reason": MCP_SESSION_REJECTED_STRIPPED}
+        return REGISTRY.get_sample_value("hangarllm_mcp_session_rejected_total", labels) or 0.0
+
+    for session_id in (b"unknown-1", b"live-id", b"unknown-2"):
+        scope = {"method": "POST", "headers": [(b"mcp-session-id", session_id)]}
+        await _handle_stale_mcp_session(scope, AsyncMock(), AsyncMock(), mgr)
+
+    assert counted() == 2
+
+
 class TestHandleStaleMcpSession:
     """Unit tests for the _handle_stale_mcp_session helper."""
 
@@ -1827,9 +1852,7 @@ async def test_streamable_http_skips_preflight_for_disabled_methods(  # test-qua
         "tp_server",
         extra_headers=request_headers,
     )
-    body: Final[bytes] = json.dumps(
-        {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
-    ).encode()
+    body: Final[bytes] = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
     receive: Final = AsyncMock(return_value={"type": "http.request", "body": body, "more_body": False})
     send: Final = AsyncMock()
     user_auth: Final = UserAPIKeyAuth()

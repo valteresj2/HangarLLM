@@ -179,7 +179,9 @@ class _CustomerBudgetRow(Protocol):
 
 
 def _customer_budget_metrics_enabled() -> bool:
-    return hangarllm.enable_end_user_cost_tracking_prometheus_only is True and not hangarllm.disable_end_user_cost_tracking
+    return (
+        hangarllm.enable_end_user_cost_tracking_prometheus_only is True and not hangarllm.disable_end_user_cost_tracking
+    )
 
 
 class _LabeledMetric:
@@ -1141,6 +1143,12 @@ class PrometheusLogger(CustomLogger):
                 labelnames=self.get_labels_for_metric("hangarllm_mcp_tool_call_spend_metric"),
             )
 
+            self.hangarllm_mcp_session_rejected_total = self._counter_factory(
+                name="hangarllm_mcp_session_rejected_total",
+                documentation="MCP requests whose session id this worker did not know, by what the gateway did",
+                labelnames=["reason"],
+            )
+
         except Exception as e:
             print_verbose(f"Got exception on init prometheus client {e}")
             raise e
@@ -1485,7 +1493,9 @@ class PrometheusLogger(CustomLogger):
             ttl_seconds=_positive_or_ignored(
                 "prometheus_metrics_ttl_seconds", hangarllm.prometheus_metrics_ttl_seconds, _POSITIVE_SERIES_TTL
             ),
-            cleanup_interval_seconds=_cleanup_interval_or_default(hangarllm.prometheus_metrics_cleanup_interval_seconds),
+            cleanup_interval_seconds=_cleanup_interval_or_default(
+                hangarllm.prometheus_metrics_cleanup_interval_seconds
+            ),
         )
         if limits.ttl_seconds is None or not multiprocess_mode:
             return limits
@@ -2674,7 +2684,9 @@ class PrometheusLogger(CustomLogger):
                 enum_values=latency_enum_values,
                 label_context=latency_label_context,
             )
-            self.hangarllm_llm_api_time_to_first_token_metric.labels(**_ttft_labels).observe(time_to_first_token_seconds)
+            self.hangarllm_llm_api_time_to_first_token_metric.labels(**_ttft_labels).observe(
+                time_to_first_token_seconds
+            )
             self._track_end_user_metric_series(
                 self.hangarllm_llm_api_time_to_first_token_metric,
                 "hangarllm_llm_api_time_to_first_token_metric",
@@ -3222,7 +3234,8 @@ class PrometheusLogger(CustomLogger):
             "team": _get_team_id(),
             "team_alias": _get_team_alias(),
             "hashed_api_key": _get_hashed_api_key(),
-            "client_ip": _metadata.get("requester_ip_address") or _hangarllm_params_metadata.get("requester_ip_address"),
+            "client_ip": _metadata.get("requester_ip_address")
+            or _hangarllm_params_metadata.get("requester_ip_address"),
             "user_agent": _metadata.get("user_agent") or _hangarllm_params_metadata.get("user_agent"),
         }
 
@@ -3553,7 +3566,9 @@ class PrometheusLogger(CustomLogger):
             remaining_requests: Final = _gauge_reading_or_none(additional_headers.get("x_ratelimit_remaining_requests"))
             remaining_tokens: Final = _gauge_reading_or_none(additional_headers.get("x_ratelimit_remaining_tokens"))
 
-            if hangarllm_overhead_time_ms := standard_logging_payload["hidden_params"].get("hangarllm_overhead_time_ms"):
+            if hangarllm_overhead_time_ms := standard_logging_payload["hidden_params"].get(
+                "hangarllm_overhead_time_ms"
+            ):
                 _labels = prometheus_label_factory(
                     supported_enum_labels=self.get_labels_for_metric(metric_name="hangarllm_overhead_latency_metric"),
                     enum_values=enum_values,
@@ -3768,6 +3783,12 @@ class PrometheusLogger(CustomLogger):
             ).inc()
         except Exception as e:
             verbose_logger.warning("Error recording file created metric: %s", e)
+
+    def record_mcp_session_rejected(self, reason: str) -> None:
+        try:
+            self.hangarllm_mcp_session_rejected_total.labels(reason=reason).inc()
+        except Exception as e:  # noqa: BLE001  # a metric failure must not affect the MCP request
+            verbose_logger.warning("Error recording MCP session rejected metric: %s", e)
 
     def record_managed_file_deleted(self, result: str):
         """Record a managed file deletion attempt. result is 'success' or 'blocked'."""

@@ -323,6 +323,7 @@ DEFINED_PROMETHEUS_METRICS = Literal[
     # MCP tool call metrics
     "hangarllm_mcp_tool_calls_total",
     "hangarllm_mcp_tool_call_spend_metric",
+    "hangarllm_mcp_session_rejected_total",
 ]
 
 
@@ -955,6 +956,8 @@ class PrometheusMetricLabels:
 
     hangarllm_managed_file_deleted_total: list[str] = []  # only "result" label, added at metric creation
 
+    hangarllm_mcp_session_rejected_total: list[str] = []  # only "reason" label, added at metric creation
+
     hangarllm_check_batch_cost_jobs_polled: list[str] = []
 
     hangarllm_check_batch_cost_jobs_processed_total = [
@@ -1013,7 +1016,10 @@ class PrometheusMetricLabels:
         # historical label set is preserved across upgrade; enable via
         # ``hangarllm.prometheus_emit_rate_limit_labels`` once downstream
         # dashboards include the new labels in their matchers / aggregations.
-        if label_name == "hangarllm_proxy_failed_requests_metric" and hangarllm.prometheus_emit_rate_limit_labels is True:
+        if (
+            label_name == "hangarllm_proxy_failed_requests_metric"
+            and hangarllm.prometheus_emit_rate_limit_labels is True
+        ):
             for _rate_limit_label in (
                 UserAPIKeyLabelNames.RATE_LIMIT_CATEGORY.value,
                 UserAPIKeyLabelNames.RATE_LIMIT_TYPE.value,
