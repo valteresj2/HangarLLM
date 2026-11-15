@@ -142,6 +142,7 @@ from hangarllm.proxy.mcp_server.result_conversion import (
     handler_outcome,
     to_call_tool_result,
 )
+from hangarllm.proxy.mcp_server.server_controls import mcp_server_controls
 from hangarllm.proxy.mcp_server.tool_registry import (
     global_mcp_tool_registry,
 )
@@ -812,11 +813,19 @@ def filter_tools_by_allowed_tools(
         server_applies_tool_allowlist,
     )
 
+    if mcp_server_controls.is_server_disabled(mcp_server.server_id):
+        return []
+    disabled_tools: Final = mcp_server_controls.disabled_tools(mcp_server.server_id)
+    enabled: Final = (
+        [tool for tool in tools if strip_known_server_prefix(tool.name, mcp_server) not in disabled_tools]
+        if disabled_tools
+        else tools
+    )
     if not server_applies_tool_allowlist(mcp_server) and not mcp_server.disallowed_tools:
-        return tools
+        return enabled
     return [
         tool
-        for tool in tools
+        for tool in enabled
         if is_tool_allowed_for_server(strip_known_server_prefix(tool.name, mcp_server), mcp_server)
     ]
 

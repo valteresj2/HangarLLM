@@ -5,6 +5,7 @@ from fastapi import Depends
 from hangarllm.models.credential_test import CredentialTestStore
 from hangarllm.models.deployment_warning import DeploymentWarningIgnoreStore
 from hangarllm.models.gateway_activity import GatewayActivityStore
+from hangarllm.models.mcp_server_control import MCPServerControlStore
 from hangarllm.models.plugin_upload import PluginUploadStore
 from hangarllm.models.skill_submission import SkillSubmissionStore
 from hangarllm.models.user_banner import UserBannerStore
@@ -12,6 +13,7 @@ from hangarllm.proxy.deps.database import DatabaseDep
 from hangarllm.repositories.credential_test_repository import CredentialTestRepository
 from hangarllm.repositories.deployment_warning_ignore_repository import DeploymentWarningIgnoreRepository
 from hangarllm.repositories.gateway_activity_repository import GatewayActivityRepository
+from hangarllm.repositories.mcp_server_control_repository import MCPServerControlRepository
 from hangarllm.repositories.plugin_upload_repository import PluginUploadRepository
 from hangarllm.repositories.skill_submission_repository import SkillSubmissionRepository
 from hangarllm.repositories.user_banner_repository import UserBannerRepository
@@ -63,3 +65,12 @@ async def get_credential_test_repository(database: DatabaseDep) -> CredentialTes
 
 
 CredentialTestRepositoryDep: TypeAlias = Annotated[CredentialTestStore | None, Depends(get_credential_test_repository)]
+
+
+async def get_mcp_server_control_repository(database: DatabaseDep) -> MCPServerControlStore | None:
+    return None if database is None else MCPServerControlRepository(database.prisma)
+
+
+MCPServerControlRepositoryDep: TypeAlias = Annotated[
+    MCPServerControlStore | None, Depends(get_mcp_server_control_repository)
+]

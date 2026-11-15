@@ -259,6 +259,7 @@ if MCP_AVAILABLE:
         apply_toolset_scope,
         reject_disallowed_mcp_client,
     )
+    from hangarllm.proxy.mcp_server.server_controls import MCP_DISABLED_ERROR_CODE
     from hangarllm.proxy.mcp_server.tool_catalog_guard import (
         apply_description_overrides,
         scan_tool_descriptions,
@@ -1521,6 +1522,10 @@ if MCP_AVAILABLE:
             # and log at info: an expected caller-must-reauth signal, not an operator-actionable error.
             verbose_logger.info("MCP tool call relaying upstream HTTP %s", e.status_code)
             raise _relay_upstream_auth_http_exception(e, request)
+        except MCPError as e:
+            if e.error.code != MCP_DISABLED_ERROR_CODE:
+                raise
+            raise HTTPException(status_code=403, detail={"error": "mcp_tool_disabled", "message": e.error.message})
         except HTTPException as e:
             # Locally generated denials (tool/server permission, IP filtering, BYOK) stay at error level
             # so restriction probing keeps full monitoring visibility; the relayed upstream 401 above is

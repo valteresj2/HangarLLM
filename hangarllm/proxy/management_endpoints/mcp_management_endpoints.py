@@ -50,6 +50,7 @@ from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
 from hangarllm.proxy.mcp_server.catalog import catalog_operation, public_catalog_operation
+from hangarllm.proxy.mcp_server.server_controls import mcp_server_controls
 
 try:
     from prisma.errors import RecordNotFoundError, UniqueViolationError
@@ -63,6 +64,7 @@ from hangarllm._logging import verbose_logger, verbose_proxy_logger
 from hangarllm._uuid import uuid
 from hangarllm.constants import HANGARLLM_PROXY_ADMIN_NAME, MCP_GATEWAY_SESSION_ID_PREFIX_LENGTH
 from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping
+from hangarllm.proxy._types import AUDIT_ACTIONS, HangarllmTableNames, UserAPIKeyAuth
 from hangarllm.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
     encrypt_value_helper,
@@ -71,8 +73,8 @@ from hangarllm.proxy.management_endpoints.sso.id_jag_assertion_capture import (
     id_jag_assertion_capture_gap,
 )
 from hangarllm.proxy.management_helpers.audit_logs import (
+    create_object_audit_log,
     get_audit_log_changed_by,
-    is_audit_logging_enabled,
 )
 from hangarllm.proxy.mcp_server.utils import (
     HANGARLLM_MCP_SERVER_DESCRIPTION,
@@ -110,6 +112,35 @@ class _TemporaryServerCacheWriter(Protocol):
 
 class _TemporaryServerCacheReader(Protocol):
     async def async_get_cache(self, *, key: str) -> object: ...
+
+
+_MCP_SERVER_AUDIT_FIELDS: Final = ("server_id", "server_name", "alias", "url", "transport", "auth_type")
+
+
+def _mcp_server_audit_summary(record: object) -> str:
+    return json.dumps({field: getattr(record, field, None) for field in _MCP_SERVER_AUDIT_FIELDS}, default=str)
+
+
+async def _audit_mcp_change(
+    *,
+    object_id: str,
+    action: AUDIT_ACTIONS,
+    table_name: HangarllmTableNames,
+    user_api_key_dict: UserAPIKeyAuth,
+    hangarllm_changed_by: str | None,
+    before_value: str | None = None,
+    after_value: str | None = None,
+) -> None:
+    await create_object_audit_log(
+        object_id=object_id,
+        action=action,
+        hangarllm_changed_by=hangarllm_changed_by,
+        user_api_key_dict=user_api_key_dict,
+        hangarllm_proxy_admin_name=HANGARLLM_PROXY_ADMIN_NAME,
+        table_name=table_name,
+        before_value=before_value,
+        after_value=after_value,
+    )
 
 
 def _session_cookie_claims(claims: Mapping[str, object]) -> Mapping[str, object]:
@@ -180,7 +211,6 @@ if MCP_AVAILABLE:
         RejectMCPServerRequest,
         SpecialMCPServerName,
         UpdateMCPServerRequest,
-        UserAPIKeyAuth,
         UserMCPManagementMode,
         is_per_server_oauth_discovery_eligible,
     )
@@ -697,7 +727,8 @@ if MCP_AVAILABLE:
                 "mcp_info": {
                     **(redacted_server.mcp_info or {}),
                     "is_public": is_public,
-                    "is_public_explicit": is_public and redacted_server.server_id in (hangarllm.public_mcp_servers or ()),
+                    "is_public_explicit": is_public
+                    and redacted_server.server_id in (hangarllm.public_mcp_servers or ()),
                 }
             }
         )
@@ -2070,8 +2101,6 @@ if MCP_AVAILABLE:
                     detail={"error": f"MCP Server with id {payload.server_id} already exists. Cannot create another."},
                 )
 
-        # TODO: audit log for create
-
         # Admin-created servers are always active — clear any submission lifecycle
         # fields the caller may have provided to prevent fake entries appearing in
         # the submissions queue.
@@ -2097,6 +2126,14 @@ if MCP_AVAILABLE:
             raise_mcp_identifier_conflict(new_mcp_server)
 
         warn_if_id_jag_server_outruns_sso(new_mcp_server.server_id, new_mcp_server.auth_type)
+        await _audit_mcp_change(
+            object_id=new_mcp_server.server_id,
+            action="created",
+            table_name=HangarllmTableNames.MCP_SERVER_TABLE_NAME,
+            user_api_key_dict=user_api_key_dict,
+            hangarllm_changed_by=hangarllm_changed_by,
+            after_value=_mcp_server_audit_summary(new_mcp_server),
+        )
 
         # Registry refresh is best-effort: the row is already committed, so a
         # failure here (e.g. an unrelated malformed row in the table) must not
@@ -2619,19 +2656,19 @@ if MCP_AVAILABLE:
                 detail={"error": f"MCP Server not found, passed server_id={server_id}"},
             )
         global_mcp_server_manager.remove_server(mcp_server_record_deleted)
+        mcp_server_controls.forget(server_id)
 
         # Ensure registry is up to date by reloading from database
         await global_mcp_server_manager.reload_servers_from_database()
 
-        # TODO: Enterprise: Finish audit log trail
-        if is_audit_logging_enabled():
-            pass
-
-        # TODO: Delete from virtual keys
-
-        # TODO: Delete from teams
-
-        # Update from global mcp store
+        await _audit_mcp_change(
+            object_id=server_id,
+            action="deleted",
+            table_name=HangarllmTableNames.MCP_SERVER_TABLE_NAME,
+            user_api_key_dict=user_api_key_dict,
+            hangarllm_changed_by=hangarllm_changed_by,
+            before_value=_mcp_server_audit_summary(mcp_server_record_deleted),
+        )
 
         return Response(status_code=status.HTTP_202_ACCEPTED)
 
@@ -3333,9 +3370,15 @@ if MCP_AVAILABLE:
                     exc,
                 )
 
-        # TODO: Enterprise: Finish audit log trail
-        if is_audit_logging_enabled():
-            pass
+        await _audit_mcp_change(
+            object_id=mcp_server_record_updated.server_id,
+            action="updated",
+            table_name=HangarllmTableNames.MCP_SERVER_TABLE_NAME,
+            user_api_key_dict=user_api_key_dict,
+            hangarllm_changed_by=hangarllm_changed_by,
+            before_value=None if old_server_record is None else _mcp_server_audit_summary(old_server_record),
+            after_value=_mcp_server_audit_summary(mcp_server_record_updated),
+        )
 
         return _redact_mcp_credentials(mcp_server_record_updated)
 
@@ -3567,6 +3610,14 @@ if MCP_AVAILABLE:
             global_mcp_server_manager,
         )
 
+        await _audit_mcp_change(
+            object_id=result.toolset_id,
+            action="created",
+            table_name=HangarllmTableNames.MCP_TOOLSET_TABLE_NAME,
+            user_api_key_dict=user_api_key_dict,
+            hangarllm_changed_by=hangarllm_changed_by,
+            after_value=result.model_dump_json(),
+        )
         global_mcp_server_manager.invalidate_toolset_cache()
         return result
 
@@ -3664,6 +3715,14 @@ if MCP_AVAILABLE:
         )
 
         global_mcp_server_manager.invalidate_toolset_cache(getattr(payload, "toolset_id", None))
+        await _audit_mcp_change(
+            object_id=result.toolset_id,
+            action="updated",
+            table_name=HangarllmTableNames.MCP_TOOLSET_TABLE_NAME,
+            user_api_key_dict=user_api_key_dict,
+            hangarllm_changed_by=hangarllm_changed_by,
+            after_value=result.model_dump_json(),
+        )
         return result
 
     @router.delete(
@@ -3694,4 +3753,12 @@ if MCP_AVAILABLE:
         )
 
         global_mcp_server_manager.invalidate_toolset_cache(toolset_id)
+        await _audit_mcp_change(
+            object_id=toolset_id,
+            action="deleted",
+            table_name=HangarllmTableNames.MCP_TOOLSET_TABLE_NAME,
+            user_api_key_dict=user_api_key_dict,
+            hangarllm_changed_by=hangarllm_changed_by,
+            before_value=deleted.model_dump_json(),
+        )
         return Response(status_code=status.HTTP_202_ACCEPTED)

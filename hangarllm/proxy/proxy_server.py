@@ -801,6 +801,7 @@ from hangarllm.proxy.management_endpoints.management_v1 import (
     router as management_v1_router,
 )
 from hangarllm.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
+from hangarllm.proxy.management_endpoints.mcp_server_control_endpoints import router as mcp_server_control_router
 from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
     router as model_access_group_management_router,
 )
@@ -1282,7 +1283,9 @@ ui_link: Final = f"{server_root_path}/ui"
 fallback_login_link: Final = f"{server_root_path}/fallback/login"
 model_hub_link: Final = f"{server_root_path}/ui/model_hub_table"
 ui_message = f"[```HangarLLM Console on /ui```]({ui_link}). Create and manage keys, teams, models and agents. Having issues? Try [```Fallback Login```]({fallback_login_link})"
-ui_message += f"\n\n[```HangarLLM Model Hub```]({model_hub_link}). See every model and agent available through this gateway."
+ui_message += (
+    f"\n\n[```HangarLLM Model Hub```]({model_hub_link}). See every model and agent available through this gateway."
+)
 
 custom_swagger_message: Final = "Set `DOCS_TITLE` / `DOCS_DESCRIPTION` to customise this page."
 
@@ -3875,7 +3878,9 @@ async def _increment_spend_counters_batched(
         # avoid double-hashing (budget checks read valid_token.token which
         # is single-hashed).
         hashed_token: Final = (
-            hash_token(token=key_token) if isinstance(key_token, str) and key_token.startswith(VIRTUAL_KEY_PREFIXES) else key_token
+            hash_token(token=key_token)
+            if isinstance(key_token, str) and key_token.startswith(VIRTUAL_KEY_PREFIXES)
+            else key_token
         )
         key_counter_key: Final = key_counter(hashed_token)
         key_pending: Final[tuple[PendingSpendIncrement, ...]] = (
@@ -6540,7 +6545,9 @@ class ProxyConfig:
             # user_api_key_cache) to avoid routing all API-key lookups through Redis.
             _attach_redis_usage_cache(resolved_usage_cache, enable_redis_auth_cache)
         elif hangarllm_config_cache.redis_cache is None:
-            verbose_proxy_logger.info("hangarllm_config_cache: no Redis configured; cluster-wide cache sharing disabled.")
+            verbose_proxy_logger.info(
+                "hangarllm_config_cache: no Redis configured; cluster-wide cache sharing disabled."
+            )
         return resolved_usage_cache
 
     _init_cache = init_cache
@@ -6760,7 +6767,6 @@ class ProxyConfig:
                     #########################################################
                     self._set_config_environment_variable(key=key, value=str(value))
 
-
     def _set_config_environment_variable(self, key: str, value: str) -> None:
         if key in os.environ and os.environ[key] != value:
             verbose_proxy_logger.warning(
@@ -6931,7 +6937,9 @@ class ProxyConfig:
                         )
                     )
                     if hangarllm.cache is not None:
-                        verbose_proxy_logger.debug("%sSet Cache on HangarLLM Proxy%s", blue_color_code, reset_color_code)
+                        verbose_proxy_logger.debug(
+                            "%sSet Cache on HangarLLM Proxy%s", blue_color_code, reset_color_code
+                        )
                 elif key == "cache" and value is False:
                     pass
                 elif key == "guardrails":
@@ -7160,7 +7168,9 @@ class ProxyConfig:
                     parse_budget_reset_time(value)
                     setattr(hangarllm, key, value)
                 elif key == "drop_params":
-                    hangarllm.drop_params = drop_params_flag(value, "hangarllm_settings.drop_params", verbose_proxy_logger)
+                    hangarllm.drop_params = drop_params_flag(
+                        value, "hangarllm_settings.drop_params", verbose_proxy_logger
+                    )
                 elif key == "suppress_startup_output":
                     continue
                 else:
@@ -9153,7 +9163,9 @@ class ProxyConfig:
             if hasattr(self, "_last_semantic_filter_config"):
                 if self._last_semantic_filter_config == mcp_semantic_filter_config:
                     # If hook is missing or router isn't built yet, reinitialize anyway
-                    active_hooks = hangarllm.logging_callback_manager.get_custom_loggers_for_type(SemanticToolFilterHook)
+                    active_hooks = hangarllm.logging_callback_manager.get_custom_loggers_for_type(
+                        SemanticToolFilterHook
+                    )
                     if active_hooks:
                         for active_hook in active_hooks:
                             if isinstance(active_hook, SemanticToolFilterHook):
@@ -9212,7 +9224,9 @@ class ProxyConfig:
 
             raw_hangarllm_settings: Final = config_record.param_value
             hangarllm_settings: Final = _WEBSEARCH_INTERCEPTION_HANGARLLM_SETTINGS.validate_python(
-                json.loads(raw_hangarllm_settings) if isinstance(raw_hangarllm_settings, str) else raw_hangarllm_settings
+                json.loads(raw_hangarllm_settings)
+                if isinstance(raw_hangarllm_settings, str)
+                else raw_hangarllm_settings
             )
 
             websearch_config: Final = hangarllm_settings.get("websearch_interception_params", None)
@@ -9240,7 +9254,9 @@ class ProxyConfig:
                 else None
             )
 
-            hangarllm.logging_callback_manager.remove_callbacks_by_type(hangarllm.callbacks, WebSearchInterceptionLogger)
+            hangarllm.logging_callback_manager.remove_callbacks_by_type(
+                hangarllm.callbacks, WebSearchInterceptionLogger
+            )
 
             if replacement is not None:
                 hangarllm.logging_callback_manager.add_hangarllm_callback(replacement)
@@ -9657,7 +9673,9 @@ class ProxyConfig:
                 # pod. Config-loaded entries are never touched.
                 IN_MEMORY_GUARDRAIL_HANDLER.reconcile_db_guardrails(db_guardrail_ids=db_guardrail_ids)
         except Exception as e:
-            verbose_proxy_logger.exception("hangarllm.proxy.proxy_server.py::ProxyConfig:_init_guardrails_in_db - %s", e)
+            verbose_proxy_logger.exception(
+                "hangarllm.proxy.proxy_server.py::ProxyConfig:_init_guardrails_in_db - %s", e
+            )
 
     async def _init_policies_in_db(self, prisma_client: PrismaClient):
         """
@@ -9695,7 +9713,9 @@ class ProxyConfig:
             await registry.sync_tool_policy_from_db(prisma_client=prisma_client)
             verbose_proxy_logger.debug("Successfully synced tool policy from DB")
         except Exception as e:
-            verbose_proxy_logger.exception("hangarllm.proxy.proxy_server.py::ProxyConfig:_init_tool_policy_in_db - %s", e)
+            verbose_proxy_logger.exception(
+                "hangarllm.proxy.proxy_server.py::ProxyConfig:_init_tool_policy_in_db - %s", e
+            )
 
     async def _init_vector_stores_in_db(self, prisma_client: PrismaClient):
         from hangarllm.vector_stores.vector_store_registry import VectorStoreRegistry
@@ -9734,7 +9754,9 @@ class ProxyConfig:
                 )
             else:
                 for vector_store_index in vector_store_indexes:
-                    hangarllm.vector_store_index_registry.upsert_vector_store_index(vector_store_index=vector_store_index)
+                    hangarllm.vector_store_index_registry.upsert_vector_store_index(
+                        vector_store_index=vector_store_index
+                    )
         except Exception as e:
             verbose_proxy_logger.exception(
                 "hangarllm.proxy.proxy_server.py::ProxyConfig:_init_vector_stores_in_db - %s", e
@@ -9776,7 +9798,15 @@ class ProxyConfig:
         try:
             await global_mcp_server_manager.reload_servers_from_database()
         except Exception as e:
-            verbose_proxy_logger.exception("hangarllm.proxy.proxy_server.py::ProxyConfig:_init_mcp_servers_in_db - %s", e)
+            verbose_proxy_logger.exception(
+                "hangarllm.proxy.proxy_server.py::ProxyConfig:_init_mcp_servers_in_db - %s", e
+            )
+
+        if prisma_client is not None:
+            from hangarllm.proxy.mcp_server.server_controls import mcp_server_controls
+            from hangarllm.repositories.mcp_server_control_repository import MCPServerControlRepository
+
+            mcp_server_controls.start_polling(MCPServerControlRepository(prisma_client).list_controls)
 
     async def init_mcp_servers_from_db(self) -> None:
         if self._should_load_db_object(object_type="mcp"):
@@ -10667,7 +10697,9 @@ def _keepalive_from_deployment_config(
         (
             (deployment_dict.get("hangarllm_params") or _EMPTY_MAPPING).get("keepalive_seconds"),
             bool(
-                (deployment_dict.get("hangarllm_params") or _EMPTY_MAPPING).get("allow_client_keepalive_override", False)
+                (deployment_dict.get("hangarllm_params") or _EMPTY_MAPPING).get(
+                    "allow_client_keepalive_override", False
+                )
             ),
         )
         for deployment_dict in llm_router.registry().deployments(model_name=request_data.get("model")) or ()
@@ -11135,7 +11167,9 @@ def giveup(e):
 class ProxyStartupEvent:
     @staticmethod
     def attach_router_to_prompt_injection_detectors(llm_router: Router | None) -> None:
-        for callback in hangarllm.logging_callback_manager.get_custom_loggers_for_type(OPTIONAL_PromptInjectionDetection):
+        for callback in hangarllm.logging_callback_manager.get_custom_loggers_for_type(
+            OPTIONAL_PromptInjectionDetection
+        ):
             if isinstance(callback, OPTIONAL_PromptInjectionDetection):
                 callback.update_environment(router=llm_router)
 
@@ -12272,7 +12306,9 @@ class ProxyStartupEvent:
         def publish(provider: str, capture_rate: float | None) -> None:
             from hangarllm.integrations.prometheus import PrometheusLogger
 
-            for logger in hangarllm.logging_callback_manager.get_custom_loggers_for_type(callback_type=PrometheusLogger):
+            for logger in hangarllm.logging_callback_manager.get_custom_loggers_for_type(
+                callback_type=PrometheusLogger
+            ):
                 if isinstance(logger, PrometheusLogger):
                     logger.set_spend_capture_rate(api_provider=provider, capture_rate=capture_rate)
 
@@ -13714,7 +13750,9 @@ async def moderations(
         response: Final = await llm_call
 
         ### ALERTING ###
-        asyncio.create_task(proxy_logging_obj.update_request_status(hangarllm_call_id=hangarllm_call_id, status="success"))
+        asyncio.create_task(
+            proxy_logging_obj.update_request_status(hangarllm_call_id=hangarllm_call_id, status="success")
+        )
 
         ### RESPONSE HEADERS ###
         hidden_params: Final = getattr(response, "_hidden_params", {}) or {}
@@ -13832,7 +13870,9 @@ async def audio_speech(
         response: Final = await llm_call
 
         ### ALERTING ###
-        asyncio.create_task(proxy_logging_obj.update_request_status(hangarllm_call_id=hangarllm_call_id, status="success"))
+        asyncio.create_task(
+            proxy_logging_obj.update_request_status(hangarllm_call_id=hangarllm_call_id, status="success")
+        )
 
         ### RESPONSE HEADERS ###
         hidden_params: Final = getattr(response, "_hidden_params", {}) or {}
@@ -14000,7 +14040,9 @@ async def audio_transcriptions(
             file_object.close()  # close the file read in by io library
 
         ### ALERTING ###
-        asyncio.create_task(proxy_logging_obj.update_request_status(hangarllm_call_id=hangarllm_call_id, status="success"))
+        asyncio.create_task(
+            proxy_logging_obj.update_request_status(hangarllm_call_id=hangarllm_call_id, status="success")
+        )
 
         ### RESPONSE HEADERS ###
         hidden_params: Final = getattr(response, "_hidden_params", {}) or {}
@@ -14574,7 +14616,9 @@ async def get_assistants(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(
+                hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success"
+            )
         )
 
         ### RESPONSE HEADERS ###
@@ -14650,7 +14694,9 @@ async def create_assistant(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(
+                hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success"
+            )
         )
 
         ### RESPONSE HEADERS ###
@@ -14725,7 +14771,9 @@ async def delete_assistant(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(
+                hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success"
+            )
         )
 
         ### RESPONSE HEADERS ###
@@ -14800,7 +14848,9 @@ async def create_threads(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(
+                hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success"
+            )
         )
 
         ### RESPONSE HEADERS ###
@@ -14873,7 +14923,9 @@ async def get_thread(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(
+                hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success"
+            )
         )
 
         ### RESPONSE HEADERS ###
@@ -14950,7 +15002,9 @@ async def add_messages(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(
+                hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success"
+            )
         )
 
         ### RESPONSE HEADERS ###
@@ -15023,7 +15077,9 @@ async def get_messages(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(
+                hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success"
+            )
         )
 
         ### RESPONSE HEADERS ###
@@ -15131,7 +15187,9 @@ async def run_thread(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(
+                hangarllm_call_id=data.get("hangarllm_call_id", ""), status="success"
+            )
         )
 
         ### RESPONSE HEADERS ###
@@ -15307,7 +15365,9 @@ def _deployment_with_request_drop_params(
     if drop_params is None:
         return deployment
     resolved_deployment: Final = deployment or {}
-    hangarllm_params: Final = _DEPLOYMENT_HANGARLLM_PARAMS.validate_python(resolved_deployment.get("hangarllm_params") or {})
+    hangarllm_params: Final = _DEPLOYMENT_HANGARLLM_PARAMS.validate_python(
+        resolved_deployment.get("hangarllm_params") or {}
+    )
     return {**resolved_deployment, "hangarllm_params": {**hangarllm_params, "drop_params": drop_params}}
 
 
@@ -15349,7 +15409,10 @@ async def _try_provider_token_count(
         if region is None
         else {
             **deployment,
-            "hangarllm_params": {**(as_str_mapping(deployment.get("hangarllm_params")) or {}), "aws_region_name": region},
+            "hangarllm_params": {
+                **(as_str_mapping(deployment.get("hangarllm_params")) or {}),
+                "aws_region_name": region,
+            },
         }
     )
     try:
@@ -16098,7 +16161,10 @@ async def _count_request_tokens(
         if _model is not None:
             model_to_use = _model
 
-    sent_params: Final[Mapping[str, object]] = {**_router_default_hangarllm_params(llm_router), **request_hangarllm_params}
+    sent_params: Final[Mapping[str, object]] = {
+        **_router_default_hangarllm_params(llm_router),
+        **request_hangarllm_params,
+    }
     count_deployment: Final = _deployment_with_request_drop_params(deployment, sent_params.get("drop_params"))
     conversation_empty: Final = not messages and not contents
     if prompt and not conversation_empty and not deployment_drops_params(count_deployment):
@@ -16855,7 +16921,9 @@ def _enrich_model_info_with_hangarllm_data(
             if len(split_model) > 0:
                 hangarllm_model = split_model[-1]
             try:
-                hangarllm_model_info = hangarllm.get_model_info(model=hangarllm_model, custom_llm_provider=split_model[0])
+                hangarllm_model_info = hangarllm.get_model_info(
+                    model=hangarllm_model, custom_llm_provider=split_model[0]
+                )
             except Exception:
                 hangarllm_model_info = {}
     discovered_model_info: Final = (
@@ -18461,7 +18529,9 @@ def _translate_model_name_for_response(model: dict) -> dict[str, object]:
 
 
 def _get_proxy_model_info(model: dict) -> dict:
-    return _translate_model_name_for_response(_enrich_model_info_with_hangarllm_data(model=model, llm_router=llm_router))
+    return _translate_model_name_for_response(
+        _enrich_model_info_with_hangarllm_data(model=model, llm_router=llm_router)
+    )
 
 
 def _model_info_json_response(data: Sequence[Mapping[str, object]] | Mapping[str, object]) -> Response:
@@ -21559,7 +21629,9 @@ async def delete_callback(
                 detail={"error": f"Callback '{callback_name}' not found in active configuration"},
             )
 
-        rewritten_keys: Final = _callback_lists_to_rewrite(matching_keys, proxy_config.hangarllm_settings.owned_by_config)
+        rewritten_keys: Final = _callback_lists_to_rewrite(
+            matching_keys, proxy_config.hangarllm_settings.owned_by_config
+        )
         remaining_lists: Final = MappingProxyType(
             {
                 key: tuple(entry for entry in configured_lists[key] if not _is_callback_name(entry, callback_name))
@@ -22483,6 +22555,7 @@ app.include_router(pass_through_router)
 app.include_router(health_router)
 app.include_router(deployment_warning_router)
 app.include_router(credential_test_router)
+app.include_router(mcp_server_control_router)
 app.include_router(key_management_router)
 app.include_router(internal_user_router)
 app.include_router(daily_activity_router)

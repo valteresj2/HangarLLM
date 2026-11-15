@@ -39,6 +39,7 @@ from fastapi import HTTPException
 from httpx import HTTPStatusError
 from mcp import ReadResourceResult, Resource
 from mcp.shared.auth import OAuthMetadata
+from mcp.shared.exceptions import MCPError
 from mcp.types import CallToolRequestParams as MCPCallToolRequestParams
 from mcp.types import (
     CallToolResult,
@@ -172,6 +173,11 @@ from hangarllm.proxy.mcp_server.result_conversion import (
 )
 from hangarllm.proxy.mcp_server.sampling_handler import (
     MCP_SAMPLING_AVAILABLE,
+)
+from hangarllm.proxy.mcp_server.server_controls import (
+    MCP_DISABLED_ERROR_CODE,
+    MCP_DISABLED_MESSAGE,
+    mcp_server_controls,
 )
 from hangarllm.proxy.mcp_server.stdio_gate import (
     MCP_STDIO_DISABLED_MESSAGE,
@@ -6184,6 +6190,8 @@ class MCPServerManager:
         - "arguments": hook-modified tool arguments (only if changed)
         - "extra_headers": headers injected by pre_mcp_call guardrail hooks
         """
+        if mcp_server_controls.is_tool_disabled(server.server_id, name):
+            raise MCPError(code=MCP_DISABLED_ERROR_CODE, message=MCP_DISABLED_MESSAGE)
         ## check if the tool is allowed or banned for the given server
         if not self.check_allowed_or_banned_tools(name, server):
             raise HTTPException(

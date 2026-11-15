@@ -441,6 +441,15 @@ model HangarLLM_MCPToolsetTable {
   updated_by   String?
 }
 
+// Admin controls for MCP servers that apply whether a server comes from the DB or the config file.
+model HangarLLM_MCPServerControlTable {
+  server_id      String   @id
+  disabled       Boolean  @default(false)
+  tool_overrides Json     @default("{}") // {tool_name: {disabled: bool}}
+  updated_at     DateTime @default(now()) @updatedAt
+  updated_by     String?
+}
+
 // Per-user BYOK credentials for MCP servers
 model HangarLLM_MCPUserCredentials {
   id             String   @id @default(uuid())
