@@ -450,6 +450,19 @@ model HangarLLM_MCPServerControlTable {
   updated_by     String?
 }
 
+// The pinned package and egress list a local MCP server runs with in the MCP runner sandbox.
+model HangarLLM_MCPServerPackageTable {
+  server_id          String   @id
+  launcher           String   // "npx" | "uvx"
+  package_name       String
+  package_version    String
+  package_command    String?
+  package_lock       String
+  egress_allow_hosts String[] @default([])
+  updated_at         DateTime @default(now()) @updatedAt
+  updated_by         String?
+}
+
 // Per-user BYOK credentials for MCP servers
 model HangarLLM_MCPUserCredentials {
   id             String   @id @default(uuid())

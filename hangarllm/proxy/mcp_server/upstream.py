@@ -8,6 +8,7 @@ from fastapi import HTTPException
 
 from hangarllm.constants import MCP_CLIENT_TIMEOUT, MCP_NPM_CACHE_DIR, MCP_STDIO_ALLOWED_COMMANDS
 from hangarllm.mcp_client.client import MCPClient, MCPSigV4Auth
+from hangarllm.models.mcp_server_package import MCPServerPackage
 from hangarllm.proxy._types import MCPTransport, UserAPIKeyAuth
 from hangarllm.proxy.mcp_server.legacy_callbacks import ElicitationCallback, SamplingCallback
 from hangarllm.proxy.mcp_server.mcp_debug import record_auth_resolution
@@ -33,7 +34,19 @@ from hangarllm.proxy.mcp_server.outbound_credentials.types import (
     ServerSpec,
     TokenExchangeConfig,
 )
-from hangarllm.proxy.mcp_server.stdio_gate import MCP_STDIO_DISABLED_MESSAGE, is_mcp_stdio_enabled
+from hangarllm.proxy.mcp_server.runner_client import (
+    LaunchCommand,
+    RunnerClient,
+    parse_launch_command,
+    require_locked_package,
+    runner_config,
+)
+from hangarllm.proxy.mcp_server.stdio_gate import (
+    MCP_STDIO_DISABLED_MESSAGE,
+    is_mcp_stdio_enabled,
+    runs_local_servers_in_runner,
+)
+from hangarllm.repositories.mcp_server_package_repository import MCPServerPackageRepository
 from hangarllm.types.mcp import (
     MCPAuth,
     MCPStdioConfig,
@@ -194,6 +207,19 @@ def _stdio_config(server: MCPServer, stdio_env: dict[str, str] | None) -> MCPStd
     )
 
 
+async def _stored_package(server_id: str) -> MCPServerPackage | None:
+    from hangarllm.proxy.proxy_server import prisma_client
+
+    if prisma_client is None:
+        return None
+    return await MCPServerPackageRepository(prisma_client).get_package(server_id)
+
+
+def _runner_package(server: MCPServer, stored: MCPServerPackage | None) -> tuple[MCPServerPackage, LaunchCommand]:
+    launch: Final = parse_launch_command(server.command, server.args)
+    return require_locked_package(server.server_id, stored, launch), launch
+
+
 async def prepare_upstream_client(
     server: MCPServer,
     *,
@@ -224,6 +250,24 @@ async def prepare_upstream_client(
     auth_value: Final = await resolve_mcp_auth(server, mcp_auth_header) if spec is None else None
     auth_header_name: Final = resolved_token_header(server, mcp_auth_header) if spec is None else None
     timeout: Final = server.timeout if server.timeout is not None else MCP_CLIENT_TIMEOUT
+    if transport == MCPTransport.stdio and runs_local_servers_in_runner():
+        record_auth_resolution(server.server_id, AuthResolution.not_applicable)
+        runner: Final = RunnerClient(runner_config())
+        instance_url: Final = await runner.register(
+            *_runner_package(server, await _stored_package(server.server_id)),
+            stdio_env if stdio_env is not None else (server.env or {}),
+        )
+        return MCPClient(
+            server_url=instance_url,
+            transport_type=MCPTransport.http,
+            protocol_version=protocol_version,
+            skip_tool_output_validation=server.skip_tool_output_validation,
+            auth_type=MCPAuth.none,
+            timeout=timeout,
+            extra_headers={**(extra_headers or {}), **runner.auth_headers},
+            sampling_callback=sampling_callback,
+            elicitation_callback=elicitation_callback,
+        )
     if transport == MCPTransport.stdio:
         config: Final = _stdio_config(server, stdio_env)
         record_auth_resolution(server.server_id, AuthResolution.not_applicable)

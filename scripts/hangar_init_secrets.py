@@ -22,6 +22,7 @@ GENERATORS: Final[Mapping[str, Callable[[], str]]] = {
     "ui_session_secret": lambda: secrets.token_hex(32),
     "metrics_token": lambda: secrets.token_hex(32),
     "leak_report_secret": lambda: secrets.token_hex(32),
+    "mcp_runner_token": lambda: secrets.token_hex(32),
     "postgres_password": lambda: secrets.token_hex(24),
     "redis_password": lambda: secrets.token_hex(24),
 }

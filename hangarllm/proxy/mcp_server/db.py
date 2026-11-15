@@ -1023,6 +1023,7 @@ WHERE EXISTS (SELECT 1 FROM jsonb_array_elements("tools") AS tool WHERE tool ->>
 _MCP_SERVER_SERVER_CONTROL_CLEANUP_SQL: Final = (
     'DELETE FROM "HangarLLM_MCPServerControlTable" WHERE "server_id" = $1::text'
 )
+_MCP_SERVER_PACKAGE_CLEANUP_SQL: Final = 'DELETE FROM "HangarLLM_MCPServerPackageTable" WHERE "server_id" = $1::text'
 
 
 async def _remove_server_grants(prisma_client: PrismaClient, label: str, sql: str, server_id: str) -> None:
@@ -1096,6 +1097,7 @@ async def delete_mcp_server(
         await _remove_server_grants(prisma_client, "access group", _MCP_SERVER_ACCESS_GROUP_CLEANUP_SQL, server_id)
         await _remove_server_grants(prisma_client, "toolset", _MCP_SERVER_TOOLSET_CLEANUP_SQL, server_id)
         await _remove_server_grants(prisma_client, "server control", _MCP_SERVER_SERVER_CONTROL_CLEANUP_SQL, server_id)
+        await _remove_server_grants(prisma_client, "server package", _MCP_SERVER_PACKAGE_CLEANUP_SQL, server_id)
         if credential_user_ids:
             if invalidate_token_cache is None:
                 from hangarllm.proxy.mcp_server.mcp_server_manager import (

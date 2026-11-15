@@ -214,6 +214,7 @@ class HangarllmTableNames(str, enum.Enum):
     MCP_SERVER_TABLE_NAME = "HangarLLM_MCPServerTable"
     MCP_TOOLSET_TABLE_NAME = "HangarLLM_MCPToolsetTable"
     MCP_SERVER_CONTROL_TABLE_NAME = "HangarLLM_MCPServerControlTable"
+    MCP_SERVER_PACKAGE_TABLE_NAME = "HangarLLM_MCPServerPackageTable"
 
 
 from hangarllm.types.integrations.slack_alerting import (

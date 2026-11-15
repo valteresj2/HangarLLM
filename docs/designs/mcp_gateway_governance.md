@@ -263,6 +263,21 @@ Each step is one pull request against the default branch. Every step adds tests 
 4. Make the Step 1 disable handler call `DELETE /v1/servers/{server_id}/instances`. Count `hangarllm_mcp_upstream_failure_total` and export `hangarllm_mcp_runner_instances` from `GET /v1/instances`.
 5. Tests: two users with different per-user env values get two instance keys and two processes, a shared-credential server gets one, a runner that is down gives an MCP error naming the server instead of a hang, a server without a lock refuses to start in `runner` mode, and disabling a server stops its instances.
 
+### Steps 3 and 4 as built
+
+Where the build differs from the plan above, the build is what holds.
+
+* The mode is the environment variable `HANGARLLM_MCP_LOCAL_SERVER_MODE` (`runner` turns it on), like `HANGARLLM_ENABLE_MCP_STDIO`, instead of a `general_settings` key. In `runner` mode stdio servers count as enabled, and the gateway never starts a process. Compose turns it on, and the code default stays `in_process`.
+* The locked package and egress list live in their own table, `HangarLLM_MCPServerPackageTable`, keyed by server id, so config-defined servers can be locked too and the server table, its request types and the dashboard form do not change. An admin locks a server with `POST /v1/mcp/server/{server_id}/package` and `{"egress_allow_hosts": [...]}` and reads it back with `GET`. A server with no lock, or whose command now names another version, is refused with 409 and the call to make. Saving a server does not lock it.
+* Only `npx` and `uvx` servers with a pinned version run in the runner. `python`, `node`, `docker` and the rest are refused with a message that says to pin a package or register the server as remote.
+* The runner starts one sandboxed process per MCP session, not per instance. A stdio server talks to one client, so two gateway sessions on one process would mix their messages. The instance key still separates credential bindings, and a session ends on DELETE, on idle timeout (600 seconds) or when the process exits. The bridge ends the whole session as soon as either side ends, because many stdio servers keep running after stdin closes.
+* The runner image is `docker/mcp-runner/Dockerfile`, built on the gateway image with `bubblewrap`, `npm` and `uv` added, so the gateway image and the main Dockerfile's default target do not change. The seccomp profile is Docker's default profile from moby v28.0.0 (`profiles/seccomp/default.json`, SHA-256 `9c1025c8...`) plus `clone`, `mount`, `mount_setattr`, `move_mount`, `open_tree`, `pivot_root`, `setns`, `umount2` and `unshare`. The container drops all capabilities and runs as uid 65534.
+* The spike passed on Docker Desktop (WSL2 kernel 6.6). It has not run on a Linux host whose AppArmor restricts unprivileged user namespaces, such as Ubuntu 24.04, and the Helm chart has no runner yet.
+* Resource limits are on the runner container (2 CPUs, 2 GB, 512 processes), not per instance. Per-instance limits need cgroups, and Node reserves more address space than a 512 MB `RLIMIT_AS` allows.
+* The egress proxy matches the CONNECT host name, refuses IP literals, resolves the name once and connects only to public addresses. It does not compare the TLS SNI name with the CONNECT host.
+* Isolation is checked with `docker/mcp-runner/verify_sandbox.py` inside the runner container instead of an integration test, because no CI group can create user namespaces. The unit tests cover host matching, the bridge ending the session, the runner API's routing and token, and the gateway side (command parsing, lock checks, instance keys, registration).
+* `hangarllm_mcp_upstream_failure_total` and `hangarllm_mcp_runner_instances` are not added yet.
+
 ### Step 5. Tool rules on MCP calls
 
 1. In `hangarllm/proxy/guardrails/guardrail_hooks/tool_permission.py`, handle the `pre_mcp_call` event, read `mcp_server_ids`, `claim_patterns` and `hide_from_list`, and skip guardrails whose rules name none of the call's servers, as Phase 2 describes. The claims come from the auth result the MCP request already carries (`hangarllm/proxy/mcp_server/auth/user_api_key_auth_mcp.py`).

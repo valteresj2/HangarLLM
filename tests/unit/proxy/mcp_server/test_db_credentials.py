@@ -1639,6 +1639,7 @@ async def test_delete_mcp_server_removes_grants_from_every_table_even_when_one_c
         db._MCP_SERVER_ACCESS_GROUP_CLEANUP_SQL,
         toolset_sql,
         db._MCP_SERVER_SERVER_CONTROL_CLEANUP_SQL,
+        db._MCP_SERVER_PACKAGE_CLEANUP_SQL,
     )
 
     async def execute_raw(sql: str, *params: object) -> int:

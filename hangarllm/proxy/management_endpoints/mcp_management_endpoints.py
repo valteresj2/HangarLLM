@@ -50,7 +50,9 @@ from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
 from hangarllm.proxy.mcp_server.catalog import catalog_operation, public_catalog_operation
+from hangarllm.proxy.mcp_server.runner_client import RunnerClient, runner_config
 from hangarllm.proxy.mcp_server.server_controls import mcp_server_controls
+from hangarllm.proxy.mcp_server.stdio_gate import runs_local_servers_in_runner
 
 try:
     from prisma.errors import RecordNotFoundError, UniqueViolationError
@@ -2657,6 +2659,8 @@ if MCP_AVAILABLE:
             )
         global_mcp_server_manager.remove_server(mcp_server_record_deleted)
         mcp_server_controls.forget(server_id)
+        if runs_local_servers_in_runner():
+            await RunnerClient(runner_config()).stop_server(server_id)
 
         # Ensure registry is up to date by reloading from database
         await global_mcp_server_manager.reload_servers_from_database()

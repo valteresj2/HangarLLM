@@ -11,8 +11,16 @@ MCP_STDIO_DISABLED_MESSAGE: Final = (
 )
 
 
+MCP_LOCAL_SERVER_MODE_ENV_VAR: Final = "HANGARLLM_MCP_LOCAL_SERVER_MODE"
+
+
+def runs_local_servers_in_runner() -> bool:
+    """Local (stdio) servers run in the sandboxed MCP runner instead of as children of this process."""
+    return os.getenv(MCP_LOCAL_SERVER_MODE_ENV_VAR, "").strip().lower() == "runner"
+
+
 def is_mcp_stdio_enabled() -> bool:
-    return os.getenv(MCP_STDIO_ENABLED_ENV_VAR, "").strip().lower() == "true"
+    return runs_local_servers_in_runner() or os.getenv(MCP_STDIO_ENABLED_ENV_VAR, "").strip().lower() == "true"
 
 
 def is_mcp_stdio_flag_key(env_var_name: str) -> bool:

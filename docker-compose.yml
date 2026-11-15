@@ -35,6 +35,9 @@ services:
     image: ghcr.io/hangarllm/hangarllm:local
     expose:
       - "4000"
+    networks:
+      - default
+      - mcp_runner
     environment:
       HANGARLLM_MASTER_KEY_FILE: /run/secrets/master_key
       HANGARLLM_SALT_KEY_FILE: /run/secrets/salt_key
@@ -53,10 +56,15 @@ services:
       NUM_WORKERS: ${HANGARLLM_WORKERS:-4}
       PROXY_BASE_URL: https://${HANGARLLM_DOMAIN:-localhost}:${HANGARLLM_PORT:-443}
       HANGARLLM_DOCKWORKER_MODEL: ${HANGARLLM_DOCKWORKER_MODEL:-openrouter/deepseek/deepseek-v4.1-flash-1017}
+      # Local (npx/uvx) MCP servers run in the mcp-runner sandbox, never inside this container.
+      HANGARLLM_MCP_LOCAL_SERVER_MODE: ${HANGARLLM_MCP_LOCAL_SERVER_MODE:-runner}
+      HANGARLLM_MCP_RUNNER_URL: http://mcp-runner:4100
+      HANGARLLM_MCP_RUNNER_TOKEN_FILE: /run/secrets/mcp_runner_token
     env_file:
       - path: .env
         required: false
     secrets:
+      - mcp_runner_token
       - master_key
       - salt_key
       - ui_session_secret
@@ -163,6 +171,33 @@ services:
       - "--storage.tsdb.retention.time=15d"
     restart: unless-stopped
 
+
+  mcp-runner:
+    build:
+      context: docker/mcp-runner
+      additional_contexts:
+        hangarllm: service:hangarllm
+    image: ghcr.io/hangarllm/hangarllm-mcp-runner:local
+    expose:
+      - "4100"
+    environment:
+      HANGARLLM_MCP_RUNNER_TOKEN_FILE: /run/secrets/mcp_runner_token
+    secrets:
+      - mcp_runner_token
+    volumes:
+      - mcp_runner_data:/var/lib/mcp-runner
+    # bubblewrap needs unprivileged user namespaces, which Docker's default seccomp profile blocks.
+    # This profile is Docker's default plus the namespace and mount calls bubblewrap makes; no capabilities are added.
+    security_opt:
+      - seccomp=docker/mcp-runner/seccomp.json
+    cap_drop:
+      - ALL
+    mem_limit: 2g
+    cpus: 2
+    pids_limit: 512
+    networks:
+      - mcp_runner
+    restart: unless-stopped
 secrets:
   master_key:
     file: ./secrets/master_key
@@ -174,6 +209,8 @@ secrets:
     file: ./secrets/metrics_token
   leak_report_secret:
     file: ./secrets/leak_report_secret
+  mcp_runner_token:
+    file: ./secrets/mcp_runner_token
   ui_password:
     file: ./secrets/ui_password
   database_url:
@@ -183,7 +220,13 @@ secrets:
   redis_password:
     file: ./secrets/redis_password
 
+networks:
+  default:
+  # Only the gateway and the runner share this network, so the runner never sees Postgres or Redis.
+  mcp_runner:
+
 volumes:
+  mcp_runner_data:
   prometheus_data:
   caddy_data:
   caddy_config:

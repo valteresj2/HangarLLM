@@ -868,6 +868,7 @@ jobs:
           - shard: mcp-server
             test-path: |-
               tests/unit/mcp_client
+              tests/unit/mcp_runner
               tests/unit/experimental_mcp_client
               tests/unit/proxy/mcp_server
               tests/unit/proxy/_experimental/mcp_server

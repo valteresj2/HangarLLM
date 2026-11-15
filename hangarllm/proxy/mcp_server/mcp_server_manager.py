@@ -182,6 +182,7 @@ from hangarllm.proxy.mcp_server.server_controls import (
 from hangarllm.proxy.mcp_server.stdio_gate import (
     MCP_STDIO_DISABLED_MESSAGE,
     is_mcp_stdio_blocked,
+    runs_local_servers_in_runner,
     warn_if_mcp_stdio_blocked,
 )
 from hangarllm.proxy.mcp_server.tool_catalog_guard import (
@@ -6458,7 +6459,7 @@ class MCPServerManager:
             not has_active_mcp_request_context()
             or gateway_session_id is None
             or gateway_session_id not in self._live_gateway_sessions
-            or mcp_server.transport == MCPTransport.stdio
+            or (mcp_server.transport == MCPTransport.stdio and not runs_local_servers_in_runner())
         ):
             return None
         key: Final[_UpstreamSessionKey] = (
